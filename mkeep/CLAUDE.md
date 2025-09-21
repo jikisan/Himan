@@ -102,6 +102,13 @@ export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
 
 Add these to your shell profile (`~/.zshrc` or `~/.bash_profile`) to make them permanent.
 
+## Commit Guidelines
+
+- **Do NOT include Claude attribution** in commit messages
+- Use conventional commit format: `type(scope): description`
+- Keep commit messages clean and professional
+- Focus on what was changed and why
+
 ## References
 
 - [Setting up a React and React Native monorepo with Turborepo and pnpm](https://medium.com/@alex.derville/setting-up-a-react-and-react-native-monorepo-with-turborepo-and-pnpm-8310c1faf18c) - Complete guide that this setup is based on

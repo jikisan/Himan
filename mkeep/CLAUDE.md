@@ -90,3 +90,18 @@ React Native doesn't work seamlessly with pnpm out of the box. When adding new R
 - Import shared packages like any other npm dependency: `import { Component } from '@repo/ui'`
 - Add proper dependencies to both web and mobile app `package.json` files when sharing code
 - Use the `@repo/` namespace for internal packages
+
+## Android Development Setup
+
+To run Android apps, you need to set environment variables:
+
+```bash
+export ANDROID_HOME=$HOME/Library/Android/sdk
+export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+```
+
+Add these to your shell profile (`~/.zshrc` or `~/.bash_profile`) to make them permanent.
+
+## References
+
+- [Setting up a React and React Native monorepo with Turborepo and pnpm](https://medium.com/@alex.derville/setting-up-a-react-and-react-native-monorepo-with-turborepo-and-pnpm-8310c1faf18c) - Complete guide that this setup is based on

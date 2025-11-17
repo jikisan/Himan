@@ -1,4 +1,4 @@
-# MKeep - React and React Native Monorepo
+# Himan - React and React Native Monorepo
 
 A cross-platform monorepo built with Turborepo, featuring React web and React Native mobile applications with shared code.
 

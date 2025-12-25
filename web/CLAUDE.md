@@ -58,6 +58,14 @@ The codebase is organized into feature modules under `src/modules/`:
   - Dashboard data and analytics
   - Charts, widgets, statistics components
 
+- **`notes/`** (aliased as `@notes`): Notes application module
+  - Mac Notes-like three-panel interface
+  - Folder management and organization
+  - Rich text editing with Tiptap
+  - Auto-save with debouncing
+  - Search, tags, and pinned notes
+  - Full CRUD operations with Supabase
+
 ### Module Boundaries
 
 - Each module has an `index.ts` at its root that exports its public API
@@ -88,6 +96,7 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - `@core/*` → `src/modules/shared/*` (Note: renamed from "core" to "shared")
 - `@auth/*` → `src/modules/auth/*`
 - `@dashboard/*` → `src/modules/dashboard/*`
+- `@notes/*` → `src/modules/notes/*`
 - `@app/*` → `src/app/*`
 - `@modules/*` → `src/modules/*`
 

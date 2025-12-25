@@ -16,6 +16,16 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["src/modules/shared/*"],
+      "@auth/*": ["src/modules/auth/*"],
+      "@dashboard/*": ["src/modules/dashboard/*"],
+      "@app/*": ["src/app/*"],
+      "@modules/*": ["src/modules/*"]
+    },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,

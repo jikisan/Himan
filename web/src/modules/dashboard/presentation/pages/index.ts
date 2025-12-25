@@ -1,4 +1,5 @@
 // Dashboard pages
 // DashboardPage, AnalyticsPage, etc.
 
-export {};
+export { DashboardPage } from './DashboardPage';
+export { SettingsPage } from './SettingsPage';

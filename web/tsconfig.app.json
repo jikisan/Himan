@@ -19,6 +19,7 @@
     /* Path Aliases */
     "baseUrl": ".",
     "paths": {
+      "@/*": ["src/*"],
       "@core/*": ["src/modules/shared/*"],
       "@auth/*": ["src/modules/auth/*"],
       "@dashboard/*": ["src/modules/dashboard/*"],

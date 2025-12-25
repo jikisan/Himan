@@ -1,4 +1,6 @@
 // Auth pages
 // LoginPage, RegisterPage, ForgotPasswordPage
 
-export {};
+export { LoginPage } from './LoginPage';
+export { SignUpPage } from './SignUpPage';
+export { ProfilePage } from './ProfilePage';

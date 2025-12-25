@@ -2,11 +2,11 @@ export class Folder {
   constructor(
     public readonly id: string,
     public name: string,
-    public color?: string,
-    public icon?: string,
     public readonly userId: string,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public color?: string,
+    public icon?: string,
     public noteCount?: number
   ) {}
 
@@ -23,11 +23,11 @@ export class Folder {
     return new Folder(
       params.id,
       params.name,
-      params.color,
-      params.icon,
       params.userId,
       params.createdAt,
       params.updatedAt,
+      params.color,
+      params.icon,
       params.noteCount
     );
   }

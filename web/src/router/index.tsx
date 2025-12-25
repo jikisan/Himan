@@ -6,8 +6,9 @@ import { PublicRoute } from './PublicRoute';
 import { RootLayout, AuthLayout, DashboardLayout } from '@/layouts';
 
 // Pages
-import { LoginPage, SignUpPage, ProfilePage } from '@auth/presentation/pages';
-import { DashboardPage, SettingsPage } from '@dashboard/presentation/pages';
+import { LoginPage, SignUpPage } from '@auth/presentation/pages';
+import { DashboardPage } from '@dashboard/presentation/pages';
+import { ProfilePage, SettingsPage } from '@settings';
 import { NotesPage } from '@notes';
 import { NotFoundPage } from '@core/presentation/pages';
 

@@ -12,6 +12,7 @@ export default defineConfig({
       '@auth': path.resolve(__dirname, './src/modules/auth'),
       '@dashboard': path.resolve(__dirname, './src/modules/dashboard'),
       '@notes': path.resolve(__dirname, './src/modules/notes'),
+      '@settings': path.resolve(__dirname, './src/modules/settings'),
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },

@@ -1,4 +1,4 @@
 // Auth API endpoints
 // Authentication API calls and request handlers
 
-export {};
+export { SupabaseAuthRepository } from './SupabaseAuthRepository';

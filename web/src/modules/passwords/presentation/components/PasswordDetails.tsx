@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MoreVertical, Star, Trash2, Eye, EyeOff, Copy, ExternalLink, Edit2, Save, X } from 'lucide-react';
+import { MoreVertical, Star, Trash2, Eye, EyeOff, Copy, ExternalLink, Edit2, Save, X, FolderInput } from 'lucide-react';
 import type { Password as PasswordEntity } from '../../domain/entities/Password';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ interface PasswordDetailsProps {
   }) => void;
   onToggleFavorite: () => void;
   onDelete: () => void;
+  onMoveToCategory: () => void;
 }
 
 export const PasswordDetails = ({
@@ -30,6 +31,7 @@ export const PasswordDetails = ({
   onUpdate,
   onToggleFavorite,
   onDelete,
+  onMoveToCategory,
 }: PasswordDetailsProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -127,6 +129,10 @@ export const PasswordDetails = ({
                 <DropdownMenuItem onClick={onToggleFavorite}>
                   <Star className="h-4 w-4 mr-2" />
                   {password.isFavorite ? 'Remove from' : 'Add to'} Favorites
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onMoveToCategory}>
+                  <FolderInput className="h-4 w-4 mr-2" />
+                  Move to Category
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onDelete} className="text-destructive">

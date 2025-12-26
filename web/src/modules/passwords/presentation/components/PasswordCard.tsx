@@ -88,7 +88,7 @@ export const PasswordCard = ({
         {/* Username */}
         {password.username && (
           <div>
-            <label className="text-xs text-muted-foreground">Username</label>
+            <label className="text-xs text-muted-foreground opacity-50">Username</label>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-sm truncate flex-1">{password.username}</span>
               <Button
@@ -105,7 +105,7 @@ export const PasswordCard = ({
 
         {/* Password */}
         <div>
-          <label className="text-xs text-muted-foreground">Password</label>
+          <label className="text-xs text-muted-foreground opacity-50">Password</label>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm font-mono flex-1 truncate">
               {showPassword ? password.password : '••••••••••••'}
@@ -132,7 +132,7 @@ export const PasswordCard = ({
         {/* URL */}
         {password.url && (
           <div>
-            <label className="text-xs text-muted-foreground">Website</label>
+            <label className="text-xs text-muted-foreground opacity-50">Website</label>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-sm text-blue-500 truncate flex-1">
                 {passwordEntity.getDisplayUrl()}

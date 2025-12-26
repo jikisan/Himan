@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MoreVertical, Star, Trash2, Eye, EyeOff, Copy, ExternalLink, Edit2, Save, X } from 'lucide-react';
 import type { Password as PasswordEntity } from '../../domain/entities/Password';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,19 @@ export const PasswordDetails = ({
     url: password.url || '',
     notes: password.notes || '',
   });
+
+  // Sync editData when password prop changes (e.g., when selecting a different password)
+  useEffect(() => {
+    setEditData({
+      title: password.title,
+      username: password.username || '',
+      password: password.password,
+      url: password.url || '',
+      notes: password.notes || '',
+    });
+    setIsEditing(false);
+    setShowPassword(false);
+  }, [password.id]); // Only update when password ID changes
 
   const handleSave = () => {
     onUpdate({

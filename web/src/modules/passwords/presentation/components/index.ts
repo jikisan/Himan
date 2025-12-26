@@ -5,3 +5,5 @@ export { PasswordItem } from './PasswordItem';
 export { PasswordDetails } from './PasswordDetails';
 export { PasswordDialog } from './PasswordDialog';
 export { PasswordTable } from './PasswordTable';
+export { PasswordCard } from './PasswordCard';
+export { PasswordGrid } from './PasswordGrid';

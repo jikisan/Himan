@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Plus, Search } from 'lucide-react';
-import { CategoryList, PasswordDialog, PasswordTable } from '../components';
+import { CategoryList, PasswordDialog, PasswordGrid } from '../components';
 import { usePasswords, useCategories } from '../hooks';
 import type { PasswordType } from '../../domain';
 import { Button } from '@/components/ui/button';
@@ -176,13 +176,13 @@ export const PasswordsPage = () => {
             </Button>
           </div>
 
-          {/* Password Table */}
+          {/* Password Grid */}
           {passwordsLoading ? (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
               Loading...
             </div>
           ) : (
-            <PasswordTable
+            <PasswordGrid
               passwords={passwords}
               onEdit={handleEditPassword}
               onToggleFavorite={handleToggleFavorite}

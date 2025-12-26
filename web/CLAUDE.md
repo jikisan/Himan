@@ -151,6 +151,16 @@ The project uses a hybrid approach combining Radix UI primitives with custom sty
 - Components apply inline styles for critical colors to ensure proper rendering across themes
 - Example: `backgroundColor: 'hsl(var(--background))'` ensures dialogs have solid backgrounds
 
+**IMPORTANT - Inline Styles for Theme Colors:**
+- **NEVER** use Tailwind classes like `bg-primary`, `text-primary-foreground`, `bg-popover`, etc. for dynamic/conditional styling
+- **ALWAYS** use inline styles with CSS variables instead: `style={{ backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}`
+- This ensures theme colors render correctly across light/dark modes
+- Common patterns:
+  - Primary background: `style={{ backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}`
+  - Popover/Dropdown: `style={{ backgroundColor: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}`
+  - Border highlights: `style={{ borderLeft: '4px solid hsl(var(--primary))' }}`
+  - Destructive text: Use `className="text-destructive"` (this one works with classes)
+
 ### Routing Structure
 
 Routes are defined in `src/router/index.tsx` with:

@@ -28,10 +28,16 @@ export const FolderItem = ({
     <div
       className={cn(
         'group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors',
-        isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-accent hover:text-accent-foreground'
+        isActive ? '' : 'hover:bg-accent hover:text-accent-foreground'
       )}
+      style={
+        isActive
+          ? {
+              backgroundColor: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-foreground))',
+            }
+          : {}
+      }
       onClick={onClick}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">

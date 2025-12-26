@@ -113,8 +113,16 @@ export const FolderList = ({
                 className={
                   "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
                   (selectedFolderId === "all"
-                    ? "bg-primary text-primary-foreground"
+                    ? ""
                     : "hover:bg-accent hover:text-accent-foreground")
+                }
+                style={
+                  selectedFolderId === "all"
+                    ? {
+                        backgroundColor: 'hsl(var(--primary))',
+                        color: 'hsl(var(--primary-foreground))',
+                      }
+                    : {}
                 }
                 onClick={() => onSelectFolder("all")}
               >
@@ -126,8 +134,16 @@ export const FolderList = ({
                 className={
                   "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
                   (selectedFolderId === null
-                    ? "bg-primary text-primary-foreground"
+                    ? ""
                     : "hover:bg-accent hover:text-accent-foreground")
+                }
+                style={
+                  selectedFolderId === null
+                    ? {
+                        backgroundColor: 'hsl(var(--primary))',
+                        color: 'hsl(var(--primary-foreground))',
+                      }
+                    : {}
                 }
                 onClick={() => onSelectFolder(null)}
               >

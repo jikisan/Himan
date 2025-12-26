@@ -41,8 +41,8 @@ const ToolbarButton = ({
   <button
     onClick={onClick}
     className={cn(
-      'p-2 rounded hover:bg-gray-200 transition-colors',
-      isActive && 'bg-gray-300'
+      'p-2 rounded hover:bg-accent transition-colors text-foreground',
+      isActive && 'bg-accent'
     )}
     title={title}
     type="button"
@@ -80,7 +80,7 @@ export const RichTextEditor = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-6 py-4',
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-6 py-4 text-foreground',
       },
     },
   });
@@ -99,7 +99,7 @@ export const RichTextEditor = ({
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       {editable && (
-        <div className="border-b border-gray-200 p-2 flex items-center gap-1 flex-wrap bg-white sticky top-0 z-10">
+        <div className="border-b border-border p-2 flex items-center gap-1 flex-wrap bg-card sticky top-0 z-10">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             isActive={editor.isActive('bold')}
@@ -132,7 +132,7 @@ export const RichTextEditor = ({
             <Code className="w-4 h-4" />
           </ToolbarButton>
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-border mx-1" />
 
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -158,7 +158,7 @@ export const RichTextEditor = ({
             <Heading3 className="w-4 h-4" />
           </ToolbarButton>
 
-          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <div className="w-px h-6 bg-border mx-1" />
 
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -187,7 +187,7 @@ export const RichTextEditor = ({
       )}
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto bg-white">
+      <div className="flex-1 overflow-y-auto bg-card">
         <EditorContent editor={editor} />
       </div>
     </div>

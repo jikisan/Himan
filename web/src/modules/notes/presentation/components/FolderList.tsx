@@ -63,15 +63,15 @@ export const FolderList = ({
   };
 
   return (
-    <div className="w-64 bg-gray-100 border-r border-gray-200 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Folders</h2>
+    <div className="w-64 bg-muted border-r border-border flex flex-col h-full">
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Folders</h2>
         <button
           onClick={() => setIsCreating(true)}
-          className="p-1 hover:bg-gray-200 rounded transition-colors"
+          className="p-1 hover:bg-accent rounded transition-colors"
           title="New folder"
         >
-          <Plus className="w-5 h-5 text-gray-600" />
+          <Plus className="w-5 h-5 text-muted-foreground" />
         </button>
       </div>
 
@@ -80,12 +80,12 @@ export const FolderList = ({
         <button
           onClick={() => onFolderSelect('all')}
           className={cn(
-            'w-full px-4 py-2 flex items-center gap-3 hover:bg-gray-200 transition-colors text-left',
-            selectedFolderId === 'all' && 'bg-blue-100 hover:bg-blue-200'
+            'w-full px-4 py-2 flex items-center gap-3 hover:bg-accent transition-colors text-left',
+            selectedFolderId === 'all' && 'bg-primary/10 hover:bg-primary/20'
           )}
         >
-          <FolderIcon className="w-5 h-5 text-gray-600" />
-          <span className="flex-1 text-sm font-medium text-gray-900">All Notes</span>
+          <FolderIcon className="w-5 h-5 text-muted-foreground" />
+          <span className="flex-1 text-sm font-medium text-foreground">All Notes</span>
         </button>
 
         {/* Folder List */}
@@ -93,8 +93,8 @@ export const FolderList = ({
           <div
             key={folder.id}
             className={cn(
-              'group relative px-4 py-2 flex items-center gap-3 hover:bg-gray-200 transition-colors',
-              selectedFolderId === folder.id && 'bg-blue-100 hover:bg-blue-200'
+              'group relative px-4 py-2 flex items-center gap-3 hover:bg-accent transition-colors',
+              selectedFolderId === folder.id && 'bg-primary/10 hover:bg-primary/20'
             )}
           >
             {editingId === folder.id ? (
@@ -111,7 +111,7 @@ export const FolderList = ({
                     }
                   }}
                   onBlur={() => handleUpdateFolder(folder.id)}
-                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                   autoFocus
                 />
               </div>
@@ -121,18 +121,18 @@ export const FolderList = ({
                   onClick={() => onFolderSelect(folder.id)}
                   className="flex-1 flex items-center gap-3 text-left"
                 >
-                  <FolderIcon className="w-5 h-5 text-gray-600" />
-                  <span className="flex-1 text-sm text-gray-900">{folder.name}</span>
+                  <FolderIcon className="w-5 h-5 text-muted-foreground" />
+                  <span className="flex-1 text-sm text-foreground">{folder.name}</span>
                   {folder.noteCount !== undefined && folder.noteCount > 0 && (
-                    <span className="text-xs text-gray-500">{folder.noteCount}</span>
+                    <span className="text-xs text-muted-foreground">{folder.noteCount}</span>
                   )}
                 </button>
                 <div className="relative">
                   <button
                     onClick={() => setMenuOpen(menuOpen === folder.id ? null : folder.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-300 rounded transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent/50 rounded transition-all"
                   >
-                    <MoreVertical className="w-4 h-4 text-gray-600" />
+                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
                   </button>
                   {menuOpen === folder.id && (
                     <>
@@ -140,21 +140,21 @@ export const FolderList = ({
                         className="fixed inset-0 z-10"
                         onClick={() => setMenuOpen(null)}
                       />
-                      <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded shadow-lg border border-gray-200 py-1 z-20">
+                      <div className="absolute right-0 top-full mt-1 w-32 bg-card rounded shadow-lg border border-border py-1 z-20">
                         <button
                           onClick={() => {
                             setEditingId(folder.id);
                             setEditingName(folder.name);
                             setMenuOpen(null);
                           }}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                          className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent flex items-center gap-2"
                         >
                           <Edit2 className="w-4 h-4" />
                           Rename
                         </button>
                         <button
                           onClick={() => handleDeleteFolder(folder.id)}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center gap-2 text-destructive"
                         >
                           <Trash2 className="w-4 h-4" />
                           Delete
@@ -184,7 +184,7 @@ export const FolderList = ({
               }}
               onBlur={handleCreateFolder}
               placeholder="Folder name"
-              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground"
               autoFocus
             />
           </div>

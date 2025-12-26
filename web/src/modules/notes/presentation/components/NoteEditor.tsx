@@ -53,28 +53,28 @@ export const NoteEditor = ({ note, onUpdateNote }: NoteEditorProps) => {
 
   if (!note) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
+      <div className="flex-1 flex items-center justify-center bg-background">
         <div className="text-center">
-          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">Select a note to view</p>
+          <FileText className="w-16 h-16 text-muted mx-auto mb-4" />
+          <p className="text-muted-foreground">Select a note to view</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-card">
       {/* Title Input */}
-      <div className="border-b border-gray-200 p-6">
+      <div className="border-b border-border p-6">
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Untitled"
-          className="w-full text-2xl font-bold text-gray-900 placeholder-gray-400 focus:outline-none"
+          className="w-full text-2xl font-bold bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         <div className="flex items-center gap-2 mt-2">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {isSaving ? 'Saving...' : 'Saved'}
           </span>
         </div>

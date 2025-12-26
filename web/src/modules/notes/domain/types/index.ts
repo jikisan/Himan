@@ -1,14 +1,25 @@
-export interface CreateFolderDto {
-  name: string;
-  color?: string;
-  icon?: string;
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  excerpt: string;
+  folderId: string | null;
   userId: string;
+  isPinned: boolean;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface UpdateFolderDto {
-  name?: string;
-  color?: string;
-  icon?: string;
+export interface Folder {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  userId: string;
+  noteCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateNoteDto {
@@ -30,20 +41,22 @@ export interface UpdateNoteDto {
   tags?: string[];
 }
 
-export interface FolderRepository {
-  findAll(userId: string): Promise<import('../entities').Folder[]>;
-  findById(id: string): Promise<import('../entities').Folder | null>;
-  create(dto: CreateFolderDto): Promise<import('../entities').Folder>;
-  update(id: string, dto: UpdateFolderDto): Promise<import('../entities').Folder>;
-  delete(id: string): Promise<void>;
+export interface CreateFolderDto {
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+  userId: string;
 }
 
-export interface NoteRepository {
-  findAll(userId: string): Promise<import('../entities').Note[]>;
-  findById(id: string): Promise<import('../entities').Note | null>;
-  findByFolder(folderId: string | null, userId: string): Promise<import('../entities').Note[]>;
-  search(query: string, userId: string, folderId?: string | null): Promise<import('../entities').Note[]>;
-  create(dto: CreateNoteDto): Promise<import('../entities').Note>;
-  update(id: string, dto: UpdateNoteDto): Promise<import('../entities').Note>;
-  delete(id: string): Promise<void>;
+export interface UpdateFolderDto {
+  name?: string;
+  color?: string | null;
+  icon?: string | null;
+}
+
+export interface NoteFilters {
+  folderId?: string | null;
+  searchQuery?: string;
+  isPinned?: boolean;
+  tags?: string[];
 }

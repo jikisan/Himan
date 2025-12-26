@@ -1,291 +1,132 @@
 # Notes Module
 
-A Mac Notes-like application built with React, TypeScript, and Supabase following Clean Architecture principles.
+A Mac Notes-like application with three-panel layout, rich text editing, and folder organization.
 
 ## Features
 
-- **Three-panel layout**: Folders, Notes list, and Rich text editor
-- **Folder management**: Create, rename, delete folders with note counts
-- **Rich text editing**: Using Tiptap with formatting toolbar
-- **Auto-save**: Debounced auto-save (1 second delay)
-- **Search**: Search notes by title and content
-- **Pin notes**: Pin important notes to the top
-- **Tags**: Add tags to organize notes
-- **Responsive design**: Works on desktop and mobile
-- **Dark mode ready**: Uses Tailwind dark mode classes
+### Core Functionality
+- **Three-panel Layout**: Folders, Notes List, and Editor
+- **Folder Management**: Create, rename, and delete folders with note counts
+- **Notes Management**: Create, edit, delete notes with auto-save
+- **Rich Text Editor**: Powered by Tiptap with formatting toolbar
+  - Bold, Italic, Strikethrough
+  - Headings (H1, H2, H3)
+  - Bullet lists, ordered lists, task lists
+  - Highlighting
+- **Search**: Search within current folder or all notes
+- **Pin Notes**: Keep important notes at the top
+- **Relative Timestamps**: "2 hours ago", "3 days ago", etc.
 
-## Setup Instructions
+### Technical Implementation
+- **Clean Architecture**: Domain, Infrastructure, Presentation layers
+- **Type Safety**: Full TypeScript with strict mode
+- **Supabase Backend**: Real-time database with RLS policies
+- **Auto-save**: Debounced content saving (1 second delay)
+- **Responsive Design**: Mobile-friendly layout
 
-### 1. Install Dependencies
-
-```bash
-cd web
-npm install @supabase/supabase-js @tiptap/react @tiptap/starter-kit @tiptap/extension-placeholder @tiptap/extension-typography @tiptap/extension-highlight @tiptap/extension-task-list @tiptap/extension-task-item date-fns lucide-react clsx tailwind-merge
-```
-
-### 2. Set Up Supabase
-
-#### Create a Supabase Project
-
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Note your project URL and anon key
-
-#### Run the Migration
-
-Execute the SQL migration file located at:
-`web/src/modules/notes/infrastructure/migrations/001_create_notes_tables.sql`
-
-You can run this in the Supabase SQL Editor:
-1. Go to your Supabase project dashboard
-2. Navigate to SQL Editor
-3. Copy and paste the entire migration file
-4. Run the query
-
-This will create:
-- `folders` table with RLS policies
-- `notes` table with RLS policies
-- Indexes for performance
-- Auto-update triggers for `updated_at` fields
-- `folders_with_count` view
-
-### 3. Configure Environment Variables
-
-Create a `.env` file in the `web` directory:
-
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### 4. Install Tailwind CSS (if not already installed)
-
-```bash
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
-```
-
-Configure `tailwind.config.js`:
-
-```javascript
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [
-    require('@tailwindcss/typography'),
-  ],
-}
-```
-
-Add to your main CSS file (`src/index.css`):
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
-Install the typography plugin:
-
-```bash
-npm install -D @tailwindcss/typography
-```
-
-### 5. Set Up Authentication
-
-The Notes module requires a user ID to work. You need to integrate it with your authentication system.
-
-Update `NotesPage.tsx` (line 8) to use actual user ID from your auth context:
-
-```typescript
-// Replace this:
-const MOCK_USER_ID = 'user-123';
-
-// With something like:
-const { user } = useAuth(); // Your auth hook
-const userId = user?.id;
-```
-
-### 6. Add Route to Your App
-
-In your main app router (e.g., `src/App.tsx` or router configuration):
-
-```typescript
-import { NotesPage } from '@modules/notes';
-
-// In your routes:
-<Route path="/notes" element={<NotesPage />} />
-```
-
-## Module Structure
+## Directory Structure
 
 ```
 notes/
 ├── domain/
-│   ├── entities/         # Business entities (Note, Folder)
-│   ├── types/            # TypeScript interfaces and DTOs
-│   └── usecases/         # Business logic (if needed)
+│   ├── entities/          # Note and Folder entities with business logic
+│   ├── types/             # TypeScript interfaces and DTOs
+│   └── index.ts
 ├── infrastructure/
-│   ├── api/              # Supabase repositories
-│   └── migrations/       # Database migrations
+│   ├── repositories/      # Supabase repositories
+│   └── index.ts
 ├── presentation/
-│   ├── components/       # React components
-│   ├── hooks/            # Custom React hooks
-│   └── pages/            # Page components
-└── index.ts              # Public API
+│   ├── components/        # React components
+│   ├── hooks/             # Custom hooks (useNotes, useFolders, useEditor)
+│   ├── pages/             # NotesPage
+│   └── index.ts
+└── index.ts
 ```
-
-## Architecture
-
-This module follows **Clean Architecture** principles:
-
-1. **Domain Layer**: Pure business logic, no framework dependencies
-2. **Infrastructure Layer**: External services (Supabase), implements domain interfaces
-3. **Presentation Layer**: React components, hooks, UI logic
-
-### Dependencies Flow
-
-```
-Presentation → Infrastructure → Domain
-```
-
-- Presentation can import from Infrastructure and Domain
-- Infrastructure can import from Domain only
-- Domain has no dependencies
 
 ## Usage
 
-### Basic Usage
-
+### Importing
 ```typescript
-import { NotesPage } from '@modules/notes';
-
-function App() {
-  return <NotesPage />;
-}
+import { NotesPage } from '@notes';
 ```
 
-### Using Hooks Directly
+### Database Setup
+Run the migration in `web/supabase/migrations/` to create the required tables and RLS policies.
 
-```typescript
-import { useNotes, useFolders } from '@modules/notes/presentation/hooks';
+### Routes
+The NotesPage is already configured in the router at `/notes` as a protected route.
 
-function MyComponent() {
-  const { notes, createNote, updateNote, deleteNote } = useNotes(userId);
-  const { folders, createFolder } = useFolders(userId);
+## Components
 
-  // Your component logic
-}
-```
+### NotesPage
+Main container component that orchestrates the entire notes feature.
 
-## Customization
+### FolderList
+Left panel showing folders with create, rename, delete functionality.
 
-### Styling
+### NotesList
+Middle panel showing notes in the selected folder with search.
 
-The components use Tailwind CSS classes. You can customize:
-- Colors: Update classes like `bg-blue-600`, `text-gray-900`, etc.
-- Spacing: Modify padding/margin classes (`p-4`, `m-2`, etc.)
-- Fonts: Change font classes (`text-lg`, `font-semibold`, etc.)
+### NoteEditor
+Right panel with rich text editing, formatting toolbar, and note actions.
 
-### Editor Extensions
+## Hooks
 
-Add more Tiptap extensions in `RichTextEditor.tsx`:
+### useNotes
+Manages notes CRUD operations and state.
+- `notes`: Array of notes
+- `loading`: Loading state
+- `createNote`: Create a new note
+- `updateNote`: Update an existing note
+- `deleteNote`: Delete a note
 
-```typescript
-import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
+### useFolders
+Manages folders CRUD operations and state.
+- `folders`: Array of folders
+- `loading`: Loading state
+- `createFolder`: Create a new folder
+- `updateFolder`: Update an existing folder
+- `deleteFolder`: Delete a folder
 
-const editor = useEditor({
-  extensions: [
-    StarterKit,
-    Link,
-    Image,
-    // ... other extensions
-  ],
-});
-```
+### useEditor
+Wraps Tiptap editor with auto-save and formatting controls.
 
-### Auto-save Delay
+## Database Schema
 
-Change the debounce timeout in `NoteEditor.tsx` (line 45):
+### folders
+- `id`: UUID (primary key)
+- `name`: TEXT
+- `color`: TEXT (optional)
+- `icon`: TEXT (optional)
+- `user_id`: UUID (foreign key to auth.users)
+- `created_at`: TIMESTAMP
+- `updated_at`: TIMESTAMP
 
-```typescript
-// Change from 1000ms (1 second) to desired delay
-setTimeout(() => {
-  // ...
-}, 1000); // Change this value
-```
-
-## Troubleshooting
-
-### "Missing Supabase environment variables" Error
-
-Make sure `.env` file is in the `web` directory with correct values:
-```
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-```
-
-### RLS Policies Not Working
-
-1. Make sure you're authenticated with Supabase
-2. Check that `auth.uid()` returns the correct user ID
-3. Verify RLS is enabled on both tables
-
-### Notes Not Loading
-
-1. Check browser console for errors
-2. Verify Supabase tables exist (run migration)
-3. Ensure user ID is being passed correctly
-4. Check Supabase dashboard for any API errors
-
-### Styling Issues
-
-1. Ensure Tailwind CSS is configured correctly
-2. Check that `@tailwind` directives are in your CSS
-3. Verify `tailwind.config.js` content paths include the notes module
-
-## Performance Optimization
-
-- Uses optimistic updates for better UX
-- Debounced auto-save prevents excessive API calls
-- Proper indexing on Supabase tables
-- Memoized callbacks to prevent unnecessary re-renders
+### notes
+- `id`: UUID (primary key)
+- `title`: TEXT
+- `content`: TEXT (HTML)
+- `excerpt`: TEXT
+- `folder_id`: UUID (foreign key to folders, nullable)
+- `user_id`: UUID (foreign key to auth.users)
+- `is_pinned`: BOOLEAN
+- `tags`: TEXT[]
+- `created_at`: TIMESTAMP
+- `updated_at`: TIMESTAMP
 
 ## Security
 
-- Row Level Security (RLS) ensures users can only access their own data
-- All database operations are filtered by user_id
-- No direct SQL queries in frontend code
-- Uses Supabase client-side auth
+Row Level Security (RLS) is enabled on both tables:
+- Users can only access their own folders and notes
+- CRUD policies ensure data isolation per user
 
 ## Future Enhancements
 
-- [ ] Offline support with local storage
-- [ ] Real-time collaboration
-- [ ] File attachments
-- [ ] Export to PDF/Markdown
-- [ ] Advanced search with filters
-- [ ] Keyboard shortcuts
-- [ ] Folder colors and icons
-- [ ] Dark mode toggle
-- [ ] Mobile app version
-
-## Contributing
-
-When adding new features:
-1. Follow Clean Architecture principles
-2. Add types for all new entities/DTOs
-3. Implement repository pattern for data access
-4. Use custom hooks for component logic
-5. Follow existing component patterns
-6. Add proper error handling
-
-## License
-
-This module is part of the Himan project.
+- Tags management
+- Note sharing
+- Markdown export
+- Attachments/images
+- Collaborative editing
+- Rich text paste from clipboard
+- Keyboard shortcuts
+- Note templates

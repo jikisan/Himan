@@ -1,105 +1,93 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Note } from '../../domain/entities';
-import { SupabaseNoteRepository } from '../../infrastructure/api';
-import { CreateNoteDto, UpdateNoteDto } from '../../domain/types';
+import type { NoteType as Note, NoteFilters, CreateNoteDto, UpdateNoteDto } from '../../domain';
+import { NoteRepository } from '../../infrastructure/repositories';
+import { useAuth } from '@auth/presentation/hooks/useAuth';
 
-export const useNotes = (userId: string | null, folderId?: string | null) => {
+export const useNotes = (filters?: NoteFilters) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const repository = new SupabaseNoteRepository();
+  const { user } = useAuth();
+  
+  const repository = new NoteRepository();
 
   const loadNotes = useCallback(async () => {
-    if (!userId) return;
-
+    if (!user) return;
+    
     setLoading(true);
     setError(null);
     try {
-      const data =
-        folderId !== undefined
-          ? await repository.findByFolder(folderId, userId)
-          : await repository.findAll(userId);
+      const data = await repository.findAll(filters);
       setNotes(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notes');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load notes';
+      setError(errorMessage);
+      console.error('Error loading notes:', err);
     } finally {
       setLoading(false);
     }
-  }, [userId, folderId]);
-
-  const createNote = useCallback(
-    async (dto: Omit<CreateNoteDto, 'userId'>) => {
-      if (!userId) throw new Error('User ID is required');
-
-      try {
-        const newNote = await repository.create({ ...dto, userId });
-        setNotes((prev) => [newNote, ...prev]);
-        return newNote;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to create note';
-        setError(message);
-        throw err;
-      }
-    },
-    [userId]
-  );
-
-  const updateNote = useCallback(async (id: string, dto: UpdateNoteDto) => {
-    try {
-      const updatedNote = await repository.update(id, dto);
-      setNotes((prev) =>
-        prev.map((note) => (note.id === id ? updatedNote : note))
-      );
-      return updatedNote;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update note';
-      setError(message);
-      throw err;
-    }
-  }, []);
-
-  const deleteNote = useCallback(async (id: string) => {
-    try {
-      await repository.delete(id);
-      setNotes((prev) => prev.filter((note) => note.id !== id));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete note';
-      setError(message);
-      throw err;
-    }
-  }, []);
-
-  const searchNotes = useCallback(
-    async (query: string) => {
-      if (!userId) return;
-
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await repository.search(query, userId, folderId);
-        setNotes(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to search notes');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [userId, folderId]
-  );
+  }, [user, filters?.folderId, filters?.searchQuery, filters?.isPinned, filters?.tags]);
 
   useEffect(() => {
     loadNotes();
   }, [loadNotes]);
 
+  const createNote = useCallback(
+    async (dto: Omit<CreateNoteDto, 'userId'>): Promise<Note | null> => {
+      if (!user) return null;
+
+      try {
+        const newNote = await repository.create({ ...dto, userId: user.id });
+        setNotes((prev) => [newNote, ...prev]);
+        return newNote;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create note';
+        setError(errorMessage);
+        console.error('Error creating note:', err);
+        return null;
+      }
+    },
+    [user]
+  );
+
+  const updateNote = useCallback(
+    async (id: string, dto: UpdateNoteDto): Promise<Note | null> => {
+      try {
+        const updatedNote = await repository.update(id, dto);
+        setNotes((prev) =>
+          prev.map((note) => (note.id === id ? updatedNote : note))
+        );
+        return updatedNote;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update note';
+        setError(errorMessage);
+        console.error('Error updating note:', err);
+        return null;
+      }
+    },
+    []
+  );
+
+  const deleteNote = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await repository.delete(id);
+      setNotes((prev) => prev.filter((note) => note.id !== id));
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete note';
+      setError(errorMessage);
+      console.error('Error deleting note:', err);
+      return false;
+    }
+  }, []);
+
   return {
     notes,
     loading,
     error,
+    refetch: loadNotes,
     createNote,
     updateNote,
     deleteNote,
-    searchNotes,
-    refetch: loadNotes,
   };
 };

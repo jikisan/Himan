@@ -1,64 +1,56 @@
-export class Note {
-  constructor(
-    public readonly id: string,
-    public title: string,
-    public content: string,
-    public excerpt: string,
-    public folderId: string | null,
-    public readonly userId: string,
-    public isPinned: boolean,
-    public tags: string[],
-    public readonly createdAt: Date,
-    public readonly updatedAt: Date
-  ) {}
+import type { Note as NoteType } from '../types';
 
-  static create(params: {
-    id: string;
-    title: string;
-    content: string;
-    excerpt: string;
-    folderId: string | null;
-    userId: string;
-    isPinned: boolean;
-    tags: string[];
-    createdAt: Date;
-    updatedAt: Date;
-  }): Note {
-    return new Note(
-      params.id,
-      params.title,
-      params.content,
-      params.excerpt,
-      params.folderId,
-      params.userId,
-      params.isPinned,
-      params.tags,
-      params.createdAt,
-      params.updatedAt
-    );
+export class Note implements NoteType {
+  id: string;
+  title: string;
+  content: string;
+  excerpt: string;
+  folderId: string | null;
+  userId: string;
+  isPinned: boolean;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+
+  constructor(data: NoteType) {
+    this.id = data.id;
+    this.title = data.title;
+    this.content = data.content;
+    this.excerpt = data.excerpt;
+    this.folderId = data.folderId;
+    this.userId = data.userId;
+    this.isPinned = data.isPinned;
+    this.tags = data.tags;
+    this.createdAt = data.createdAt;
+    this.updatedAt = data.updatedAt;
   }
 
-  updateContent(title: string, content: string, excerpt: string): void {
-    this.title = title;
-    this.content = content;
-    this.excerpt = excerpt;
-  }
+  getRelativeTime(): string {
+    const now = new Date();
+    const diff = now.getTime() - this.updatedAt.getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
 
-  moveToFolder(folderId: string | null): void {
-    this.folderId = folderId;
-  }
-
-  togglePin(): void {
-    this.isPinned = !this.isPinned;
-  }
-
-  addTag(tag: string): void {
-    if (!this.tags.includes(tag)) {
-      this.tags.push(tag);
+    if (days > 7) {
+      return this.updatedAt.toLocaleDateString();
+    } else if (days > 0) {
+      return days + (days > 1 ? ' days ago' : ' day ago');
+    } else if (hours > 0) {
+      return hours + (hours > 1 ? ' hours ago' : ' hour ago');
+    } else if (minutes > 0) {
+      return minutes + (minutes > 1 ? ' minutes ago' : ' minute ago');
+    } else {
+      return 'Just now';
     }
   }
 
-  removeTag(tag: string): void {
-    this.tags = this.tags.filter((t) => t !== tag);
+  static generateExcerpt(content: string, maxLength: number = 150): string {
+    const plainText = content.replace(/<[^>]*>/g, '').trim();
+    if (plainText.length <= maxLength) {
+      return plainText;
+    }
+    return plainText.substring(0, maxLength).trim() + '...';
   }
 }

@@ -1,195 +1,161 @@
 import { useState } from 'react';
-import { Folder as FolderIcon, Plus, MoreVertical, Trash2, Edit2, Folder } from 'lucide-react';
-import { cn } from '@core/presentation/utils';
+import { Plus, FolderOpen } from 'lucide-react';
+import type { FolderType as Folder } from '../../domain';
+import { FolderItem } from './FolderItem';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface FolderListProps {
   folders: Folder[];
   selectedFolderId: string | null | 'all';
-  onFolderSelect: (folderId: string | null | 'all') => void;
+  onSelectFolder: (folderId: string | null | 'all') => void;
   onCreateFolder: (name: string) => Promise<void>;
   onUpdateFolder: (id: string, name: string) => Promise<void>;
   onDeleteFolder: (id: string) => Promise<void>;
+  loading: boolean;
 }
 
 export const FolderList = ({
   folders,
   selectedFolderId,
-  onFolderSelect,
+  onSelectFolder,
   onCreateFolder,
   onUpdateFolder,
   onDeleteFolder,
+  loading,
 }: FolderListProps) => {
-  const [isCreating, setIsCreating] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [folderName, setFolderName] = useState('');
 
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return;
-
-    try {
-      await onCreateFolder(newFolderName);
-      setNewFolderName('');
-      setIsCreating(false);
-    } catch (error) {
-      console.error('Failed to create folder:', error);
+  const handleCreate = async () => {
+    if (folderName.trim()) {
+      await onCreateFolder(folderName.trim());
+      setFolderName('');
+      setIsCreateDialogOpen(false);
     }
   };
 
-  const handleUpdateFolder = async (id: string) => {
-    if (!editingName.trim()) return;
-
-    try {
-      await onUpdateFolder(id, editingName);
-      setEditingId(null);
-      setEditingName('');
-    } catch (error) {
-      console.error('Failed to update folder:', error);
+  const handleEdit = async () => {
+    if (editingFolder && folderName.trim()) {
+      await onUpdateFolder(editingFolder.id, folderName.trim());
+      setFolderName('');
+      setEditingFolder(null);
+      setIsEditDialogOpen(false);
     }
   };
 
-  const handleDeleteFolder = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this folder? Notes in this folder will not be deleted.')) {
-      return;
-    }
-
-    try {
-      await onDeleteFolder(id);
-      setMenuOpen(null);
-    } catch (error) {
-      console.error('Failed to delete folder:', error);
-    }
+  const openEditDialog = (folder: Folder) => {
+    setEditingFolder(folder);
+    setFolderName(folder.name);
+    setIsEditDialogOpen(true);
   };
 
   return (
-    <div className="w-64 bg-muted border-r border-border flex flex-col h-full">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Folders</h2>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="p-1 hover:bg-accent rounded transition-colors"
-          title="New folder"
-        >
-          <Plus className="w-5 h-5 text-muted-foreground" />
-        </button>
-      </div>
+    <>
+      <div className="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Folders
+            </h2>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="h-8 w-8"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* All Notes */}
-        <button
-          onClick={() => onFolderSelect('all')}
-          className={cn(
-            'w-full px-4 py-2 flex items-center gap-3 hover:bg-accent transition-colors text-left',
-            selectedFolderId === 'all' && 'bg-primary/10 hover:bg-primary/20'
-          )}
-        >
-          <FolderIcon className="w-5 h-5 text-muted-foreground" />
-          <span className="flex-1 text-sm font-medium text-foreground">All Notes</span>
-        </button>
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-1">
+            <div
+              className={'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ' +
+                (selectedFolderId === 'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+              onClick={() => onSelectFolder('all')}
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span className="text-sm font-medium">All Notes</span>
+            </div>
 
-        {/* Folder List */}
-        {folders.map((folder) => (
-          <div
-            key={folder.id}
-            className={cn(
-              'group relative px-4 py-2 flex items-center gap-3 hover:bg-accent transition-colors',
-              selectedFolderId === folder.id && 'bg-primary/10 hover:bg-primary/20'
-            )}
-          >
-            {editingId === folder.id ? (
-              <div className="flex-1 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleUpdateFolder(folder.id);
-                    if (e.key === 'Escape') {
-                      setEditingId(null);
-                      setEditingName('');
-                    }
-                  }}
-                  onBlur={() => handleUpdateFolder(folder.id)}
-                  className="flex-1 px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-                  autoFocus
-                />
+            {loading && folders.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-500">Loading...</div>
+            ) : folders.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-500">
+                No folders yet
               </div>
             ) : (
-              <>
-                <button
-                  onClick={() => onFolderSelect(folder.id)}
-                  className="flex-1 flex items-center gap-3 text-left"
-                >
-                  <FolderIcon className="w-5 h-5 text-muted-foreground" />
-                  <span className="flex-1 text-sm text-foreground">{folder.name}</span>
-                  {folder.noteCount !== undefined && folder.noteCount > 0 && (
-                    <span className="text-xs text-muted-foreground">{folder.noteCount}</span>
-                  )}
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setMenuOpen(menuOpen === folder.id ? null : folder.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent/50 rounded transition-all"
-                  >
-                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                  {menuOpen === folder.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setMenuOpen(null)}
-                      />
-                      <div className="absolute right-0 top-full mt-1 w-32 bg-card rounded shadow-lg border border-border py-1 z-20">
-                        <button
-                          onClick={() => {
-                            setEditingId(folder.id);
-                            setEditingName(folder.name);
-                            setMenuOpen(null);
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent flex items-center gap-2"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Rename
-                        </button>
-                        <button
-                          onClick={() => handleDeleteFolder(folder.id)}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center gap-2 text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </>
+              folders.map((folder) => (
+                <FolderItem
+                  key={folder.id}
+                  folder={folder}
+                  isActive={selectedFolderId === folder.id}
+                  onClick={() => onSelectFolder(folder.id)}
+                  onEdit={() => openEditDialog(folder)}
+                  onDelete={() => onDeleteFolder(folder.id)}
+                />
+              ))
             )}
           </div>
-        ))}
-
-        {/* Create Folder Input */}
-        {isCreating && (
-          <div className="px-4 py-2">
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateFolder();
-                if (e.key === 'Escape') {
-                  setIsCreating(false);
-                  setNewFolderName('');
-                }
-              }}
-              onBlur={handleCreateFolder}
-              placeholder="Folder name"
-              className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-              autoFocus
-            />
-          </div>
-        )}
+        </ScrollArea>
       </div>
-    </div>
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Folder</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="Folder name"
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Folder</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="Folder name"
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleEdit()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

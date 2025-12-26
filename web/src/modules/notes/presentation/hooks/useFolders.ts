@@ -1,49 +1,57 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Folder } from '../../domain/entities';
-import { SupabaseFolderRepository } from '../../infrastructure/api';
-import { CreateFolderDto, UpdateFolderDto } from '../../domain/types';
+import type { FolderType as Folder, CreateFolderDto, UpdateFolderDto } from '../../domain';
+import { FolderRepository } from '../../infrastructure/repositories';
+import { useAuth } from '@auth/presentation/hooks/useAuth';
 
-export const useFolders = (userId: string | null) => {
+export const useFolders = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const repository = new SupabaseFolderRepository();
+  const { user } = useAuth();
+  
+  const repository = new FolderRepository();
 
   const loadFolders = useCallback(async () => {
-    if (!userId) return;
-
+    if (!user) return;
+    
     setLoading(true);
     setError(null);
     try {
-      const data = await repository.findAll(userId);
+      const data = await repository.findAll();
       setFolders(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load folders');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load folders';
+      setError(errorMessage);
+      console.error('Error loading folders:', err);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [user]);
+
+  useEffect(() => {
+    loadFolders();
+  }, [loadFolders]);
 
   const createFolder = useCallback(
-    async (dto: Omit<CreateFolderDto, 'userId'>) => {
-      if (!userId) throw new Error('User ID is required');
+    async (dto: Omit<CreateFolderDto, 'userId'>): Promise<Folder | null> => {
+      if (!user) return null;
 
       try {
-        const newFolder = await repository.create({ ...dto, userId });
+        const newFolder = await repository.create({ ...dto, userId: user.id });
         setFolders((prev) => [...prev, newFolder]);
         return newFolder;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to create folder';
-        setError(message);
-        throw err;
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create folder';
+        setError(errorMessage);
+        console.error('Error creating folder:', err);
+        return null;
       }
     },
-    [userId]
+    [user]
   );
 
   const updateFolder = useCallback(
-    async (id: string, dto: UpdateFolderDto) => {
+    async (id: string, dto: UpdateFolderDto): Promise<Folder | null> => {
       try {
         const updatedFolder = await repository.update(id, dto);
         setFolders((prev) =>
@@ -51,36 +59,35 @@ export const useFolders = (userId: string | null) => {
         );
         return updatedFolder;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update folder';
-        setError(message);
-        throw err;
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update folder';
+        setError(errorMessage);
+        console.error('Error updating folder:', err);
+        return null;
       }
     },
     []
   );
 
-  const deleteFolder = useCallback(async (id: string) => {
+  const deleteFolder = useCallback(async (id: string): Promise<boolean> => {
     try {
       await repository.delete(id);
       setFolders((prev) => prev.filter((folder) => folder.id !== id));
+      return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete folder';
-      setError(message);
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete folder';
+      setError(errorMessage);
+      console.error('Error deleting folder:', err);
+      return false;
     }
   }, []);
-
-  useEffect(() => {
-    loadFolders();
-  }, [loadFolders]);
 
   return {
     folders,
     loading,
     error,
+    refetch: loadFolders,
     createFolder,
     updateFolder,
     deleteFolder,
-    refetch: loadFolders,
   };
 };

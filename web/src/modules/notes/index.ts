@@ -1,3 +1,5 @@
-// Public API for the notes module
-export { NotesPage } from './presentation/pages';
-export type { Note, Folder } from './domain/entities';
+export * from './domain';
+export * from './infrastructure';
+export * from './presentation/hooks';
+export * from './presentation/components';
+export { NotesPage } from './presentation/pages/NotesPage';

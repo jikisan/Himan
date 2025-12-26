@@ -1,42 +1,27 @@
-export class Folder {
-  constructor(
-    public readonly id: string,
-    public name: string,
-    public readonly userId: string,
-    public readonly createdAt: Date,
-    public readonly updatedAt: Date,
-    public color?: string,
-    public icon?: string,
-    public noteCount?: number
-  ) {}
+import type { Folder as FolderType } from '../types';
 
-  static create(params: {
-    id: string;
-    name: string;
-    color?: string;
-    icon?: string;
-    userId: string;
-    createdAt: Date;
-    updatedAt: Date;
-    noteCount?: number;
-  }): Folder {
-    return new Folder(
-      params.id,
-      params.name,
-      params.userId,
-      params.createdAt,
-      params.updatedAt,
-      params.color,
-      params.icon,
-      params.noteCount
-    );
+export class Folder implements FolderType {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  userId: string;
+  noteCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
+
+  constructor(data: FolderType) {
+    this.id = data.id;
+    this.name = data.name;
+    this.color = data.color;
+    this.icon = data.icon;
+    this.userId = data.userId;
+    this.noteCount = data.noteCount;
+    this.createdAt = data.createdAt;
+    this.updatedAt = data.updatedAt;
   }
 
-  updateName(name: string): void {
-    this.name = name;
-  }
-
-  updateColor(color?: string): void {
-    this.color = color;
+  hasNotes(): boolean {
+    return (this.noteCount ?? 0) > 0;
   }
 }

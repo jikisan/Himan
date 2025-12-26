@@ -1,87 +1,102 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Note } from '../../domain/entities';
-import { RichTextEditor } from './RichTextEditor';
-import { FileText } from 'lucide-react';
+import { EditorContent } from '@tiptap/react';
+import { MoreVertical, Pin, Trash2, FolderInput } from 'lucide-react';
+import { Note as NoteEntity } from '../../domain/entities/Note';
+import { EditorToolbar } from './EditorToolbar';
+import { useEditor } from '../hooks/useEditor';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface NoteEditorProps {
-  note: Note | null;
-  onUpdateNote: (noteId: string, title: string, content: string) => Promise<void>;
+  note: NoteEntity;
+  onTitleChange: (title: string) => void;
+  onContentChange: (content: string) => void;
+  onTogglePin: () => void;
+  onDelete: () => void;
+  onMoveToFolder: () => void;
 }
 
-export const NoteEditor = ({ note, onUpdateNote }: NoteEditorProps) => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (note) {
-      setTitle(note.title);
-      setContent(note.content);
-    } else {
-      setTitle('');
-      setContent('');
-    }
-  }, [note]);
-
-  const saveNote = useCallback(
-    async (newTitle: string, newContent: string) => {
-      if (!note) return;
-
-      setIsSaving(true);
-      try {
-        await onUpdateNote(note.id, newTitle, newContent);
-      } catch (error) {
-        console.error('Failed to save note:', error);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [note, onUpdateNote]
-  );
-
-  useEffect(() => {
-    if (!note) return;
-
-    const timeoutId = setTimeout(() => {
-      if (title !== note.title || content !== note.content) {
-        saveNote(title, content);
-      }
-    }, 1000);
-
-    return () => clearTimeout(timeoutId);
-  }, [title, content, note, saveNote]);
-
-  if (!note) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center">
-          <FileText className="w-16 h-16 text-muted mx-auto mb-4" />
-          <p className="text-muted-foreground">Select a note to view</p>
-        </div>
-      </div>
-    );
-  }
+export const NoteEditor = ({
+  note,
+  onTitleChange,
+  onContentChange,
+  onTogglePin,
+  onDelete,
+  onMoveToFolder,
+}: NoteEditorProps) => {
+  const {
+    editor,
+    toggleBold,
+    toggleItalic,
+    toggleStrikethrough,
+    toggleHeading,
+    toggleBulletList,
+    toggleOrderedList,
+    toggleTaskList,
+    toggleHighlight,
+  } = useEditor({
+    content: note.content,
+    onUpdate: onContentChange,
+  });
 
   return (
-    <div className="flex-1 flex flex-col bg-card">
-      {/* Title Input */}
-      <div className="border-b border-border p-6">
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+    <div className="flex-1 bg-white dark:bg-gray-950 flex flex-col">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <Input
+          value={note.title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          className="text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0"
           placeholder="Untitled"
-          className="w-full text-2xl font-bold bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-xs text-muted-foreground">
-            {isSaving ? 'Saving...' : 'Saved'}
-          </span>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onTogglePin}>
+              <Pin className="h-4 w-4 mr-2" />
+              {note.isPinned ? 'Unpin' : 'Pin'} Note
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onMoveToFolder}>
+              <FolderInput className="h-4 w-4 mr-2" />
+              Move to Folder
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDelete} className="text-red-600">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Note
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Rich Text Editor */}
-      <RichTextEditor content={content} onChange={setContent} />
+      <EditorToolbar
+        editor={editor}
+        onToggleBold={toggleBold}
+        onToggleItalic={toggleItalic}
+        onToggleStrikethrough={toggleStrikethrough}
+        onToggleHeading={toggleHeading}
+        onToggleBulletList={toggleBulletList}
+        onToggleOrderedList={toggleOrderedList}
+        onToggleTaskList={toggleTaskList}
+        onToggleHighlight={toggleHighlight}
+      />
+
+      <div className="flex-1 overflow-y-auto">
+        <EditorContent editor={editor} className="h-full" />
+      </div>
+
+      <div className="p-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500 text-center">
+        Last edited {note.getRelativeTime()}
+      </div>
     </div>
   );
 };

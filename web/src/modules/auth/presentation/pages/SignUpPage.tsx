@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@core/infrastructure/config';
+import { Button } from '@/components/ui';
 
 export const SignUpPage = () => {
   const [email, setEmail] = useState('');
@@ -119,13 +120,14 @@ export const SignUpPage = () => {
           />
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full"
+          size="lg"
         >
           {loading ? 'Creating account...' : 'Sign up'}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-6 text-center">

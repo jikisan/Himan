@@ -31,7 +31,7 @@ export const DashboardPage = () => {
             to={link.to}
             className="group"
           >
-            <Card className="transition-all hover:shadow-lg hover:border-primary/50">
+            <Card className="transition-all hover:shadow-lg bg-card hover:border-primary/50">
               <CardHeader>
                 <link.icon className="h-8 w-8 text-primary mb-2" />
                 <CardTitle>{link.label}</CardTitle>

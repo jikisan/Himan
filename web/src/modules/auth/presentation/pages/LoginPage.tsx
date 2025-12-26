@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@core/infrastructure/config';
+import { Button } from '@/components/ui';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -88,13 +89,14 @@ export const LoginPage = () => {
           />
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full"
+          size="lg"
         >
           {loading ? 'Signing in...' : 'Sign in'}
-        </button>
+        </Button>
       </form>
 
       <div className="relative my-6">
@@ -108,10 +110,12 @@ export const LoginPage = () => {
         </div>
       </div>
 
-      <button
+      <Button
         type="button"
         onClick={handleGoogleSignIn}
-        className="w-full flex items-center justify-center gap-3 px-4 py-2 border border-input rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+        variant="outline"
+        className="w-full"
+        size="lg"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
@@ -132,7 +136,7 @@ export const LoginPage = () => {
           />
         </svg>
         <span className="font-medium">Sign in with Google</span>
-      </button>
+      </Button>
 
       <div className="mt-6 text-center">
         <Link

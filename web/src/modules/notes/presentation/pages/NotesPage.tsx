@@ -24,6 +24,7 @@ export const NotesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
+  const [isFolderCollapsed, setIsFolderCollapsed] = useState(false);
   const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const noteFilters = useMemo(() => ({
@@ -186,6 +187,10 @@ export const NotesPage = () => {
     [folders, deleteFolder, selectedFolderId, refetchFolders, refetchNotes]
   );
 
+  const handleToggleFolderCollapse = useCallback(() => {
+    setIsFolderCollapsed(prev => !prev);
+  }, []);
+
   return (
     <>
       <div className="flex h-screen bg-secondary">
@@ -197,6 +202,8 @@ export const NotesPage = () => {
           onUpdateFolder={handleUpdateFolder}
           onDeleteFolder={handleDeleteFolder}
           loading={foldersLoading}
+          isCollapsed={isFolderCollapsed}
+          onToggleCollapse={handleToggleFolderCollapse}
         />
 
         <NotesList

@@ -41,7 +41,7 @@ export const PasswordDetails = ({
     notes: password.notes || '',
   });
 
-  // Sync editData when password prop changes (e.g., when selecting a different password)
+  // Sync editData when password changes
   useEffect(() => {
     setEditData({
       title: password.title,
@@ -52,7 +52,7 @@ export const PasswordDetails = ({
     });
     setIsEditing(false);
     setShowPassword(false);
-  }, [password.id]); // Only update when password ID changes
+  }, [password.id, password.title, password.username, password.password, password.url, password.notes]);
 
   const handleSave = () => {
     onUpdate({

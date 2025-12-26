@@ -57,7 +57,6 @@ export const NotesPage = () => {
 
   const handleCreateNote = useCallback(async () => {
     const folderId = selectedFolderId === 'all' ? null : selectedFolderId;
-    console.log('Creating note with folderId:', folderId, 'selectedFolderId:', selectedFolderId);
 
     const newNote = await createNote({
       title: 'Untitled',
@@ -66,10 +65,11 @@ export const NotesPage = () => {
       folderId,
     });
     if (newNote) {
-      console.log('Note created:', newNote);
       setSelectedNote(new NoteEntity(newNote));
+      // Refetch folders to update note counts
+      refetchFolders();
     }
-  }, [createNote, selectedFolderId]);
+  }, [createNote, selectedFolderId, refetchFolders]);
 
   const handleUpdateNoteTitle = useCallback(
     (title: string) => {
@@ -130,10 +130,12 @@ export const NotesPage = () => {
         const success = await deleteNote(selectedNote.id);
         if (success) {
           setSelectedNote(null);
+          // Refetch folders to update note counts
+          refetchFolders();
         }
       }
     }
-  }, [selectedNote, deleteNote]);
+  }, [selectedNote, deleteNote, refetchFolders]);
 
   const handleMoveToFolder = useCallback(() => {
     if (selectedNote) {

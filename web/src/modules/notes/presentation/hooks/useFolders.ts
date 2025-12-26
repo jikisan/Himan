@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { FolderType as Folder, CreateFolderDto, UpdateFolderDto } from '../../domain';
 import { FolderRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
@@ -8,28 +8,39 @@ export const useFolders = () => {
   const [loading, setLoading] = useState(true); // Start as loading
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const isLoadingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
   const repository = useMemo(() => new FolderRepository(), []);
+  const userId = user?.id;
 
   const loadFolders = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setLoading(false);
       return;
     }
 
+    // Prevent duplicate requests
+    if (isLoadingRef.current) {
+      return;
+    }
+
+    isLoadingRef.current = true;
     setLoading(true);
     setError(null);
     try {
       const data = await repository.findAll();
       setFolders(data);
+      hasLoadedRef.current = true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load folders';
       setError(errorMessage);
       console.error('Error loading folders:', err);
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  }, [user, repository]);
+  }, [userId, repository]);
 
   useEffect(() => {
     loadFolders();
@@ -37,10 +48,10 @@ export const useFolders = () => {
 
   const createFolder = useCallback(
     async (dto: Omit<CreateFolderDto, 'userId'>): Promise<Folder | null> => {
-      if (!user) return null;
+      if (!userId) return null;
 
       try {
-        const newFolder = await repository.create({ ...dto, userId: user.id });
+        const newFolder = await repository.create({ ...dto, userId });
         setFolders((prev) => [...prev, newFolder]);
         return newFolder;
       } catch (err) {
@@ -50,7 +61,7 @@ export const useFolders = () => {
         return null;
       }
     },
-    [user, repository]
+    [userId, repository]
   );
 
   const updateFolder = useCallback(

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { NoteType as Note, NoteFilters, CreateNoteDto, UpdateNoteDto } from '../../domain';
 import { NoteRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
@@ -8,8 +8,11 @@ export const useNotes = (filters?: NoteFilters) => {
   const [loading, setLoading] = useState(true); // Start as loading
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const isLoadingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
   const repository = useMemo(() => new NoteRepository(), []);
+  const userId = user?.id;
 
   // Stabilize filters to prevent unnecessary re-renders
   const stableFilters = useMemo(() => filters, [
@@ -20,24 +23,32 @@ export const useNotes = (filters?: NoteFilters) => {
   ]);
 
   const loadNotes = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setLoading(false);
       return;
     }
 
+    // Prevent duplicate requests
+    if (isLoadingRef.current) {
+      return;
+    }
+
+    isLoadingRef.current = true;
     setLoading(true);
     setError(null);
     try {
       const data = await repository.findAll(stableFilters);
       setNotes(data);
+      hasLoadedRef.current = true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load notes';
       setError(errorMessage);
       console.error('Error loading notes:', err);
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  }, [user, repository, stableFilters]);
+  }, [userId, repository, stableFilters]);
 
   useEffect(() => {
     loadNotes();
@@ -45,10 +56,10 @@ export const useNotes = (filters?: NoteFilters) => {
 
   const createNote = useCallback(
     async (dto: Omit<CreateNoteDto, 'userId'>): Promise<Note | null> => {
-      if (!user) return null;
+      if (!userId) return null;
 
       try {
-        const newNote = await repository.create({ ...dto, userId: user.id });
+        const newNote = await repository.create({ ...dto, userId });
         setNotes((prev) => [newNote, ...prev]);
         return newNote;
       } catch (err) {
@@ -58,7 +69,7 @@ export const useNotes = (filters?: NoteFilters) => {
         return null;
       }
     },
-    [user, repository]
+    [userId, repository]
   );
 
   const updateNote = useCallback(

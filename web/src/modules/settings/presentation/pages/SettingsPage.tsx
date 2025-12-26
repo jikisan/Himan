@@ -36,7 +36,7 @@ export const SettingsPage = () => {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+      <h1 className="text-3xl font-bold text-foreground mb-6">
         Settings
       </h1>
 
@@ -53,8 +53,8 @@ export const SettingsPage = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Theme</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="font-medium text-foreground">Theme</p>
+                  <p className="text-sm text-muted-foreground">
                     Select your preferred theme mode
                   </p>
                 </div>
@@ -63,7 +63,7 @@ export const SettingsPage = () => {
                 <div className="relative">
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-w-[140px] justify-between"
+                    className="flex items-center gap-2 px-4 py-2 bg-background border border-input rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors min-w-[140px] justify-between"
                   >
                     <div className="flex items-center gap-2">
                       {getThemeIcon()}
@@ -76,11 +76,11 @@ export const SettingsPage = () => {
 
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-10">
+                    <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-10">
                       <button
                         onClick={() => handleThemeSelect('light')}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 ${
-                          theme === 'light' ? 'bg-gray-100 dark:bg-gray-700' : ''
+                        className={`w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 ${
+                          theme === 'light' ? 'bg-accent' : ''
                         }`}
                       >
                         <Sun className="h-4 w-4" />
@@ -88,8 +88,8 @@ export const SettingsPage = () => {
                       </button>
                       <button
                         onClick={() => handleThemeSelect('dark')}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 ${
-                          theme === 'dark' ? 'bg-gray-100 dark:bg-gray-700' : ''
+                        className={`w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 ${
+                          theme === 'dark' ? 'bg-accent' : ''
                         }`}
                       >
                         <Moon className="h-4 w-4" />
@@ -97,8 +97,8 @@ export const SettingsPage = () => {
                       </button>
                       <button
                         onClick={() => handleThemeSelect('system')}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 ${
-                          theme === 'system' ? 'bg-gray-100 dark:bg-gray-700' : ''
+                        className={`w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 ${
+                          theme === 'system' ? 'bg-accent' : ''
                         }`}
                       >
                         <Monitor className="h-4 w-4" />

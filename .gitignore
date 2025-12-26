@@ -1,2 +1,15 @@
 # MCP configuration with sensitive tokens
 .mcp.json
+
+# Environment variables
+.env
+web/.env
+
+# Google OAuth secrets
+client_secret_*.json
+
+# Documentation backup folder (if needed)
+MD_files/
+
+# Root package-lock (if using workspaces)
+/package-lock.json

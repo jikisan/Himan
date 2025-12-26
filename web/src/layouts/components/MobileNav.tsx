@@ -28,15 +28,15 @@ export const MobileNav = ({ isOpen, onClose }: MobileNavProps) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-card shadow-xl transform transition-transform duration-300 lg:hidden",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-xl font-bold text-gray-900 dark:text-white">Himan</span>
+        <div className="flex h-16 items-center justify-between px-4 border-b border-border">
+          <span className="text-xl font-bold text-foreground">Himan</span>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-accent rounded-lg transition-colors"
           >
             <X size={20} />
           </button>
@@ -49,9 +49,9 @@ export const MobileNav = ({ isOpen, onClose }: MobileNavProps) => {
               to={item.path}
               onClick={onClose}
               className={({ isActive }) => cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                "hover:bg-gray-100 dark:hover:bg-gray-700",
-                isActive && "bg-gray-100 dark:bg-gray-700 font-medium text-blue-600 dark:text-blue-400"
+                "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-foreground",
+                "hover:bg-accent",
+                isActive && "bg-accent font-medium text-primary"
               )}
             >
               <item.icon size={20} />

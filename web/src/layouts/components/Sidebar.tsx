@@ -29,18 +29,18 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
 
   return (
     <aside className={cn(
-      "fixed inset-y-0 left-0 z-50 flex flex-col bg-gray-900 text-white transition-all duration-300",
+      "fixed inset-y-0 left-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300",
       isOpen ? "w-64" : "w-20",
       className
     )}>
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-gray-800">
+      <div className="flex h-16 items-center justify-between px-4 border-b border-border">
         {isOpen && (
-          <span className="text-xl font-bold">Himan</span>
+          <span className="text-xl font-bold text-foreground">Himan</span>
         )}
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-accent transition-colors"
           title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
@@ -54,9 +54,9 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
             key={item.path}
             to={item.path}
             className={({ isActive }) => cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-              "hover:bg-gray-800",
-              isActive && "bg-gray-800 text-blue-400",
+              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-foreground",
+              "hover:bg-accent",
+              isActive && "bg-accent text-primary",
               !isOpen && "justify-center"
             )}
             title={!isOpen ? item.label : undefined}
@@ -68,11 +68,11 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
       </nav>
 
       {/* Logout */}
-      <div className="border-t border-gray-800 p-4">
+      <div className="border-t border-border p-4">
         <button
           onClick={signOut}
           className={cn(
-            "flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors",
+            "flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-accent transition-colors text-foreground",
             !isOpen && "justify-center"
           )}
           title={!isOpen ? 'Logout' : undefined}

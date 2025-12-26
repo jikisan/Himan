@@ -5,19 +5,30 @@ import { useAuth } from '@auth/presentation/hooks/useAuth';
 
 export const useNotes = (filters?: NoteFilters) => {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as loading
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   const repository = useMemo(() => new NoteRepository(), []);
 
+  // Stabilize filters to prevent unnecessary re-renders
+  const stableFilters = useMemo(() => filters, [
+    filters?.folderId,
+    filters?.searchQuery,
+    filters?.isPinned,
+    JSON.stringify(filters?.tags),
+  ]);
+
   const loadNotes = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
     try {
-      const data = await repository.findAll(filters);
+      const data = await repository.findAll(stableFilters);
       setNotes(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load notes';
@@ -26,7 +37,7 @@ export const useNotes = (filters?: NoteFilters) => {
     } finally {
       setLoading(false);
     }
-  }, [user, repository, filters?.folderId, filters?.searchQuery, filters?.isPinned, JSON.stringify(filters?.tags)]);
+  }, [user, repository, stableFilters]);
 
   useEffect(() => {
     loadNotes();

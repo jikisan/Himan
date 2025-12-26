@@ -5,14 +5,17 @@ import { useAuth } from '@auth/presentation/hooks/useAuth';
 
 export const useFolders = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as loading
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   const repository = useMemo(() => new FolderRepository(), []);
 
   const loadFolders = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);

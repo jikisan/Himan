@@ -66,9 +66,15 @@ export const Navbar = () => {
 
           {/* Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border z-50">
+            <div
+              className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg border border-border z-50"
+              style={{
+                backgroundColor: 'hsl(var(--popover))',
+                color: 'hsl(var(--popover-foreground))'
+              }}
+            >
             <div className="p-3 border-b border-border">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-sm font-medium">
                 {user?.user_metadata?.full_name || 'User'}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -81,7 +87,7 @@ export const Navbar = () => {
                   navigate('/profile');
                   setIsDropdownOpen(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2"
               >
                 <User size={16} />
                 Profile
@@ -91,7 +97,7 @@ export const Navbar = () => {
                   navigate('/settings');
                   setIsDropdownOpen(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2"
               >
                 <Settings size={16} />
                 Settings
@@ -101,7 +107,7 @@ export const Navbar = () => {
                   handleSignOut();
                   setIsDropdownOpen(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm text-destructive hover:bg-accent transition-colors"
+                className="w-full px-4 py-2 text-left text-sm text-destructive hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 Log out
               </button>

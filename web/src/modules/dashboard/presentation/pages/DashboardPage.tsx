@@ -19,10 +19,10 @@ export const DashboardPage = () => {
       description: "Manage your notes",
     },
     {
-      to: "/settings",
+      to: "/passwords",
       icon: KeyRound,
-      label: "Password",
-      description: "Manage your password",
+      label: "Passwords",
+      description: "Manage your passwords",
     },
   ];
 

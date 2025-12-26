@@ -24,6 +24,7 @@
       "@auth/*": ["src/modules/auth/*"],
       "@dashboard/*": ["src/modules/dashboard/*"],
       "@notes/*": ["src/modules/notes/*"],
+      "@passwords/*": ["src/modules/passwords/*"],
       "@settings/*": ["src/modules/settings/*"],
       "@app/*": ["src/app/*"],
       "@modules/*": ["src/modules/*"]

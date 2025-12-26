@@ -10,6 +10,7 @@ import { LoginPage, SignUpPage } from '@auth/presentation/pages';
 import { DashboardPage } from '@dashboard/presentation/pages';
 import { ProfilePage, SettingsPage } from '@settings';
 import { NotesPage } from '@notes';
+import { PasswordsPage } from '@passwords';
 import { NotFoundPage } from '@core/presentation/pages';
 
 export const Router = () => {
@@ -30,6 +31,7 @@ export const Router = () => {
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/notes" element={<NotesPage />} />
+            <Route path="/passwords" element={<PasswordsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

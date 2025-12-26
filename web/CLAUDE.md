@@ -66,6 +66,13 @@ The codebase is organized into feature modules under `src/modules/`:
   - Search, tags, and pinned notes
   - Full CRUD operations with Supabase
 
+- **`passwords/`** (aliased as `@passwords`): Password Manager module
+  - Secure password storage with client-side encryption
+  - Category-based organization
+  - Search and favorites functionality
+  - Account-based encryption using Web Crypto API (AES-GCM)
+  - Three-panel layout similar to notes module
+
 - **`settings/`** (aliased as `@settings`): Settings module
   - User preferences and configuration
   - Theme management (light/dark/system)

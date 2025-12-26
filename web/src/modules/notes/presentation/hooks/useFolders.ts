@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { FolderType as Folder, CreateFolderDto, UpdateFolderDto } from '../../domain';
 import { FolderRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
@@ -8,12 +8,12 @@ export const useFolders = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  
-  const repository = new FolderRepository();
+
+  const repository = useMemo(() => new FolderRepository(), []);
 
   const loadFolders = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -26,7 +26,7 @@ export const useFolders = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, repository]);
 
   useEffect(() => {
     loadFolders();
@@ -47,7 +47,7 @@ export const useFolders = () => {
         return null;
       }
     },
-    [user]
+    [user, repository]
   );
 
   const updateFolder = useCallback(
@@ -65,7 +65,7 @@ export const useFolders = () => {
         return null;
       }
     },
-    []
+    [repository]
   );
 
   const deleteFolder = useCallback(async (id: string): Promise<boolean> => {
@@ -79,7 +79,7 @@ export const useFolders = () => {
       console.error('Error deleting folder:', err);
       return false;
     }
-  }, []);
+  }, [repository]);
 
   return {
     folders,

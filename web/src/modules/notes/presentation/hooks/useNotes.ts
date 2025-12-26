@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { NoteType as Note, NoteFilters, CreateNoteDto, UpdateNoteDto } from '../../domain';
 import { NoteRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
@@ -8,8 +8,8 @@ export const useNotes = (filters?: NoteFilters) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  
-  const repository = new NoteRepository();
+
+  const repository = useMemo(() => new NoteRepository(), []);
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
@@ -26,7 +26,7 @@ export const useNotes = (filters?: NoteFilters) => {
     } finally {
       setLoading(false);
     }
-  }, [user, filters?.folderId, filters?.searchQuery, filters?.isPinned, JSON.stringify(filters?.tags)]);
+  }, [user, repository, filters?.folderId, filters?.searchQuery, filters?.isPinned, JSON.stringify(filters?.tags)]);
 
   useEffect(() => {
     loadNotes();
@@ -47,7 +47,7 @@ export const useNotes = (filters?: NoteFilters) => {
         return null;
       }
     },
-    [user]
+    [user, repository]
   );
 
   const updateNote = useCallback(
@@ -65,7 +65,7 @@ export const useNotes = (filters?: NoteFilters) => {
         return null;
       }
     },
-    []
+    [repository]
   );
 
   const deleteNote = useCallback(async (id: string): Promise<boolean> => {
@@ -79,7 +79,7 @@ export const useNotes = (filters?: NoteFilters) => {
       console.error('Error deleting note:', err);
       return false;
     }
-  }, []);
+  }, [repository]);
 
   return {
     notes,

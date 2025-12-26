@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { User, Settings } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 import { useNavigate, Link } from 'react-router-dom';
@@ -6,11 +7,30 @@ import { useNavigate, Link } from 'react-router-dom';
 export const Navbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6 lg:px-8">
@@ -29,8 +49,11 @@ export const Navbar = () => {
       <div className="flex items-center gap-4">
 
         {/* User Menu */}
-        <div className="relative group">
-          <button className="flex items-center gap-2 p-2 hover:bg-accent rounded-lg transition-colors">
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center gap-2 p-2 hover:bg-accent rounded-lg transition-colors"
+          >
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
               {user?.email?.charAt(0).toUpperCase() || 'U'}
             </div>
@@ -42,7 +65,8 @@ export const Navbar = () => {
           </button>
 
           {/* Dropdown Menu */}
-          <div className="absolute right-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+          {isDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border z-50">
             <div className="p-3 border-b border-border">
               <p className="text-sm font-medium text-foreground">
                 {user?.user_metadata?.full_name || 'User'}
@@ -53,27 +77,37 @@ export const Navbar = () => {
             </div>
             <div className="py-2">
               <button
-                onClick={() => navigate('/profile')}
+                onClick={() => {
+                  navigate('/profile');
+                  setIsDropdownOpen(false);
+                }}
                 className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
               >
                 <User size={16} />
                 Profile
               </button>
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => {
+                  navigate('/settings');
+                  setIsDropdownOpen(false);
+                }}
                 className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
               >
                 <Settings size={16} />
                 Settings
               </button>
               <button
-                onClick={handleSignOut}
+                onClick={() => {
+                  handleSignOut();
+                  setIsDropdownOpen(false);
+                }}
                 className="w-full px-4 py-2 text-left text-sm text-destructive hover:bg-accent transition-colors"
               >
                 Log out
               </button>
             </div>
           </div>
+          )}
         </div>
       </div>
     </header>

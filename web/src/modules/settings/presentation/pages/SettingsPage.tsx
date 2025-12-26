@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Moon, Sun, Monitor, ChevronDown } from 'lucide-react';
 import { useTheme } from '@core/presentation/contexts/ThemeProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const getThemeIcon = () => {
     switch (theme) {
@@ -34,6 +35,23 @@ export const SettingsPage = () => {
     setIsDropdownOpen(false);
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold text-foreground mb-6">
@@ -60,7 +78,7 @@ export const SettingsPage = () => {
                 </div>
 
                 {/* Theme Dropdown Button */}
-                <div className="relative">
+                <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     className="flex items-center gap-2 px-4 py-2 bg-background border border-input rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors min-w-[140px] justify-between"
@@ -76,11 +94,17 @@ export const SettingsPage = () => {
 
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-10">
+                    <div
+                      className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg border border-border py-1 z-10"
+                      style={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        color: 'hsl(var(--popover-foreground))'
+                      }}
+                    >
                       <button
                         onClick={() => handleThemeSelect('light')}
-                        className={`w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 ${
-                          theme === 'light' ? 'bg-accent' : ''
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2 ${
+                          theme === 'light' ? 'bg-accent text-accent-foreground' : ''
                         }`}
                       >
                         <Sun className="h-4 w-4" />
@@ -88,8 +112,8 @@ export const SettingsPage = () => {
                       </button>
                       <button
                         onClick={() => handleThemeSelect('dark')}
-                        className={`w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 ${
-                          theme === 'dark' ? 'bg-accent' : ''
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2 ${
+                          theme === 'dark' ? 'bg-accent text-accent-foreground' : ''
                         }`}
                       >
                         <Moon className="h-4 w-4" />
@@ -97,8 +121,8 @@ export const SettingsPage = () => {
                       </button>
                       <button
                         onClick={() => handleThemeSelect('system')}
-                        className={`w-full px-4 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 ${
-                          theme === 'system' ? 'bg-accent' : ''
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2 ${
+                          theme === 'system' ? 'bg-accent text-accent-foreground' : ''
                         }`}
                       >
                         <Monitor className="h-4 w-4" />

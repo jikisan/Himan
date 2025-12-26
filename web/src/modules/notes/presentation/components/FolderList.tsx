@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, FolderOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, FolderOpen, ChevronLeft, ChevronRight, Folder as FolderIcon } from "lucide-react";
 import type { FolderType as Folder } from "../../domain";
 import { FolderItem } from "./FolderItem";
 import { Button } from "@/components/ui/button";
@@ -120,6 +120,19 @@ export const FolderList = ({
               >
                 <FolderOpen className="w-4 h-4" />
                 <span className="text-sm font-medium">All Notes</span>
+              </div>
+
+              <div
+                className={
+                  "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
+                  (selectedFolderId === null
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground")
+                }
+                onClick={() => onSelectFolder(null)}
+              >
+                <FolderIcon className="w-4 h-4" />
+                <span className="text-sm font-medium">Unfiled</span>
               </div>
 
               {loading && folders.length === 0 ? (

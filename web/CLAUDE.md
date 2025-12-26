@@ -66,6 +66,11 @@ The codebase is organized into feature modules under `src/modules/`:
   - Search, tags, and pinned notes
   - Full CRUD operations with Supabase
 
+- **`settings/`** (aliased as `@settings`): Settings module
+  - User preferences and configuration
+  - Theme management (light/dark/system)
+  - Application settings
+
 ### Module Boundaries
 
 - Each module has an `index.ts` at its root that exports its public API
@@ -93,10 +98,12 @@ Never allow:
 
 The following aliases are configured in both `tsconfig.app.json` and `vite.config.ts`:
 
+- `@/*` → `src/*` (Root source directory)
 - `@core/*` → `src/modules/shared/*` (Note: renamed from "core" to "shared")
 - `@auth/*` → `src/modules/auth/*`
 - `@dashboard/*` → `src/modules/dashboard/*`
 - `@notes/*` → `src/modules/notes/*`
+- `@settings/*` → `src/modules/settings/*`
 - `@app/*` → `src/app/*`
 - `@modules/*` → `src/modules/*`
 
@@ -114,8 +121,68 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - **Framework**: React 19.2 with TypeScript
 - **Compiler**: SWC (via @vitejs/plugin-react-swc) for Fast Refresh
 - **Linting**: ESLint with TypeScript, React Hooks, and React Refresh rules
+- **Backend**: Supabase (authentication, database, real-time)
+- **Routing**: React Router v7
+- **Styling**: Tailwind CSS v4 with CSS variables for theming
+- **UI Components**:
+  - Radix UI primitives (Dialog, Dropdown Menu, Select, Scroll Area)
+  - shadcn/ui component patterns
+  - Custom components built with Tailwind and class-variance-authority
+- **Rich Text Editor**: Tiptap with extensions (Typography, Highlight, Task Lists, Placeholder)
+- **Form Management**: React Hook Form with Zod validation
+- **Icons**: Lucide React
 
 Note: React Compiler is not compatible with SWC currently.
+
+### UI Component System
+
+The project uses a hybrid approach combining Radix UI primitives with custom styling:
+
+- Base components are in `src/components/ui/` (Button, Dialog, Card, Input, etc.)
+- All UI components use CSS variables for theming (defined in `src/index.css`)
+- Theme switching (light/dark/system) is managed via `ThemeProvider` context
+- Components apply inline styles for critical colors to ensure proper rendering across themes
+- Example: `backgroundColor: 'hsl(var(--background))'` ensures dialogs have solid backgrounds
+
+### Routing Structure
+
+Routes are defined in `src/router/index.tsx` with:
+- **Protected routes** require authentication (Dashboard, Notes, Settings, Profile)
+- **Public routes** redirect to dashboard if already authenticated (Login, Register)
+- Route guards are in `src/router/ProtectedRoute.tsx` and `src/router/PublicRoute.tsx`
+- Main app providers wrap routes: `ThemeProvider` → `AuthProvider` → `Router`
+
+### Tiptap Editor Configuration
+
+The notes module uses Tiptap for rich text editing:
+
+- Editor configuration in `src/modules/notes/presentation/hooks/useEditor.ts`
+- Custom styles in `src/index.css` under `.tiptap` class
+- Requires `@tailwindcss/typography` plugin for prose classes
+- Supports: headings (h1-h3), bullet/ordered lists, task lists, highlighting, bold/italic/strikethrough
+- Auto-save with 1-second debounce
+- Custom placeholder text support
+
+**Important**: When adding Tiptap editor, ensure:
+1. `@tailwindcss/typography` is installed and configured in `tailwind.config.js`
+2. Editor element has both `tiptap` and `prose` classes
+3. Custom CSS for `.tiptap h1`, `.tiptap ul`, etc. is defined for proper rendering
+
+### Database & Supabase
+
+- Database migrations are in `supabase/migrations/`
+- Supabase client is initialized in the shared module infrastructure layer
+- Authentication is managed via Supabase Auth
+- Notes module uses Supabase for:
+  - Notes table with CRUD operations
+  - Folders table with relationship to notes
+  - Real-time subscriptions (if enabled)
+  - Row-level security for user data isolation
+
+**Repository Pattern**: Each feature creates repository classes in the infrastructure layer that:
+- Abstract Supabase client calls
+- Handle data transformations between database DTOs and domain entities
+- Manage error handling and data validation
 
 ## Adding New Modules
 

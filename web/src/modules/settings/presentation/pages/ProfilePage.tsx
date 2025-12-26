@@ -1,4 +1,5 @@
 import { useAuth } from '@auth/presentation/hooks';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 
 export const ProfilePage = () => {
   const { user } = useAuth();
@@ -9,8 +10,11 @@ export const ProfilePage = () => {
         Profile
       </h1>
 
-      <div className="bg-card shadow rounded-lg p-6 border border-border">
-        <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Email
@@ -33,8 +37,8 @@ export const ProfilePage = () => {
               {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
             </p>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

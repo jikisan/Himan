@@ -150,12 +150,7 @@ export const PasswordCard = ({
         )}
       </div>
 
-      {/* Footer with last updated */}
-      <div className="mt-4 pt-3 border-t border-border">
-        <span className="text-xs text-muted-foreground">
-          Updated {passwordEntity.getRelativeTime()}
-        </span>
-      </div>
+
     </div>
   );
 };

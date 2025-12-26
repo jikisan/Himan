@@ -13,7 +13,7 @@ export const useNotes = (filters?: NoteFilters) => {
 
   const loadNotes = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -26,7 +26,7 @@ export const useNotes = (filters?: NoteFilters) => {
     } finally {
       setLoading(false);
     }
-  }, [user, filters?.folderId, filters?.searchQuery, filters?.isPinned, filters?.tags]);
+  }, [user, filters?.folderId, filters?.searchQuery, filters?.isPinned, JSON.stringify(filters?.tags)]);
 
   useEffect(() => {
     loadNotes();

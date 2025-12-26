@@ -62,10 +62,10 @@ export const FolderList = ({
 
   return (
     <>
-      <div className="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+      <div className="w-64 bg-muted border-r border-border flex flex-col">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="text-lg font-semibold text-foreground">
               Folders
             </h2>
             <Button
@@ -85,7 +85,7 @@ export const FolderList = ({
               className={'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ' +
                 (selectedFolderId === 'all'
                   ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                  : 'hover:bg-accent hover:text-accent-foreground'
               )}
               onClick={() => onSelectFolder('all')}
             >
@@ -94,9 +94,9 @@ export const FolderList = ({
             </div>
 
             {loading && folders.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500">Loading...</div>
-            ) : folders.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500">
+              <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
+            ) : folders.length === 0 && !loading ? (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
                 No folders yet
               </div>
             ) : (

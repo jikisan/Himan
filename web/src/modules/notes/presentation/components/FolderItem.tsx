@@ -30,7 +30,7 @@ export const FolderItem = ({
         'group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors',
         isActive
           ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+          : 'hover:bg-accent hover:text-accent-foreground'
       )}
       onClick={onClick}
     >

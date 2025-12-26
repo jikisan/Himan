@@ -12,26 +12,26 @@ export const NoteItem = ({ note, isActive, onClick }: NoteItemProps) => {
   return (
     <div
       className={cn(
-        'p-4 cursor-pointer border-b transition-colors',
+        'p-4 cursor-pointer border-b border-border transition-colors',
         isActive
-          ? 'bg-primary/10 border-l-4 border-l-primary'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-800/50 border-l-4 border-l-transparent'
+          ? 'bg-accent border-l-4 border-l-primary'
+          : 'hover:bg-accent/50 border-l-4 border-l-transparent'
       )}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">
+        <h3 className="text-sm font-semibold text-foreground truncate flex-1">
           {note.title || 'Untitled'}
         </h3>
         {note.isPinned && (
           <Pin className="w-3 h-3 text-primary flex-shrink-0" />
         )}
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
+      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
         {note.excerpt || 'No content'}
       </p>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400 dark:text-gray-500">
+        <span className="text-xs text-muted-foreground">
           {note.getRelativeTime()}
         </span>
         {note.tags.length > 0 && (
@@ -39,13 +39,13 @@ export const NoteItem = ({ note, isActive, onClick }: NoteItemProps) => {
             {note.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
-                className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
+                className="text-xs px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded"
               >
                 {tag}
               </span>
             ))}
             {note.tags.length > 2 && (
-              <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
+              <span className="text-xs px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded">
                 +{note.tags.length - 2}
               </span>
             )}

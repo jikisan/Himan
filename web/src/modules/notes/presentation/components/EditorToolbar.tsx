@@ -42,13 +42,13 @@ export const EditorToolbar = ({
   }
 
   return (
-    <div className="flex items-center gap-1 p-2 border-b bg-white dark:bg-gray-900 sticky top-0 z-10">
+    <div className="flex items-center gap-1 p-2 border-b border-border bg-background sticky top-0 z-10">
       <Button
         type="button"
         variant="ghost"
         size="sm"
         onClick={onToggleBold}
-        className={cn(editor.isActive('bold') && 'bg-gray-100 dark:bg-gray-800')}
+        className={cn(editor.isActive('bold') && 'bg-accent')}
       >
         <Bold className="h-4 w-4" />
       </Button>
@@ -70,7 +70,7 @@ export const EditorToolbar = ({
       >
         <Strikethrough className="h-4 w-4" />
       </Button>
-      <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
       <Button
         type="button"
         variant="ghost"
@@ -104,7 +104,7 @@ export const EditorToolbar = ({
       >
         <Heading3 className="h-4 w-4" />
       </Button>
-      <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
       <Button
         type="button"
         variant="ghost"
@@ -132,7 +132,7 @@ export const EditorToolbar = ({
       >
         <CheckSquare className="h-4 w-4" />
       </Button>
-      <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+      <div className="w-px h-6 bg-border mx-1" />
       <Button
         type="button"
         variant="ghost"

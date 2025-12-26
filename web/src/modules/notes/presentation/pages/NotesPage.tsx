@@ -177,7 +177,7 @@ export const NotesPage = () => {
 
   return (
     <>
-      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="flex h-screen bg-secondary">
         <FolderList
           folders={folders}
           selectedFolderId={selectedFolderId}
@@ -208,7 +208,7 @@ export const NotesPage = () => {
             onMoveToFolder={handleMoveToFolder}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-950 text-gray-500">
+          <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
             Select a note to start editing
           </div>
         )}

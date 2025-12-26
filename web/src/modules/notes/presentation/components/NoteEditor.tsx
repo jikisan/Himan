@@ -46,8 +46,8 @@ export const NoteEditor = ({
   });
 
   return (
-    <div className="flex-1 bg-white dark:bg-gray-950 flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+    <div className="flex-1 bg-background flex flex-col">
+      <div className="p-4 border-b border-border flex items-center justify-between">
         <Input
           value={note.title}
           onChange={(e) => onTitleChange(e.target.value)}
@@ -94,7 +94,7 @@ export const NoteEditor = ({
         <EditorContent editor={editor} className="h-full" />
       </div>
 
-      <div className="p-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500 text-center">
+      <div className="p-2 border-t border-border text-xs text-muted-foreground text-center">
         Last edited {note.getRelativeTime()}
       </div>
     </div>

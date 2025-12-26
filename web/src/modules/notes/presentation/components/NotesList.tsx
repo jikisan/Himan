@@ -25,10 +25,10 @@ export const NotesList = ({
   onSearchChange,
 }: NotesListProps) => {
   return (
-    <div className="w-80 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 space-y-3">
+    <div className="w-80 bg-card border-r border-border flex flex-col">
+      <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-card-foreground">
             Notes
           </h2>
           <Button
@@ -42,7 +42,7 @@ export const NotesList = ({
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search notes..."
             value={searchQuery}
@@ -54,9 +54,9 @@ export const NotesList = ({
 
       <ScrollArea className="flex-1">
         {loading && notes.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500 text-center">Loading...</div>
-        ) : notes.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500 text-center">
+          <div className="p-4 text-sm text-muted-foreground text-center">Loading...</div>
+        ) : notes.length === 0 && !loading ? (
+          <div className="p-4 text-sm text-muted-foreground text-center">
             {searchQuery ? 'No notes found' : 'No notes yet. Create one to get started!'}
           </div>
         ) : (

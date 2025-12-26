@@ -114,7 +114,7 @@ export const LoginPage = () => {
         type="button"
         onClick={handleGoogleSignIn}
         variant="outline"
-        className="w-full bg-primary"
+        className="w-full"
         size="lg"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">

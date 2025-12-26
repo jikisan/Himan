@@ -39,10 +39,37 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
+  ({ className, variant, size, style, ...props }, ref) => {
+    // Apply inline styles for background colors to ensure they render
+    const getBackgroundStyle = () => {
+      if (variant === 'outline' || variant === 'ghost' || variant === 'link') {
+        return {}; // These variants don't need explicit background
+      }
+
+      const baseStyle: React.CSSProperties = {};
+
+      switch (variant) {
+        case 'destructive':
+          baseStyle.backgroundColor = 'hsl(var(--destructive))';
+          baseStyle.color = 'hsl(var(--destructive-foreground))';
+          break;
+        case 'secondary':
+          baseStyle.backgroundColor = 'hsl(var(--secondary))';
+          baseStyle.color = 'hsl(var(--secondary-foreground))';
+          break;
+        default: // 'default' variant uses primary
+          baseStyle.backgroundColor = 'hsl(var(--primary))';
+          baseStyle.color = 'hsl(var(--primary-foreground))';
+          break;
+      }
+
+      return baseStyle;
+    };
+
     return (
       <button
         className={cn(buttonVariants({ variant, size, className }))}
+        style={{ ...getBackgroundStyle(), ...style }}
         ref={ref}
         {...props}
       />

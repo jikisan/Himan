@@ -1,6 +1,7 @@
 import { Star } from 'lucide-react';
 import type { PasswordType } from '../../domain';
 import { Password } from '../../domain/entities/Password';
+import { cn } from '@core/presentation/utils';
 
 interface PasswordItemProps {
   password: PasswordType;
@@ -18,10 +19,12 @@ export const PasswordItem = ({
 
   return (
     <div
-      className={
-        'p-3 border-b border-border cursor-pointer transition-colors hover:bg-accent ' +
-        (isActive ? 'bg-accent' : '')
-      }
+      className={cn(
+        'p-3 cursor-pointer border-b border-border transition-colors',
+        isActive
+          ? 'bg-accent border-l-4 border-l-primary'
+          : 'hover:bg-accent/50 border-l-4 border-l-transparent'
+      )}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2">

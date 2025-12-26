@@ -56,13 +56,17 @@ export const NotesPage = () => {
   );
 
   const handleCreateNote = useCallback(async () => {
+    const folderId = selectedFolderId === 'all' ? null : selectedFolderId;
+    console.log('Creating note with folderId:', folderId, 'selectedFolderId:', selectedFolderId);
+
     const newNote = await createNote({
       title: 'Untitled',
       content: '',
       excerpt: '',
-      folderId: selectedFolderId === 'all' ? null : selectedFolderId,
+      folderId,
     });
     if (newNote) {
+      console.log('Note created:', newNote);
       setSelectedNote(new NoteEntity(newNote));
     }
   }, [createNote, selectedFolderId]);

@@ -63,24 +63,31 @@ export class NoteRepository {
   }
 
   async create(dto: CreateNoteDto): Promise<Note> {
+    const insertData = {
+      title: dto.title,
+      content: dto.content,
+      excerpt: dto.excerpt,
+      folder_id: dto.folderId,
+      user_id: dto.userId,
+      is_pinned: dto.isPinned ?? false,
+      tags: dto.tags ?? [],
+    };
+
+    console.log('NoteRepository.create - dto:', dto);
+    console.log('NoteRepository.create - insertData:', insertData);
+
     const { data, error } = await supabase
       .from('notes')
-      .insert({
-        title: dto.title,
-        content: dto.content,
-        excerpt: dto.excerpt,
-        folder_id: dto.folderId,
-        user_id: dto.userId,
-        is_pinned: dto.isPinned ?? false,
-        tags: dto.tags ?? [],
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
+      console.error('NoteRepository.create - error:', error);
       throw new Error(`Failed to create note: ${error.message}`);
     }
 
+    console.log('NoteRepository.create - result:', data);
     return this.mapToEntity(data);
   }
 

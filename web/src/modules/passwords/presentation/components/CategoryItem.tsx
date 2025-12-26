@@ -57,9 +57,15 @@ export const CategoryItem = ({
     <div
       className={
         'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors group relative ' +
-        (isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-accent hover:text-accent-foreground')
+        (isActive ? '' : 'hover:bg-accent hover:text-accent-foreground')
+      }
+      style={
+        isActive
+          ? {
+              backgroundColor: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-foreground))',
+            }
+          : {}
       }
       onClick={onClick}
     >

@@ -1,30 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
-import { CategoryList, PasswordList, PasswordDetails } from '../components';
+import { Plus, Search } from 'lucide-react';
+import { CategoryList, PasswordDialog, PasswordTable } from '../components';
 import { usePasswords, useCategories } from '../hooks';
-import { Password as PasswordEntity } from '../../domain/entities/Password';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import type { PasswordType } from '../../domain';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 export const PasswordsPage = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null | 'all' | 'favorites'>('all');
-  const [selectedPassword, setSelectedPassword] = useState<PasswordEntity | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(false);
-  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
-  const [targetCategoryId, setTargetCategoryId] = useState<string | null>(null);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [editingPassword, setEditingPassword] = useState<PasswordType | null>(null);
 
   const passwordFilters = useMemo(() => {
     const filters: {
@@ -64,86 +51,58 @@ export const PasswordsPage = () => {
     refetch: refetchCategories,
   } = useCategories();
 
-  const handleCreatePassword = useCallback(async () => {
-    const categoryId = selectedCategoryId === 'all' || selectedCategoryId === 'favorites' ? null : selectedCategoryId;
+  const handleAddPassword = useCallback(() => {
+    setEditingPassword(null);
+    setIsPasswordDialogOpen(true);
+  }, []);
 
-    const newPassword = await createPassword({
-      title: 'Untitled',
-      username: '',
-      password: '',
-      url: '',
-      notes: '',
-      categoryId,
-    });
+  const handleEditPassword = useCallback((password: PasswordType) => {
+    setEditingPassword(password);
+    setIsPasswordDialogOpen(true);
+  }, []);
 
-    if (newPassword) {
-      setSelectedPassword(new PasswordEntity(newPassword));
-      refetchCategories();
-    }
-  }, [createPassword, selectedCategoryId, refetchCategories]);
-
-  const handleUpdatePassword = useCallback(
+  const handleSavePassword = useCallback(
     async (data: {
-      title?: string;
-      username?: string | null;
-      password?: string;
-      url?: string | null;
-      notes?: string | null;
+      title: string;
+      username: string | null;
+      password: string;
+      url: string | null;
+      notes: string | null;
+      categoryId: string | null;
     }) => {
-      if (selectedPassword) {
-        const updated = await updatePassword(selectedPassword.id, data);
-        if (updated) {
-          setSelectedPassword(new PasswordEntity(updated));
-        }
+      if (editingPassword) {
+        await updatePassword(editingPassword.id, data);
+      } else {
+        await createPassword(data);
       }
+      refetchPasswords();
+      refetchCategories();
     },
-    [selectedPassword, updatePassword]
+    [editingPassword, createPassword, updatePassword, refetchPasswords, refetchCategories]
   );
 
-  const handleToggleFavorite = useCallback(async () => {
-    if (selectedPassword) {
-      const updated = await updatePassword(selectedPassword.id, {
-        isFavorite: !selectedPassword.isFavorite,
-      });
-      if (updated) {
-        setSelectedPassword(new PasswordEntity(updated));
+  const handleToggleFavorite = useCallback(
+    async (id: string) => {
+      const password = passwords.find((p) => p.id === id);
+      if (password) {
+        await updatePassword(id, { isFavorite: !password.isFavorite });
       }
-    }
-  }, [selectedPassword, updatePassword]);
+    },
+    [passwords, updatePassword]
+  );
 
-  const handleDeletePassword = useCallback(async () => {
-    if (selectedPassword) {
+  const handleDeletePassword = useCallback(
+    async (id: string) => {
       const confirmed = window.confirm('Are you sure you want to delete this password?');
       if (confirmed) {
-        const success = await deletePassword(selectedPassword.id);
+        const success = await deletePassword(id);
         if (success) {
-          setSelectedPassword(null);
           refetchCategories();
         }
       }
-    }
-  }, [selectedPassword, deletePassword, refetchCategories]);
-
-  const handleMoveToCategory = useCallback(() => {
-    if (selectedPassword) {
-      setTargetCategoryId(selectedPassword.categoryId);
-      setIsMoveDialogOpen(true);
-    }
-  }, [selectedPassword]);
-
-  const handleConfirmMove = useCallback(async () => {
-    if (selectedPassword) {
-      const updated = await updatePassword(selectedPassword.id, {
-        categoryId: targetCategoryId,
-      });
-      if (updated) {
-        setSelectedPassword(new PasswordEntity(updated));
-        setIsMoveDialogOpen(false);
-        refetchPasswords();
-        refetchCategories();
-      }
-    }
-  }, [selectedPassword, targetCategoryId, updatePassword, refetchPasswords, refetchCategories]);
+    },
+    [deletePassword, refetchCategories]
+  );
 
   const handleCreateCategory = useCallback(
     async (name: string) => {
@@ -199,60 +158,47 @@ export const PasswordsPage = () => {
           onToggleCollapse={handleToggleCategoryCollapse}
         />
 
-        <PasswordList
-          passwords={passwords}
-          selectedPasswordId={selectedPassword?.id || null}
-          onSelectPassword={setSelectedPassword}
-          onCreatePassword={handleCreatePassword}
-          loading={passwordsLoading}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
-
-        {selectedPassword ? (
-          <PasswordDetails
-            password={selectedPassword}
-            onUpdate={handleUpdatePassword}
-            onToggleFavorite={handleToggleFavorite}
-            onDelete={handleDeletePassword}
-            onMoveToCategory={handleMoveToCategory}
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
-            Select a password to view details
+        <div className="flex-1 flex flex-col bg-background">
+          {/* Header with search and add button */}
+          <div className="p-4 border-b border-border flex items-center gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search passwords..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={handleAddPassword}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Password
+            </Button>
           </div>
-        )}
+
+          {/* Password Table */}
+          {passwordsLoading ? (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              Loading...
+            </div>
+          ) : (
+            <PasswordTable
+              passwords={passwords}
+              onEdit={handleEditPassword}
+              onToggleFavorite={handleToggleFavorite}
+              onDelete={handleDeletePassword}
+            />
+          )}
+        </div>
       </div>
 
-      <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Move to Category</DialogTitle>
-          </DialogHeader>
-          <Select
-            value={targetCategoryId || 'none'}
-            onValueChange={(value) => setTargetCategoryId(value === 'none' ? null : value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Uncategorized</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsMoveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmMove}>Move</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PasswordDialog
+        open={isPasswordDialogOpen}
+        onOpenChange={setIsPasswordDialogOpen}
+        password={editingPassword}
+        categories={categories}
+        onSave={handleSavePassword}
+      />
     </>
   );
 };

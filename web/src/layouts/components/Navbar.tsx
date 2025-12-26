@@ -54,14 +54,14 @@ export const Navbar = () => {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="flex items-center gap-2 p-2 hover:bg-accent rounded-lg transition-colors"
           >
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium border-2 border-primary-foreground/20">
               {user?.email?.charAt(0).toUpperCase() || 'U'}
             </div>
-            {user?.email && (
+            {/* {user?.email && (
               <span className="hidden md:block text-sm font-medium text-foreground">
                 {user.email.split('@')[0]}
               </span>
-            )}
+            )} */}
           </button>
 
           {/* Dropdown Menu */}

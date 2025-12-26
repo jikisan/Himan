@@ -52,7 +52,7 @@ export const useEditor = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-full p-6',
+        class: 'tiptap prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-full p-6',
       },
     },
   });

@@ -121,7 +121,13 @@ export const PasswordDetails = ({
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent
+                align="end"
+                style={{
+                  backgroundColor: 'hsl(var(--popover))',
+                  color: 'hsl(var(--popover-foreground))',
+                }}
+              >
                 <DropdownMenuItem onClick={() => setIsEditing(true)}>
                   <Edit2 className="h-4 w-4 mr-2" />
                   Edit

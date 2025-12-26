@@ -113,12 +113,9 @@ export const FolderList = ({
                 className={
                   "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
                   (selectedFolderId === "all"
-                    ? "bg-accent"
-                    : "hover:bg-accent/50")
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground")
                 }
-                style={{
-                  borderLeft: selectedFolderId === "all" ? '4px solid hsl(var(--primary))' : '4px solid transparent',
-                }}
                 onClick={() => onSelectFolder("all")}
               >
                 <FolderOpen className="w-4 h-4" />
@@ -129,12 +126,9 @@ export const FolderList = ({
                 className={
                   "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
                   (selectedFolderId === null
-                    ? "bg-accent"
-                    : "hover:bg-accent/50")
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground")
                 }
-                style={{
-                  borderLeft: selectedFolderId === null ? '4px solid hsl(var(--primary))' : '4px solid transparent',
-                }}
                 onClick={() => onSelectFolder(null)}
               >
                 <FolderIcon className="w-4 h-4" />

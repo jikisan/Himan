@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { FolderList, NotesList, NoteEditor } from '../components';
 import { useNotes, useFolders } from '../hooks';
 import { Note as NoteEntity } from '../../domain/entities/Note';
@@ -24,6 +24,7 @@ export const NotesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
+  const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const noteFilters = useMemo(() => ({
     folderId: selectedFolderId === 'all' ? undefined : selectedFolderId,
@@ -66,15 +67,25 @@ export const NotesPage = () => {
   }, [createNote, selectedFolderId]);
 
   const handleUpdateNoteTitle = useCallback(
-    async (title: string) => {
+    (title: string) => {
       if (selectedNote) {
-        const updated = await updateNote(selectedNote.id, {
-          title,
-          excerpt: NoteEntity.generateExcerpt(selectedNote.content),
-        });
-        if (updated) {
-          setSelectedNote(new NoteEntity(updated));
+        // Update local state immediately for responsive UI
+        setSelectedNote(new NoteEntity({ ...selectedNote, title }));
+
+        // Debounce the API call
+        if (titleTimeoutRef.current) {
+          clearTimeout(titleTimeoutRef.current);
         }
+
+        titleTimeoutRef.current = setTimeout(async () => {
+          const updated = await updateNote(selectedNote.id, {
+            title,
+            excerpt: NoteEntity.generateExcerpt(selectedNote.content),
+          });
+          if (updated) {
+            setSelectedNote(new NoteEntity(updated));
+          }
+        }, 1000); // 1 second debounce
       }
     },
     [selectedNote, updateNote]

@@ -42,6 +42,7 @@ export const PasswordDetails = ({
   });
 
   // Sync editData when password changes
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setEditData({
       title: password.title,

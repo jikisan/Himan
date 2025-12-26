@@ -57,15 +57,9 @@ export const CategoryItem = ({
     <div
       className={
         'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors group relative ' +
-        (isActive ? '' : 'hover:bg-accent hover:text-accent-foreground')
-      }
-      style={
-        isActive
-          ? {
-              backgroundColor: 'hsl(var(--primary))',
-              color: 'hsl(var(--primary-foreground))',
-            }
-          : {}
+        (isActive
+          ? 'bg-primary text-primary-foreground'
+          : 'hover:bg-accent hover:text-accent-foreground')
       }
       onClick={onClick}
     >
@@ -84,13 +78,7 @@ export const CategoryItem = ({
         </button>
 
         {isMenuOpen && (
-          <div
-            className="absolute right-0 mt-1 w-32 rounded-md shadow-lg border border-border py-1 z-50"
-            style={{
-              backgroundColor: 'hsl(var(--popover))',
-              color: 'hsl(var(--popover-foreground))',
-            }}
-          >
+          <div className="absolute right-0 mt-1 w-32 rounded-md shadow-lg border border-border py-1 z-50 bg-popover text-popover-foreground">
             <button
               onClick={handleEdit}
               className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-2"

@@ -13,11 +13,10 @@ export const NoteItem = ({ note, isActive, onClick }: NoteItemProps) => {
     <div
       className={cn(
         'p-4 cursor-pointer border-b border-border transition-colors',
-        isActive ? 'bg-accent' : 'hover:bg-accent/50'
+        isActive
+          ? 'bg-accent border-l-4 border-l-primary'
+          : 'hover:bg-accent/50 border-l-4 border-l-transparent'
       )}
-      style={{
-        borderLeft: isActive ? '4px solid hsl(var(--primary))' : '4px solid transparent',
-      }}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2 mb-1">

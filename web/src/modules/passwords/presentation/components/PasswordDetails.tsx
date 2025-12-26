@@ -123,10 +123,7 @@ export const PasswordDetails = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                style={{
-                  backgroundColor: 'hsl(var(--popover))',
-                  color: 'hsl(var(--popover-foreground))',
-                }}
+                className="bg-popover text-popover-foreground"
               >
                 <DropdownMenuItem onClick={() => setIsEditing(true)}>
                   <Edit2 className="h-4 w-4 mr-2" />

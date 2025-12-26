@@ -148,18 +148,18 @@ The project uses a hybrid approach combining Radix UI primitives with custom sty
 - Base components are in `src/components/ui/` (Button, Dialog, Card, Input, etc.)
 - All UI components use CSS variables for theming (defined in `src/index.css`)
 - Theme switching (light/dark/system) is managed via `ThemeProvider` context
-- Components apply inline styles for critical colors to ensure proper rendering across themes
-- Example: `backgroundColor: 'hsl(var(--background))'` ensures dialogs have solid backgrounds
+- Tailwind CSS v4 with `@theme inline` configuration maps CSS variables to Tailwind classes
+- This allows using `bg-primary`, `text-primary-foreground`, etc. directly with proper theme support
 
-**IMPORTANT - Inline Styles for Theme Colors:**
-- **NEVER** use Tailwind classes like `bg-primary`, `text-primary-foreground`, `bg-popover`, etc. for dynamic/conditional styling
-- **ALWAYS** use inline styles with CSS variables instead: `style={{ backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}`
-- This ensures theme colors render correctly across light/dark modes
+**Styling Approach:**
+- Use Tailwind utility classes for theme colors: `bg-primary`, `text-primary-foreground`, `bg-popover`, `text-destructive`, etc.
+- The `@theme inline` configuration in `src/index.css` ensures these classes work with CSS variables
+- Theme colors automatically adapt to light/dark modes
 - Common patterns:
-  - Primary background: `style={{ backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}`
-  - Popover/Dropdown: `style={{ backgroundColor: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}`
-  - Border highlights: `style={{ borderLeft: '4px solid hsl(var(--primary))' }}`
-  - Destructive text: Use `className="text-destructive"` (this one works with classes)
+  - Primary background: `bg-primary text-primary-foreground`
+  - Popover/Dropdown: `bg-popover text-popover-foreground`
+  - Destructive text: `text-destructive`
+  - Border highlights: Use Tailwind border utilities with color classes
 
 ### Routing Structure
 

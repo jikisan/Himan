@@ -67,7 +67,7 @@ export const CategoryList = ({
   return (
     <>
       <div
-        className={`bg-muted border-r border-border flex flex-col transition-all duration-300 ${
+        className={`bg-background border-r border-border flex flex-col transition-all duration-300 ${
           isCollapsed ? 'w-12' : 'w-64'
         }`}
       >
@@ -113,16 +113,8 @@ export const CategoryList = ({
                 className={
                   'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ' +
                   (selectedCategoryId === 'all'
-                    ? ''
+                    ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground')
-                }
-                style={
-                  selectedCategoryId === 'all'
-                    ? {
-                        backgroundColor: 'hsl(var(--primary))',
-                        color: 'hsl(var(--primary-foreground))',
-                      }
-                    : {}
                 }
                 onClick={() => onSelectCategory('all')}
               >
@@ -134,16 +126,8 @@ export const CategoryList = ({
                 className={
                   'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ' +
                   (selectedCategoryId === 'favorites'
-                    ? ''
+                    ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground')
-                }
-                style={
-                  selectedCategoryId === 'favorites'
-                    ? {
-                        backgroundColor: 'hsl(var(--primary))',
-                        color: 'hsl(var(--primary-foreground))',
-                      }
-                    : {}
                 }
                 onClick={() => onSelectCategory('favorites')}
               >
@@ -155,16 +139,8 @@ export const CategoryList = ({
                 className={
                   'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors ' +
                   (selectedCategoryId === null
-                    ? ''
+                    ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground')
-                }
-                style={
-                  selectedCategoryId === null
-                    ? {
-                        backgroundColor: 'hsl(var(--primary))',
-                        color: 'hsl(var(--primary-foreground))',
-                      }
-                    : {}
                 }
                 onClick={() => onSelectCategory(null)}
               >

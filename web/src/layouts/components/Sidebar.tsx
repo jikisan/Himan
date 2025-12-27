@@ -35,8 +35,21 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
     )}>
       {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-border">
-        {isOpen && (
-          <span className="text-xl font-bold text-foreground">Himan</span>
+        {isOpen ? (
+          <div className="flex items-center gap-3">
+            <img
+              src="/assets/images/himan_logo.webp"
+              alt="Himan Logo"
+              className="h-8 w-8 object-contain"
+            />
+            <span className="text-xl font-bold text-foreground">Himan</span>
+          </div>
+        ) : (
+          <img
+            src="/assets/images/himan_logo.webp"
+            alt="Himan Logo"
+            className="h-8 w-8 object-contain mx-auto"
+          />
         )}
         <button
           onClick={onToggle}

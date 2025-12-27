@@ -39,9 +39,14 @@ export const Navbar = () => {
         {/* App Title/Logo */}
         <Link
           to="/dashboard"
-          className="text-xl font-bold text-foreground hover:text-primary transition-colors"
+          className="flex items-center gap-3 text-xl font-bold text-foreground hover:text-primary transition-colors"
         >
-          Himan
+          <img
+            src="/assets/images/himan_logo.webp"
+            alt="Himan Logo"
+            className="h-8 w-8 object-contain"
+          />
+          <span>Himan</span>
         </Link>
       </div>
 

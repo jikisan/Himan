@@ -107,7 +107,7 @@ export const NoteEditor = ({
         onToggleHighlight={toggleHighlight}
       />
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto editor-scroll">
         <EditorContent editor={editor} className="h-full" />
       </div>
 

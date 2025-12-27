@@ -251,3 +251,67 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   height: 0;
   pointer-events: none;
 }
+
+/* Transparent scrollbar for toolbar */
+.toolbar-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.toolbar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.toolbar-scroll:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.3);
+}
+
+.toolbar-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.5);
+}
+
+/* Firefox */
+.toolbar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.toolbar-scroll:hover {
+  scrollbar-color: hsl(var(--border) / 0.3) transparent;
+}
+
+/* Transparent scrollbar for note editor */
+.editor-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.editor-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.editor-scroll:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.3);
+}
+
+.editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.5);
+}
+
+/* Firefox */
+.editor-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.editor-scroll:hover {
+  scrollbar-color: hsl(var(--border) / 0.3) transparent;
+}

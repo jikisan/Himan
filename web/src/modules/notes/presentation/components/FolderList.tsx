@@ -68,7 +68,7 @@ export const FolderList = ({
   return (
     <>
       <div
-        className={`bg-background border-r border-border flex flex-col transition-all duration-300 ${
+        className={`hidden lg:flex bg-background border-r border-border flex-col transition-all duration-300 ${
           isCollapsed ? "w-12" : "w-64"
         }`}
       >

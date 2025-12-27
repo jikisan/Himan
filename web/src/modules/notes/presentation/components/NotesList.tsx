@@ -65,7 +65,7 @@ export const NotesList = ({
   return (
     <div
       ref={resizeRef}
-      className="bg-card border-r border-border flex flex-col relative"
+      className="hidden lg:flex bg-card border-r border-border flex-col relative"
       style={{ width: `${width}px`, minWidth: `${MIN_WIDTH}px`, maxWidth: `${MAX_WIDTH}px` }}
     >
       <div className="p-4 border-b border-border space-y-3">
@@ -113,9 +113,9 @@ export const NotesList = ({
         )}
       </ScrollArea>
 
-      {/* Resize handle */}
+      {/* Resize handle (desktop only) */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors group"
+        className="hidden lg:block absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors group"
         onMouseDown={() => setIsResizing(true)}
       >
         <div className="absolute right-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { FolderList, NotesList, NoteEditor } from '../components';
+import { MobileNotesMenu } from '../components/MobileNotesMenu';
 import { useNotes, useFolders } from '../hooks';
 import { Note as NoteEntity } from '../../domain/entities/Note';
 import {
@@ -10,6 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -26,6 +28,7 @@ export const NotesPage = () => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
   const [isFolderCollapsed, setIsFolderCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const noteFilters = useMemo(() => ({
@@ -198,9 +201,14 @@ export const NotesPage = () => {
     setIsFolderCollapsed(prev => !prev);
   }, []);
 
+  const handleToggleMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(prev => !prev);
+  }, []);
+
   return (
     <>
       <div className="flex h-screen bg-secondary">
+        {/* Desktop: Folder List - hide on mobile/tablet */}
         <FolderList
           folders={folders}
           selectedFolderId={selectedFolderId}
@@ -213,6 +221,7 @@ export const NotesPage = () => {
           onToggleCollapse={handleToggleFolderCollapse}
         />
 
+        {/* Desktop: Notes List - hide on mobile/tablet */}
         <NotesList
           notes={notesEntities}
           selectedNoteId={selectedNote?.id || null}
@@ -223,6 +232,7 @@ export const NotesPage = () => {
           onSearchChange={setSearchQuery}
         />
 
+        {/* Editor (both mobile and desktop) */}
         {selectedNote ? (
           <NoteEditor
             note={selectedNote}
@@ -231,13 +241,46 @@ export const NotesPage = () => {
             onTogglePin={handleTogglePin}
             onDelete={handleDeleteNote}
             onMoveToFolder={handleMoveToFolder}
+            onOpenMobileMenu={handleToggleMobileMenu}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
-            Select a note to start editing
+            <div className="text-center space-y-4">
+              <p>Select a note to start editing</p>
+              <Button
+                onClick={handleToggleMobileMenu}
+                variant="outline"
+                className="lg:hidden"
+              >
+                Browse Notes
+              </Button>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Mobile: Slide-in Menu */}
+      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <SheetContent side="left" className="w-[85vw] max-w-md p-0">
+          <MobileNotesMenu
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={setSelectedFolderId}
+            onCreateFolder={handleCreateFolder}
+            onUpdateFolder={handleUpdateFolder}
+            onDeleteFolder={handleDeleteFolder}
+            foldersLoading={foldersLoading}
+            notes={notesEntities}
+            selectedNoteId={selectedNote?.id || null}
+            onSelectNote={setSelectedNote}
+            onCreateNote={handleCreateNote}
+            notesLoading={notesLoading}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onClose={() => setIsMobileMenuOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
         <DialogContent>

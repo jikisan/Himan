@@ -20,3 +20,4 @@ export * from './dialog';
 export * from './dropdown-menu';
 export * from './scroll-area';
 export * from './select';
+export * from './sheet';

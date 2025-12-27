@@ -1,5 +1,5 @@
 import { EditorContent } from '@tiptap/react';
-import { MoreVertical, Pin, Trash2, FolderInput } from 'lucide-react';
+import { MoreVertical, Pin, Trash2, FolderInput, Menu } from 'lucide-react';
 import { Note as NoteEntity } from '../../domain/entities/Note';
 import { EditorToolbar } from './EditorToolbar';
 import { useEditor } from '../hooks/useEditor';
@@ -20,6 +20,7 @@ interface NoteEditorProps {
   onTogglePin: () => void;
   onDelete: () => void;
   onMoveToFolder: () => void;
+  onOpenMobileMenu?: () => void;
 }
 
 export const NoteEditor = ({
@@ -29,6 +30,7 @@ export const NoteEditor = ({
   onTogglePin,
   onDelete,
   onMoveToFolder,
+  onOpenMobileMenu,
 }: NoteEditorProps) => {
   const {
     editor,
@@ -47,16 +49,31 @@ export const NoteEditor = ({
 
   return (
     <div className="flex-1 bg-background flex flex-col">
-      <div className="p-4 border-b border-border flex items-center justify-between">
+      <div className="p-4 border-b border-border flex items-center gap-2">
+        {/* Mobile: Hamburger Menu */}
+        {onOpenMobileMenu && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenMobileMenu}
+            className="h-8 w-8 lg:hidden flex-shrink-0"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+
+        {/* Note Title */}
         <Input
           value={note.title}
           onChange={(e) => onTitleChange(e.target.value)}
-          className="text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0"
+          className="text-xl sm:text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 flex-1"
           placeholder="Untitled"
         />
+
+        {/* More Options Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -94,7 +111,7 @@ export const NoteEditor = ({
         <EditorContent editor={editor} className="h-full" />
       </div>
 
-      <div className="p-2 border-t border-border text-xs text-muted-foreground text-center">
+      <div className="hidden sm:block p-2 border-t border-border text-xs text-muted-foreground text-center">
         Last edited {note.getRelativeTime()}
       </div>
     </div>

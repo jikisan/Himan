@@ -13,3 +13,4 @@ MD_files/
 
 # Root package-lock (if using workspaces)
 /package-lock.json
+web/.claude/commands/code-review.md

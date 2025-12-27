@@ -48,8 +48,8 @@ export const NoteEditor = ({
   });
 
   return (
-    <div className="flex-1 bg-background flex flex-col">
-      <div className="p-4 border-b border-border flex items-center gap-2">
+    <div className="flex-1 bg-background flex flex-col overflow-hidden">
+      <div className="p-3 sm:p-4 border-b border-border flex items-center gap-2 min-w-0">
         {/* Mobile: Hamburger Menu */}
         {onOpenMobileMenu && (
           <Button
@@ -66,7 +66,7 @@ export const NoteEditor = ({
         <Input
           value={note.title}
           onChange={(e) => onTitleChange(e.target.value)}
-          className="text-xl sm:text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 flex-1"
+          className="text-lg sm:text-xl lg:text-2xl font-bold border-none shadow-none focus-visible:ring-0 px-0 flex-1 min-w-0"
           placeholder="Untitled"
         />
 

@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 
 export const NotesPage = () => {
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null | 'all'>('all');
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null | 'all' | 'pinned'>('all');
   const [selectedNote, setSelectedNote] = useState<NoteEntity | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
@@ -32,8 +32,9 @@ export const NotesPage = () => {
   const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const noteFilters = useMemo(() => ({
-    folderId: selectedFolderId === 'all' ? undefined : selectedFolderId,
+    folderId: selectedFolderId === 'all' || selectedFolderId === 'pinned' ? undefined : selectedFolderId,
     searchQuery: searchQuery || undefined,
+    isPinned: selectedFolderId === 'pinned' ? true : undefined,
   }), [selectedFolderId, searchQuery]);
 
   const {
@@ -311,9 +312,6 @@ export const NotesPage = () => {
             </SelectContent>
           </Select>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsMoveDialogOpen(false)}>
-              Cancel
-            </Button>
             <Button onClick={handleConfirmMove}>Move</Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, FolderOpen, Folder as FolderIcon, Plus, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderOpen, Folder as FolderIcon, Plus, Search, Pin } from 'lucide-react';
 import type { FolderType as Folder } from '../../domain';
 import { Note } from '../../domain/entities/Note';
 import { FolderItem } from './FolderItem';
@@ -11,8 +11,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface MobileNotesMenuProps {
   // Folders
   folders: Folder[];
-  selectedFolderId: string | null | 'all';
-  onSelectFolder: (folderId: string | null | 'all') => void;
+  selectedFolderId: string | null | 'all' | 'pinned';
+  onSelectFolder: (folderId: string | null | 'all' | 'pinned') => void;
   onCreateFolder: (name: string) => Promise<void>;
   onUpdateFolder: (id: string, name: string) => Promise<void>;
   onDeleteFolder: (id: string) => Promise<void>;
@@ -112,6 +112,21 @@ export const MobileNotesMenu = ({
               >
                 <FolderOpen className="w-4 h-4" />
                 <span className="font-medium">All Notes</span>
+              </div>
+
+              <div
+                className={
+                  'flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors text-sm ' +
+                  (selectedFolderId === 'pinned'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-accent hover:text-accent-foreground')
+                }
+                onClick={() => {
+                  onSelectFolder('pinned');
+                }}
+              >
+                <Pin className="w-4 h-4" />
+                <span className="font-medium">Pinned</span>
               </div>
 
               <div

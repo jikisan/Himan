@@ -19,13 +19,13 @@ export const NoteItem = ({ note, isActive, onClick }: NoteItemProps) => {
       )}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-2 mb-1">
+      <div className="flex items-start gap-2 mb-1">
+        {note.isPinned && (
+          <Pin className="w-3 h-3 text-primary flex-shrink-0 mt-0.5" />
+        )}
         <h3 className="text-sm font-semibold text-foreground truncate flex-1">
           {note.title || 'Untitled'}
         </h3>
-        {note.isPinned && (
-          <Pin className="w-3 h-3 text-primary flex-shrink-0" />
-        )}
       </div>
       <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
         {note.excerpt || 'No content'}

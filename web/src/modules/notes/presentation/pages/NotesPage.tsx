@@ -11,7 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -262,6 +262,10 @@ export const NotesPage = () => {
       {/* Mobile: Slide-in Menu */}
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetContent side="left" className="w-[85vw] max-w-md p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Notes Navigation</SheetTitle>
+            <SheetDescription>Browse folders and notes</SheetDescription>
+          </SheetHeader>
           <MobileNotesMenu
             folders={folders}
             selectedFolderId={selectedFolderId}

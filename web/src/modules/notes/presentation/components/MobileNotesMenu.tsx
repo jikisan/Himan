@@ -70,32 +70,31 @@ export const MobileNotesMenu = ({
       {/* Folders Section */}
       <div className="border-b border-border">
         <div className="p-4 pt-13">
-          <button
-            onClick={() => setIsFoldersExpanded(!isFoldersExpanded)}
-            className="flex items-center justify-between w-full text-left"
-          >
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <div className="flex items-center justify-between w-full">
+            <button
+              onClick={() => setIsFoldersExpanded(!isFoldersExpanded)}
+              className="flex items-center gap-2 text-left"
+            >
               {isFoldersExpanded ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
               )}
-              Folders
-            </h3>
+              <h3 className="text-sm font-semibold text-foreground">
+                Folders
+              </h3>
+            </button>
             {isFoldersExpanded && (
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCreatingFolder(true);
-                }}
+                onClick={() => setIsCreatingFolder(true)}
                 className="h-7 w-7"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             )}
-          </button>
+          </div>
 
           {isFoldersExpanded && (
             <div className="mt-3 space-y-1">

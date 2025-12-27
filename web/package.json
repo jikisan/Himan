@@ -16,6 +16,7 @@
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
     "@supabase/supabase-js": "^2.89.0",
+    "@tiptap/extension-character-count": "^3.14.0",
     "@tiptap/extension-highlight": "^3.14.0",
     "@tiptap/extension-placeholder": "^3.14.0",
     "@tiptap/extension-task-item": "^3.14.0",

@@ -5,13 +5,17 @@ import Typography from '@tiptap/extension-typography';
 import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import CharacterCount from '@tiptap/extension-character-count';
 import { useCallback, useEffect, useRef } from 'react';
+
+export const NOTE_CONTENT_MAX_LENGTH = 50000; // 50k characters
 
 interface UseEditorOptions {
   content: string;
   onUpdate: (content: string) => void;
   placeholder?: string;
   autosaveDelay?: number;
+  maxLength?: number;
 }
 
 export const useEditor = ({
@@ -19,6 +23,7 @@ export const useEditor = ({
   onUpdate,
   placeholder = 'Start typing...',
   autosaveDelay = 1000,
+  maxLength = NOTE_CONTENT_MAX_LENGTH,
 }: UseEditorOptions) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -37,6 +42,9 @@ export const useEditor = ({
       TaskList,
       TaskItem.configure({
         nested: true,
+      }),
+      CharacterCount.configure({
+        limit: maxLength,
       }),
     ],
     content,
@@ -110,6 +118,14 @@ export const useEditor = ({
     editor?.chain().focus().toggleHighlight().run();
   }, [editor]);
 
+  const getCharacterCount = useCallback(() => {
+    return editor?.storage.characterCount.characters() || 0;
+  }, [editor]);
+
+  const isLimitExceeded = useCallback(() => {
+    return (editor?.storage.characterCount.characters() || 0) > maxLength;
+  }, [editor, maxLength]);
+
   return {
     editor,
     toggleBold,
@@ -121,5 +137,8 @@ export const useEditor = ({
     toggleOrderedList,
     toggleTaskList,
     toggleHighlight,
+    getCharacterCount,
+    isLimitExceeded,
+    maxLength,
   };
 };

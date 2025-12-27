@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, FolderOpen, ChevronLeft, ChevronRight, Folder as FolderIcon, Pin } from "lucide-react";
+import { z } from "zod";
 import type { FolderType as Folder } from "../../domain";
 import { FolderItem } from "./FolderItem";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+const FOLDER_NAME_MAX_LENGTH = 100;
+
+const folderNameSchema = z.string()
+  .min(1, "Folder name is required")
+  .max(FOLDER_NAME_MAX_LENGTH, `Folder name must be ${FOLDER_NAME_MAX_LENGTH} characters or less`)
+  .trim();
 
 interface FolderListProps {
   folders: Folder[];
@@ -41,22 +49,42 @@ export const FolderList = ({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [folderName, setFolderName] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (folderName.trim()) {
-      await onCreateFolder(folderName.trim());
-      setFolderName("");
-      setIsCreateDialogOpen(false);
+    const validation = folderNameSchema.safeParse(folderName);
+
+    if (!validation.success) {
+      setValidationError(validation.error.errors[0].message);
+      return;
     }
+
+    await onCreateFolder(validation.data);
+    setFolderName("");
+    setValidationError(null);
+    setIsCreateDialogOpen(false);
   };
 
   const handleEdit = async () => {
-    if (editingFolder && folderName.trim()) {
-      await onUpdateFolder(editingFolder.id, folderName.trim());
-      setFolderName("");
-      setEditingFolder(null);
-      setIsEditDialogOpen(false);
+    if (!editingFolder) return;
+
+    const validation = folderNameSchema.safeParse(folderName);
+
+    if (!validation.success) {
+      setValidationError(validation.error.errors[0].message);
+      return;
     }
+
+    await onUpdateFolder(editingFolder.id, validation.data);
+    setFolderName("");
+    setEditingFolder(null);
+    setValidationError(null);
+    setIsEditDialogOpen(false);
+  };
+
+  const handleFolderNameChange = (value: string) => {
+    setFolderName(value);
+    setValidationError(null);
   };
 
   const openEditDialog = (folder: Folder) => {
@@ -179,20 +207,34 @@ export const FolderList = ({
           <DialogHeader>
             <DialogTitle>Create Folder</DialogTitle>
             <DialogDescription>
-              Enter a name for your new folder.
+              Enter a name for your new folder (max {FOLDER_NAME_MAX_LENGTH} characters).
             </DialogDescription>
           </DialogHeader>
-          <Input
-            placeholder="Folder name"
-            value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            autoFocus
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder="Folder name"
+              value={folderName}
+              onChange={(e) => handleFolderNameChange(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              maxLength={FOLDER_NAME_MAX_LENGTH}
+              autoFocus
+              className={validationError ? "border-destructive" : ""}
+            />
+            {validationError && (
+              <p className="text-sm text-destructive">{validationError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {folderName.length}/{FOLDER_NAME_MAX_LENGTH} characters
+            </p>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
+              onClick={() => {
+                setIsCreateDialogOpen(false);
+                setValidationError(null);
+                setFolderName("");
+              }}
             >
               Cancel
             </Button>
@@ -206,20 +248,34 @@ export const FolderList = ({
           <DialogHeader>
             <DialogTitle>Rename Folder</DialogTitle>
             <DialogDescription>
-              Enter a new name for this folder.
+              Enter a new name for this folder (max {FOLDER_NAME_MAX_LENGTH} characters).
             </DialogDescription>
           </DialogHeader>
-          <Input
-            placeholder="Folder name"
-            value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleEdit()}
-            autoFocus
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder="Folder name"
+              value={folderName}
+              onChange={(e) => handleFolderNameChange(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleEdit()}
+              maxLength={FOLDER_NAME_MAX_LENGTH}
+              autoFocus
+              className={validationError ? "border-destructive" : ""}
+            />
+            {validationError && (
+              <p className="text-sm text-destructive">{validationError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {folderName.length}/{FOLDER_NAME_MAX_LENGTH} characters
+            </p>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setValidationError(null);
+                setFolderName("");
+              }}
             >
               Cancel
             </Button>

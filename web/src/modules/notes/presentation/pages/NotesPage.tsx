@@ -208,7 +208,7 @@ export const NotesPage = () => {
 
   return (
     <>
-      <div className="flex h-screen bg-secondary">
+      <div className="flex h-full bg-secondary">
         {/* Desktop: Folder List - hide on mobile/tablet */}
         <FolderList
           folders={folders}
@@ -251,7 +251,7 @@ export const NotesPage = () => {
               <Button
                 onClick={handleToggleMobileMenu}
                 variant="outline"
-                className="lg:hidden"
+                className="bg-primary lg:hidden"
               >
                 Browse Notes
               </Button>

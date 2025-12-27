@@ -65,7 +65,7 @@ export const NotesList = ({
   return (
     <div
       ref={resizeRef}
-      className="hidden lg:flex bg-card border-r border-border flex-col relative"
+      className="hidden lg:flex bg-background border-r border-border flex-col relative"
       style={{ width: `${width}px`, minWidth: `${MIN_WIDTH}px`, maxWidth: `${MAX_WIDTH}px` }}
     >
       <div className="p-4 border-b border-border space-y-3">

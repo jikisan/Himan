@@ -48,7 +48,7 @@ export const NoteEditor = ({
   });
 
   return (
-    <div className="flex-1 bg-background flex flex-col overflow-hidden">
+    <div className="flex-1 bg-card flex flex-col overflow-hidden">
       <div className="p-3 sm:p-4 border-b border-border flex items-center gap-2 min-w-0">
         {/* Mobile: Hamburger Menu */}
         {onOpenMobileMenu && (

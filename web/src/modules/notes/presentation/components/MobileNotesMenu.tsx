@@ -36,7 +36,6 @@ export const MobileNotesMenu = ({
   selectedFolderId,
   onSelectFolder,
   onCreateFolder,
-  onUpdateFolder,
   onDeleteFolder,
   foldersLoading,
   notes,

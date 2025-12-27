@@ -1,6 +1,6 @@
 import { useAuth } from "@auth/presentation/hooks";
 import { Link } from "react-router-dom";
-import { FileText, User, Settings, KeyRound } from "lucide-react";
+import { FileText, KeyRound } from "lucide-react";
 import {
   Card,
   CardDescription,

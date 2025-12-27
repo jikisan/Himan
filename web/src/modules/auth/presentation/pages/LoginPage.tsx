@@ -32,17 +32,32 @@ export const LoginPage = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Google Sign In Error:', error);
+        throw error;
+      }
+
+      // OAuth redirects automatically, so we don't need to navigate
+      console.log('OAuth URL:', data.url);
     } catch (err) {
+      console.error('Google Sign In Exception:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in with Google');
+      setLoading(false);
     }
   };
 

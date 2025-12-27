@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -164,6 +165,9 @@ export const FolderList = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Folder</DialogTitle>
+            <DialogDescription>
+              Enter a name for your new folder.
+            </DialogDescription>
           </DialogHeader>
           <Input
             placeholder="Folder name"
@@ -188,6 +192,9 @@ export const FolderList = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename Folder</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this folder.
+            </DialogDescription>
           </DialogHeader>
           <Input
             placeholder="Folder name"

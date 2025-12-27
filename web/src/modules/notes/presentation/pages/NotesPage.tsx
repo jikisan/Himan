@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -242,6 +243,9 @@ export const NotesPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Move to Folder</DialogTitle>
+            <DialogDescription>
+              Select a folder to move this note to.
+            </DialogDescription>
           </DialogHeader>
           <Select
             value={targetFolderId || 'none'}

@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -177,6 +178,9 @@ export const CategoryList = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Category</DialogTitle>
+            <DialogDescription>
+              Enter a name for your new password category.
+            </DialogDescription>
           </DialogHeader>
           <Input
             placeholder="Category name"
@@ -201,6 +205,9 @@ export const CategoryList = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename Category</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this category.
+            </DialogDescription>
           </DialogHeader>
           <Input
             placeholder="Category name"

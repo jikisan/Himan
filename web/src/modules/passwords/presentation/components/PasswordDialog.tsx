@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -104,6 +105,9 @@ export const PasswordDialog = ({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{password ? 'Edit Password' : 'Add Password'}</DialogTitle>
+          <DialogDescription>
+            {password ? 'Update the password information below.' : 'Enter the details for your new password entry.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

@@ -67,11 +67,7 @@ export const Navbar = () => {
           {/* Dropdown Menu */}
           {isDropdownOpen && (
             <div
-              className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg border border-border z-50"
-              style={{
-                backgroundColor: 'hsl(var(--popover))',
-                color: 'hsl(var(--popover-foreground))'
-              }}
+              className="bg-background absolute right-0 mt-2 w-56 rounded-lg shadow-lg border border-border z-50"
             >
             <div className="p-3 border-b border-border">
               <p className="text-sm font-medium">

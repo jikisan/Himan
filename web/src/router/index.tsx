@@ -8,9 +8,9 @@ import { RootLayout, AuthLayout, DashboardLayout } from '@/layouts';
 // Pages
 import { LoginPage, SignUpPage } from '@auth/presentation/pages';
 import { DashboardPage } from '@dashboard/presentation/pages';
-import { ProfilePage, SettingsPage } from '@settings';
-import { NotesPage } from '@notes';
-import { PasswordsPage } from '@passwords';
+import { ProfilePage, SettingsPage } from '@settings/presentation/pages';
+import { NotesPage } from '@notes/presentation/pages/NotesPage';
+import { PasswordsPage } from '@passwords/presentation/pages';
 import { NotFoundPage } from '@core/presentation/pages';
 
 export const Router = () => {

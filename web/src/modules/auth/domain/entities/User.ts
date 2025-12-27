@@ -1,15 +1,31 @@
 export class User {
+  readonly id: string;
+  readonly email: string;
+  readonly emailVerified: boolean;
+  readonly createdAt: Date;
+  readonly metadata?: {
+    fullName?: string;
+    avatarUrl?: string;
+    provider?: string;
+  };
+
   constructor(
-    public readonly id: string,
-    public readonly email: string,
-    public readonly emailVerified: boolean,
-    public readonly createdAt: Date,
-    public readonly metadata?: {
+    id: string,
+    email: string,
+    emailVerified: boolean,
+    createdAt: Date,
+    metadata?: {
       fullName?: string;
       avatarUrl?: string;
       provider?: string;
     }
-  ) {}
+  ) {
+    this.id = id;
+    this.email = email;
+    this.emailVerified = emailVerified;
+    this.createdAt = createdAt;
+    this.metadata = metadata;
+  }
 
   static fromSupabaseUser(supabaseUser: any): User {
     return new User(

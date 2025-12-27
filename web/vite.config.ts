@@ -7,9 +7,13 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@core': path.resolve(__dirname, './src/modules/core'),
+      '@': path.resolve(__dirname, './src'),
+      '@core': path.resolve(__dirname, './src/modules/shared'),
       '@auth': path.resolve(__dirname, './src/modules/auth'),
       '@dashboard': path.resolve(__dirname, './src/modules/dashboard'),
+      '@notes': path.resolve(__dirname, './src/modules/notes'),
+      '@passwords': path.resolve(__dirname, './src/modules/passwords'),
+      '@settings': path.resolve(__dirname, './src/modules/settings'),
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },

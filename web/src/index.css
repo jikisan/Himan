@@ -1,68 +1,317 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --radius: 0.625rem;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Backgrounds */
+  --background: hsl(215, 45%, 97%); /* Light bluish-gray */
+  --foreground: hsl(220, 15%, 20%); /* Soft dark gray for text */
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --card: hsl(0, 0%, 100%); /* White cards */
+  --card-foreground: hsl(220, 15%, 20%);
+
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(220, 15%, 20%);
+
+  /* Primary & Accent */
+  --primary: hsl(216, 85%, 45%); /* Vibrant but calm blue */
+  --primary-foreground: hsl(0, 0%, 100%);
+
+  --secondary: hsl(215, 40%, 92%); /* Soft blue-gray for secondary UI */
+  --secondary-foreground: hsl(220, 15%, 25%);
+
+  /* Muted & Neutral */
+  --muted: hsl(215, 30%, 85%);
+  --muted-foreground: hsl(220, 12%, 28%);
+
+  --accent: hsl(216, 60%, 96%); /* Subtle light blue */
+  --accent-foreground: hsl(220, 15%, 25%);
+
+  /* Destructive / Warning */
+  --destructive: hsl(15, 80%, 55%); /* Warm orange-red for warnings */
+  --destructive-foreground: hsl(0, 0%, 100%);
+
+  /* Borders & Inputs */
+  --border: hsl(215, 30%, 88%);
+  --input: hsl(215, 30%, 88%);
+  --ring: hsl(216, 85%, 45%);
+
+  /* Charts */
+  --chart-1: hsl(216, 85%, 45%);
+  --chart-2: hsl(200, 65%, 50%);
+  --chart-3: hsl(190, 55%, 50%);
+  --chart-4: hsl(25, 85%, 55%); /* Orange for variety */
+  --chart-5: hsl(145, 55%, 45%); /* Green for success */
+
+  /* Sidebar */
+  --sidebar: hsl(215, 45%, 96%);
+  --sidebar-foreground: hsl(220, 15%, 25%);
+  --sidebar-primary: hsl(216, 85%, 45%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(215, 40%, 92%);
+  --sidebar-accent-foreground: hsl(220, 15%, 25%);
+  --sidebar-border: hsl(215, 30%, 88%);
+  --sidebar-ring: hsl(216, 85%, 45%);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+.dark {
+  --background: hsl(240 10% 10%);         
+  --foreground: hsl(0 0% 98%);            
+
+  --card: hsl(240 10% 15%);
+  --card-foreground: hsl(0 0% 98%);
+
+  --popover: hsl(240 10% 15%);
+  --popover-foreground: hsl(0 0% 98%);
+
+  --primary: hsl(221, 89%, 72%);            /* blue */
+  --primary-foreground: hsl(0, 0%, 84%); /* dark for contrast */
+
+  --secondary: hsl(260 10% 40%);          
+  --secondary-foreground: hsl(0 0% 98%);
+
+  --muted: hsl(260 10% 40%);
+  --muted-foreground: hsl(240 5% 70%);
+
+  --accent: hsl(260 10% 40%);
+  --accent-foreground: hsl(0 0% 98%);
+
+  --destructive: hsl(0 70% 50%);          
+  --border: hsl(0 0% 100% / 10%);
+  --input: hsl(0 0% 100% / 15%);
+  --ring: hsl(240 20% 60%);
+
+  /* charts */
+  --chart-1: hsl(240 60% 50%);
+  --chart-2: hsl(160 60% 50%);
+  --chart-3: hsl(60 70% 50%);
+  --chart-4: hsl(300 50% 50%);
+  --chart-5: hsl(30 70% 50%);
+
+  /* sidebar */
+  --sidebar: hsl(240 10% 15%);
+  --sidebar-foreground: hsl(0 0% 98%);
+  --sidebar-primary: hsl(240 60% 50%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(260 10% 40%);
+  --sidebar-accent-foreground: hsl(0 0% 98%);
+  --sidebar-border: hsl(0 0% 100% / 10%);
+  --sidebar-ring: hsl(240 20% 60%);
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+@layer utilities {
+  .dark .bg-primary,
+  .dark .group:hover .group-hover\:bg-primary {
+    background: linear-gradient(135deg, hsl(200, 84%, 44%), hsl(264, 84%, 44%)) !important;
+    color: var(--primary-foreground) !important;
+  }
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+/* Make native calendar icon invisible but still clickable */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* Tiptap Editor Styles */
+.tiptap {
+  outline: none;
+}
+
+.tiptap h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-top: 0.67em;
+  margin-bottom: 0.67em;
+  line-height: 1.2;
+}
+
+.tiptap h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 0.83em;
+  margin-bottom: 0.83em;
+  line-height: 1.3;
+}
+
+.tiptap h3 {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  line-height: 1.4;
+}
+
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.5rem;
+  margin: 1em 0;
+}
+
+.tiptap ul {
+  list-style-type: disc;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+}
+
+.tiptap li {
+  margin: 0.25em 0;
+}
+
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+}
+
+.tiptap ul[data-type="taskList"] li > label {
+  margin-right: 0.5rem;
+  user-select: none;
+}
+
+.tiptap ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.tiptap mark {
+  background-color: #fef08a;
+  padding: 0.125em 0.25em;
+  border-radius: 0.125rem;
+}
+
+.dark .tiptap mark {
+  background-color: #854d0e;
+  color: #fef08a;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Transparent scrollbar for toolbar */
+.toolbar-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.toolbar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.toolbar-scroll:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.3);
+}
+
+.toolbar-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.5);
+}
+
+/* Firefox */
+.toolbar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.toolbar-scroll:hover {
+  scrollbar-color: hsl(var(--border) / 0.3) transparent;
+}
+
+/* Transparent scrollbar for note editor */
+.editor-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.editor-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.editor-scroll:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.3);
+}
+
+.editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border) / 0.5);
+}
+
+/* Firefox */
+.editor-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.editor-scroll:hover {
+  scrollbar-color: hsl(var(--border) / 0.3) transparent;
 }

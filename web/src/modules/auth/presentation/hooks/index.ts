@@ -1,4 +1,4 @@
 // Auth hooks
 // useAuth, useLogin, useRegister, etc.
 
-export {};
+export { useAuth } from './useAuth';

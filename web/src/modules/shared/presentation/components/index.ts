@@ -3,3 +3,4 @@
 
 export * from './common';
 export * from './layouts';
+export { LoadingScreen } from './LoadingScreen';

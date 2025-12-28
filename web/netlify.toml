@@ -1,7 +1,10 @@
 [build]
   publish = "dist"
   command = "npm run build"
-  environment = { SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,WEB_CLIENT_SECRET" }
+
+[build.environment]
+  # Supabase public credentials - safe to expose in client-side code
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
 
 [[redirects]]
   from = "/*"

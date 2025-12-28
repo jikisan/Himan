@@ -1,15 +1,7 @@
 [build]
   publish = "dist"
   command = "npm run build"
-
-[secrets]
-  # Disable secrets scanning for public Supabase environment variables
-  # These are anonymous keys designed to be exposed in frontend applications
-  excluded_patterns = [
-    "VITE_SUPABASE_URL",
-    "VITE_SUPABASE_ANON_KEY",
-    "WEB_CLIENT_SECRET"
-  ]
+  environment = { SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,WEB_CLIENT_SECRET" }
 
 [[redirects]]
   from = "/*"

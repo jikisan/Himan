@@ -2,12 +2,6 @@
   publish = "dist"
   command = "npm run build"
 
-[build.environment]
-  # These are public Supabase keys meant to be exposed in client-side code
-  # Security is handled by Supabase Row Level Security (RLS) policies
-  VITE_SUPABASE_URL = ""
-  VITE_SUPABASE_ANON_KEY = ""
-
 [secrets]
   # Disable secrets scanning for public Supabase environment variables
   # These are anonymous keys designed to be exposed in frontend applications

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Copy, MoreVertical, Edit2, Trash2, Star, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { Password as PasswordEntity } from '../../domain/entities/Password';
 import type { PasswordType } from '../../domain';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Logger } from '@core/infrastructure/services';
 
 interface PasswordCardProps {
   password: PasswordType;
@@ -30,9 +32,12 @@ export const PasswordCard = ({
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log(`${label} copied to clipboard`);
+      toast.success(`${label} copied to clipboard`, {
+        duration: 2000,
+      });
     } catch (err) {
-      console.error('Failed to copy:', err);
+      Logger.error('Failed to copy to clipboard', err);
+      toast.error('Failed to copy to clipboard');
     }
   };
 
@@ -93,6 +98,7 @@ export const PasswordCard = ({
                 variant="ghost"
                 onClick={() => copyToClipboard(password.username!, 'Username')}
                 className="h-7 w-7 flex-shrink-0"
+                aria-label="Copy username"
               >
                 <Copy className="h-3 w-3" />
               </Button>
@@ -112,6 +118,7 @@ export const PasswordCard = ({
               variant="ghost"
               onClick={() => setShowPassword(!showPassword)}
               className="h-7 w-7 flex-shrink-0"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
             </Button>
@@ -120,6 +127,7 @@ export const PasswordCard = ({
               variant="ghost"
               onClick={() => copyToClipboard(password.password, 'Password')}
               className="h-7 w-7 flex-shrink-0"
+              aria-label="Copy password"
             >
               <Copy className="h-3 w-3" />
             </Button>
@@ -139,6 +147,7 @@ export const PasswordCard = ({
                 variant="ghost"
                 onClick={() => copyToClipboard(password.url!, 'URL')}
                 className="h-7 w-7 flex-shrink-0"
+                aria-label="Copy URL"
               >
                 <Copy className="h-3 w-3" />
               </Button>

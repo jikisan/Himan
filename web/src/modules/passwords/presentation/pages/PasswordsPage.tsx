@@ -5,6 +5,7 @@ import { usePasswords, useCategories } from '../hooks';
 import type { PasswordType } from '../../domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ConfirmDialog } from '@/components/ui';
 
 export const PasswordsPage = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null | 'all' | 'favorites'>('all');
@@ -12,6 +13,10 @@ export const PasswordsPage = () => {
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState<PasswordType | null>(null);
+  const [deletePasswordDialogOpen, setDeletePasswordDialogOpen] = useState(false);
+  const [deleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false);
+  const [passwordToDelete, setPasswordToDelete] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 
   const passwordFilters = useMemo(() => {
     const filters: {
@@ -93,16 +98,21 @@ export const PasswordsPage = () => {
 
   const handleDeletePassword = useCallback(
     async (id: string) => {
-      const confirmed = window.confirm('Are you sure you want to delete this password?');
-      if (confirmed) {
-        const success = await deletePassword(id);
-        if (success) {
-          refetchCategories();
-        }
-      }
+      setPasswordToDelete(id);
+      setDeletePasswordDialogOpen(true);
     },
-    [deletePassword, refetchCategories]
+    []
   );
+
+  const confirmDeletePassword = useCallback(async () => {
+    if (passwordToDelete) {
+      const success = await deletePassword(passwordToDelete);
+      if (success) {
+        refetchCategories();
+      }
+      setPasswordToDelete(null);
+    }
+  }, [passwordToDelete, deletePassword, refetchCategories]);
 
   const handleCreateCategory = useCallback(
     async (name: string) => {
@@ -122,22 +132,23 @@ export const PasswordsPage = () => {
 
   const handleDeleteCategory = useCallback(
     async (id: string) => {
-      const category = categories.find((c) => c.id === id);
-      if (category && category.passwordCount && category.passwordCount > 0) {
-        const confirmed = window.confirm(
-          'This category contains passwords. All passwords will be moved to "Uncategorized". Continue?'
-        );
-        if (!confirmed) return;
-      }
-      await deleteCategory(id);
+      setCategoryToDelete(id);
+      setDeleteCategoryDialogOpen(true);
+    },
+    []
+  );
+
+  const confirmDeleteCategory = useCallback(async () => {
+    if (categoryToDelete) {
+      await deleteCategory(categoryToDelete);
       refetchCategories();
       refetchPasswords();
-      if (selectedCategoryId === id) {
+      if (selectedCategoryId === categoryToDelete) {
         setSelectedCategoryId('all');
       }
-    },
-    [categories, deleteCategory, selectedCategoryId, refetchCategories, refetchPasswords]
-  );
+      setCategoryToDelete(null);
+    }
+  }, [categoryToDelete, deleteCategory, selectedCategoryId, refetchCategories, refetchPasswords]);
 
   const handleToggleCategoryCollapse = useCallback(() => {
     setIsCategoryCollapsed((prev) => !prev);
@@ -198,6 +209,34 @@ export const PasswordsPage = () => {
         password={editingPassword}
         categories={categories}
         onSave={handleSavePassword}
+      />
+
+      {/* Delete Password Confirmation */}
+      <ConfirmDialog
+        open={deletePasswordDialogOpen}
+        onOpenChange={setDeletePasswordDialogOpen}
+        title="Delete Password"
+        description="Are you sure you want to delete this password? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeletePassword}
+        variant="destructive"
+      />
+
+      {/* Delete Category Confirmation */}
+      <ConfirmDialog
+        open={deleteCategoryDialogOpen}
+        onOpenChange={setDeleteCategoryDialogOpen}
+        title="Delete Category"
+        description={
+          categories.find((c) => c.id === categoryToDelete)?.passwordCount
+            ? 'This category contains passwords. All passwords will be moved to "Uncategorized". Continue?'
+            : 'Are you sure you want to delete this category?'
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteCategory}
+        variant="destructive"
       />
     </>
   );

@@ -79,11 +79,21 @@ export const PasswordDialog = ({
     const length = 16;
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
     let newPassword = '';
-    const array = new Uint8Array(length);
-    crypto.getRandomValues(array);
-    for (let i = 0; i < length; i++) {
-      newPassword += charset[array[i] % charset.length];
+
+    // Use rejection sampling to eliminate modulo bias
+    const maxValid = 256 - (256 % charset.length);
+
+    while (newPassword.length < length) {
+      const array = new Uint8Array(1);
+      crypto.getRandomValues(array);
+      const value = array[0];
+
+      // Only use values that don't cause bias
+      if (value < maxValid) {
+        newPassword += charset[value % charset.length];
+      }
     }
+
     setFormData({ ...formData, password: newPassword });
     setShowPassword(true);
   };

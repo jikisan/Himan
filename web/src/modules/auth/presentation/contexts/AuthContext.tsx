@@ -2,6 +2,7 @@ import { createContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@core/infrastructure/config';
+import { Logger } from '@core/infrastructure/services';
 
 interface AuthContextType {
   user: User | null;
@@ -25,7 +26,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
     } catch (error) {
-      console.error('Error checking session:', error);
+      Logger.error('Error checking session', error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await supabase.auth.signOut();
       setUser(null);
     } catch (error) {
-      console.error('Error signing out:', error);
+      Logger.error('Error signing out', error);
     }
   };
 

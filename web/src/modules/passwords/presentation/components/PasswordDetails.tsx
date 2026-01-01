@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { safeOpenUrl } from '@core/presentation/utils';
 
 interface PasswordDetailsProps {
   password: PasswordEntity;
@@ -240,8 +241,9 @@ export const PasswordDetails = ({
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => window.open(password.url!, '_blank')}
+                  onClick={() => safeOpenUrl(password.url!)}
                   className="h-10 w-10"
+                  aria-label="Open URL in new tab"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>

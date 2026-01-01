@@ -6,6 +6,8 @@
  * Derives encryption key from user's ID for account-based encryption.
  */
 
+import { Logger } from '@core/infrastructure/services';
+
 export class EncryptionService {
   private static readonly ALGORITHM = 'AES-GCM';
   private static readonly KEY_LENGTH = 256;
@@ -75,7 +77,7 @@ export class EncryptionService {
       // Convert to base64 for storage
       return this.arrayBufferToBase64(combined);
     } catch (error) {
-      console.error('Encryption error:', error);
+      Logger.error('Encryption error', error);
       throw new Error('Failed to encrypt password');
     }
   }
@@ -111,7 +113,7 @@ export class EncryptionService {
       const decoder = new TextDecoder();
       return decoder.decode(decryptedBuffer);
     } catch (error) {
-      console.error('Decryption error:', error);
+      Logger.error('Decryption error', error);
       throw new Error('Failed to decrypt password');
     }
   }

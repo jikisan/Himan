@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { NoteType as Note, NoteFilters, CreateNoteDto, UpdateNoteDto } from '../../domain';
 import { NoteRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
+import { Logger } from '@core/infrastructure/services';
 
 export const useNotes = (filters?: NoteFilters) => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -43,7 +44,7 @@ export const useNotes = (filters?: NoteFilters) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load notes';
       setError(errorMessage);
-      console.error('Error loading notes:', err);
+      Logger.error('Error loading notes', err);
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
@@ -65,7 +66,7 @@ export const useNotes = (filters?: NoteFilters) => {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to create note';
         setError(errorMessage);
-        console.error('Error creating note:', err);
+        Logger.error('Error creating note', err);
         return null;
       }
     },
@@ -83,7 +84,7 @@ export const useNotes = (filters?: NoteFilters) => {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to update note';
         setError(errorMessage);
-        console.error('Error updating note:', err);
+        Logger.error('Error updating note', err);
         return null;
       }
     },
@@ -98,7 +99,7 @@ export const useNotes = (filters?: NoteFilters) => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete note';
       setError(errorMessage);
-      console.error('Error deleting note:', err);
+      Logger.error('Error deleting note', err);
       return false;
     }
   }, [repository]);

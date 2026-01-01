@@ -6,6 +6,7 @@ import type {
   PasswordFilters,
 } from '../../domain';
 import { EncryptionService } from '../services';
+import { Logger } from '@core/infrastructure/services';
 
 export class PasswordRepository {
   async findAll(filters?: PasswordFilters, userId?: string): Promise<PasswordType[]> {
@@ -24,8 +25,10 @@ export class PasswordRepository {
     }
 
     if (filters?.searchQuery) {
+      // Sanitize search query to prevent SQL injection
+      const sanitized = filters.searchQuery.replace(/[%_\\]/g, '\\$&');
       query = query.or(
-        `title.ilike.%${filters.searchQuery}%,username.ilike.%${filters.searchQuery}%,url.ilike.%${filters.searchQuery}%`
+        `title.ilike.%${sanitized}%,username.ilike.%${sanitized}%,url.ilike.%${sanitized}%`
       );
     }
 
@@ -147,7 +150,7 @@ export class PasswordRepository {
           userId
         );
       } catch (error) {
-        console.error('Failed to decrypt password:', error);
+        Logger.error('Failed to decrypt password', error);
         decryptedPassword = '[Decryption Failed]';
       }
     }

@@ -1,3 +1,5 @@
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+
 export class User {
   readonly id: string;
   readonly email: string;
@@ -27,7 +29,7 @@ export class User {
     this.metadata = metadata;
   }
 
-  static fromSupabaseUser(supabaseUser: any): User {
+  static fromSupabaseUser(supabaseUser: SupabaseUser): User {
     return new User(
       supabaseUser.id,
       supabaseUser.email,

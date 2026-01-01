@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MoreVertical, Star, Trash2, Eye, EyeOff, Copy, ExternalLink, Edit2, Save, X, FolderInput } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Password as PasswordEntity } from '../../domain/entities/Password';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { safeOpenUrl } from '@core/presentation/utils';
+import { Logger } from '@core/infrastructure/services';
 
 interface PasswordDetailsProps {
   password: PasswordEntity;
@@ -83,10 +86,12 @@ export const PasswordDetails = ({
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // Could add a toast notification here
-      console.log(`${label} copied to clipboard`);
+      toast.success(`${label} copied to clipboard`, {
+        duration: 2000,
+      });
     } catch (err) {
-      console.error('Failed to copy:', err);
+      Logger.error('Failed to copy to clipboard', err);
+      toast.error('Failed to copy to clipboard');
     }
   };
 
@@ -240,8 +245,9 @@ export const PasswordDetails = ({
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => window.open(password.url!, '_blank')}
+                  onClick={() => safeOpenUrl(password.url!)}
                   className="h-10 w-10"
+                  aria-label="Open URL in new tab"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>

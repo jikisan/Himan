@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Star, Copy, ExternalLink, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { Password as PasswordEntity } from '../../domain/entities/Password';
 import type { PasswordType } from '../../domain';
 import { Button } from '@/components/ui/button';
+import { Logger } from '@core/infrastructure/services';
 
 interface PasswordTableProps {
   passwords: PasswordType[];
@@ -63,9 +65,12 @@ export const PasswordTable = ({
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      console.log(`${label} copied to clipboard`);
+      toast.success(`${label} copied to clipboard`, {
+        duration: 2000,
+      });
     } catch (err) {
-      console.error('Failed to copy:', err);
+      Logger.error('Failed to copy to clipboard', err);
+      toast.error('Failed to copy to clipboard');
     }
   };
 

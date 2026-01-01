@@ -23,8 +23,10 @@ export class NoteRepository {
     }
 
     if (filters?.searchQuery) {
+      // Sanitize search query to prevent SQL injection
+      const sanitized = filters.searchQuery.replace(/[%_\\]/g, '\\$&');
       query = query.or(
-        `title.ilike.%${filters.searchQuery}%,content.ilike.%${filters.searchQuery}%`
+        `title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`
       );
     }
 

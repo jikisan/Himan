@@ -1,63 +1,27 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '@core/infrastructure/config';
+import { Link } from 'react-router-dom';
+import { useLogin } from '@auth/presentation/hooks';
 import { Button } from '@/components/ui';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const { loading, error, loginWithEmail, loginWithGoogle } = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
+      await loginWithEmail(email, password);
+    } catch {
+      // Error is handled by the hook
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError('');
-    setLoading(true);
-
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-
-      if (error) {
-        console.error('Google Sign In Error:', error);
-        throw error;
-      }
-
-      // OAuth redirects automatically, so we don't need to navigate
-      console.log('OAuth URL:', data.url);
-    } catch (err) {
-      console.error('Google Sign In Exception:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in with Google');
-      setLoading(false);
+      await loginWithGoogle();
+    } catch {
+      // Error is handled by the hook
     }
   };
 

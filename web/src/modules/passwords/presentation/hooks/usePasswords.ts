@@ -7,6 +7,7 @@ import type {
 } from '../../domain';
 import { PasswordRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
+import { Logger } from '@core/infrastructure/services';
 
 export const usePasswords = (filters?: PasswordFilters) => {
   const [passwords, setPasswords] = useState<PasswordType[]>([]);
@@ -47,7 +48,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to load passwords';
       setError(errorMessage);
-      console.error('Error loading passwords:', err);
+      Logger.error('Error loading passwords', err);
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
@@ -72,7 +73,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to create password';
         setError(errorMessage);
-        console.error('Error creating password:', err);
+        Logger.error('Error creating password', err);
         return null;
       }
     },
@@ -96,7 +97,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to update password';
         setError(errorMessage);
-        console.error('Error updating password:', err);
+        Logger.error('Error updating password', err);
         return null;
       }
     },
@@ -113,7 +114,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to delete password';
         setError(errorMessage);
-        console.error('Error deleting password:', err);
+        Logger.error('Error deleting password', err);
         return false;
       }
     },

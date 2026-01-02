@@ -55,9 +55,9 @@ class LoggerService {
    * Can integrate with Sentry, LogRocket, or other services
    */
   private sendToErrorTracking(
-    level: LogLevel,
-    message: string,
-    data: unknown
+    _level: LogLevel,
+    _message: string,
+    _data: unknown
   ): void {
     if (!this.isDevelopment) {
       // TODO: Integrate with error tracking service

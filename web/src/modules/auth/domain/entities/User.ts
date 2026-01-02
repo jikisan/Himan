@@ -32,7 +32,7 @@ export class User {
   static fromSupabaseUser(supabaseUser: SupabaseUser): User {
     return new User(
       supabaseUser.id,
-      supabaseUser.email,
+      supabaseUser.email ?? '',
       supabaseUser.email_confirmed_at != null,
       new Date(supabaseUser.created_at),
       {

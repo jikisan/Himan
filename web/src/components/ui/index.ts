@@ -21,3 +21,5 @@ export * from './dropdown-menu';
 export * from './scroll-area';
 export * from './select';
 export * from './sheet';
+export * from './alert-dialog';
+export { ConfirmDialog } from './confirm-dialog';

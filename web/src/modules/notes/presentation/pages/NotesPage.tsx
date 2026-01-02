@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/ui';
 
 export const NotesPage = () => {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null | 'all' | 'pinned'>('all');
@@ -29,6 +30,9 @@ export const NotesPage = () => {
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null);
   const [isFolderCollapsed, setIsFolderCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [deleteNoteDialogOpen, setDeleteNoteDialogOpen] = useState(false);
+  const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const noteFilters = useMemo(() => ({
@@ -130,14 +134,17 @@ export const NotesPage = () => {
 
   const handleDeleteNote = useCallback(async () => {
     if (selectedNote) {
-      const confirmed = window.confirm('Are you sure you want to delete this note?');
-      if (confirmed) {
-        const success = await deleteNote(selectedNote.id);
-        if (success) {
-          setSelectedNote(null);
-          // Refetch folders to update note counts
-          refetchFolders();
-        }
+      setDeleteNoteDialogOpen(true);
+    }
+  }, [selectedNote]);
+
+  const confirmDeleteNote = useCallback(async () => {
+    if (selectedNote) {
+      const success = await deleteNote(selectedNote.id);
+      if (success) {
+        setSelectedNote(null);
+        // Refetch folders to update note counts
+        refetchFolders();
       }
     }
   }, [selectedNote, deleteNote, refetchFolders]);
@@ -181,22 +188,23 @@ export const NotesPage = () => {
 
   const handleDeleteFolder = useCallback(
     async (id: string) => {
-      const folder = folders.find((f) => f.id === id);
-      if (folder && folder.noteCount && folder.noteCount > 0) {
-        const confirmed = window.confirm(
-          'This folder contains notes. All notes will be moved to "Unfiled". Continue?'
-        );
-        if (!confirmed) return;
-      }
-      await deleteFolder(id);
+      setFolderToDelete(id);
+      setDeleteFolderDialogOpen(true);
+    },
+    []
+  );
+
+  const confirmDeleteFolder = useCallback(async () => {
+    if (folderToDelete) {
+      await deleteFolder(folderToDelete);
       refetchFolders();
       refetchNotes();
-      if (selectedFolderId === id) {
+      if (selectedFolderId === folderToDelete) {
         setSelectedFolderId('all');
       }
-    },
-    [folders, deleteFolder, selectedFolderId, refetchFolders, refetchNotes]
-  );
+      setFolderToDelete(null);
+    }
+  }, [folderToDelete, deleteFolder, selectedFolderId, refetchFolders, refetchNotes]);
 
   const handleToggleFolderCollapse = useCallback(() => {
     setIsFolderCollapsed(prev => !prev);
@@ -316,6 +324,34 @@ export const NotesPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Note Confirmation */}
+      <ConfirmDialog
+        open={deleteNoteDialogOpen}
+        onOpenChange={setDeleteNoteDialogOpen}
+        title="Delete Note"
+        description="Are you sure you want to delete this note? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteNote}
+        variant="destructive"
+      />
+
+      {/* Delete Folder Confirmation */}
+      <ConfirmDialog
+        open={deleteFolderDialogOpen}
+        onOpenChange={setDeleteFolderDialogOpen}
+        title="Delete Folder"
+        description={
+          folders.find((f) => f.id === folderToDelete)?.noteCount
+            ? 'This folder contains notes. All notes will be moved to "Unfiled". Continue?'
+            : 'Are you sure you want to delete this folder?'
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteFolder}
+        variant="destructive"
+      />
     </>
   );
 };

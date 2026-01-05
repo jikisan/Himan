@@ -174,9 +174,10 @@ export class HybridNoteRepository {
 
   /**
    * Manually trigger a sync
+   * @param isUserInitiated - Whether this sync was triggered by the user (shows spinner)
    */
-  async sync(): Promise<SyncResult> {
-    return this.syncService.sync();
+  async sync(isUserInitiated = true): Promise<SyncResult> {
+    return this.syncService.sync(isUserInitiated);
   }
 
   /**

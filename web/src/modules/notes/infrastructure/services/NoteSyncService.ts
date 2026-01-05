@@ -20,6 +20,7 @@ export class NoteSyncService {
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
   private isSyncing = false;
+  private isUserInitiatedSync = false; // Track if sync is user-initiated
   private localStorage: LocalNotesStorage;
   private remoteRepository: NoteRepository;
 
@@ -62,7 +63,8 @@ export class NoteSyncService {
   getStatus(): SyncStatus {
     return {
       pending: this.getPendingCount(),
-      syncing: this.isSyncing,
+      // Only show syncing spinner for user-initiated syncs
+      syncing: this.isSyncing && this.isUserInitiatedSync,
       error: null,
       lastSyncTime: this.localStorage.getLastSyncTime(),
     };
@@ -70,13 +72,15 @@ export class NoteSyncService {
 
   /**
    * Perform a full sync: push local changes, pull remote changes, resolve conflicts
+   * @param isUserInitiated - Whether this sync was triggered by the user (shows spinner)
    */
-  async sync(): Promise<SyncResult> {
+  async sync(isUserInitiated = false): Promise<SyncResult> {
     if (this.isSyncing) {
       return { success: false, error: 'Sync already in progress' };
     }
 
     this.isSyncing = true;
+    this.isUserInitiatedSync = isUserInitiated;
     const idMappings = new Map<string, string>();
 
     try {
@@ -100,6 +104,7 @@ export class NoteSyncService {
       return { success: false, error: errorMessage };
     } finally {
       this.isSyncing = false;
+      this.isUserInitiatedSync = false;
     }
   }
 

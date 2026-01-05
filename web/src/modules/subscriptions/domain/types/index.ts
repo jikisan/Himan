@@ -1,9 +1,11 @@
 export type TierType = 'free' | 'beta' | 'pro' | 'enterprise';
+export type RoleType = 'user' | 'admin';
 
 export interface SubscriptionType {
   id: string;
   userId: string;
   tier: TierType;
+  role: RoleType;
   validUntil: Date | null;
   createdAt: Date;
   updatedAt: Date;

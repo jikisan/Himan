@@ -1,9 +1,10 @@
-import type { TierType, SubscriptionType } from '../types';
+import type { TierType, RoleType, SubscriptionType } from '../types';
 
 export class Subscription {
   readonly id: string;
   readonly userId: string;
   readonly tier: TierType;
+  readonly role: RoleType;
   readonly validUntil: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -12,6 +13,7 @@ export class Subscription {
     id: string,
     userId: string,
     tier: TierType,
+    role: RoleType,
     validUntil: Date | null,
     createdAt: Date,
     updatedAt: Date
@@ -19,6 +21,7 @@ export class Subscription {
     this.id = id;
     this.userId = userId;
     this.tier = tier;
+    this.role = role;
     this.validUntil = validUntil;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
@@ -63,6 +66,13 @@ export class Subscription {
   }
 
   /**
+   * Check if user is an admin
+   */
+  get isAdmin(): boolean {
+    return this.role === 'admin';
+  }
+
+  /**
    * Create from plain object
    */
   static fromObject(data: SubscriptionType): Subscription {
@@ -70,6 +80,7 @@ export class Subscription {
       data.id,
       data.userId,
       data.tier,
+      data.role,
       data.validUntil,
       data.createdAt,
       data.updatedAt
@@ -84,6 +95,7 @@ export class Subscription {
       id: this.id,
       userId: this.userId,
       tier: this.tier,
+      role: this.role,
       validUntil: this.validUntil,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

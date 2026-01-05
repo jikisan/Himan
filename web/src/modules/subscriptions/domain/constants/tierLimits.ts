@@ -68,3 +68,19 @@ export const TIER_DESCRIPTIONS: Record<TierType, string> = {
   pro: 'Power users, professionals',
   enterprise: 'Teams, businesses',
 };
+
+/**
+ * Role display names
+ */
+export const ROLE_NAMES: Record<string, string> = {
+  user: 'User',
+  admin: 'Admin',
+};
+
+/**
+ * Role descriptions
+ */
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+  user: 'Standard user access',
+  admin: 'Full administrative access with unlimited features',
+};

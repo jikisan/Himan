@@ -4,6 +4,7 @@ import type {
   SubscriptionType,
   UsageLimitsType,
   TierType,
+  RoleType,
   FeatureAccessResult,
   UsageStats,
 } from '../../domain';
@@ -19,6 +20,8 @@ interface SubscriptionContextType {
   loading: boolean;
   error: string | null;
   tier: TierType;
+  role: RoleType;
+  isAdmin: boolean;
   canCreateNote: () => FeatureAccessResult;
   canCreateFolder: () => FeatureAccessResult;
   canCreatePassword: () => FeatureAccessResult;
@@ -92,6 +95,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
   }, [loadSubscription]);
 
   const tier: TierType = subscription?.tier ?? 'free';
+  const role: RoleType = subscription?.role ?? 'user';
+  const isAdmin = role === 'admin';
 
   const usageStats = useMemo(() => {
     if (!usage) return null;
@@ -99,38 +104,58 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
   }, [tier, usage]);
 
   const canCreateNote = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
     if (!usage) {
       return { allowed: false, reason: 'Unable to load usage data' };
     }
     return CheckFeatureAccess.canCreateNote(tier, usage);
-  }, [tier, usage]);
+  }, [tier, usage, isAdmin]);
 
   const canCreateFolder = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
     if (!usage) {
       return { allowed: false, reason: 'Unable to load usage data' };
     }
     return CheckFeatureAccess.canCreateFolder(tier, usage);
-  }, [tier, usage]);
+  }, [tier, usage, isAdmin]);
 
   const canCreatePassword = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
     if (!usage) {
       return { allowed: false, reason: 'Unable to load usage data' };
     }
     return CheckFeatureAccess.canCreatePassword(tier, usage);
-  }, [tier, usage]);
+  }, [tier, usage, isAdmin]);
 
   const canCreateCategory = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
     if (!usage) {
       return { allowed: false, reason: 'Unable to load usage data' };
     }
     return CheckFeatureAccess.canCreateCategory(tier, usage);
-  }, [tier, usage]);
+  }, [tier, usage, isAdmin]);
 
   const canSaveNoteContent = useCallback(
     (contentLength: number): FeatureAccessResult => {
+      // Admins bypass all limits
+      if (isAdmin) {
+        return { allowed: true };
+      }
       return CheckFeatureAccess.canSaveNoteContent(tier, contentLength);
     },
-    [tier]
+    [tier, isAdmin]
   );
 
   const value = {
@@ -140,6 +165,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     loading,
     error,
     tier,
+    role,
+    isAdmin,
     canCreateNote,
     canCreateFolder,
     canCreatePassword,

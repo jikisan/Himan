@@ -1,5 +1,5 @@
 import { supabase } from '@core/infrastructure/config/supabase';
-import type { SubscriptionType, TierType } from '../../domain';
+import type { SubscriptionType, TierType, RoleType } from '../../domain';
 
 export class SubscriptionRepository {
   /**
@@ -42,6 +42,24 @@ export class SubscriptionRepository {
   }
 
   /**
+   * Update user's role
+   */
+  async updateRole(userId: string, role: RoleType): Promise<SubscriptionType> {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .update({ role })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update subscription role: ${error.message}`);
+    }
+
+    return this.mapToEntity(data);
+  }
+
+  /**
    * Set subscription expiration date
    */
   async setValidUntil(userId: string, validUntil: Date | null): Promise<SubscriptionType> {
@@ -67,6 +85,7 @@ export class SubscriptionRepository {
       id: data.id as string,
       userId: data.user_id as string,
       tier: data.tier as TierType,
+      role: (data.role as RoleType) || 'user', // Default to 'user' if not set
       validUntil: data.valid_until ? new Date(data.valid_until as string) : null,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),

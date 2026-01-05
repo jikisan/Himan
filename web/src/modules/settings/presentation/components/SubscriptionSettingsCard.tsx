@@ -1,11 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 import { useSubscription } from '@subscriptions/presentation/hooks';
-import { TierBadge, UsageIndicator } from '@subscriptions/presentation/components';
-import { TIER_LIMITS, TIER_DESCRIPTIONS } from '@subscriptions/domain';
+import { TierBadge, RoleBadge, UsageIndicator } from '@subscriptions/presentation/components';
+import { TIER_LIMITS, TIER_DESCRIPTIONS, ROLE_DESCRIPTIONS } from '@subscriptions/domain';
 import { Loader2 } from 'lucide-react';
 
 export const SubscriptionSettingsCard = () => {
-  const { tier, usageStats, loading } = useSubscription();
+  const { tier, role, isAdmin, usageStats, loading } = useSubscription();
 
   if (loading) {
     return (
@@ -33,13 +33,22 @@ export const SubscriptionSettingsCard = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Current Tier */}
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-medium">Current Tier:</span>
-              <TierBadge tier={tier} />
+          {/* Current Tier and Role */}
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-medium">Current Tier:</span>
+                <TierBadge tier={tier} />
+              </div>
+              <p className="text-sm text-muted-foreground">{TIER_DESCRIPTIONS[tier]}</p>
             </div>
-            <p className="text-sm text-muted-foreground">{TIER_DESCRIPTIONS[tier]}</p>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-medium">Role:</span>
+                <RoleBadge role={role} />
+              </div>
+              <p className="text-sm text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
+            </div>
           </div>
 
           {/* Usage Stats */}
@@ -110,8 +119,20 @@ export const SubscriptionSettingsCard = () => {
             </div>
           </div>
 
+          {/* Admin Info */}
+          {isAdmin && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+              <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">
+                Administrator Access
+              </p>
+              <p className="text-sm text-muted-foreground">
+                As an admin, you have unlimited access to all features, bypassing tier restrictions.
+              </p>
+            </div>
+          )}
+
           {/* Upgrade Info */}
-          {tier !== 'enterprise' && (
+          {!isAdmin && tier !== 'enterprise' && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
               <p className="text-sm text-muted-foreground">
                 {tier === 'beta'

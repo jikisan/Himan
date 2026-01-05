@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { EditorContent } from '@tiptap/react';
-import { MoreVertical, Pin, Trash2, FolderInput, Menu } from 'lucide-react';
+import { MoreVertical, Pin, Trash2, FolderInput, Menu, Cloud, CloudOff } from 'lucide-react';
 import { z } from 'zod';
 import { Note as NoteEntity } from '../../domain/entities/Note';
+import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
 import { EditorToolbar } from './EditorToolbar';
 import { useEditor } from '../hooks/useEditor';
 import { useSubscription } from '@subscriptions/presentation/hooks';
@@ -30,6 +31,7 @@ interface NoteEditorProps {
   onDelete: () => void;
   onMoveToFolder: () => void;
   onOpenMobileMenu?: () => void;
+  syncStatus: SyncStatus;
 }
 
 export const NoteEditor = ({
@@ -40,6 +42,7 @@ export const NoteEditor = ({
   onDelete,
   onMoveToFolder,
   onOpenMobileMenu,
+  syncStatus,
 }: NoteEditorProps) => {
   const [titleError, setTitleError] = useState<string | null>(null);
   const { tier } = useSubscription();
@@ -160,9 +163,25 @@ export const NoteEditor = ({
       </div>
 
       <div className="p-2 border-t border-border text-xs flex items-center justify-between">
-        <span className="text-muted-foreground hidden sm:inline">
-          Last edited {note.getRelativeTime()}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground hidden sm:inline">
+            Last edited {note.getRelativeTime()}
+          </span>
+          {/* Sync Status Indicator */}
+          <span className="flex items-center gap-1">
+            {syncStatus.pending > 0 ? (
+              <>
+                <CloudOff className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Saved locally</span>
+              </>
+            ) : (
+              <>
+                <Cloud className="h-3 w-3 text-primary" />
+                <span className="text-primary">Synced</span>
+              </>
+            )}
+          </span>
+        </div>
         <span className={`${isLimitExceeded() ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
           {getCharacterCount().toLocaleString()}/{maxLength.toLocaleString()} characters
         </span>

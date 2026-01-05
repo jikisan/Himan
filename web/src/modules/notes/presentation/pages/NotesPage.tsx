@@ -44,9 +44,11 @@ export const NotesPage = () => {
   const {
     notes,
     loading: notesLoading,
+    syncStatus,
     createNote,
     updateNote,
     deleteNote,
+    syncNotes,
     refetch: refetchNotes,
   } = useNotes(noteFilters);
 
@@ -241,6 +243,8 @@ export const NotesPage = () => {
           onSearchChange={setSearchQuery}
           selectedFolderId={selectedFolderId}
           folders={folders}
+          syncStatus={syncStatus}
+          onSync={syncNotes}
         />
 
         {/* Editor (both mobile and desktop) */}
@@ -253,6 +257,7 @@ export const NotesPage = () => {
             onDelete={handleDeleteNote}
             onMoveToFolder={handleMoveToFolder}
             onOpenMobileMenu={handleToggleMobileMenu}
+            syncStatus={syncStatus}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
@@ -292,6 +297,8 @@ export const NotesPage = () => {
             notesLoading={notesLoading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            syncStatus={syncStatus}
+            onSync={syncNotes}
             onClose={() => setIsMobileMenuOpen(false)}
           />
         </SheetContent>

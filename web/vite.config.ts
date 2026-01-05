@@ -14,6 +14,7 @@ export default defineConfig({
       '@dashboard': path.resolve(__dirname, './src/modules/dashboard'),
       '@notes': path.resolve(__dirname, './src/modules/notes'),
       '@passwords': path.resolve(__dirname, './src/modules/passwords'),
+      '@storage': path.resolve(__dirname, './src/modules/storage'),
       '@settings': path.resolve(__dirname, './src/modules/settings'),
       '@subscriptions': path.resolve(__dirname, './src/modules/subscriptions'),
       '@app': path.resolve(__dirname, './src/app'),

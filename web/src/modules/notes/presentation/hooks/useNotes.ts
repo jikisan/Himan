@@ -85,8 +85,8 @@ export const useNotes = (filters?: NoteFilters) => {
   }, [repository]);
 
   // Sync notes manually
-  const syncNotes = useCallback(async (): Promise<void> => {
-    if (!repository) return;
+  const syncNotes = useCallback(async (currentNoteId?: string | null): Promise<string | null> => {
+    if (!repository) return null;
 
     setSyncStatus(prev => ({ ...prev, syncing: true, error: null }));
 
@@ -99,12 +99,20 @@ export const useNotes = (filters?: NoteFilters) => {
       setSyncStatus(repository.getSyncStatus());
       // Refresh usage counts after sync
       await refreshUsage();
+
+      // If there were ID mappings and we have a current note ID, check if it was remapped
+      if (result.idMappings && currentNoteId && result.idMappings.has(currentNoteId)) {
+        return result.idMappings.get(currentNoteId) || null;
+      }
+
+      return null;
     } else {
       setSyncStatus(prev => ({
         ...prev,
         syncing: false,
         error: result.error || 'Sync failed',
       }));
+      return null;
     }
   }, [repository, stableFilters, refreshUsage]);
 

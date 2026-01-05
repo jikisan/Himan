@@ -216,6 +216,18 @@ export const NotesPage = () => {
     setIsMobileMenuOpen(prev => !prev);
   }, []);
 
+  const handleSync = useCallback(async () => {
+    const newNoteId = await syncNotes(selectedNote?.id);
+
+    // If the current note's ID was changed (local ID -> UUID), update the selected note
+    if (newNoteId && selectedNote) {
+      const updatedNote = notesEntities.find(n => n.id === newNoteId);
+      if (updatedNote) {
+        setSelectedNote(updatedNote);
+      }
+    }
+  }, [syncNotes, selectedNote, notesEntities]);
+
   return (
     <>
       <div className="flex h-full bg-secondary">
@@ -244,7 +256,7 @@ export const NotesPage = () => {
           selectedFolderId={selectedFolderId}
           folders={folders}
           syncStatus={syncStatus}
-          onSync={syncNotes}
+          onSync={handleSync}
         />
 
         {/* Editor (both mobile and desktop) */}
@@ -298,7 +310,7 @@ export const NotesPage = () => {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             syncStatus={syncStatus}
-            onSync={syncNotes}
+            onSync={handleSync}
             onClose={() => setIsMobileMenuOpen(false)}
           />
         </SheetContent>

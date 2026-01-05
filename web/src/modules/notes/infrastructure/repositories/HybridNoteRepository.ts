@@ -6,7 +6,7 @@ import type {
 } from '../../domain';
 import { LocalNotesStorage } from '../storage/LocalNotesStorage';
 import { NoteSyncService } from '../services/NoteSyncService';
-import type { SyncStatus } from '../services/NoteSyncService';
+import type { SyncStatus, SyncResult } from '../services/NoteSyncService';
 import { NoteRepository } from './NoteRepository';
 import { Logger } from '@core/infrastructure/services';
 
@@ -175,7 +175,7 @@ export class HybridNoteRepository {
   /**
    * Manually trigger a sync
    */
-  async sync(): Promise<{ success: boolean; error?: string }> {
+  async sync(): Promise<SyncResult> {
     return this.syncService.sync();
   }
 

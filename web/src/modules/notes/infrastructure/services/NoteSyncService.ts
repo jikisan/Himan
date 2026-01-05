@@ -10,6 +10,12 @@ export interface SyncStatus {
   lastSyncTime: number;
 }
 
+export interface SyncResult {
+  success: boolean;
+  error?: string;
+  idMappings?: Map<string, string>; // Map of old local IDs to new UUIDs
+}
+
 export class NoteSyncService {
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -65,19 +71,21 @@ export class NoteSyncService {
   /**
    * Perform a full sync: push local changes, pull remote changes, resolve conflicts
    */
-  async sync(): Promise<{ success: boolean; error?: string }> {
+  async sync(): Promise<SyncResult> {
     if (this.isSyncing) {
       return { success: false, error: 'Sync already in progress' };
     }
 
     this.isSyncing = true;
+    const idMappings = new Map<string, string>();
 
     try {
       // Step 1: Push deleted notes
       await this.syncDeletedNotes();
 
-      // Step 2: Push dirty notes
-      await this.syncDirtyNotes();
+      // Step 2: Push dirty notes (and collect ID mappings)
+      const mappings = await this.syncDirtyNotes();
+      mappings.forEach((newId, oldId) => idMappings.set(oldId, newId));
 
       // Step 3: Pull remote notes and resolve conflicts
       await this.pullRemoteNotes();
@@ -85,7 +93,7 @@ export class NoteSyncService {
       // Update last sync time
       this.localStorage.updateLastSyncTime();
 
-      return { success: true };
+      return { success: true, idMappings };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sync failed';
       Logger.error('Sync failed', error);
@@ -137,8 +145,9 @@ export class NoteSyncService {
     }
   }
 
-  private async syncDirtyNotes(): Promise<void> {
+  private async syncDirtyNotes(): Promise<Map<string, string>> {
     const dirtyIds = this.localStorage.getDirtyNoteIds();
+    const idMappings = new Map<string, string>();
 
     for (const noteId of dirtyIds) {
       const localNote = this.localStorage.get(noteId);
@@ -149,12 +158,12 @@ export class NoteSyncService {
       }
 
       try {
-        // Check if note exists remotely
-        const remoteNote = await this.remoteRepository.findById(noteId);
+        // Check if this is a local temporary ID (not a UUID)
+        const isLocalId = this.isLocalId(noteId);
 
-        if (!remoteNote) {
-          // Note doesn't exist remotely, create it
-          await this.remoteRepository.create({
+        if (isLocalId) {
+          // This is a new note that was created locally, create it on Supabase
+          const createdNote = await this.remoteRepository.create({
             title: localNote.title,
             content: localNote.content,
             excerpt: localNote.excerpt,
@@ -163,32 +172,61 @@ export class NoteSyncService {
             isPinned: localNote.isPinned,
             tags: localNote.tags,
           });
-        } else {
-          // Note exists, check for conflicts
-          const shouldUpdate = this.resolveConflict(localNote, remoteNote);
 
-          if (shouldUpdate) {
-            // Local version is newer, update remote
-            await this.remoteRepository.update(noteId, {
-              title: localNote.title,
-              content: localNote.content,
-              excerpt: localNote.excerpt,
-              folderId: localNote.folderId,
-              isPinned: localNote.isPinned,
-              tags: localNote.tags,
-            });
+          // Delete the old local ID and save with the new UUID from Supabase
+          this.localStorage.delete(noteId);
+          this.localStorage.save(createdNote);
+          this.localStorage.markClean(createdNote.id);
+
+          // Record the ID mapping
+          idMappings.set(noteId, createdNote.id);
+        } else {
+          // This is an existing note with a UUID, check if it exists remotely
+          const remoteNote = await this.remoteRepository.findById(noteId);
+
+          if (!remoteNote) {
+            // Note doesn't exist remotely anymore, remove from local
+            this.localStorage.delete(noteId);
+            this.localStorage.markClean(noteId);
           } else {
-            // Remote version is newer, update local
-            this.localStorage.save(remoteNote);
+            // Note exists, check for conflicts
+            const shouldUpdate = this.resolveConflict(localNote, remoteNote);
+
+            if (shouldUpdate) {
+              // Local version is newer, update remote
+              await this.remoteRepository.update(noteId, {
+                title: localNote.title,
+                content: localNote.content,
+                excerpt: localNote.excerpt,
+                folderId: localNote.folderId,
+                isPinned: localNote.isPinned,
+                tags: localNote.tags,
+              });
+            } else {
+              // Remote version is newer, update local
+              this.localStorage.save(remoteNote);
+            }
+
+            this.localStorage.markClean(noteId);
           }
         }
-
-        this.localStorage.markClean(noteId);
       } catch (error) {
         Logger.error(`Failed to sync note ${noteId}`, error);
         // Continue with other notes
       }
     }
+
+    return idMappings;
+  }
+
+  /**
+   * Check if an ID is a local temporary ID (timestamp-based) vs a UUID
+   */
+  private isLocalId(id: string): boolean {
+    // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    // Local ID format: timestamp-randomstring (e.g., 1767627438474-9hijnr42e)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return !uuidRegex.test(id);
   }
 
   private async pullRemoteNotes(): Promise<void> {

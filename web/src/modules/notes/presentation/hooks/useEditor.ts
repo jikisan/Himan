@@ -75,7 +75,14 @@ export const useEditor = ({
 
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+      // Save cursor position
+      const { from, to } = editor.state.selection;
+
+      // Update content without emitting an update event
+      editor.commands.setContent(content, { emitUpdate: false });
+
+      // Restore cursor position
+      editor.commands.setTextSelection({ from, to });
     }
   }, [content, editor]);
 

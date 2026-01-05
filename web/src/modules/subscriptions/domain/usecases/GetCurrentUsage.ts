@@ -29,6 +29,24 @@ export class GetCurrentUsage {
         limit: limits.maxCategories,
         percentage: this.calculatePercentage(usage.categoriesCount, limits.maxCategories),
       },
+      files: {
+        current: usage.filesCount,
+        limit: limits.maxFiles,
+        percentage: this.calculatePercentage(usage.filesCount, limits.maxFiles),
+      },
+      storage: {
+        current: usage.storageUsed,
+        limit: limits.maxStorage,
+        percentage: Math.min(Math.round((usage.storageUsed / limits.maxStorage) * 100), 100),
+      },
+      storageFolders: {
+        current: usage.storageFoldersCount,
+        limit: limits.maxStorageFolders,
+        percentage: this.calculatePercentage(
+          usage.storageFoldersCount,
+          limits.maxStorageFolders
+        ),
+      },
     };
   }
 

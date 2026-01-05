@@ -27,6 +27,8 @@ interface SubscriptionContextType {
   canCreatePassword: () => FeatureAccessResult;
   canCreateCategory: () => FeatureAccessResult;
   canSaveNoteContent: (contentLength: number) => FeatureAccessResult;
+  canUploadFile: (fileSize: number) => FeatureAccessResult;
+  canCreateStorageFolder: () => FeatureAccessResult;
   refreshSubscription: () => Promise<void>;
   refreshUsage: () => Promise<void>;
 }
@@ -158,6 +160,31 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     [tier, isAdmin]
   );
 
+  const canUploadFile = useCallback(
+    (fileSize: number): FeatureAccessResult => {
+      // Admins bypass all limits
+      if (isAdmin) {
+        return { allowed: true };
+      }
+      if (!usage) {
+        return { allowed: false, reason: 'Unable to load usage data' };
+      }
+      return CheckFeatureAccess.canUploadFile(tier, usage, fileSize);
+    },
+    [tier, usage, isAdmin]
+  );
+
+  const canCreateStorageFolder = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
+    if (!usage) {
+      return { allowed: false, reason: 'Unable to load usage data' };
+    }
+    return CheckFeatureAccess.canCreateStorageFolder(tier, usage);
+  }, [tier, usage, isAdmin]);
+
   const value = {
     subscription,
     usage,
@@ -172,6 +199,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     canCreatePassword,
     canCreateCategory,
     canSaveNoteContent,
+    canUploadFile,
+    canCreateStorageFolder,
     refreshSubscription,
     refreshUsage,
   };

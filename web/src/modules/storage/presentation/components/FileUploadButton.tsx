@@ -82,18 +82,18 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
           isDragOver ? 'outline-2 outline-dashed outline-primary outline-offset-2' : ''
         }`}
       >
-        <Button asChild>
-          <label className="cursor-pointer">
+        <label className="cursor-pointer">
+          <Button type="button">
             <Upload className="h-4 w-4 mr-2" />
             Upload Files
-            <input
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => handleFileSelect(e.target.files)}
-            />
-          </label>
-        </Button>
+          </Button>
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFileSelect(e.target.files)}
+          />
+        </label>
       </div>
 
       {/* Upload Progress Dialog */}

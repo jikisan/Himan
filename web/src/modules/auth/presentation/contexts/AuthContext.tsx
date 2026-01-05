@@ -35,7 +35,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Use 'local' scope for OAuth compatibility
+      await supabase.auth.signOut({ scope: 'local' });
       setUser(null);
     } catch (error) {
       Logger.error('Error signing out', error);

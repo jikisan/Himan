@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { Note as NoteEntity } from '../../domain/entities/Note';
 import { EditorToolbar } from './EditorToolbar';
 import { useEditor } from '../hooks/useEditor';
+import { useSubscription } from '@subscriptions/presentation/hooks';
+import { TIER_LIMITS } from '@subscriptions/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -40,6 +42,11 @@ export const NoteEditor = ({
   onOpenMobileMenu,
 }: NoteEditorProps) => {
   const [titleError, setTitleError] = useState<string | null>(null);
+  const { tier } = useSubscription();
+
+  // Get the character limit based on user's tier
+  const characterLimit = TIER_LIMITS[tier].maxNoteSize;
+
   const {
     editor,
     toggleBold,
@@ -56,6 +63,7 @@ export const NoteEditor = ({
   } = useEditor({
     content: note.content,
     onUpdate: onContentChange,
+    maxLength: characterLimit, // Use tier-based limit
   });
 
   const handleTitleChange = (value: string) => {

@@ -197,6 +197,11 @@ export const useNotes = (filters?: NoteFilters) => {
     }
   }, [repository, refreshUsage]);
 
+  const isNoteDirty = useCallback((noteId: string): boolean => {
+    if (!repository) return false;
+    return repository.isNoteDirty(noteId);
+  }, [repository]);
+
   return {
     notes,
     loading,
@@ -207,5 +212,6 @@ export const useNotes = (filters?: NoteFilters) => {
     updateNote,
     deleteNote,
     syncNotes,
+    isNoteDirty,
   };
 };

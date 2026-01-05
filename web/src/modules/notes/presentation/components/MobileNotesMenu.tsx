@@ -31,6 +31,7 @@ interface MobileNotesMenuProps {
   // Sync
   syncStatus: SyncStatus;
   onSync: () => Promise<void>;
+  isNoteDirty: (noteId: string) => boolean;
 
   // Mobile specific
   onClose: () => void;
@@ -52,6 +53,7 @@ export const MobileNotesMenu = ({
   onSearchChange,
   syncStatus,
   onSync,
+  isNoteDirty,
   onClose,
 }: MobileNotesMenuProps) => {
   const [isFoldersExpanded, setIsFoldersExpanded] = useState(true);
@@ -272,6 +274,7 @@ export const MobileNotesMenu = ({
                 note={note}
                 isActive={selectedNoteId === note.id}
                 onClick={() => handleSelectNote(note)}
+                isDirty={isNoteDirty(note.id)}
               />
             ))
           )}

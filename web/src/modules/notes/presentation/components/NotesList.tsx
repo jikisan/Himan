@@ -20,6 +20,7 @@ interface NotesListProps {
   folders: Folder[];
   syncStatus: SyncStatus;
   onSync: () => Promise<void>;
+  isNoteDirty: (noteId: string) => boolean;
 }
 
 export const NotesList = ({
@@ -34,6 +35,7 @@ export const NotesList = ({
   folders,
   syncStatus,
   onSync,
+  isNoteDirty,
 }: NotesListProps) => {
   const MIN_WIDTH = 150;
   const MAX_WIDTH = 600;
@@ -155,6 +157,7 @@ export const NotesList = ({
               note={note}
               isActive={selectedNoteId === note.id}
               onClick={() => onSelectNote(note)}
+              isDirty={isNoteDirty(note.id)}
             />
           ))
         )}

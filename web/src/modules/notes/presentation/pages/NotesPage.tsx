@@ -49,6 +49,7 @@ export const NotesPage = () => {
     updateNote,
     deleteNote,
     syncNotes,
+    isNoteDirty,
     refetch: refetchNotes,
   } = useNotes(noteFilters);
 
@@ -257,6 +258,7 @@ export const NotesPage = () => {
           folders={folders}
           syncStatus={syncStatus}
           onSync={handleSync}
+          isNoteDirty={isNoteDirty}
         />
 
         {/* Editor (both mobile and desktop) */}
@@ -311,6 +313,7 @@ export const NotesPage = () => {
             onSearchChange={setSearchQuery}
             syncStatus={syncStatus}
             onSync={handleSync}
+            isNoteDirty={isNoteDirty}
             onClose={() => setIsMobileMenuOpen(false)}
           />
         </SheetContent>

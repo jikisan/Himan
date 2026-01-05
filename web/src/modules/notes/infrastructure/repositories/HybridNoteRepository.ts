@@ -188,6 +188,21 @@ export class HybridNoteRepository {
   }
 
   /**
+   * Check if a note has unsaved changes
+   */
+  isNoteDirty(noteId: string): boolean {
+    const dirtyIds = this.localStorage.getDirtyNoteIds();
+    return dirtyIds.includes(noteId);
+  }
+
+  /**
+   * Get all dirty note IDs
+   */
+  getDirtyNoteIds(): string[] {
+    return this.localStorage.getDirtyNoteIds();
+  }
+
+  /**
    * Generate a unique ID for a new note
    */
   private generateId(): string {

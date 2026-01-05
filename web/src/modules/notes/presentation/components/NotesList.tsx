@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Search, GripVertical } from 'lucide-react';
 import { Note } from '../../domain/entities/Note';
+import type { Folder } from '../../domain/types';
 import { NoteItem } from './NoteItem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,8 @@ interface NotesListProps {
   loading: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  selectedFolderId: string | null | 'all' | 'pinned';
+  folders: Folder[];
 }
 
 export const NotesList = ({
@@ -24,6 +27,8 @@ export const NotesList = ({
   loading,
   searchQuery,
   onSearchChange,
+  selectedFolderId,
+  folders,
 }: NotesListProps) => {
   const MIN_WIDTH = 150;
   const MAX_WIDTH = 600;
@@ -62,6 +67,16 @@ export const NotesList = ({
     };
   }, [isResizing]);
 
+  // Get the display name for the current view
+  const getDisplayName = () => {
+    if (selectedFolderId === 'all') return 'All Notes';
+    if (selectedFolderId === 'pinned') return 'Pinned';
+    if (!selectedFolderId) return 'Unfiled';
+
+    const folder = folders.find(f => f.id === selectedFolderId);
+    return folder?.name || 'Notes';
+  };
+
   return (
     <div
       ref={resizeRef}
@@ -71,7 +86,7 @@ export const NotesList = ({
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-card-foreground">
-            Notes
+            {getDisplayName()}
           </h2>
           <Button
             size="icon"

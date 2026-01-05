@@ -239,6 +239,8 @@ export const NotesPage = () => {
           loading={notesLoading}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          selectedFolderId={selectedFolderId}
+          folders={folders}
         />
 
         {/* Editor (both mobile and desktop) */}

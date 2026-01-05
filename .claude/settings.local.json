@@ -7,7 +7,8 @@
       "Bash(npm cache clean:*)",
       "Bash(npm run lint)",
       "Bash(gh issue list:*)",
-      "Bash(gh issue view:*)"
+      "Bash(gh issue view:*)",
+      "Bash(npm run build:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

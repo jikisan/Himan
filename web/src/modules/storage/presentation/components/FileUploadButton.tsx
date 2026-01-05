@@ -25,7 +25,7 @@ interface FileUploadButtonProps {
 export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButtonProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showProgressDialog, setShowProgressDialog] = useState(false);
-  const { uploadFile, uploadProgress, isUploading } = useFileUpload();
+  const { uploadFile, uploadProgress } = useFileUpload();
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -35,7 +35,7 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
     // Upload files one by one
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const result = await uploadFile(file, folderId);
+      const result = await uploadFile(file);
 
       if (result.success && result.storagePath) {
         await onUploadComplete({

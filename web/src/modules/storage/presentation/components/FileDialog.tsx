@@ -172,7 +172,7 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
               <Textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
                 placeholder="Add a description..."
                 rows={3}
               />

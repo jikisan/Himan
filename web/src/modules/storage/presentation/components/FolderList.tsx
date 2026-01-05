@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Folder, FolderOpen, HardDrive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Folder, HardDrive, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { StorageFolder } from '../../domain/entities';
 import { SidebarList } from '@core/presentation/components';
 import { useSubscription } from '@subscriptions/presentation/hooks';
@@ -27,13 +26,9 @@ export const FolderList = ({
   isCollapsed,
   onToggleCollapse,
 }: FolderListProps) => {
-  const [isCreating, setIsCreating] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const { usageStats, canCreateStorageFolder } = useSubscription();
 
-  const handleCreate = async () => {
-    if (!newFolderName.trim()) return;
-
+  const handleCreateFolder = async (name: string) => {
     // Check if user can create a folder
     const accessCheck = canCreateStorageFolder();
     if (!accessCheck.allowed) {
@@ -41,9 +36,15 @@ export const FolderList = ({
       return;
     }
 
-    await onCreateFolder(newFolderName.trim());
-    setNewFolderName('');
-    setIsCreating(false);
+    await onCreateFolder(name);
+  };
+
+  const handleUpdateFolder = async (id: string, name: string) => {
+    await onUpdateFolder(id, name);
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    await onDeleteFolder(id);
   };
 
   // Calculate storage usage
@@ -66,59 +67,37 @@ export const FolderList = ({
     return 'bg-primary';
   };
 
-  const defaultItems = [
-    {
-      id: 'all',
-      label: 'All Files',
-      icon: FolderOpen,
-      count: folders.reduce((sum, f) => sum + f.filesCount, 0),
-    },
-    {
-      id: null,
-      label: 'Unfiled',
-      icon: Folder,
-      count: 0, // This would need to be calculated from files without folder
-    },
-  ];
-
   const folderItems = folders.map((folder) => ({
     id: folder.id,
-    label: folder.name,
-    icon: Folder,
+    name: folder.name,
     count: folder.filesCount,
-    onEdit: async (name: string) => {
-      await onUpdateFolder(folder.id, name);
-    },
-    onDelete: async () => {
-      await onDeleteFolder(folder.id);
-    },
   }));
+
+  const mappedSelectedId = selectedFolderId === null ? 'unfiled' : selectedFolderId;
 
   return (
     <div className="relative">
       <SidebarList
+        moduleName="storage"
         title="Folders"
-        items={[...defaultItems, ...folderItems]}
-        selectedId={selectedFolderId}
-        onSelectItem={(id) => onSelectFolder(id as string | null | 'all')}
-        onCreateItem={() => setIsCreating(true)}
+        items={folderItems}
+        selectedItemId={mappedSelectedId}
+        onSelectItem={(id) => {
+          if (id === 'unfiled') {
+            onSelectFolder(null);
+          } else {
+            onSelectFolder(id as string | 'all');
+          }
+        }}
+        onCreate={handleCreateFolder}
+        onUpdate={handleUpdateFolder}
+        onDelete={handleDeleteFolder}
         loading={loading}
         isCollapsed={isCollapsed}
-        createItemState={
-          isCreating
-            ? {
-                value: newFolderName,
-                onChange: setNewFolderName,
-                onConfirm: handleCreate,
-                onCancel: () => {
-                  setIsCreating(false);
-                  setNewFolderName('');
-                },
-                placeholder: 'Folder name',
-                maxLength: 100,
-              }
-            : undefined
-        }
+        onToggleCollapse={onToggleCollapse}
+        allItemsLabel="All Files"
+        unfiledLabel="Unfiled"
+        itemIcon={Folder}
       />
 
       {/* Storage Usage Indicator */}

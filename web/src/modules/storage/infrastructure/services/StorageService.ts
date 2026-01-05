@@ -10,8 +10,7 @@ export class StorageService {
   static async upload(
     userId: string,
     fileId: string,
-    file: File,
-    onProgress?: (progress: number) => void
+    file: File
   ): Promise<{ path: string; url: string }> {
     try {
       const fileExtension = file.name.split('.').pop() || '';

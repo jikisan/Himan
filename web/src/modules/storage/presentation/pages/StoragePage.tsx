@@ -143,7 +143,7 @@ export const StoragePage = () => {
     [updateFolder, refetchFolders]
   );
 
-  const handleDeleteFolder = useCallback((id: string) => {
+  const handleDeleteFolder = useCallback(async (id: string) => {
     setFolderToDelete(id);
     setDeleteFolderDialogOpen(true);
   }, []);

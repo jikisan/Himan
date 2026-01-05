@@ -70,6 +70,9 @@ export class UsageLimitsRepository {
       foldersCount: data.folders_count as number,
       passwordsCount: data.passwords_count as number,
       categoriesCount: data.categories_count as number,
+      filesCount: (data.files_count as number) || 0,
+      storageUsed: (data.storage_used as number) || 0,
+      storageFoldersCount: (data.storage_folders_count as number) || 0,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
     };

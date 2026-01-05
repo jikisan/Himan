@@ -15,8 +15,7 @@ export const useFileUpload = () => {
 
   const uploadFile = useCallback(
     async (
-      file: File,
-      folderId: string | null = null
+      file: File
     ): Promise<{
       success: boolean;
       fileId?: string;
@@ -62,16 +61,7 @@ export const useFileUpload = () => {
         });
 
         // Upload main file
-        const uploadResult = await StorageService.upload(user.id, fileId, file, (progress) => {
-          setUploadProgress((prev) => {
-            const newMap = new Map(prev);
-            const current = newMap.get(fileId);
-            if (current) {
-              newMap.set(fileId, { ...current, progress });
-            }
-            return newMap;
-          });
-        });
+        const uploadResult = await StorageService.upload(user.id, fileId, file);
 
         // Generate and upload thumbnail if it's an image
         let thumbnailPath: string | null = null;

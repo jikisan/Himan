@@ -7,6 +7,7 @@ import type {
 } from '../../domain';
 import { PasswordRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
+import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
 
 export const usePasswords = (filters?: PasswordFilters) => {
@@ -14,6 +15,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { canCreatePassword, refreshUsage } = useSubscription();
   const isLoadingRef = useRef(false);
   const hasLoadedRef = useRef(false);
 
@@ -65,9 +67,19 @@ export const usePasswords = (filters?: PasswordFilters) => {
     ): Promise<PasswordType | null> => {
       if (!userId) return null;
 
+      // Check if user can create a password
+      const accessCheck = canCreatePassword();
+      if (!accessCheck.allowed) {
+        const errorMessage = accessCheck.reason || 'Cannot create password';
+        setError(errorMessage);
+        return null;
+      }
+
       try {
         const newPassword = await repository.create({ ...dto, userId });
         setPasswords((prev) => [newPassword, ...prev]);
+        // Refresh usage counts after creating
+        await refreshUsage();
         return newPassword;
       } catch (err) {
         const errorMessage =
@@ -77,7 +89,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
         return null;
       }
     },
-    [userId, repository]
+    [userId, repository, canCreatePassword, refreshUsage]
   );
 
   const updatePassword = useCallback(
@@ -109,6 +121,8 @@ export const usePasswords = (filters?: PasswordFilters) => {
       try {
         await repository.delete(id);
         setPasswords((prev) => prev.filter((password) => password.id !== id));
+        // Refresh usage counts after deleting
+        await refreshUsage();
         return true;
       } catch (err) {
         const errorMessage =
@@ -118,7 +132,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
         return false;
       }
     },
-    [repository]
+    [repository, refreshUsage]
   );
 
   return {

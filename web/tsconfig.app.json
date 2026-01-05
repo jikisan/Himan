@@ -26,6 +26,7 @@
       "@notes/*": ["src/modules/notes/*"],
       "@passwords/*": ["src/modules/passwords/*"],
       "@settings/*": ["src/modules/settings/*"],
+      "@subscriptions/*": ["src/modules/subscriptions/*"],
       "@app/*": ["src/app/*"],
       "@modules/*": ["src/modules/*"]
     },

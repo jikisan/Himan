@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { NoteType as Note, NoteFilters, CreateNoteDto, UpdateNoteDto } from '../../domain';
 import { NoteRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
+import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
 
 export const useNotes = (filters?: NoteFilters) => {
@@ -9,6 +10,7 @@ export const useNotes = (filters?: NoteFilters) => {
   const [loading, setLoading] = useState(true); // Start as loading
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { canCreateNote, canSaveNoteContent, refreshUsage } = useSubscription();
   const isLoadingRef = useRef(false);
   const hasLoadedRef = useRef(false);
 
@@ -59,9 +61,19 @@ export const useNotes = (filters?: NoteFilters) => {
     async (dto: Omit<CreateNoteDto, 'userId'>): Promise<Note | null> => {
       if (!userId) return null;
 
+      // Check if user can create a note
+      const accessCheck = canCreateNote();
+      if (!accessCheck.allowed) {
+        const errorMessage = accessCheck.reason || 'Cannot create note';
+        setError(errorMessage);
+        return null;
+      }
+
       try {
         const newNote = await repository.create({ ...dto, userId });
         setNotes((prev) => [newNote, ...prev]);
+        // Refresh usage counts after creating
+        await refreshUsage();
         return newNote;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to create note';
@@ -70,11 +82,21 @@ export const useNotes = (filters?: NoteFilters) => {
         return null;
       }
     },
-    [userId, repository]
+    [userId, repository, canCreateNote, refreshUsage]
   );
 
   const updateNote = useCallback(
     async (id: string, dto: UpdateNoteDto): Promise<Note | null> => {
+      // Check content length if content is being updated
+      if (dto.content !== undefined) {
+        const accessCheck = canSaveNoteContent(dto.content.length);
+        if (!accessCheck.allowed) {
+          const errorMessage = accessCheck.reason || 'Content exceeds tier limit';
+          setError(errorMessage);
+          return null;
+        }
+      }
+
       try {
         const updatedNote = await repository.update(id, dto);
         setNotes((prev) =>
@@ -88,13 +110,15 @@ export const useNotes = (filters?: NoteFilters) => {
         return null;
       }
     },
-    [repository]
+    [repository, canSaveNoteContent]
   );
 
   const deleteNote = useCallback(async (id: string): Promise<boolean> => {
     try {
       await repository.delete(id);
       setNotes((prev) => prev.filter((note) => note.id !== id));
+      // Refresh usage counts after deleting
+      await refreshUsage();
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete note';
@@ -102,7 +126,7 @@ export const useNotes = (filters?: NoteFilters) => {
       Logger.error('Error deleting note', err);
       return false;
     }
-  }, [repository]);
+  }, [repository, refreshUsage]);
 
   return {
     notes,

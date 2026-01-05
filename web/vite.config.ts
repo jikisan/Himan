@@ -15,6 +15,7 @@ export default defineConfig({
       '@notes': path.resolve(__dirname, './src/modules/notes'),
       '@passwords': path.resolve(__dirname, './src/modules/passwords'),
       '@settings': path.resolve(__dirname, './src/modules/settings'),
+      '@subscriptions': path.resolve(__dirname, './src/modules/subscriptions'),
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },

@@ -81,8 +81,22 @@ export const useEditor = ({
       // Update content without emitting an update event
       editor.commands.setContent(content, { emitUpdate: false });
 
-      // Restore cursor position
-      editor.commands.setTextSelection({ from, to });
+      // Restore cursor position (with bounds checking)
+      try {
+        const docSize = editor.state.doc.content.size;
+
+        // Ensure cursor positions are within the new document bounds
+        const safeFrom = Math.min(from, docSize);
+        const safeTo = Math.min(to, docSize);
+
+        // Only restore if positions are valid
+        if (safeFrom >= 0 && safeTo >= 0 && safeFrom <= docSize && safeTo <= docSize) {
+          editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
+        }
+      } catch (error) {
+        // If cursor restoration fails, just move cursor to end
+        editor.commands.focus('end');
+      }
     }
   }, [content, editor]);
 

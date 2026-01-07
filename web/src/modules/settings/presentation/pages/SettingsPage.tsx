@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Moon, Sun, Monitor, ChevronDown } from 'lucide-react';
 import { useTheme } from '@core/presentation/contexts/ThemeProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
+import { SubscriptionSettingsCard } from '../components/SubscriptionSettingsCard';
 
 export const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
@@ -59,6 +60,9 @@ export const SettingsPage = () => {
       </h1>
 
       <div className="space-y-6">
+        {/* Subscription Settings */}
+        <SubscriptionSettingsCard />
+
         {/* Appearance Settings */}
         <Card>
           <CardHeader>

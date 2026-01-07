@@ -6,12 +6,14 @@ import type {
 } from '../../domain';
 import { CategoryRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
+import { useSubscription } from '@subscriptions/presentation/hooks';
 
 export const useCategories = () => {
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { canCreateCategory, refreshUsage } = useSubscription();
   const isLoadingRef = useRef(false);
 
   const repository = useMemo(() => new CategoryRepository(), []);
@@ -54,9 +56,19 @@ export const useCategories = () => {
     ): Promise<CategoryType | null> => {
       if (!userId) return null;
 
+      // Check if user can create a category
+      const accessCheck = canCreateCategory();
+      if (!accessCheck.allowed) {
+        const errorMessage = accessCheck.reason || 'Cannot create category';
+        setError(errorMessage);
+        return null;
+      }
+
       try {
         const newCategory = await repository.create({ ...dto, userId });
         setCategories((prev) => [...prev, newCategory]);
+        // Refresh usage counts after creating
+        await refreshUsage();
         return newCategory;
       } catch (err) {
         const errorMessage =
@@ -66,7 +78,7 @@ export const useCategories = () => {
         return null;
       }
     },
-    [userId, repository]
+    [userId, repository, canCreateCategory, refreshUsage]
   );
 
   const updateCategory = useCallback(
@@ -100,6 +112,8 @@ export const useCategories = () => {
         setCategories((prev) =>
           prev.filter((category) => category.id !== id)
         );
+        // Refresh usage counts after deleting
+        await refreshUsage();
         return true;
       } catch (err) {
         const errorMessage =
@@ -109,7 +123,7 @@ export const useCategories = () => {
         return false;
       }
     },
-    [repository]
+    [repository, refreshUsage]
   );
 
   return {

@@ -1,4 +1,4 @@
-import { Pin } from 'lucide-react';
+import { Pin, CloudOff } from 'lucide-react';
 import { Note as NoteEntity } from '../../domain/entities/Note';
 import { cn } from '@core/presentation/utils';
 
@@ -6,9 +6,10 @@ interface NoteItemProps {
   note: NoteEntity;
   isActive: boolean;
   onClick: () => void;
+  isDirty?: boolean;
 }
 
-export const NoteItem = ({ note, isActive, onClick }: NoteItemProps) => {
+export const NoteItem = ({ note, isActive, onClick, isDirty = false }: NoteItemProps) => {
   return (
     <div
       className={cn(
@@ -31,9 +32,16 @@ export const NoteItem = ({ note, isActive, onClick }: NoteItemProps) => {
         {note.excerpt || 'No content'}
       </p>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {note.getRelativeTime()}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            {note.getRelativeTime()}
+          </span>
+          {isDirty && (
+            <span title="Unsaved changes">
+              <CloudOff className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            </span>
+          )}
+        </div>
         {note.tags.length > 0 && (
           <div className="flex gap-1">
             {note.tags.slice(0, 2).map((tag) => (

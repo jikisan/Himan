@@ -44,9 +44,12 @@ export const NotesPage = () => {
   const {
     notes,
     loading: notesLoading,
+    syncStatus,
     createNote,
     updateNote,
     deleteNote,
+    syncNotes,
+    isNoteDirty,
     refetch: refetchNotes,
   } = useNotes(noteFilters);
 
@@ -214,6 +217,18 @@ export const NotesPage = () => {
     setIsMobileMenuOpen(prev => !prev);
   }, []);
 
+  const handleSync = useCallback(async () => {
+    const newNoteId = await syncNotes(selectedNote?.id);
+
+    // If the current note's ID was changed (local ID -> UUID), update the selected note
+    if (newNoteId && selectedNote) {
+      const updatedNote = notesEntities.find(n => n.id === newNoteId);
+      if (updatedNote) {
+        setSelectedNote(updatedNote);
+      }
+    }
+  }, [syncNotes, selectedNote, notesEntities]);
+
   return (
     <>
       <div className="flex h-full bg-secondary">
@@ -239,6 +254,11 @@ export const NotesPage = () => {
           loading={notesLoading}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          selectedFolderId={selectedFolderId}
+          folders={folders}
+          syncStatus={syncStatus}
+          onSync={handleSync}
+          isNoteDirty={isNoteDirty}
         />
 
         {/* Editor (both mobile and desktop) */}
@@ -251,6 +271,7 @@ export const NotesPage = () => {
             onDelete={handleDeleteNote}
             onMoveToFolder={handleMoveToFolder}
             onOpenMobileMenu={handleToggleMobileMenu}
+            syncStatus={syncStatus}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
@@ -290,6 +311,9 @@ export const NotesPage = () => {
             notesLoading={notesLoading}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            syncStatus={syncStatus}
+            onSync={handleSync}
+            isNoteDirty={isNoteDirty}
             onClose={() => setIsMobileMenuOpen(false)}
           />
         </SheetContent>

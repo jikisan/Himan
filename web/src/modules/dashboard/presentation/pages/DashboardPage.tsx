@@ -1,6 +1,6 @@
 import { useAuth } from "@auth/presentation/hooks";
 import { Link } from "react-router-dom";
-import { FileText, KeyRound } from "lucide-react";
+import { FileText, KeyRound, HardDrive } from "lucide-react";
 import {
   Card,
   CardDescription,
@@ -23,6 +23,12 @@ export const DashboardPage = () => {
       icon: KeyRound,
       label: "Passwords",
       description: "Manage your passwords",
+    },
+    {
+      to: "/storage",
+      icon: HardDrive,
+      label: "Storage",
+      description: "Manage your files",
     },
   ];
 

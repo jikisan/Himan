@@ -30,10 +30,11 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async signInWithGoogle(): Promise<void> {
+    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${redirectUrl}/dashboard`,
       },
     });
 
@@ -96,8 +97,9 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async resetPassword(email: string): Promise<void> {
+    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${redirectUrl}/reset-password`,
     });
 
     if (error) {

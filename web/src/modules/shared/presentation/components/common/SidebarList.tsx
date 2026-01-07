@@ -45,6 +45,7 @@ interface SidebarListProps<T extends SidebarListItem> {
   allItemsLabel?: string;
   specialViewType?: SpecialViewType;
   specialViewLabel?: string;
+  showSpecialView?: boolean;
   unfiledLabel?: string;
   createDialogTitle?: string;
   createDialogDescription?: string;
@@ -69,6 +70,7 @@ export const SidebarList = <T extends SidebarListItem>({
   allItemsLabel = "All Items",
   specialViewType = "favorites",
   specialViewLabel = "Favorites",
+  showSpecialView = true,
   unfiledLabel = "Unfiled",
   createDialogTitle = `Create ${title.slice(0, -1)}`,
   createDialogDescription = `Enter a name for your new ${title.toLowerCase().slice(0, -1)} (max ${ITEM_NAME_MAX_LENGTH} characters).`,
@@ -197,18 +199,20 @@ export const SidebarList = <T extends SidebarListItem>({
                 <span className="text-sm font-medium">{allItemsLabel}</span>
               </div>
 
-              <div
-                className={
-                  "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
-                  (selectedItemId === specialViewType
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-accent hover:text-accent-foreground")
-                }
-                onClick={() => onSelectItem(specialViewType)}
-              >
-                <Star className="w-4 h-4" />
-                <span className="text-sm font-medium">{specialViewLabel}</span>
-              </div>
+              {showSpecialView && (
+                <div
+                  className={
+                    "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors " +
+                    (selectedItemId === specialViewType
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-accent hover:text-accent-foreground")
+                  }
+                  onClick={() => onSelectItem(specialViewType)}
+                >
+                  <Star className="w-4 h-4" />
+                  <span className="text-sm font-medium">{specialViewLabel}</span>
+                </div>
+              )}
 
               <div
                 className={

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Search } from 'lucide-react';
-import { FolderList, FileGrid, FileUploadButton, FileDialog } from '../components';
+import { FolderList, FileGrid, FileUploadButton, FileDialog, FilePreviewDialog } from '../components';
 import { useFiles, useStorageFolders } from '../hooks';
 import { StorageService } from '../../infrastructure/services';
 import type { File as FileEntity } from '../../domain/entities';
@@ -12,7 +12,9 @@ export const StoragePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFolderCollapsed, setIsFolderCollapsed] = useState(false);
   const [editingFile, setEditingFile] = useState<FileEntity | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileEntity | null>(null);
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [deleteFileDialogOpen, setDeleteFileDialogOpen] = useState(false);
   const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<string | null>(null);
@@ -78,6 +80,11 @@ export const StoragePage = () => {
     },
     [createFile, selectedFolderId, refetchFolders]
   );
+
+  const handlePreviewFile = useCallback((file: FileEntity) => {
+    setPreviewFile(file);
+    setIsPreviewDialogOpen(true);
+  }, []);
 
   const handleEditFile = useCallback((file: FileEntity) => {
     setEditingFile(file);
@@ -164,6 +171,23 @@ export const StoragePage = () => {
     setIsFolderCollapsed((prev) => !prev);
   }, []);
 
+  const handleDownloadFile = useCallback(async (file: FileEntity) => {
+    try {
+      const blob = await StorageService.download(file.storagePath);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file');
+    }
+  }, []);
+
   return (
     <>
       <div className="flex h-screen bg-secondary">
@@ -202,10 +226,23 @@ export const StoragePage = () => {
             files={files}
             onEdit={handleEditFile}
             onDelete={handleDeleteFile}
+            onPreview={handlePreviewFile}
             loading={filesLoading}
+            folderId={selectedFolderId === 'all' ? null : selectedFolderId}
+            onUploadComplete={handleUploadComplete}
           />
         </div>
       </div>
+
+      {/* File Preview Dialog */}
+      <FilePreviewDialog
+        file={previewFile}
+        open={isPreviewDialogOpen}
+        onOpenChange={setIsPreviewDialogOpen}
+        onEdit={handleEditFile}
+        onDelete={handleDeleteFile}
+        onDownload={handleDownloadFile}
+      />
 
       {/* File Details Dialog */}
       <FileDialog

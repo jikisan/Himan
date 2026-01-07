@@ -72,6 +72,10 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
     setIsDragOver(false);
   }, []);
 
+  const handleButtonClick = () => {
+    document.getElementById('file-upload-input')?.click();
+  };
+
   return (
     <>
       <div
@@ -82,18 +86,17 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
           isDragOver ? 'outline-2 outline-dashed outline-primary outline-offset-2' : ''
         }`}
       >
-        <label className="cursor-pointer">
-          <Button type="button">
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Files
-          </Button>
-          <input
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => handleFileSelect(e.target.files)}
-          />
-        </label>
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          id="file-upload-input"
+          onChange={(e) => handleFileSelect(e.target.files)}
+        />
+        <Button type="button" onClick={handleButtonClick}>
+          <Upload className="h-4 w-4 mr-2" />
+          Upload Files
+        </Button>
       </div>
 
       {/* Upload Progress Dialog */}

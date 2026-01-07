@@ -97,6 +97,7 @@ export const FolderList = ({
         onToggleCollapse={onToggleCollapse}
         allItemsLabel="All Files"
         unfiledLabel="Unfiled"
+        showSpecialView={false}
         itemIcon={Folder}
       />
 

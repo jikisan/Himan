@@ -76,7 +76,7 @@ export const FolderList = ({
   const mappedSelectedId = selectedFolderId === null ? 'unfiled' : selectedFolderId;
 
   return (
-    <div className="relative">
+    <div className="relative bg-background">
       <SidebarList
         moduleName="storage"
         title="Folders"
@@ -126,18 +126,6 @@ export const FolderList = ({
         </div>
       )}
 
-      {/* Collapse Toggle */}
-      <button
-        onClick={onToggleCollapse}
-        className="absolute -right-3 top-4 bg-background border border-border rounded-full p-1 hover:bg-accent transition-colors hidden lg:block"
-        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="w-3 h-3" />
-        ) : (
-          <ChevronLeft className="w-3 h-3" />
-        )}
-      </button>
     </div>
   );
 };

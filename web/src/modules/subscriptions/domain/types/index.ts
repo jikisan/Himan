@@ -18,6 +18,8 @@ export interface UsageLimitsType {
   foldersCount: number;
   passwordsCount: number;
   categoriesCount: number;
+  cardsCount: number;
+  cardCategoriesCount: number;
   filesCount: number;
   storageUsed: number; // in bytes
   storageFoldersCount: number;
@@ -31,6 +33,8 @@ export interface TierLimits {
   maxNoteSize: number; // in characters
   maxPasswords: number | null;
   maxCategories: number | null;
+  maxCards: number | null;
+  maxCardCategories: number | null;
   maxFiles: number | null;
   maxStorage: number; // in bytes
   maxStorageFolders: number | null;
@@ -60,6 +64,16 @@ export interface UsageStats {
     percentage: number | null;
   };
   categories: {
+    current: number;
+    limit: number | null;
+    percentage: number | null;
+  };
+  cards: {
+    current: number;
+    limit: number | null;
+    percentage: number | null;
+  };
+  cardCategories: {
     current: number;
     limit: number | null;
     percentage: number | null;

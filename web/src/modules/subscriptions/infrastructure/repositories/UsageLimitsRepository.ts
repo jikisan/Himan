@@ -29,12 +29,17 @@ export class UsageLimitsRepository {
    */
   async refreshCounts(userId: string): Promise<UsageLimitsType> {
     // Get actual counts from all tables
-    const [notesResult, foldersResult, passwordsResult, categoriesResult] = await Promise.all([
+    const [notesResult, foldersResult, passwordsResult, categoriesResult, cardsResult, cardCategoriesResult] = await Promise.all([
       supabase.from('notes').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('folders').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('passwords').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       supabase
         .from('password_categories')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+      supabase.from('credit_cards').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase
+        .from('card_categories')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId),
     ]);
@@ -47,6 +52,8 @@ export class UsageLimitsRepository {
         folders_count: foldersResult.count ?? 0,
         passwords_count: passwordsResult.count ?? 0,
         categories_count: categoriesResult.count ?? 0,
+        cards_count: cardsResult.count ?? 0,
+        card_categories_count: cardCategoriesResult.count ?? 0,
       })
       .eq('user_id', userId)
       .select()
@@ -70,6 +77,8 @@ export class UsageLimitsRepository {
       foldersCount: data.folders_count as number,
       passwordsCount: data.passwords_count as number,
       categoriesCount: data.categories_count as number,
+      cardsCount: (data.cards_count as number) || 0,
+      cardCategoriesCount: (data.card_categories_count as number) || 0,
       filesCount: (data.files_count as number) || 0,
       storageUsed: (data.storage_used as number) || 0,
       storageFoldersCount: (data.storage_folders_count as number) || 0,

@@ -107,6 +107,58 @@ export class CheckFeatureAccess {
   }
 
   /**
+   * Check if user can create a new credit card
+   */
+  static canCreateCard(tier: TierType, currentUsage: UsageLimitsType): FeatureAccessResult {
+    const limit = TIER_LIMITS[tier].maxCards;
+
+    if (limit === null) {
+      return { allowed: true };
+    }
+
+    if (currentUsage.cardsCount >= limit) {
+      return {
+        allowed: false,
+        reason: `You've reached the ${TIER_NAMES[tier]} tier limit of ${limit} credit cards. Please upgrade to continue.`,
+        currentUsage: currentUsage.cardsCount,
+        limit,
+      };
+    }
+
+    return {
+      allowed: true,
+      currentUsage: currentUsage.cardsCount,
+      limit,
+    };
+  }
+
+  /**
+   * Check if user can create a new card category
+   */
+  static canCreateCardCategory(tier: TierType, currentUsage: UsageLimitsType): FeatureAccessResult {
+    const limit = TIER_LIMITS[tier].maxCardCategories;
+
+    if (limit === null) {
+      return { allowed: true };
+    }
+
+    if (currentUsage.cardCategoriesCount >= limit) {
+      return {
+        allowed: false,
+        reason: `You've reached the ${TIER_NAMES[tier]} tier limit of ${limit} card categories. Please upgrade to continue.`,
+        currentUsage: currentUsage.cardCategoriesCount,
+        limit,
+      };
+    }
+
+    return {
+      allowed: true,
+      currentUsage: currentUsage.cardCategoriesCount,
+      limit,
+    };
+  }
+
+  /**
    * Check if note content size is within tier limits
    */
   static canSaveNoteContent(tier: TierType, contentLength: number): FeatureAccessResult {

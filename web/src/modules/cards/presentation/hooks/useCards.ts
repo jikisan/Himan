@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   CreditCardType,
   CreditCardFilters,
@@ -10,136 +11,134 @@ import { useAuth } from '@auth/presentation/hooks/useAuth';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
 
+// Query key factory for better organization
+const cardKeys = {
+  all: ['cards'] as const,
+  lists: () => [...cardKeys.all, 'list'] as const,
+  list: (userId: string, filters?: CreditCardFilters) => [...cardKeys.lists(), userId, filters] as const,
+};
+
 export const useCards = (filters?: CreditCardFilters) => {
-  const [cards, setCards] = useState<CreditCardType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { canCreateCard, refreshUsage } = useSubscription();
-  const isLoadingRef = useRef(false);
-  const hasLoadedRef = useRef(false);
+  const queryClient = useQueryClient();
 
-  const repository = useMemo(() => new CreditCardRepository(), []);
   const userId = user?.id;
+  const repository = useMemo(() => new CreditCardRepository(), []);
 
-  // Stabilize filters to prevent unnecessary re-renders
+  // Stabilize filters for query key
   const stableFilters = useMemo(
     () => filters,
     [filters?.categoryId, filters?.searchQuery, filters?.isFavorite, filters?.cardType, filters?.cardIssuer, filters?.expiringSoon]
   );
 
-  const loadCards = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+  // Query for fetching cards
+  const {
+    data: cards = [],
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: cardKeys.list(userId || '', stableFilters),
+    queryFn: async () => {
+      if (!userId) return [];
+      try {
+        return await repository.findAll(stableFilters, userId);
+      } catch (err) {
+        Logger.error('Error loading cards', err);
+        throw err;
+      }
+    },
+    enabled: !!userId,
+  });
 
-    // Prevent duplicate requests
-    if (isLoadingRef.current) {
-      return;
-    }
-
-    isLoadingRef.current = true;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await repository.findAll(stableFilters, userId);
-      setCards(data);
-      hasLoadedRef.current = true;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to load cards';
-      setError(errorMessage);
-      Logger.error('Error loading cards', err);
-    } finally {
-      setLoading(false);
-      isLoadingRef.current = false;
-    }
-  }, [userId, repository, stableFilters]);
-
-  useEffect(() => {
-    loadCards();
-  }, [loadCards]);
-
-  const createCard = useCallback(
-    async (
-      dto: Omit<CreateCreditCardDto, 'userId'>
-    ): Promise<CreditCardType | null> => {
-      if (!userId) return null;
+  // Mutation for creating cards
+  const createCardMutation = useMutation({
+    mutationFn: async (dto: Omit<CreateCreditCardDto, 'userId'>) => {
+      if (!userId) throw new Error('User not authenticated');
 
       // Check if user can create a card
       const accessCheck = canCreateCard();
       if (!accessCheck.allowed) {
-        const errorMessage = accessCheck.reason || 'Cannot create card';
-        setError(errorMessage);
-        return null;
+        throw new Error(accessCheck.reason || 'Cannot create card');
       }
 
-      try {
-        const newCard = await repository.create({ ...dto, userId });
-        setCards((prev) => [newCard, ...prev]);
-        // Refresh usage counts after creating
-        await refreshUsage();
-        return newCard;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to create card';
-        setError(errorMessage);
-        Logger.error('Error creating card', err);
-        return null;
-      }
+      return await repository.create({ ...dto, userId });
     },
-    [userId, repository, canCreateCard, refreshUsage]
-  );
+    onSuccess: async () => {
+      // Invalidate and refetch cards query
+      await queryClient.invalidateQueries({ queryKey: cardKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error creating card', err);
+    },
+  });
 
-  const updateCard = useCallback(
-    async (
-      id: string,
-      dto: UpdateCreditCardDto
-    ): Promise<CreditCardType | null> => {
-      try {
-        const updatedCard = await repository.update(id, dto, userId);
-        setCards((prev) =>
-          prev.map((card) =>
-            card.id === id ? updatedCard : card
-          )
-        );
-        return updatedCard;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to update card';
-        setError(errorMessage);
-        Logger.error('Error updating card', err);
-        return null;
-      }
+  // Mutation for updating cards
+  const updateCardMutation = useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: UpdateCreditCardDto }) => {
+      if (!userId) throw new Error('User not authenticated');
+      return await repository.update(id, dto, userId);
     },
-    [repository, userId]
-  );
+    onSuccess: async () => {
+      // Invalidate and refetch cards query
+      await queryClient.invalidateQueries({ queryKey: cardKeys.lists() });
+    },
+    onError: (err) => {
+      Logger.error('Error updating card', err);
+    },
+  });
 
-  const deleteCard = useCallback(
-    async (id: string): Promise<boolean> => {
-      try {
-        await repository.delete(id);
-        setCards((prev) => prev.filter((card) => card.id !== id));
-        // Refresh usage counts after deleting
-        await refreshUsage();
-        return true;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to delete card';
-        setError(errorMessage);
-        Logger.error('Error deleting card', err);
-        return false;
-      }
+  // Mutation for deleting cards
+  const deleteCardMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!userId) throw new Error('User not authenticated');
+      await repository.delete(id);
     },
-    [repository, refreshUsage]
-  );
+    onSuccess: async () => {
+      // Invalidate and refetch cards query
+      await queryClient.invalidateQueries({ queryKey: cardKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error deleting card', err);
+    },
+  });
+
+  // Wrapper functions to maintain API compatibility
+  const createCard = async (dto: Omit<CreateCreditCardDto, 'userId'>): Promise<CreditCardType | null> => {
+    try {
+      const newCard = await createCardMutation.mutateAsync(dto);
+      return newCard;
+    } catch {
+      return null;
+    }
+  };
+
+  const updateCard = async (id: string, dto: UpdateCreditCardDto): Promise<CreditCardType | null> => {
+    try {
+      const updatedCard = await updateCardMutation.mutateAsync({ id, dto });
+      return updatedCard;
+    } catch {
+      return null;
+    }
+  };
+
+  const deleteCard = async (id: string): Promise<boolean> => {
+    try {
+      await deleteCardMutation.mutateAsync(id);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   return {
     cards,
     loading,
-    error,
-    refetch: loadCards,
+    error: error ? (error instanceof Error ? error.message : 'Failed to load cards') : null,
+    refetch,
     createCard,
     updateCard,
     deleteCard,

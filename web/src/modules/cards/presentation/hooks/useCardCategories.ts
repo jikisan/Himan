@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   CardCategoryType,
   CreateCardCategoryDto,
@@ -9,127 +10,128 @@ import { useAuth } from '@auth/presentation/hooks/useAuth';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
 
+// Query key factory for better organization
+const categoryKeys = {
+  all: ['card-categories'] as const,
+  lists: () => [...categoryKeys.all, 'list'] as const,
+  list: (userId: string) => [...categoryKeys.lists(), userId] as const,
+};
+
 export const useCardCategories = () => {
-  const [categories, setCategories] = useState<CardCategoryType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { canCreateCardCategory, refreshUsage } = useSubscription();
-  const isLoadingRef = useRef(false);
+  const queryClient = useQueryClient();
 
-  const repository = useMemo(() => new CardCategoryRepository(), []);
   const userId = user?.id;
+  const repository = useMemo(() => new CardCategoryRepository(), []);
 
-  const loadCategories = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+  // Query for fetching categories
+  const {
+    data: categories = [],
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: categoryKeys.list(userId || ''),
+    queryFn: async () => {
+      if (!userId) return [];
+      try {
+        return await repository.findAll(userId);
+      } catch (err) {
+        Logger.error('Error loading card categories', err);
+        throw err;
+      }
+    },
+    enabled: !!userId,
+  });
 
-    if (isLoadingRef.current) {
-      return;
-    }
-
-    isLoadingRef.current = true;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await repository.findAll(userId);
-      setCategories(data);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to load categories';
-      setError(errorMessage);
-      Logger.error('Error loading card categories', err);
-    } finally {
-      setLoading(false);
-      isLoadingRef.current = false;
-    }
-  }, [userId, repository]);
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
-  const createCategory = useCallback(
-    async (
-      dto: Omit<CreateCardCategoryDto, 'userId'>
-    ): Promise<CardCategoryType | null> => {
-      if (!userId) return null;
+  // Mutation for creating categories
+  const createCategoryMutation = useMutation({
+    mutationFn: async (dto: Omit<CreateCardCategoryDto, 'userId'>) => {
+      if (!userId) throw new Error('User not authenticated');
 
       // Check if user can create a category
       const accessCheck = canCreateCardCategory();
       if (!accessCheck.allowed) {
-        const errorMessage = accessCheck.reason || 'Cannot create card category';
-        setError(errorMessage);
-        return null;
+        throw new Error(accessCheck.reason || 'Cannot create card category');
       }
 
-      try {
-        const newCategory = await repository.create({ ...dto, userId });
-        setCategories((prev) => [...prev, newCategory]);
-        // Refresh usage counts after creating
-        await refreshUsage();
-        return newCategory;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to create category';
-        setError(errorMessage);
-        Logger.error('Error creating card category', err);
-        return null;
-      }
+      return await repository.create({ ...dto, userId });
     },
-    [userId, repository, canCreateCardCategory, refreshUsage]
-  );
+    onSuccess: async () => {
+      // Invalidate and refetch categories query
+      await queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error creating card category', err);
+    },
+  });
 
-  const updateCategory = useCallback(
-    async (
-      id: string,
-      dto: UpdateCardCategoryDto
-    ): Promise<CardCategoryType | null> => {
-      try {
-        const updatedCategory = await repository.update(id, dto);
-        setCategories((prev) =>
-          prev.map((category) =>
-            category.id === id ? updatedCategory : category
-          )
-        );
-        return updatedCategory;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to update category';
-        setError(errorMessage);
-        Logger.error('Error updating card category', err);
-        return null;
-      }
+  // Mutation for updating categories
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: UpdateCardCategoryDto }) => {
+      if (!userId) throw new Error('User not authenticated');
+      return await repository.update(id, dto);
     },
-    [repository]
-  );
+    onSuccess: async () => {
+      // Invalidate and refetch categories query
+      await queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+    },
+    onError: (err) => {
+      Logger.error('Error updating card category', err);
+    },
+  });
 
-  const deleteCategory = useCallback(
-    async (id: string): Promise<boolean> => {
-      try {
-        await repository.delete(id);
-        setCategories((prev) => prev.filter((category) => category.id !== id));
-        // Refresh usage counts after deleting
-        await refreshUsage();
-        return true;
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to delete category';
-        setError(errorMessage);
-        Logger.error('Error deleting card category', err);
-        return false;
-      }
+  // Mutation for deleting categories
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!userId) throw new Error('User not authenticated');
+      await repository.delete(id);
     },
-    [repository, refreshUsage]
-  );
+    onSuccess: async () => {
+      // Invalidate and refetch categories query
+      await queryClient.invalidateQueries({ queryKey: categoryKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error deleting card category', err);
+    },
+  });
+
+  // Wrapper functions to maintain API compatibility
+  const createCategory = async (dto: Omit<CreateCardCategoryDto, 'userId'>): Promise<CardCategoryType | null> => {
+    try {
+      const newCategory = await createCategoryMutation.mutateAsync(dto);
+      return newCategory;
+    } catch {
+      return null;
+    }
+  };
+
+  const updateCategory = async (id: string, dto: UpdateCardCategoryDto): Promise<CardCategoryType | null> => {
+    try {
+      const updatedCategory = await updateCategoryMutation.mutateAsync({ id, dto });
+      return updatedCategory;
+    } catch {
+      return null;
+    }
+  };
+
+  const deleteCategory = async (id: string): Promise<boolean> => {
+    try {
+      await deleteCategoryMutation.mutateAsync(id);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   return {
     categories,
     loading,
-    error,
-    refetch: loadCategories,
+    error: error ? (error instanceof Error ? error.message : 'Failed to load categories') : null,
+    refetch,
     createCategory,
     updateCategory,
     deleteCategory,

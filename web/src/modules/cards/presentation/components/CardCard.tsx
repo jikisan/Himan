@@ -123,7 +123,7 @@ export const CardCard = ({
         <div>
           <label className="text-xs text-muted-foreground opacity-50">Card Number</label>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm font-mono flex-1 break-all">
+            <span className="text-sm font-mono flex-1 whitespace-nowrap overflow-hidden">
               {showCardNumber ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim() : cardEntity.getMaskedNumber()}
             </span>
             <Button
@@ -226,7 +226,7 @@ export const CardCard = ({
                 <div>
                   <label className="text-xs text-muted-foreground opacity-50">Card Number</label>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm font-mono flex-1 break-all">
+                    <span className="text-sm font-mono flex-1 whitespace-nowrap overflow-hidden">
                       {modalShowCardNumber ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim() : cardEntity.getMaskedNumber()}
                     </span>
                     <Button

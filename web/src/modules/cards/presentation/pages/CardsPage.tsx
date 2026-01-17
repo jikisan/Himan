@@ -160,7 +160,7 @@ export const CardsPage = () => {
 
   return (
     <>
-      <div className="flex h-screen bg-secondary">
+      <div className="flex h-full bg-secondary">
         <CardCategoryList
           categories={categories}
           selectedCategoryId={selectedCategoryId}

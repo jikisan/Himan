@@ -76,34 +76,38 @@ export const FolderList = ({
   const mappedSelectedId = selectedFolderId === null ? 'unfiled' : selectedFolderId;
 
   return (
-    <div className="relative bg-background">
-      <SidebarList
-        moduleName="storage"
-        title="Folders"
-        items={folderItems}
-        selectedItemId={mappedSelectedId}
-        onSelectItem={(id) => {
-          if (id === 'unfiled') {
-            onSelectFolder(null);
-          } else {
-            onSelectFolder(id as string | 'all');
-          }
-        }}
-        onCreate={handleCreateFolder}
-        onUpdate={handleUpdateFolder}
-        onDelete={handleDeleteFolder}
-        loading={loading}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={onToggleCollapse}
-        allItemsLabel="All Files"
-        unfiledLabel="Unfiled"
-        showSpecialView={false}
-        itemIcon={Folder}
-      />
+    <div className="relative h-full flex flex-col bg-background">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <SidebarList
+          moduleName="storage"
+          title="Folders"
+          items={folderItems}
+          selectedItemId={mappedSelectedId}
+          onSelectItem={(id) => {
+            if (id === 'unfiled') {
+              onSelectFolder(null);
+            } else {
+              onSelectFolder(id as string | 'all');
+            }
+          }}
+          onCreate={handleCreateFolder}
+          onUpdate={handleUpdateFolder}
+          onDelete={handleDeleteFolder}
+          loading={loading}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse}
+          allItemsLabel="All Files"
+          unfiledLabel="Unfiled"
+          showSpecialView={false}
+          itemIcon={Folder}
+        />
+      </div>
 
-      {/* Storage Usage Indicator */}
+      {/* Storage Usage Indicator - at the bottom */}
       {!isCollapsed && (
-        <div className="p-4 border-t border-border">
+        <div className={`p-4 border-t border-r border-border bg-background transition-all duration-300 ${
+          isCollapsed ? "w-12" : "w-64"
+        }`}>
           <div className="flex items-center gap-2 mb-2">
             <HardDrive className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs font-medium text-foreground">Storage</span>
@@ -125,7 +129,6 @@ export const FolderList = ({
           </div>
         </div>
       )}
-
     </div>
   );
 };

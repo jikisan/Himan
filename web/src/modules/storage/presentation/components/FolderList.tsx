@@ -1,4 +1,4 @@
-import { Folder, HardDrive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Folder, HardDrive } from 'lucide-react';
 import type { StorageFolder } from '../../domain/entities';
 import { SidebarList } from '@core/presentation/components';
 import { useSubscription } from '@subscriptions/presentation/hooks';

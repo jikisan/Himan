@@ -41,7 +41,7 @@ export class CardCategoryRepository {
     return this.findAll(userId);
   }
 
-  async findById(id: string, userId: string): Promise<CardCategoryType | null> {
+  async findById(id: string, _userId: string): Promise<CardCategoryType | null> {
     const { data, error } = await supabase
       .from('card_categories')
       .select('*')

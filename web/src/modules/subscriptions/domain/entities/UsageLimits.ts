@@ -7,6 +7,8 @@ export class UsageLimits {
   readonly foldersCount: number;
   readonly passwordsCount: number;
   readonly categoriesCount: number;
+  readonly cardsCount: number;
+  readonly cardCategoriesCount: number;
   readonly filesCount: number;
   readonly storageUsed: number;
   readonly storageFoldersCount: number;
@@ -20,6 +22,8 @@ export class UsageLimits {
     foldersCount: number,
     passwordsCount: number,
     categoriesCount: number,
+    cardsCount: number,
+    cardCategoriesCount: number,
     filesCount: number,
     storageUsed: number,
     storageFoldersCount: number,
@@ -32,6 +36,8 @@ export class UsageLimits {
     this.foldersCount = foldersCount;
     this.passwordsCount = passwordsCount;
     this.categoriesCount = categoriesCount;
+    this.cardsCount = cardsCount;
+    this.cardCategoriesCount = cardCategoriesCount;
     this.filesCount = filesCount;
     this.storageUsed = storageUsed;
     this.storageFoldersCount = storageFoldersCount;
@@ -50,6 +56,8 @@ export class UsageLimits {
       data.foldersCount,
       data.passwordsCount,
       data.categoriesCount,
+      data.cardsCount,
+      data.cardCategoriesCount,
       data.filesCount,
       data.storageUsed,
       data.storageFoldersCount,
@@ -72,6 +80,8 @@ export class UsageLimits {
       filesCount: this.filesCount,
       storageUsed: this.storageUsed,
       storageFoldersCount: this.storageFoldersCount,
+      cardsCount: this.cardsCount,
+      cardCategoriesCount: this.cardCategoriesCount,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

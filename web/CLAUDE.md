@@ -8,6 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Build for production**: `npm run build` (runs TypeScript compiler first, then Vite build)
 - **Lint code**: `npm run lint`
 - **Preview production build**: `npm run preview`
+- **Run tests**: `npm test` (runs Vitest in watch mode)
+- **Run tests once**: `npm run test:run`
+- **Run tests with UI**: `npm run test:ui`
+- **Run tests with coverage**: `npm run test:coverage`
+- **Deploy to Cloudflare Pages**: `npm run deploy` (builds and deploys using Wrangler)
+- **Deploy preview**: `npm run deploy:preview` (deploys to preview branch)
 
 ## Architecture Overview
 
@@ -73,6 +79,29 @@ The codebase is organized into feature modules under `src/modules/`:
   - Account-based encryption using Web Crypto API (AES-GCM)
   - Three-panel layout similar to notes module
 
+- **`storage/`** (aliased as `@storage`): File Storage module
+  - File upload and management functionality
+  - Folder-based organization for files
+  - File preview and metadata display
+  - Support for images, videos, PDFs, and documents
+  - File type detection and formatting utilities
+  - Integration with Supabase Storage
+  - Uses React Query for caching and data synchronization
+
+- **`cards/`** (aliased as `@cards`): Credit Card Manager module
+  - Secure credit card information storage
+  - Category-based organization
+  - Card expiration tracking and warnings
+  - Search and favorites functionality
+  - Uses React Query for caching and data synchronization
+
+- **`subscriptions/`** (aliased as `@subscriptions`): Subscription Management module
+  - User subscription tier management (free, beta, pro, enterprise)
+  - Role-based access control (user, admin)
+  - Subscription validation and expiration tracking
+  - Usage limits enforcement based on tier
+  - Subscription state management via context provider
+
 - **`settings/`** (aliased as `@settings`): Settings module
   - User preferences and configuration
   - Theme management (light/dark/system)
@@ -111,6 +140,9 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - `@dashboard/*` → `src/modules/dashboard/*`
 - `@notes/*` → `src/modules/notes/*`
 - `@passwords/*` → `src/modules/passwords/*`
+- `@cards/*` → `src/modules/cards/*`
+- `@storage/*` → `src/modules/storage/*`
+- `@subscriptions/*` → `src/modules/subscriptions/*`
 - `@settings/*` → `src/modules/settings/*`
 - `@app/*` → `src/app/*`
 - `@modules/*` → `src/modules/*`
@@ -139,9 +171,47 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - **Rich Text Editor**: Tiptap with extensions (Typography, Highlight, Task Lists, Placeholder, Character Count)
 - **Form Management**: React Hook Form with Zod validation
 - **Validation**: Zod for runtime validation and input constraints
+- **Data Fetching & Caching**: TanStack React Query v5 for server state management
 - **Icons**: Lucide React
 
 Note: React Compiler is not compatible with SWC currently.
+
+### Data Fetching & Caching Strategy
+
+The application uses multiple caching strategies depending on the module:
+
+**React Query (TanStack Query v5):**
+- Used in: Storage, Cards modules
+- Configuration in `src/modules/shared/presentation/contexts/QueryProvider.tsx`
+- Default settings:
+  - `staleTime`: 5 minutes (data considered fresh)
+  - `gcTime`: 10 minutes (unused data kept in cache)
+  - `refetchOnWindowFocus`: true (ensures data freshness)
+  - `refetchOnMount`: false (prevents redundant fetches)
+- Query key factories for organized cache management
+- Automatic cache invalidation on mutations
+- Vite configuration requires `dedupe: ['react', 'react-dom']` for React 19 compatibility
+
+**Hybrid Local/Remote Storage:**
+- Used in: Notes module
+- Implements offline-first architecture with `HybridNoteRepository`
+- Local storage via `LocalNotesStorage` for instant access
+- Background sync via `NoteSyncService` for data consistency
+- Auto-sync intervals for periodic synchronization
+- Conflict resolution and dirty state tracking
+
+**When to Use Each Strategy:**
+- **React Query**: Use for modules with standard CRUD operations that need server-side data caching
+- **Hybrid Storage**: Use for modules requiring offline support, conflict resolution, or real-time collaboration features
+
+### Testing Setup
+
+- **Test Framework**: Vitest with React Testing Library
+- **Test Environment**: happy-dom (faster alternative to jsdom)
+- **Test Utilities**: @testing-library/jest-dom for custom matchers
+- **Configuration**: `vitest.config.ts` with test setup file at `src/test/setup.ts`
+- **Test Organization**: Co-locate tests with components in `__tests__` directories
+- All path aliases are configured in vitest.config.ts for proper module resolution in tests
 
 ### UI Component System
 
@@ -250,7 +320,10 @@ When creating a new feature module:
    - Infrastructure: `api/`, `storage/`, `mappers/`
    - Presentation: `components/`, `pages/`, `hooks/`, `styles/`
 4. Create an `index.ts` at the module root to export public API
-5. Add path alias to both `tsconfig.app.json` (paths) and `vite.config.ts` (resolve.alias)
+5. Add path alias to all three config files:
+   - `tsconfig.app.json` (paths)
+   - `vite.config.ts` (resolve.alias)
+   - `vitest.config.ts` (resolve.alias)
 6. Update this CLAUDE.md with the new module's purpose
 
 ## Code Organization Principles
@@ -345,6 +418,15 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 - Never commit `.env` files to version control
 - Environment variables must be prefixed with `VITE_` to be exposed to client-side code
 - Validate environment variables at runtime in `src/modules/shared/infrastructure/config/supabase.ts`
+
+## Deployment
+
+The project supports deployment to multiple platforms:
+
+### Cloudflare Pages
+- Deploy using: `npm run deploy` (production) or `npm run deploy:preview` (preview)
+- Uses Wrangler CLI for deployments
+- Build output: `dist` directory
 
 ## Common Development Tasks
 

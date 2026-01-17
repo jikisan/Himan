@@ -11,6 +11,7 @@ import { DashboardPage } from '@dashboard/presentation/pages';
 import { ProfilePage, SettingsPage } from '@settings/presentation/pages';
 import { NotesPage } from '@notes/presentation/pages/NotesPage';
 import { PasswordsPage } from '@passwords/presentation/pages';
+import { CardsPage } from '@cards/presentation/pages';
 import { StoragePage } from '@storage/presentation/pages';
 import { NotFoundPage } from '@core/presentation/pages';
 
@@ -33,6 +34,7 @@ export const Router = () => {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/passwords" element={<PasswordsPage />} />
+            <Route path="/cards" element={<CardsPage />} />
             <Route path="/storage" element={<StoragePage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />

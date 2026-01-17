@@ -11,6 +11,8 @@ export const TIER_LIMITS: Record<TierType, TierLimits> = {
     maxNoteSize: 10000, // 10k characters
     maxPasswords: 25,
     maxCategories: 5,
+    maxCards: 3,
+    maxCardCategories: 3,
     maxFiles: 100,
     maxStorage: 500 * 1024 * 1024, // 500MB in bytes
     maxStorageFolders: 5,
@@ -21,6 +23,8 @@ export const TIER_LIMITS: Record<TierType, TierLimits> = {
     maxNoteSize: 25000, // 25k characters
     maxPasswords: 100,
     maxCategories: 20,
+    maxCards: 10,
+    maxCardCategories: 10,
     maxFiles: 500,
     maxStorage: 2 * 1024 * 1024 * 1024, // 2GB in bytes
     maxStorageFolders: 20,
@@ -31,6 +35,8 @@ export const TIER_LIMITS: Record<TierType, TierLimits> = {
     maxNoteSize: 50000, // 50k characters
     maxPasswords: null,
     maxCategories: null,
+    maxCards: 50,
+    maxCardCategories: 30,
     maxFiles: null, // unlimited
     maxStorage: 10 * 1024 * 1024 * 1024, // 10GB in bytes
     maxStorageFolders: null,
@@ -41,6 +47,8 @@ export const TIER_LIMITS: Record<TierType, TierLimits> = {
     maxNoteSize: 100000, // 100k characters
     maxPasswords: null,
     maxCategories: null,
+    maxCards: null, // unlimited
+    maxCardCategories: null, // unlimited
     maxFiles: null, // unlimited
     maxStorage: 50 * 1024 * 1024 * 1024, // 50GB in bytes
     maxStorageFolders: null,

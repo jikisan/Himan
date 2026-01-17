@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
-  StorageFolderType,
   CreateStorageFolderDto,
   UpdateStorageFolderDto,
 } from '../../domain/types';
@@ -10,106 +10,127 @@ import { useAuth } from '@auth/presentation/hooks/useAuth';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
 
+// Query key factory for better organization
+const folderKeys = {
+  all: ['storage-folders'] as const,
+  lists: () => [...folderKeys.all, 'list'] as const,
+  list: (userId: string) => [...folderKeys.lists(), userId] as const,
+};
+
 export const useStorageFolders = () => {
-  const [folders, setFolders] = useState<StorageFolderType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { refreshUsage } = useSubscription();
+  const queryClient = useQueryClient();
 
   const userId = user?.id;
   const repository = useMemo(() => new StorageFolderRepository(), []);
 
-  const loadFolders = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await repository.findAll(userId);
-      setFolders(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load folders';
-      setError(errorMessage);
-      Logger.error('Error loading storage folders', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, repository]);
-
-  useEffect(() => {
-    loadFolders();
-  }, [loadFolders]);
-
-  const createFolder = useCallback(
-    async (dto: Omit<CreateStorageFolderDto, 'userId'>): Promise<StorageFolderEntity | null> => {
-      if (!userId) return null;
-
+  // Query for fetching folders
+  const {
+    data: folders = [],
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: folderKeys.list(userId || ''),
+    queryFn: async () => {
+      if (!userId) return [];
       try {
-        const newFolder = await repository.create({ ...dto, userId });
-        setFolders((prev) => [...prev, newFolder]);
-        await refreshUsage();
-        return new StorageFolderEntity(newFolder);
+        return await repository.findAll(userId);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to create folder';
-        setError(errorMessage);
-        Logger.error('Error creating storage folder', err);
-        return null;
+        Logger.error('Error loading storage folders', err);
+        throw err;
       }
     },
-    [userId, repository, refreshUsage]
-  );
+    enabled: !!userId,
+  });
 
-  const updateFolder = useCallback(
-    async (id: string, dto: UpdateStorageFolderDto): Promise<StorageFolderEntity | null> => {
-      if (!userId) return null;
-
-      try {
-        const updatedFolder = await repository.update(id, userId, dto);
-        setFolders((prev) => prev.map((folder) => (folder.id === id ? updatedFolder : folder)));
-        return new StorageFolderEntity(updatedFolder);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to update folder';
-        setError(errorMessage);
-        Logger.error('Error updating storage folder', err);
-        return null;
-      }
+  // Mutation for creating folders
+  const createFolderMutation = useMutation({
+    mutationFn: async (dto: Omit<CreateStorageFolderDto, 'userId'>) => {
+      if (!userId) throw new Error('User not authenticated');
+      return await repository.create({ ...dto, userId });
     },
-    [userId, repository]
-  );
-
-  const deleteFolder = useCallback(
-    async (id: string): Promise<boolean> => {
-      if (!userId) return false;
-
-      try {
-        await repository.delete(id, userId);
-        setFolders((prev) => prev.filter((folder) => folder.id !== id));
-        await refreshUsage();
-        return true;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to delete folder';
-        setError(errorMessage);
-        Logger.error('Error deleting storage folder', err);
-        return false;
-      }
+    onSuccess: async () => {
+      // Invalidate and refetch folders query
+      await queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      await refreshUsage();
     },
-    [userId, repository, refreshUsage]
-  );
+    onError: (err) => {
+      Logger.error('Error creating storage folder', err);
+    },
+  });
 
+  // Mutation for updating folders
+  const updateFolderMutation = useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: UpdateStorageFolderDto }) => {
+      if (!userId) throw new Error('User not authenticated');
+      return await repository.update(id, userId, dto);
+    },
+    onSuccess: async () => {
+      // Invalidate and refetch folders query
+      await queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+    },
+    onError: (err) => {
+      Logger.error('Error updating storage folder', err);
+    },
+  });
+
+  // Mutation for deleting folders
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!userId) throw new Error('User not authenticated');
+      await repository.delete(id, userId);
+    },
+    onSuccess: async () => {
+      // Invalidate and refetch folders query
+      await queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error deleting storage folder', err);
+    },
+  });
+
+  // Convert to entities
   const foldersEntities = useMemo(
     () => folders.map((folder) => new StorageFolderEntity(folder)),
     [folders]
   );
 
+  // Wrapper functions to maintain API compatibility
+  const createFolder = async (dto: Omit<CreateStorageFolderDto, 'userId'>): Promise<StorageFolderEntity | null> => {
+    try {
+      const newFolder = await createFolderMutation.mutateAsync(dto);
+      return new StorageFolderEntity(newFolder);
+    } catch {
+      return null;
+    }
+  };
+
+  const updateFolder = async (id: string, dto: UpdateStorageFolderDto): Promise<StorageFolderEntity | null> => {
+    try {
+      const updatedFolder = await updateFolderMutation.mutateAsync({ id, dto });
+      return new StorageFolderEntity(updatedFolder);
+    } catch {
+      return null;
+    }
+  };
+
+  const deleteFolder = async (id: string): Promise<boolean> => {
+    try {
+      await deleteFolderMutation.mutateAsync(id);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return {
     folders: foldersEntities,
     loading,
-    error,
-    refetch: loadFolders,
+    error: error ? (error instanceof Error ? error.message : 'Failed to load folders') : null,
+    refetch,
     createFolder,
     updateFolder,
     deleteFolder,

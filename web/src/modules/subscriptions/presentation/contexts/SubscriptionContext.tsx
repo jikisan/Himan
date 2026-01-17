@@ -26,6 +26,8 @@ interface SubscriptionContextType {
   canCreateFolder: () => FeatureAccessResult;
   canCreatePassword: () => FeatureAccessResult;
   canCreateCategory: () => FeatureAccessResult;
+  canCreateCard: () => FeatureAccessResult;
+  canCreateCardCategory: () => FeatureAccessResult;
   canSaveNoteContent: (contentLength: number) => FeatureAccessResult;
   canUploadFile: (fileSize: number) => FeatureAccessResult;
   canCreateStorageFolder: () => FeatureAccessResult;
@@ -149,6 +151,28 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     return CheckFeatureAccess.canCreateCategory(tier, usage);
   }, [tier, usage, isAdmin]);
 
+  const canCreateCard = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
+    if (!usage) {
+      return { allowed: false, reason: 'Unable to load usage data' };
+    }
+    return CheckFeatureAccess.canCreateCard(tier, usage);
+  }, [tier, usage, isAdmin]);
+
+  const canCreateCardCategory = useCallback((): FeatureAccessResult => {
+    // Admins bypass all limits
+    if (isAdmin) {
+      return { allowed: true };
+    }
+    if (!usage) {
+      return { allowed: false, reason: 'Unable to load usage data' };
+    }
+    return CheckFeatureAccess.canCreateCardCategory(tier, usage);
+  }, [tier, usage, isAdmin]);
+
   const canSaveNoteContent = useCallback(
     (contentLength: number): FeatureAccessResult => {
       // Admins bypass all limits
@@ -198,6 +222,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     canCreateFolder,
     canCreatePassword,
     canCreateCategory,
+    canCreateCard,
+    canCreateCardCategory,
     canSaveNoteContent,
     canUploadFile,
     canCreateStorageFolder,

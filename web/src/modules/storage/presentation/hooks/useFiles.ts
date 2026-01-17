@@ -1,113 +1,139 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { FileType, CreateFileDto, UpdateFileDto, FileFilters } from '../../domain/types';
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { CreateFileDto, UpdateFileDto, FileFilters } from '../../domain/types';
 import { File as FileEntity } from '../../domain/entities';
 import { FileRepository } from '../../infrastructure/repositories';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
 
+// Query key factory for better organization
+const fileKeys = {
+  all: ['files'] as const,
+  lists: () => [...fileKeys.all, 'list'] as const,
+  list: (userId: string, filters?: FileFilters) => [...fileKeys.lists(), userId, filters] as const,
+};
+
 export const useFiles = (filters?: FileFilters) => {
-  const [files, setFiles] = useState<FileType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { refreshUsage } = useSubscription();
+  const queryClient = useQueryClient();
 
   const userId = user?.id;
   const repository = useMemo(() => new FileRepository(), []);
 
+  // Stable filters for query key
   const stableFilters = useMemo(
     () => filters,
     [filters?.folderId, filters?.searchQuery]
   );
 
-  const loadFiles = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+  // Query for fetching files
+  const {
+    data: files = [],
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: fileKeys.list(userId || '', stableFilters),
+    queryFn: async () => {
+      if (!userId) return [];
+      try {
+        return await repository.findAll(userId, stableFilters);
+      } catch (err) {
+        Logger.error('Error loading files', err);
+        throw err;
+      }
+    },
+    enabled: !!userId,
+  });
 
-    setLoading(true);
-    setError(null);
+  // Mutation for creating files
+  const createFileMutation = useMutation({
+    mutationFn: async (dto: Omit<CreateFileDto, 'userId'>) => {
+      if (!userId) throw new Error('User not authenticated');
+      return await repository.create({ ...dto, userId });
+    },
+    onSuccess: async () => {
+      // Invalidate and refetch files query
+      await queryClient.invalidateQueries({ queryKey: fileKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error creating file', err);
+    },
+  });
+
+  // Mutation for updating files
+  const updateFileMutation = useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: UpdateFileDto }) => {
+      if (!userId) throw new Error('User not authenticated');
+      return await repository.update(id, userId, dto);
+    },
+    onSuccess: async () => {
+      // Invalidate and refetch files query
+      await queryClient.invalidateQueries({ queryKey: fileKeys.lists() });
+    },
+    onError: (err) => {
+      Logger.error('Error updating file', err);
+    },
+  });
+
+  // Mutation for deleting files
+  const deleteFileMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!userId) throw new Error('User not authenticated');
+      await repository.delete(id, userId);
+    },
+    onSuccess: async () => {
+      // Invalidate and refetch files query
+      await queryClient.invalidateQueries({ queryKey: fileKeys.lists() });
+      await refreshUsage();
+    },
+    onError: (err) => {
+      Logger.error('Error deleting file', err);
+    },
+  });
+
+  // Convert to entities
+  const filesEntities = useMemo(
+    () => files.map((file) => new FileEntity(file)),
+    [files]
+  );
+
+  // Wrapper functions to maintain API compatibility
+  const createFile = async (dto: Omit<CreateFileDto, 'userId'>): Promise<FileEntity | null> => {
     try {
-      const data = await repository.findAll(userId, stableFilters);
-      setFiles(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load files';
-      setError(errorMessage);
-      Logger.error('Error loading files', err);
-    } finally {
-      setLoading(false);
+      const newFile = await createFileMutation.mutateAsync(dto);
+      return new FileEntity(newFile);
+    } catch {
+      return null;
     }
-  }, [userId, repository, stableFilters]);
+  };
 
-  useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
+  const updateFile = async (id: string, dto: UpdateFileDto): Promise<FileEntity | null> => {
+    try {
+      const updatedFile = await updateFileMutation.mutateAsync({ id, dto });
+      return new FileEntity(updatedFile);
+    } catch {
+      return null;
+    }
+  };
 
-  const createFile = useCallback(
-    async (dto: Omit<CreateFileDto, 'userId'>): Promise<FileEntity | null> => {
-      if (!userId) return null;
-
-      try {
-        const newFile = await repository.create({ ...dto, userId });
-        setFiles((prev) => [newFile, ...prev]);
-        await refreshUsage();
-        return new FileEntity(newFile);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to create file';
-        setError(errorMessage);
-        Logger.error('Error creating file', err);
-        return null;
-      }
-    },
-    [userId, repository, refreshUsage]
-  );
-
-  const updateFile = useCallback(
-    async (id: string, dto: UpdateFileDto): Promise<FileEntity | null> => {
-      if (!userId) return null;
-
-      try {
-        const updatedFile = await repository.update(id, userId, dto);
-        setFiles((prev) => prev.map((file) => (file.id === id ? updatedFile : file)));
-        return new FileEntity(updatedFile);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to update file';
-        setError(errorMessage);
-        Logger.error('Error updating file', err);
-        return null;
-      }
-    },
-    [userId, repository]
-  );
-
-  const deleteFile = useCallback(
-    async (id: string): Promise<boolean> => {
-      if (!userId) return false;
-
-      try {
-        await repository.delete(id, userId);
-        setFiles((prev) => prev.filter((file) => file.id !== id));
-        await refreshUsage();
-        return true;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to delete file';
-        setError(errorMessage);
-        Logger.error('Error deleting file', err);
-        return false;
-      }
-    },
-    [userId, repository, refreshUsage]
-  );
-
-  const filesEntities = useMemo(() => files.map((file) => new FileEntity(file)), [files]);
+  const deleteFile = async (id: string): Promise<boolean> => {
+    try {
+      await deleteFileMutation.mutateAsync(id);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   return {
     files: filesEntities,
     loading,
-    error,
-    refetch: loadFiles,
+    error: error ? (error instanceof Error ? error.message : 'Failed to load files') : null,
+    refetch,
     createFile,
     updateFile,
     deleteFile,

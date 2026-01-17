@@ -86,6 +86,14 @@ The codebase is organized into feature modules under `src/modules/`:
   - Support for images, videos, PDFs, and documents
   - File type detection and formatting utilities
   - Integration with Supabase Storage
+  - Uses React Query for caching and data synchronization
+
+- **`cards/`** (aliased as `@cards`): Credit Card Manager module
+  - Secure credit card information storage
+  - Category-based organization
+  - Card expiration tracking and warnings
+  - Search and favorites functionality
+  - Uses React Query for caching and data synchronization
 
 - **`subscriptions/`** (aliased as `@subscriptions`): Subscription Management module
   - User subscription tier management (free, beta, pro, enterprise)
@@ -132,6 +140,7 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - `@dashboard/*` → `src/modules/dashboard/*`
 - `@notes/*` → `src/modules/notes/*`
 - `@passwords/*` → `src/modules/passwords/*`
+- `@cards/*` → `src/modules/cards/*`
 - `@storage/*` → `src/modules/storage/*`
 - `@subscriptions/*` → `src/modules/subscriptions/*`
 - `@settings/*` → `src/modules/settings/*`
@@ -162,9 +171,38 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - **Rich Text Editor**: Tiptap with extensions (Typography, Highlight, Task Lists, Placeholder, Character Count)
 - **Form Management**: React Hook Form with Zod validation
 - **Validation**: Zod for runtime validation and input constraints
+- **Data Fetching & Caching**: TanStack React Query v5 for server state management
 - **Icons**: Lucide React
 
 Note: React Compiler is not compatible with SWC currently.
+
+### Data Fetching & Caching Strategy
+
+The application uses multiple caching strategies depending on the module:
+
+**React Query (TanStack Query v5):**
+- Used in: Storage, Cards modules
+- Configuration in `src/modules/shared/presentation/contexts/QueryProvider.tsx`
+- Default settings:
+  - `staleTime`: 5 minutes (data considered fresh)
+  - `gcTime`: 10 minutes (unused data kept in cache)
+  - `refetchOnWindowFocus`: true (ensures data freshness)
+  - `refetchOnMount`: false (prevents redundant fetches)
+- Query key factories for organized cache management
+- Automatic cache invalidation on mutations
+- Vite configuration requires `dedupe: ['react', 'react-dom']` for React 19 compatibility
+
+**Hybrid Local/Remote Storage:**
+- Used in: Notes module
+- Implements offline-first architecture with `HybridNoteRepository`
+- Local storage via `LocalNotesStorage` for instant access
+- Background sync via `NoteSyncService` for data consistency
+- Auto-sync intervals for periodic synchronization
+- Conflict resolution and dirty state tracking
+
+**When to Use Each Strategy:**
+- **React Query**: Use for modules with standard CRUD operations that need server-side data caching
+- **Hybrid Storage**: Use for modules requiring offline support, conflict resolution, or real-time collaboration features
 
 ### Testing Setup
 

@@ -1,6 +1,6 @@
 import { useAuth } from "@auth/presentation/hooks";
 import { Link } from "react-router-dom";
-import { FileText, KeyRound, HardDrive } from "lucide-react";
+import { FileText, KeyRound, CreditCard, HardDrive } from "lucide-react";
 import {
   Card,
   CardDescription,
@@ -25,6 +25,12 @@ export const DashboardPage = () => {
       description: "Manage your passwords",
     },
     {
+      to: "/cards",
+      icon: CreditCard,
+      label: "Cards",
+      description: "Manage your credit cards",
+    },
+    {
       to: "/storage",
       icon: HardDrive,
       label: "Storage",
@@ -44,7 +50,7 @@ export const DashboardPage = () => {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {quickLinks.map((link) => (
           <Link key={link.to} to={link.to} className="group">
             <Card className="transition-all hover:shadow-lg bg-card hover:border-primary/50">

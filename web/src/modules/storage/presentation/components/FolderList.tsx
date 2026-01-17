@@ -1,4 +1,4 @@
-import { Folder, HardDrive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Folder, HardDrive } from 'lucide-react';
 import type { StorageFolder } from '../../domain/entities';
 import { SidebarList } from '@core/presentation/components';
 import { useSubscription } from '@subscriptions/presentation/hooks';
@@ -76,34 +76,38 @@ export const FolderList = ({
   const mappedSelectedId = selectedFolderId === null ? 'unfiled' : selectedFolderId;
 
   return (
-    <div className="relative">
-      <SidebarList
-        moduleName="storage"
-        title="Folders"
-        items={folderItems}
-        selectedItemId={mappedSelectedId}
-        onSelectItem={(id) => {
-          if (id === 'unfiled') {
-            onSelectFolder(null);
-          } else {
-            onSelectFolder(id as string | 'all');
-          }
-        }}
-        onCreate={handleCreateFolder}
-        onUpdate={handleUpdateFolder}
-        onDelete={handleDeleteFolder}
-        loading={loading}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={onToggleCollapse}
-        allItemsLabel="All Files"
-        unfiledLabel="Unfiled"
-        showSpecialView={false}
-        itemIcon={Folder}
-      />
+    <div className="relative h-full flex flex-col bg-background">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <SidebarList
+          moduleName="storage"
+          title="Folders"
+          items={folderItems}
+          selectedItemId={mappedSelectedId}
+          onSelectItem={(id) => {
+            if (id === 'unfiled') {
+              onSelectFolder(null);
+            } else {
+              onSelectFolder(id as string | 'all');
+            }
+          }}
+          onCreate={handleCreateFolder}
+          onUpdate={handleUpdateFolder}
+          onDelete={handleDeleteFolder}
+          loading={loading}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse}
+          allItemsLabel="All Files"
+          unfiledLabel="Unfiled"
+          showSpecialView={false}
+          itemIcon={Folder}
+        />
+      </div>
 
-      {/* Storage Usage Indicator */}
+      {/* Storage Usage Indicator - at the bottom */}
       {!isCollapsed && (
-        <div className="p-4 border-t border-border">
+        <div className={`p-4 border-t border-r border-border bg-background transition-all duration-300 ${
+          isCollapsed ? "w-12" : "w-64"
+        }`}>
           <div className="flex items-center gap-2 mb-2">
             <HardDrive className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs font-medium text-foreground">Storage</span>
@@ -125,19 +129,6 @@ export const FolderList = ({
           </div>
         </div>
       )}
-
-      {/* Collapse Toggle */}
-      <button
-        onClick={onToggleCollapse}
-        className="absolute -right-3 top-4 bg-background border border-border rounded-full p-1 hover:bg-accent transition-colors hidden lg:block"
-        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {isCollapsed ? (
-          <ChevronRight className="w-3 h-3" />
-        ) : (
-          <ChevronLeft className="w-3 h-3" />
-        )}
-      </button>
     </div>
   );
 };

@@ -29,6 +29,16 @@ export class GetCurrentUsage {
         limit: limits.maxCategories,
         percentage: this.calculatePercentage(usage.categoriesCount, limits.maxCategories),
       },
+      cards: {
+        current: usage.cardsCount,
+        limit: limits.maxCards,
+        percentage: this.calculatePercentage(usage.cardsCount, limits.maxCards),
+      },
+      cardCategories: {
+        current: usage.cardCategoriesCount,
+        limit: limits.maxCardCategories,
+        percentage: this.calculatePercentage(usage.cardCategoriesCount, limits.maxCardCategories),
+      },
       files: {
         current: usage.filesCount,
         limit: limits.maxFiles,

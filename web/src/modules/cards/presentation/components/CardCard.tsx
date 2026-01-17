@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, MoreVertical, Edit2, Trash2, Star, Eye, EyeOff, CreditCard as CreditCardIcon, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, MoreVertical, Edit2, Trash2, Star, Eye, EyeOff, CreditCard as CreditCardIcon, AlertCircle, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard as CreditCardEntity } from '../../domain/entities/CreditCard';
 import type { CreditCardType } from '../../domain';
@@ -11,6 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 // Badge component not available, using span with styling instead
 import { Logger } from '@core/infrastructure/services';
 
@@ -29,7 +37,9 @@ export const CardCard = ({
 }: CardCardProps) => {
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalShowCardNumber, setModalShowCardNumber] = useState(false);
+  const [modalShowCvv, setModalShowCvv] = useState(false);
   const cardEntity = new CreditCardEntity(card);
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -113,7 +123,7 @@ export const CardCard = ({
         <div>
           <label className="text-xs text-muted-foreground opacity-50">Card Number</label>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm font-mono flex-1 truncate">
+            <span className="text-sm font-mono flex-1 break-all">
               {showCardNumber ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim() : cardEntity.getMaskedNumber()}
             </span>
             <Button
@@ -165,57 +175,163 @@ export const CardCard = ({
           </div>
         </div>
 
-        {/* Expand/Collapse Button */}
+        {/* View Details Button */}
         <div className="pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full justify-center text-xs text-muted-foreground hover:text-foreground"
-          >
-            {isExpanded ? (
-              <>
-                <ChevronUp className="h-3 w-3" />
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3" />
-              </>
-            )}
-          </Button>
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-center text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Maximize2 className="h-3 w-3 mr-1" />
+                View Details
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] bg-popover text-popover-foreground">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Star
+                    className={`h-5 w-5 ${
+                      card.isFavorite
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-muted-foreground'
+                    }`}
+                  />
+                  {card.cardName}
+                </DialogTitle>
+                <DialogDescription>
+                  View all details for this credit card
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 mt-4">
+                {/* Status badges */}
+                <div className="flex gap-2 flex-wrap">
+                  {isExpired && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-destructive text-destructive-foreground">
+                      <AlertCircle className="h-3 w-3" />
+                      Expired
+                    </span>
+                  )}
+                  {!isExpired && isExpiringSoon && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-orange-500 text-white">
+                      <AlertCircle className="h-3 w-3" />
+                      Expiring Soon
+                    </span>
+                  )}
+                </div>
+
+                {/* Card Number */}
+                <div>
+                  <label className="text-xs text-muted-foreground opacity-50">Card Number</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-mono flex-1 break-all">
+                      {modalShowCardNumber ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim() : cardEntity.getMaskedNumber()}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setModalShowCardNumber(!modalShowCardNumber)}
+                      className="h-7 w-7 flex-shrink-0"
+                      aria-label={modalShowCardNumber ? 'Hide card number' : 'Show card number'}
+                    >
+                      {modalShowCardNumber ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(card.cardNumber.replace(/\D/g, ''), 'Card number')}
+                      className="h-7 w-7 flex-shrink-0"
+                      aria-label="Copy card number"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* CVV */}
+                <div>
+                  <label className="text-xs text-muted-foreground opacity-50">CVV</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-mono flex-1">
+                      {modalShowCvv ? card.cvv : '•••'}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setModalShowCvv(!modalShowCvv)}
+                      className="h-7 w-7 flex-shrink-0"
+                      aria-label={modalShowCvv ? 'Hide CVV' : 'Show CVV'}
+                    >
+                      {modalShowCvv ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(card.cvv, 'CVV')}
+                      className="h-7 w-7 flex-shrink-0"
+                      aria-label="Copy CVV"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Expiry */}
+                <div>
+                  <label className="text-xs text-muted-foreground opacity-50">Expiry Date</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <CreditCardIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      {card.expiryMonth.toString().padStart(2, '0')}/{card.expiryYear}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bank Name */}
+                {card.bankName && (
+                  <div>
+                    <label className="text-xs text-muted-foreground opacity-50">Bank</label>
+                    <span className="text-sm block mt-1">{card.bankName}</span>
+                  </div>
+                )}
+
+                {/* Card Issuer */}
+                {card.cardIssuer && (
+                  <div>
+                    <label className="text-xs text-muted-foreground opacity-50">Issuer</label>
+                    <span className="text-sm block mt-1">{card.cardIssuer}</span>
+                  </div>
+                )}
+
+                {/* Card Type */}
+                {card.cardType && (
+                  <div>
+                    <label className="text-xs text-muted-foreground opacity-50">Card Type</label>
+                    <span className="text-sm block mt-1">{card.cardType}</span>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {card.notes && (
+                  <div>
+                    <label className="text-xs text-muted-foreground opacity-50">Notes</label>
+                    <p className="text-sm block mt-1 whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
+                      {card.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Created/Updated timestamps */}
+                <div className="pt-2 border-t border-border text-xs text-muted-foreground">
+                  <div>Created: {cardEntity.createdAt.toLocaleDateString()}</div>
+                  <div>Last updated: {cardEntity.getRelativeTime()}</div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-
-        {/* Expanded Details */}
-        {isExpanded && (
-          <div className="space-y-3 pt-2 border-t border-border">
-            {/* Expiry */}
-            <div>
-              <label className="text-xs text-muted-foreground opacity-50">Expiry</label>
-              <div className="flex items-center gap-2 mt-1">
-                <CreditCardIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  {card.expiryMonth.toString().padStart(2, '0')}/{card.expiryYear}
-                </span>
-              </div>
-            </div>
-
-            {/* Bank Name */}
-            {card.bankName && (
-              <div>
-                <label className="text-xs text-muted-foreground opacity-50">Bank</label>
-                <span className="text-sm block mt-1">{card.bankName}</span>
-              </div>
-            )}
-
-            {/* Card Issuer */}
-            {card.cardIssuer && (
-              <div>
-                <label className="text-xs text-muted-foreground opacity-50">Issuer</label>
-                <span className="text-sm block mt-1">{card.cardIssuer}</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -25,7 +25,10 @@
       "@dashboard/*": ["src/modules/dashboard/*"],
       "@notes/*": ["src/modules/notes/*"],
       "@passwords/*": ["src/modules/passwords/*"],
+      "@cards/*": ["src/modules/cards/*"],
+      "@storage/*": ["src/modules/storage/*"],
       "@settings/*": ["src/modules/settings/*"],
+      "@subscriptions/*": ["src/modules/subscriptions/*"],
       "@app/*": ["src/app/*"],
       "@modules/*": ["src/modules/*"]
     },

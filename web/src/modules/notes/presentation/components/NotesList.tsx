@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, GripVertical } from 'lucide-react';
+import { Plus, Search, GripVertical, RefreshCw } from 'lucide-react';
 import { Note } from '../../domain/entities/Note';
+import type { Folder } from '../../domain/types';
+import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
 import { NoteItem } from './NoteItem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +16,11 @@ interface NotesListProps {
   loading: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  selectedFolderId: string | null | 'all' | 'pinned';
+  folders: Folder[];
+  syncStatus: SyncStatus;
+  onSync: () => Promise<void>;
+  isNoteDirty: (noteId: string) => boolean;
 }
 
 export const NotesList = ({
@@ -24,6 +31,11 @@ export const NotesList = ({
   loading,
   searchQuery,
   onSearchChange,
+  selectedFolderId,
+  folders,
+  syncStatus,
+  onSync,
+  isNoteDirty,
 }: NotesListProps) => {
   const MIN_WIDTH = 150;
   const MAX_WIDTH = 600;
@@ -62,6 +74,16 @@ export const NotesList = ({
     };
   }, [isResizing]);
 
+  // Get the display name for the current view
+  const getDisplayName = () => {
+    if (selectedFolderId === 'all') return 'All Notes';
+    if (selectedFolderId === 'pinned') return 'Pinned';
+    if (!selectedFolderId) return 'Unfiled';
+
+    const folder = folders.find(f => f.id === selectedFolderId);
+    return folder?.name || 'Notes';
+  };
+
   return (
     <div
       ref={resizeRef}
@@ -69,18 +91,45 @@ export const NotesList = ({
       style={{ width: `${width}px`, minWidth: `${MIN_WIDTH}px`, maxWidth: `${MAX_WIDTH}px` }}
     >
       <div className="p-4 border-b border-border space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-card-foreground">
-            Notes
+            {getDisplayName()}
           </h2>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onCreateNote}
-            className="h-8 w-8"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {/* Sync Button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSync}
+              disabled={syncStatus.syncing}
+              className="h-8 w-8 relative"
+              title={
+                syncStatus.pending > 0
+                  ? `Sync ${syncStatus.pending} unsaved ${syncStatus.pending === 1 ? 'note' : 'notes'}`
+                  : 'All synced'
+              }
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${syncStatus.syncing ? 'animate-spin' : ''} ${
+                  syncStatus.pending > 0 ? 'text-primary' : 'text-muted-foreground'
+                }`}
+              />
+              {syncStatus.pending > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+                  {syncStatus.pending}
+                </span>
+              )}
+            </Button>
+            {/* Create Note Button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onCreateNote}
+              className="h-8 w-8"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="relative">
@@ -108,6 +157,7 @@ export const NotesList = ({
               note={note}
               isActive={selectedNoteId === note.id}
               onClick={() => onSelectNote(note)}
+              isDirty={isNoteDirty(note.id)}
             />
           ))
         )}

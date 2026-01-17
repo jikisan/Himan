@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, FolderOpen, Folder as FolderIcon, Plus, Search, Pin } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderOpen, Folder as FolderIcon, Plus, Search, Pin, RefreshCw } from 'lucide-react';
 import type { FolderType as Folder } from '../../domain';
+import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
 import { Note } from '../../domain/entities/Note';
 import { FolderItem } from './FolderItem';
 import { NoteItem } from './NoteItem';
@@ -27,6 +28,11 @@ interface MobileNotesMenuProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
 
+  // Sync
+  syncStatus: SyncStatus;
+  onSync: () => Promise<void>;
+  isNoteDirty: (noteId: string) => boolean;
+
   // Mobile specific
   onClose: () => void;
 }
@@ -45,6 +51,9 @@ export const MobileNotesMenu = ({
   notesLoading,
   searchQuery,
   onSearchChange,
+  syncStatus,
+  onSync,
+  isNoteDirty,
   onClose,
 }: MobileNotesMenuProps) => {
   const [isFoldersExpanded, setIsFoldersExpanded] = useState(true);
@@ -198,17 +207,44 @@ export const MobileNotesMenu = ({
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Notes</h3>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={async () => {
-                await onCreateNote();
-                onClose(); // Close drawer after creating note
-              }}
-              className="h-7 w-7"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {/* Sync Button */}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onSync}
+                disabled={syncStatus.syncing}
+                className="h-7 w-7 relative"
+                title={
+                  syncStatus.pending > 0
+                    ? `Sync ${syncStatus.pending} unsaved ${syncStatus.pending === 1 ? 'note' : 'notes'}`
+                    : 'All synced'
+                }
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${syncStatus.syncing ? 'animate-spin' : ''} ${
+                    syncStatus.pending > 0 ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                />
+                {syncStatus.pending > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+                    {syncStatus.pending}
+                  </span>
+                )}
+              </Button>
+              {/* Create Note Button */}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={async () => {
+                  await onCreateNote();
+                  onClose(); // Close drawer after creating note
+                }}
+                className="h-7 w-7"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
 
           <div className="relative">
@@ -238,6 +274,7 @@ export const MobileNotesMenu = ({
                 note={note}
                 isActive={selectedNoteId === note.id}
                 onClick={() => handleSelectNote(note)}
+                isDirty={isNoteDirty(note.id)}
               />
             ))
           )}

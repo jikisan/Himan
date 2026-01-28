@@ -1,6 +1,6 @@
 import { useAuth } from "@auth/presentation/hooks";
 import { Link } from "react-router-dom";
-import { FileText, KeyRound, CreditCard, HardDrive } from "lucide-react";
+import { FileText, KeyRound, CreditCard, HardDrive, Receipt } from "lucide-react";
 import {
   Card,
   CardDescription,
@@ -35,6 +35,12 @@ export const DashboardPage = () => {
       icon: HardDrive,
       label: "Storage",
       description: "Manage your files",
+    },
+    {
+      to: "/invoice-generator",
+      icon: Receipt,
+      label: "Invoice Generator",
+      description: "Create professional invoices",
     },
   ];
 

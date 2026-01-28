@@ -1,0 +1,1 @@
+export { InvoiceGeneratorPage } from './InvoiceGeneratorPage';

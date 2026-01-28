@@ -14,6 +14,7 @@ import { PasswordsPage } from '@passwords/presentation/pages';
 import { CardsPage } from '@cards/presentation/pages';
 import { StoragePage } from '@storage/presentation/pages';
 import { NotFoundPage } from '@core/presentation/pages';
+import { InvoiceGeneratorPage } from '@invoice-generator/presentation/pages';
 
 export const Router = () => {
   return (
@@ -38,6 +39,7 @@ export const Router = () => {
             <Route path="/storage" element={<StoragePage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/invoice-generator" element={<InvoiceGeneratorPage />} />
           </Route>
         </Route>
 

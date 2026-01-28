@@ -19,6 +19,8 @@ export default defineConfig({
       '@passwords': path.resolve(__dirname, './src/modules/passwords'),
       '@cards': path.resolve(__dirname, './src/modules/cards'),
       '@settings': path.resolve(__dirname, './src/modules/settings'),
+      '@subscriptions': path.resolve(__dirname, './src/modules/subscriptions'),
+      '@invoice-generator': path.resolve(__dirname, './src/modules/invoice-generator'),
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },

@@ -156,7 +156,7 @@ export const PasswordsPage = () => {
 
   return (
     <>
-      <div className="flex h-full bg-secondary">
+      <div className="flex h-full bg-background">
         <CategoryList
           categories={categories}
           selectedCategoryId={selectedCategoryId}

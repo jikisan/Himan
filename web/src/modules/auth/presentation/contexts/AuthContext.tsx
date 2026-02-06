@@ -44,16 +44,53 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   useEffect(() => {
-    checkSession();
+    let isMounted = true;
 
+    // Set up auth state listener FIRST
+    // This handles OAuth callbacks and session changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        if (!isMounted) return;
+        Logger.info('Auth state changed', { event, hasSession: !!session });
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
+    // Check for existing session after listener is set up
+    const initializeAuth = async () => {
+      try {
+        // First, check if there are OAuth params in the URL that need processing
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const queryParams = new URLSearchParams(window.location.search);
+        const hasAuthParams = hashParams.has('access_token') || queryParams.has('code');
+
+        if (hasAuthParams) {
+          // Let onAuthStateChange handle the OAuth callback
+          // It will set loading to false when done
+          Logger.info('OAuth params detected, waiting for auth state change');
+          return;
+        }
+
+        // No OAuth params, check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      } catch (error) {
+        Logger.error('Error initializing auth', error);
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);

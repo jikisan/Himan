@@ -44,12 +44,12 @@ export const DashboardPage = () => {
           },
         ]
       : []),
-    // {
-    //   to: "/invoice-generator",
-    //   icon: Receipt,
-    //   label: "Invoice Generator",
-    //   description: "Create professional invoices",
-    // },
+    {
+      to: "/invoice-generator",
+      icon: Receipt,
+      label: "Invoice Generator",
+      description: "Create professional invoices",
+    },
   ];
 
   return (

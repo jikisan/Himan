@@ -6,15 +6,20 @@ import { InvoiceLineItems } from "./InvoiceLineItems";
 import { InvoiceSummary } from "./InvoiceSummary";
 import { InvoiceFooter } from "./InvoiceFooter";
 import { InvoicePreview } from "./InvoicePreview";
+import { CategoryList } from "./CategoryList";
 import type { InvoiceData } from "@invoice-generator/domain/types";
 import { getDefaultInvoiceData } from "@invoice-generator/domain/types";
 import { generatePDF } from "../utils/pdf";
 
 export const InvoiceGenerator = () => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(
-    getDefaultInvoiceData
+    getDefaultInvoiceData,
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<
+    string | null | "all" | "favorites"
+  >("all");
   const previewRef = useRef<HTMLDivElement>(null);
 
   const handleChange = useCallback((updates: Partial<InvoiceData>) => {
@@ -38,19 +43,53 @@ export const InvoiceGenerator = () => {
   const handleReset = () => {
     if (
       confirm(
-        "Are you sure you want to reset the invoice? All data will be lost."
+        "Are you sure you want to reset the invoice? All data will be lost.",
       )
     ) {
       setInvoiceData(getDefaultInvoiceData());
     }
   };
 
+  const handleToggleCategoryCollapse = useCallback(() => {
+    setIsCategoryCollapsed((prev) => !prev);
+  }, []);
+
+  const handleCreateCategory = useCallback(async (name: string) => {
+    // Placeholder - implement category creation logic if needed
+    console.log("Create category:", name);
+  }, []);
+
+  const handleUpdateCategory = useCallback(async (id: string, name: string) => {
+    // Placeholder - implement category update logic if needed
+    console.log("Update category:", id, name);
+  }, []);
+
+  const handleDeleteCategory = useCallback(async (id: string) => {
+    // Placeholder - implement category delete logic if needed
+    console.log("Delete category:", id);
+  }, []);
+
+  // Mock empty categories for now
+  const categories: Array<{ id: string; name: string; count?: number }> = [];
+
   return (
     <>
       <div className="flex h-full bg-background">
-        <div className="flex-1 flex flex-col bg-background">
+        <CategoryList
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryId}
+          onCreateCategory={handleCreateCategory}
+          onUpdateCategory={handleUpdateCategory}
+          onDeleteCategory={handleDeleteCategory}
+          loading={false}
+          isCollapsed={isCategoryCollapsed}
+          onToggleCollapse={handleToggleCategoryCollapse}
+        />
+
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
           {/* Header */}
-          <div className="p-4 border-b border-border flex items-center gap-4">
+          <div className="p-4 border-b border-border flex justify-between items-center gap-4 shrink-0">
             <div>
               <h1 className="text-2xl font-bold">Invoice Generator</h1>
               <p className="text-muted-foreground">
@@ -78,7 +117,9 @@ export const InvoiceGenerator = () => {
               {/* Invoice Details Section */}
               <Card>
                 <CardHeader>
-                  <Label className="text-lg font-semibold">Invoice Details</Label>
+                  <Label className="text-lg font-semibold">
+                    Invoice Details
+                  </Label>
                 </CardHeader>
                 <CardContent>
                   <InvoiceHeader data={invoiceData} onChange={handleChange} />

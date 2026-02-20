@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { Download } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, Label } from "@/components/ui";
+import { Button, Card, CardContent, CardHeader } from "@/components/ui";
 import { InvoiceHeader } from "./InvoiceHeader";
 import { InvoiceLineItems } from "./InvoiceLineItems";
 import { InvoiceSummary } from "./InvoiceSummary";
@@ -117,9 +117,9 @@ export const InvoiceGenerator = () => {
               {/* Invoice Details Section */}
               <Card>
                 <CardHeader>
-                  <Label className="text-lg font-semibold">
+                  <span className="text-lg font-semibold">
                     Invoice Details
-                  </Label>
+                  </span>
                 </CardHeader>
                 <CardContent>
                   <InvoiceHeader data={invoiceData} onChange={handleChange} />
@@ -129,7 +129,7 @@ export const InvoiceGenerator = () => {
               {/* Line Items Section */}
               <Card>
                 <CardHeader>
-                  <Label className="text-lg font-semibold">Line Items</Label>
+                  <span className="text-lg font-semibold">Line Items</span>
                 </CardHeader>
                 <CardContent>
                   <InvoiceLineItems
@@ -143,7 +143,7 @@ export const InvoiceGenerator = () => {
               {/* Summary Section */}
               <Card>
                 <CardHeader>
-                  <Label className="text-lg font-semibold">Summary</Label>
+                  <span className="text-lg font-semibold">Summary</span>
                 </CardHeader>
                 <CardContent>
                   <InvoiceSummary data={invoiceData} onChange={handleChange} />
@@ -153,9 +153,9 @@ export const InvoiceGenerator = () => {
               {/* Footer Section */}
               <Card>
                 <CardHeader>
-                  <Label className="text-lg font-semibold">
+                  <span className="text-lg font-semibold">
                     Additional Information
-                  </Label>
+                  </span>
                 </CardHeader>
                 <CardContent>
                   <InvoiceFooter data={invoiceData} onChange={handleChange} />

@@ -54,8 +54,10 @@ export const isValidLineItem = (item: LineItem): boolean =>
 export const generateLineItemId = (): string =>
   `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-// Default invoice data
-export const getDefaultInvoiceData = (): InvoiceData => ({
+// Toggle this to prefill the form with sample data for testing
+const USE_TEST_DATA = true;
+
+const getEmptyInvoiceData = (): InvoiceData => ({
   invoiceNumber: '',
   poNumber: '',
   logo: undefined,
@@ -71,3 +73,28 @@ export const getDefaultInvoiceData = (): InvoiceData => ({
   notes: 'Payment is due within 15 days',
   bankDetails: '',
 });
+
+const getTestInvoiceData = (): InvoiceData => ({
+  invoiceNumber: 'INV-2026-001',
+  poNumber: 'PO-78432',
+  logo: undefined,
+  companyDetails: 'Acme Web Solutions\n123 Business Ave, Suite 400\nMakati City, Metro Manila 1200\nPhone: +63 2 8123 4567\nEmail: billing@acmewebsolutions.ph',
+  billTo: 'GlobalTech Industries\nAttn: Juan Dela Cruz\n456 Corporate Blvd, Floor 12\nBonifacio Global City, Taguig 1634\nEmail: juan@globaltech.ph',
+  invoiceDate: new Date().toISOString().split('T')[0],
+  dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  currency: 'PHP',
+  lineItems: [
+    { id: generateLineItemId(), description: 'Website Design & Development', unitCost: 75000, quantity: 1 },
+    { id: generateLineItemId(), description: 'Mobile Responsive Implementation', unitCost: 25000, quantity: 1 },
+    { id: generateLineItemId(), description: 'SEO Optimization Package', unitCost: 15000, quantity: 1 },
+    { id: generateLineItemId(), description: 'Monthly Hosting & Maintenance', unitCost: 3500, quantity: 3 },
+  ],
+  taxRate: 12,
+  discount: 5000,
+  shippingFee: 0,
+  notes: 'Payment is due within 15 days.\nPlease include the invoice number in your payment reference.\nLate payments are subject to a 2% monthly interest charge.',
+  bankDetails: 'Bank: BDO Unibank\nAccount Name: Acme Web Solutions Inc.\nAccount Number: 1234-5678-9012\nBranch: Makati Main Branch',
+});
+
+// Default invoice data
+export const getDefaultInvoiceData = USE_TEST_DATA ? getTestInvoiceData : getEmptyInvoiceData;

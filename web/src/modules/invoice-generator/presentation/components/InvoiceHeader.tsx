@@ -1,6 +1,7 @@
 import { Input, Label, Textarea } from '@/components/ui';
 import { LogoUploader } from './LogoUploader';
 import { CurrencySelect } from './CurrencySelect';
+import { DatePicker } from '@/components/ui';
 import type { InvoiceData, CurrencyCode } from '@invoice-generator/domain/types';
 
 interface InvoiceHeaderProps {
@@ -82,21 +83,17 @@ export const InvoiceHeader = ({ data, onChange }: InvoiceHeaderProps) => {
       {/* Dates */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="invoiceDate">Invoice Date</Label>
-          <Input
-            id="invoiceDate"
-            type="date"
+          <Label>Invoice Date</Label>
+          <DatePicker
             value={data.invoiceDate}
-            onChange={(e) => onChange({ invoiceDate: e.target.value })}
+            onChange={(invoiceDate) => onChange({ invoiceDate })}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="dueDate">Due Date</Label>
-          <Input
-            id="dueDate"
-            type="date"
+          <Label>Due Date</Label>
+          <DatePicker
             value={data.dueDate}
-            onChange={(e) => onChange({ dueDate: e.target.value })}
+            onChange={(dueDate) => onChange({ dueDate })}
           />
         </div>
       </div>

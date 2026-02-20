@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { usePDF } from "react-to-pdf";
 import { Download } from "lucide-react";
 import { Button, Card, CardContent, CardHeader } from "@/components/ui";
 import { InvoiceHeader } from "./InvoiceHeader";
@@ -9,7 +10,7 @@ import { InvoicePreview } from "./InvoicePreview";
 import { CategoryList } from "./CategoryList";
 import type { InvoiceData } from "@invoice-generator/domain/types";
 import { getDefaultInvoiceData } from "@invoice-generator/domain/types";
-import { generatePDF } from "../utils/pdf";
+import { getPDFOptions } from "../utils/pdf";
 
 export const InvoiceGenerator = () => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(
@@ -20,18 +21,16 @@ export const InvoiceGenerator = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     string | null | "all" | "favorites"
   >("all");
-  const previewRef = useRef<HTMLDivElement>(null);
+  const { toPDF, targetRef } = usePDF();
 
   const handleChange = useCallback((updates: Partial<InvoiceData>) => {
     setInvoiceData((prev) => ({ ...prev, ...updates }));
   }, []);
 
   const handleGeneratePDF = async () => {
-    if (!previewRef.current) return;
-
     setIsGenerating(true);
     try {
-      await generatePDF(previewRef.current, invoiceData.invoiceNumber);
+      toPDF(getPDFOptions(invoiceData.invoiceNumber));
     } catch (error) {
       console.error("Failed to generate PDF:", error);
       alert("Failed to generate PDF. Please try again.");
@@ -174,7 +173,7 @@ export const InvoiceGenerator = () => {
       </div>
 
       {/* Hidden Preview for PDF Generation */}
-      <InvoicePreview ref={previewRef} data={invoiceData} />
+      <InvoicePreview ref={targetRef} data={invoiceData} />
     </>
   );
 };

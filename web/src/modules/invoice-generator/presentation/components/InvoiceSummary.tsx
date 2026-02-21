@@ -16,8 +16,8 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
     0
   );
 
-  const taxAmount = subtotal * (data.taxRate / 100);
-  const total = subtotal + taxAmount - data.discount + data.shippingFee;
+  const taxAmount = subtotal * ((data.taxRate ?? 0) / 100);
+  const total = subtotal + taxAmount - (data.discount ?? 0) + (data.shippingFee ?? 0);
 
   return (
     <div className="space-y-4 max-w-sm ml-auto">
@@ -35,8 +35,8 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
         <Input
           id="taxRate"
           type="number"
-          value={data.taxRate || ''}
-          onChange={(e) => onChange({ taxRate: parseFloat(e.target.value) || 0 })}
+          value={data.taxRate ?? ''}
+          onChange={(e) => onChange({ taxRate: e.target.value === '' ? null : parseFloat(e.target.value) })}
           min={0}
           max={100}
           step="0.01"
@@ -58,8 +58,8 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
         <Input
           id="discount"
           type="number"
-          value={data.discount || ''}
-          onChange={(e) => onChange({ discount: parseFloat(e.target.value) || 0 })}
+          value={data.discount ?? ''}
+          onChange={(e) => onChange({ discount: e.target.value === '' ? null : parseFloat(e.target.value) })}
           min={0}
           step="0.01"
           className="w-24 text-right"
@@ -74,8 +74,8 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
         <Input
           id="shippingFee"
           type="number"
-          value={data.shippingFee || ''}
-          onChange={(e) => onChange({ shippingFee: parseFloat(e.target.value) || 0 })}
+          value={data.shippingFee ?? ''}
+          onChange={(e) => onChange({ shippingFee: e.target.value === '' ? null : parseFloat(e.target.value) })}
           min={0}
           step="0.01"
           className="w-24 text-right"
@@ -100,8 +100,8 @@ export const calculateInvoiceTotals = (data: InvoiceData) => {
     (sum, item) => sum + item.unitCost * item.quantity,
     0
   );
-  const taxAmount = subtotal * (data.taxRate / 100);
-  const total = subtotal + taxAmount - data.discount + data.shippingFee;
+  const taxAmount = subtotal * ((data.taxRate ?? 0) / 100);
+  const total = subtotal + taxAmount - (data.discount ?? 0) + (data.shippingFee ?? 0);
 
   return { subtotal, taxAmount, total, validItems };
 };

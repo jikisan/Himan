@@ -1,178 +1,619 @@
-import { forwardRef } from 'react';
-import type { InvoiceData } from '@invoice-generator/domain/types';
-import { formatCurrency } from '../utils/currency';
-import { calculateInvoiceTotals } from './InvoiceSummary';
+import { forwardRef } from "react";
+import type { InvoiceData } from "@invoice-generator/domain/types";
+import { calculateInvoiceTotals } from "./InvoiceSummary";
 
 interface InvoicePreviewProps {
   data: InvoiceData;
 }
 
+const ACCENT = "#2c3e6b";
+const ACCENT_LIGHT = "#eef1f8";
+const TEXT_PRIMARY = "#1a1a2e";
+const TEXT_SECONDARY = "#5a5a72";
+const BORDER = "#e2e4ea";
+
+const formatNumber = (amount: number): string => {
+  const hasDecimals = amount % 1 !== 0;
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
+const formatWithCurrency = (amount: number, currency: string): string =>
+  `${formatNumber(amount)} ${currency}`;
+
 export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
   ({ data }, ref) => {
-    const { subtotal, taxAmount, total, validItems } = calculateInvoiceTotals(data);
+    const { subtotal, taxAmount, total } = calculateInvoiceTotals(data);
+
+    const displayItems = data.lineItems.filter(
+      (item) => item.description.trim() !== "",
+    );
 
     const formatDate = (dateString: string) => {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
+      if (!dateString) return "";
+      const date = new Date(dateString + "T00:00:00");
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     };
 
     return (
       <div
         ref={ref}
         style={{
-          position: 'absolute',
-          left: '-9999px',
-          top: 0,
-          width: '210mm',
-          backgroundColor: '#ffffff',
-          color: '#000000',
-          fontFamily: 'Arial, sans-serif',
-          fontSize: '12px',
-          lineHeight: '1.5',
-          padding: '20mm',
-          boxSizing: 'border-box',
+          width: "210mm",
+          backgroundColor: "#ffffff",
+          color: TEXT_PRIMARY,
+          fontFamily: "'Segoe UI', Arial, Helvetica, sans-serif",
+          fontSize: "12px",
+          lineHeight: "1.6",
+          boxSizing: "border-box",
         }}
       >
-        {/* Header with Logo and Invoice Info */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
-          <div>
-            {data.logo && (
-              <img
-                src={data.logo}
-                alt="Company Logo"
-                style={{ maxHeight: '60px', maxWidth: '150px', objectFit: 'contain', marginBottom: '10px' }}
-              />
-            )}
-            <div style={{ whiteSpace: 'pre-line', fontSize: '11px', color: '#333' }}>
-              {data.companyDetails}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 10px 0', color: '#000' }}>
-              INVOICE
-            </h1>
-            <div style={{ fontSize: '12px' }}>
-              <div><strong>Invoice #:</strong> {data.invoiceNumber || 'Draft'}</div>
-              {data.poNumber && <div><strong>PO #:</strong> {data.poNumber}</div>}
-              <div><strong>Date:</strong> {formatDate(data.invoiceDate)}</div>
-              <div><strong>Due Date:</strong> {formatDate(data.dueDate)}</div>
-            </div>
-          </div>
-        </div>
+        {/* Accent top bar */}
+        <div style={{ height: "6px", backgroundColor: ACCENT }} />
 
-        {/* Bill To */}
-        <div style={{ marginBottom: '30px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#666', marginBottom: '5px' }}>
-            BILL TO
-          </div>
-          <div style={{ whiteSpace: 'pre-line', fontSize: '12px' }}>
-            {data.billTo}
-          </div>
-        </div>
-
-        {/* Line Items Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f5f5f5' }}>
-              <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #ddd', fontSize: '11px', fontWeight: 'bold' }}>
-                Description
-              </th>
-              <th style={{ padding: '10px', textAlign: 'right', borderBottom: '2px solid #ddd', fontSize: '11px', fontWeight: 'bold', width: '80px' }}>
-                Unit Cost
-              </th>
-              <th style={{ padding: '10px', textAlign: 'right', borderBottom: '2px solid #ddd', fontSize: '11px', fontWeight: 'bold', width: '60px' }}>
-                Qty
-              </th>
-              <th style={{ padding: '10px', textAlign: 'right', borderBottom: '2px solid #ddd', fontSize: '11px', fontWeight: 'bold', width: '100px' }}>
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {validItems.map((item, index) => (
-              <tr key={item.id} style={{ backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa' }}>
-                <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                  {item.description}
-                </td>
-                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #eee' }}>
-                  {formatCurrency(item.unitCost, data.currency)}
-                </td>
-                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #eee' }}>
-                  {item.quantity}
-                </td>
-                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #eee' }}>
-                  {formatCurrency(item.unitCost * item.quantity, data.currency)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Summary */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
-          <div style={{ width: '250px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-              <span>Subtotal</span>
-              <span>{formatCurrency(subtotal, data.currency)}</span>
-            </div>
-            {data.taxRate > 0 && (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                  <span>Tax ({data.taxRate}%)</span>
-                  <span>{formatCurrency(taxAmount, data.currency)}</span>
+        <div style={{ padding: "10mm 24mm 20mm" }}>
+          {/* Header: Logo + Title */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: "36px",
+            }}
+          >
+            {/* Left: Logo + Company */}
+            <div>
+              {data.logo && (
+                <img
+                  src={data.logo}
+                  alt="Logo"
+                  style={{
+                    maxHeight: "54px",
+                    maxWidth: "160px",
+                    objectFit: "contain",
+                    marginBottom: "10px",
+                  }}
+                />
+              )}
+              {data.companyDetails && (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: TEXT_SECONDARY,
+                    whiteSpace: "pre-line",
+                    lineHeight: "1.7",
+                    maxWidth: "240px",
+                  }}
+                >
+                  {data.companyDetails}
                 </div>
-              </>
-            )}
-            {data.discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                <span>Discount</span>
-                <span>-{formatCurrency(data.discount, data.currency)}</span>
+              )}
+            </div>
+
+            {/* Right: Invoice title + number */}
+            <div style={{ textAlign: "right" }}>
+              <h1
+                style={{
+                  fontSize: "40px",
+                  fontWeight: 800,
+                  color: ACCENT,
+                  margin: "0",
+                  letterSpacing: "-0.5px",
+                  lineHeight: "1",
+                }}
+              >
+                INVOICE
+              </h1>
+              <div
+                style={{
+                  fontSize: "14px",
+                  color: TEXT_SECONDARY,
+                  marginTop: "8px",
+                  fontWeight: 500,
+                }}
+              >
+                #{data.invoiceNumber || "Draft"}
               </div>
-            )}
-            {data.shippingFee > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                <span>Shipping</span>
-                <span>{formatCurrency(data.shippingFee, data.currency)}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', fontWeight: 'bold', fontSize: '14px', borderTop: '2px solid #333' }}>
-              <span>Total</span>
-              <span>{formatCurrency(total, data.currency)}</span>
             </div>
           </div>
-        </div>
 
-        {/* Footer - Notes and Bank Details */}
-        <div style={{ display: 'flex', gap: '40px', marginTop: '20px' }}>
-          {data.notes && (
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#666', marginBottom: '5px' }}>
-                NOTES
+          {/* Info Grid: Billed To + Dates */}
+          {(data.billTo || data.invoiceDate || data.dueDate || data.poNumber) && (
+          <div
+            style={{
+              display: "flex",
+              gap: "32px",
+              marginBottom: "36px",
+            }}
+          >
+            {/* Billed To */}
+            {data.billTo && (
+              <div
+                style={{
+                  flex: 1,
+                  backgroundColor: ACCENT_LIGHT,
+                  borderRadius: "6px",
+                  padding: "18px 20px",
+                  borderLeft: `4px solid ${ACCENT}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "9px",
+                    fontWeight: 700,
+                    color: ACCENT,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Billed To
+                </div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: TEXT_PRIMARY,
+                    whiteSpace: "pre-line",
+                    lineHeight: "1.7",
+                    fontWeight: 500,
+                  }}
+                >
+                  {data.billTo}
+                </div>
               </div>
-              <div style={{ whiteSpace: 'pre-line', fontSize: '11px', color: '#333' }}>
-                {data.notes}
+            )}
+
+            {/* Dates & PO */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                minWidth: "280px",
+              }}
+            >
+              {(data.invoiceDate || data.dueDate) && (
+                <div style={{ display: "flex", gap: "24px" }}>
+                  {data.invoiceDate && (
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          color: TEXT_SECONDARY,
+                          textTransform: "uppercase",
+                          letterSpacing: "1px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Date of Issue
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: TEXT_PRIMARY,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatDate(data.invoiceDate)}
+                      </div>
+                    </div>
+                  )}
+                  {data.dueDate && (
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          color: TEXT_SECONDARY,
+                          textTransform: "uppercase",
+                          letterSpacing: "1px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Due Date
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: TEXT_PRIMARY,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatDate(data.dueDate)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {data.poNumber && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: "9px",
+                      fontWeight: 700,
+                      color: TEXT_SECONDARY,
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Purchase Order
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: TEXT_PRIMARY,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {data.poNumber}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          )}
+
+          {/* Line Items Table */}
+          {displayItems.length > 0 && (
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              marginBottom: "0",
+            }}
+          >
+            <thead>
+              <tr>
+                <th
+                  style={{
+                    textAlign: "left",
+                    padding: "12px 16px",
+                    color: "#ffffff",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    backgroundColor: ACCENT,
+                    borderRadius: "4px 0 0 0",
+                  }}
+                >
+                  Description
+                </th>
+                <th
+                  style={{
+                    textAlign: "right",
+                    padding: "12px 16px",
+                    color: "#ffffff",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    backgroundColor: ACCENT,
+                    width: "110px",
+                  }}
+                >
+                  Unit Cost
+                </th>
+                <th
+                  style={{
+                    textAlign: "right",
+                    padding: "12px 16px",
+                    color: "#ffffff",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    backgroundColor: ACCENT,
+                    width: "60px",
+                  }}
+                >
+                  Qty
+                </th>
+                <th
+                  style={{
+                    textAlign: "right",
+                    padding: "12px 16px",
+                    color: "#ffffff",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    backgroundColor: ACCENT,
+                    width: "120px",
+                    borderRadius: "0 4px 0 0",
+                  }}
+                >
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayItems.map((item, index) => (
+                <tr key={item.id}>
+                  <td
+                    style={{
+                      padding: "12px 16px",
+                      fontSize: "12px",
+                      color: TEXT_PRIMARY,
+                      backgroundColor:
+                        index % 2 === 0 ? "#ffffff" : ACCENT_LIGHT,
+                      borderBottom: `1px solid ${BORDER}`,
+                    }}
+                  >
+                    {item.description}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: "right",
+                      padding: "12px 16px",
+                      fontSize: "12px",
+                      color: TEXT_SECONDARY,
+                      backgroundColor:
+                        index % 2 === 0 ? "#ffffff" : ACCENT_LIGHT,
+                      borderBottom: `1px solid ${BORDER}`,
+                    }}
+                  >
+                    {formatNumber(item.unitCost)}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: "right",
+                      padding: "12px 16px",
+                      fontSize: "12px",
+                      color: TEXT_SECONDARY,
+                      backgroundColor:
+                        index % 2 === 0 ? "#ffffff" : ACCENT_LIGHT,
+                      borderBottom: `1px solid ${BORDER}`,
+                    }}
+                  >
+                    {item.quantity}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: "right",
+                      padding: "12px 16px",
+                      fontSize: "12px",
+                      color: TEXT_PRIMARY,
+                      fontWeight: 600,
+                      backgroundColor:
+                        index % 2 === 0 ? "#ffffff" : ACCENT_LIGHT,
+                      borderBottom: `1px solid ${BORDER}`,
+                    }}
+                  >
+                    {formatNumber(item.unitCost * item.quantity)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          )}
+
+          {/* Summary Section */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "24px",
+              marginBottom: "36px",
+            }}
+          >
+            <div style={{ width: "300px" }}>
+              {/* Subtotal */}
+              {displayItems.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  borderBottom: `1px solid ${BORDER}`,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: TEXT_SECONDARY,
+                  }}
+                >
+                  Subtotal
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: TEXT_PRIMARY,
+                    fontWeight: 500,
+                  }}
+                >
+                  {formatWithCurrency(subtotal, data.currency)}
+                </span>
+              </div>
+              )}
+
+              {/* Tax Rate */}
+              {data.taxRate != null && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  borderBottom: `1px solid ${BORDER}`,
+                }}
+              >
+                <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>
+                  Tax ({data.taxRate}%)
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: TEXT_PRIMARY,
+                    fontWeight: 500,
+                  }}
+                >
+                  {formatWithCurrency(taxAmount, data.currency)}
+                </span>
+              </div>
+              )}
+
+              {/* Discount */}
+              {data.discount != null && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "8px 0",
+                    borderBottom: `1px solid ${BORDER}`,
+                  }}
+                >
+                  <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>
+                    Discount
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "#c0392b",
+                      fontWeight: 500,
+                    }}
+                  >
+                    -{formatWithCurrency(data.discount, data.currency)}
+                  </span>
+                </div>
+              )}
+
+              {/* Shipping */}
+              {data.shippingFee != null && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "8px 0",
+                    borderBottom: `1px solid ${BORDER}`,
+                  }}
+                >
+                  <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>
+                    Shipping
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: TEXT_PRIMARY,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {formatWithCurrency(data.shippingFee, data.currency)}
+                  </span>
+                </div>
+              )}
+
+              {/* Total */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "14px 16px",
+                  marginTop: "8px",
+                  backgroundColor: ACCENT,
+                  borderRadius: "6px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  Total Due
+                </span>
+                <span
+                  style={{
+                    fontSize: "20px",
+                    fontWeight: 800,
+                    color: "#ffffff",
+                  }}
+                >
+                  {formatWithCurrency(total, data.currency)}
+                </span>
               </div>
             </div>
-          )}
-          {data.bankDetails && (
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#666', marginBottom: '5px' }}>
-                BANK DETAILS
-              </div>
-              <div style={{ whiteSpace: 'pre-line', fontSize: '11px', color: '#333' }}>
-                {data.bankDetails}
-              </div>
+          </div>
+
+          {/* Footer: Terms + Bank Details */}
+          {(data.notes || data.bankDetails) && (
+            <div
+              style={{
+                display: "flex",
+                gap: "40px",
+                paddingTop: "24px",
+                borderTop: `1px solid ${BORDER}`,
+              }}
+            >
+              {data.notes && (
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: ACCENT,
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Terms & Notes
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: TEXT_SECONDARY,
+                      whiteSpace: "pre-line",
+                      lineHeight: "1.7",
+                    }}
+                  >
+                    {data.notes}
+                  </div>
+                </div>
+              )}
+              {data.bankDetails && (
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: ACCENT,
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Bank Account Details
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: TEXT_SECONDARY,
+                      whiteSpace: "pre-line",
+                      lineHeight: "1.7",
+                    }}
+                  >
+                    {data.bankDetails}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
     );
-  }
+  },
 );
 
-InvoicePreview.displayName = 'InvoicePreview';
+InvoicePreview.displayName = "InvoicePreview";

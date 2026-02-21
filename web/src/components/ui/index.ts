@@ -24,3 +24,6 @@ export * from './select';
 export * from './sheet';
 export * from './alert-dialog';
 export { ConfirmDialog } from './confirm-dialog';
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from './popover';
+export { Calendar, CalendarDayButton } from './calendar';
+export { DatePicker } from './date-picker';

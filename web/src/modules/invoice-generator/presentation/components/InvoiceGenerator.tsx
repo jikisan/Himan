@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { usePDF } from "react-to-pdf";
-import { Download, Plus, FileText } from "lucide-react";
+import { Download, Plus, FileText, Eye, PenLine } from "lucide-react";
 import { Button, Card, CardContent, CardHeader } from "@/components/ui";
 import { generateLineItemId } from "@invoice-generator/domain/types";
 import { InvoiceHeader } from "./InvoiceHeader";
@@ -17,6 +17,7 @@ export const InvoiceGenerator = () => {
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(
     getDefaultInvoiceData,
   );
+  const [activeTab, setActiveTab] = useState<"form" | "preview">("form");
   const [isGenerating, setIsGenerating] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(false);
@@ -122,82 +123,121 @@ export const InvoiceGenerator = () => {
             </div>
           </div>
 
+          {/* Tab Toggle */}
+          <div className="px-4 py-2 border-b border-border shrink-0 flex gap-1">
+            <Button
+              variant={activeTab === "form" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("form")}
+              className="gap-1.5"
+            >
+              <PenLine className="h-4 w-4" />
+              Form
+            </Button>
+            <Button
+              variant={activeTab === "preview" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("preview")}
+              className="gap-1.5"
+            >
+              <Eye className="h-4 w-4" />
+              Preview
+            </Button>
+          </div>
+
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-auto p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
-              {/* Invoice Details Section */}
-              <Card>
-                <CardHeader>
-                  <span className="text-lg font-semibold">
-                    Invoice Details
-                  </span>
-                </CardHeader>
-                <CardContent>
-                  <InvoiceHeader data={invoiceData} onChange={handleChange} />
-                </CardContent>
-              </Card>
+            {activeTab === "form" ? (
+              <div className="max-w-4xl mx-auto space-y-6">
+                {/* Invoice Details Section */}
+                <Card>
+                  <CardHeader>
+                    <span className="text-lg font-semibold">
+                      Invoice Details
+                    </span>
+                  </CardHeader>
+                  <CardContent>
+                    <InvoiceHeader data={invoiceData} onChange={handleChange} />
+                  </CardContent>
+                </Card>
 
-              {/* Line Items Section */}
-              <Card>
-                <CardHeader className="flex-row items-center justify-between space-y-0">
-                  <span className="text-lg font-semibold">Line Items</span>
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" onClick={handleAddLineItem} className="gap-1.5">
-                      <Plus className="h-3.5 w-3.5" />
-                      Add Item
-                    </Button>
-                    <Button type="button" size="sm" onClick={() => setBulkDialogOpen(true)} className="gap-1.5">
-                      <FileText className="h-3.5 w-3.5" />
-                      Bulk Import
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <InvoiceLineItems
-                    items={invoiceData.lineItems}
-                    currency={invoiceData.currency}
-                    onChange={(lineItems) => handleChange({ lineItems })}
-                    bulkDialogOpen={bulkDialogOpen}
-                    onBulkDialogOpenChange={setBulkDialogOpen}
-                  />
-                </CardContent>
-              </Card>
+                {/* Line Items Section */}
+                <Card>
+                  <CardHeader className="flex-row items-center justify-between space-y-0">
+                    <span className="text-lg font-semibold">Line Items</span>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" onClick={handleAddLineItem} className="gap-1.5">
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Item
+                      </Button>
+                      <Button type="button" size="sm" onClick={() => setBulkDialogOpen(true)} className="gap-1.5">
+                        <FileText className="h-3.5 w-3.5" />
+                        Bulk Import
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <InvoiceLineItems
+                      items={invoiceData.lineItems}
+                      currency={invoiceData.currency}
+                      onChange={(lineItems) => handleChange({ lineItems })}
+                      bulkDialogOpen={bulkDialogOpen}
+                      onBulkDialogOpenChange={setBulkDialogOpen}
+                    />
+                  </CardContent>
+                </Card>
 
-              {/* Summary Section */}
-              <Card>
-                <CardHeader>
-                  <span className="text-lg font-semibold">Summary</span>
-                </CardHeader>
-                <CardContent>
-                  <InvoiceSummary data={invoiceData} onChange={handleChange} />
-                </CardContent>
-              </Card>
+                {/* Summary Section */}
+                <Card>
+                  <CardHeader>
+                    <span className="text-lg font-semibold">Summary</span>
+                  </CardHeader>
+                  <CardContent>
+                    <InvoiceSummary data={invoiceData} onChange={handleChange} />
+                  </CardContent>
+                </Card>
 
-              {/* Footer Section */}
-              <Card>
-                <CardHeader>
-                  <span className="text-lg font-semibold">
-                    Additional Information
-                  </span>
-                </CardHeader>
-                <CardContent>
-                  <InvoiceFooter data={invoiceData} onChange={handleChange} />
-                </CardContent>
-              </Card>
+                {/* Footer Section */}
+                <Card>
+                  <CardHeader>
+                    <span className="text-lg font-semibold">
+                      Additional Information
+                    </span>
+                  </CardHeader>
+                  <CardContent>
+                    <InvoiceFooter data={invoiceData} onChange={handleChange} />
+                  </CardContent>
+                </Card>
 
-              {/* Validation Messages */}
-              {!invoiceData.invoiceNumber && (
-                <p className="text-sm text-amber-600 text-center">
-                  Please enter an Invoice Number to enable PDF generation.
-                </p>
-              )}
-            </div>
+                {/* Validation Messages */}
+                {!invoiceData.invoiceNumber && (
+                  <p className="text-sm text-amber-600 text-center">
+                    Please enter an Invoice Number to enable PDF generation.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex justify-center py-6">
+                <div
+                  className="shadow-lg border border-border"
+                  style={{
+                    width: "210mm",
+                    transform: "scale(0.75)",
+                    transformOrigin: "top center",
+                  }}
+                >
+                  <InvoicePreview data={invoiceData} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Hidden Preview for PDF Generation */}
-      <InvoicePreview ref={targetRef} data={invoiceData} />
+      <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+        <InvoicePreview ref={targetRef} data={invoiceData} />
+      </div>
     </>
   );
 };

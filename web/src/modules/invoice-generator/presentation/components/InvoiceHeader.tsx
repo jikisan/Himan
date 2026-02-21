@@ -38,13 +38,13 @@ export const InvoiceHeader = ({ data, onChange }: InvoiceHeaderProps) => {
 
       {/* Logo and Currency */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <Label>Company Logo (Optional)</Label>
           <LogoUploader
             logo={data.logo}
             onLogoChange={(logo) => onChange({ logo })}
           />
-        </div>
+        </div> */}
         <div className="space-y-2">
           <Label>Currency</Label>
           <CurrencySelect

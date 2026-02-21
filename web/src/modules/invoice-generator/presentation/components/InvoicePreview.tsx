@@ -44,9 +44,6 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
       <div
         ref={ref}
         style={{
-          position: "absolute",
-          left: "-9999px",
-          top: 0,
           width: "210mm",
           backgroundColor: "#ffffff",
           color: TEXT_PRIMARY,

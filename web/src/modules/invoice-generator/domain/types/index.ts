@@ -55,7 +55,7 @@ export const generateLineItemId = (): string =>
   `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 // Toggle this to prefill the form with sample data for testing
-const USE_TEST_DATA = true;
+const USE_TEST_DATA = false;
 
 const getEmptyInvoiceData = (): InvoiceData => ({
   invoiceNumber: '',
@@ -98,3 +98,148 @@ const getTestInvoiceData = (): InvoiceData => ({
 
 // Default invoice data
 export const getDefaultInvoiceData = USE_TEST_DATA ? getTestInvoiceData : getEmptyInvoiceData;
+
+// --- Database-backed types ---
+
+export type SavedOptionType = 'company_details' | 'bill_to' | 'notes' | 'bank_details';
+
+export type InvoiceFolderType = {
+  id: string;
+  userId: string;
+  name: string;
+  invoiceNumberPrefix: string | null;
+  invoiceNumberFormat: string;
+  nextSequenceNumber: number;
+  invoicesCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InvoiceType = {
+  id: string;
+  userId: string;
+  folderId: string | null;
+  invoiceNumber: string;
+  poNumber: string | null;
+  companyDetails: string | null;
+  billTo: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  currency: string;
+  lineItems: LineItem[];
+  taxRate: number | null;
+  discount: number | null;
+  shippingFee: number | null;
+  subtotal: number | null;
+  taxAmount: number | null;
+  total: number | null;
+  notes: string | null;
+  bankDetails: string | null;
+  storagePath: string | null;
+  fileSize: number | null;
+  isFavorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InvoiceSavedOptionType = {
+  id: string;
+  userId: string;
+  optionType: SavedOptionType;
+  label: string;
+  value: string;
+  isDefault: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+// DTOs
+
+export type CreateInvoiceFolderDto = {
+  userId: string;
+  name: string;
+  invoiceNumberPrefix?: string;
+  invoiceNumberFormat?: string;
+};
+
+export type UpdateInvoiceFolderDto = {
+  name?: string;
+  invoiceNumberPrefix?: string | null;
+  invoiceNumberFormat?: string;
+  nextSequenceNumber?: number;
+};
+
+export type CreateInvoiceDto = {
+  userId: string;
+  folderId?: string | null;
+  invoiceNumber: string;
+  poNumber?: string | null;
+  companyDetails?: string | null;
+  billTo?: string | null;
+  invoiceDate?: string | null;
+  dueDate?: string | null;
+  currency?: string;
+  lineItems?: LineItem[];
+  taxRate?: number | null;
+  discount?: number | null;
+  shippingFee?: number | null;
+  subtotal?: number | null;
+  taxAmount?: number | null;
+  total?: number | null;
+  notes?: string | null;
+  bankDetails?: string | null;
+  storagePath?: string | null;
+  fileSize?: number | null;
+};
+
+export type UpdateInvoiceDto = {
+  folderId?: string | null;
+  invoiceNumber?: string;
+  poNumber?: string | null;
+  companyDetails?: string | null;
+  billTo?: string | null;
+  invoiceDate?: string | null;
+  dueDate?: string | null;
+  currency?: string;
+  lineItems?: LineItem[];
+  taxRate?: number | null;
+  discount?: number | null;
+  shippingFee?: number | null;
+  subtotal?: number | null;
+  taxAmount?: number | null;
+  total?: number | null;
+  notes?: string | null;
+  bankDetails?: string | null;
+  storagePath?: string | null;
+  fileSize?: number | null;
+  isFavorite?: boolean;
+};
+
+export type CreateSavedOptionDto = {
+  userId: string;
+  optionType: SavedOptionType;
+  label: string;
+  value: string;
+  isDefault?: boolean;
+  sortOrder?: number;
+};
+
+export type UpdateSavedOptionDto = {
+  label?: string;
+  value?: string;
+  isDefault?: boolean;
+  sortOrder?: number;
+};
+
+export type InvoiceFilters = {
+  folderId?: string | null;
+  searchQuery?: string;
+  isFavorite?: boolean;
+};
+
+export type InvoiceNumberConfig = {
+  format: string;
+  sequence: number;
+  prefix?: string | null;
+};

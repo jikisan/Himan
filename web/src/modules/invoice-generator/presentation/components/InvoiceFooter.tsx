@@ -1,17 +1,40 @@
 import { Label, Textarea } from '@/components/ui';
-import type { InvoiceData } from '@invoice-generator/domain/types';
+import { SavedOptionSelect } from './SavedOptionSelect';
+import type { InvoiceData, InvoiceSavedOptionType, SavedOptionType } from '@invoice-generator/domain/types';
 
 interface InvoiceFooterProps {
   data: InvoiceData;
   onChange: (updates: Partial<InvoiceData>) => void;
+  savedNotesOptions?: InvoiceSavedOptionType[];
+  savedBankOptions?: InvoiceSavedOptionType[];
+  onSaveOption?: (type: SavedOptionType, label: string, value: string) => void;
+  onManageSavedOptions?: (type: SavedOptionType) => void;
 }
 
-export const InvoiceFooter = ({ data, onChange }: InvoiceFooterProps) => {
+export const InvoiceFooter = ({
+  data,
+  onChange,
+  savedNotesOptions = [],
+  savedBankOptions = [],
+  onSaveOption,
+  onManageSavedOptions,
+}: InvoiceFooterProps) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="notes">Notes / Payment Terms</Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="notes">Notes / Payment Terms</Label>
+            {onSaveOption && onManageSavedOptions && (
+              <SavedOptionSelect
+                options={savedNotesOptions}
+                currentValue={data.notes || ''}
+                onSelect={(value) => onChange({ notes: value })}
+                onSaveCurrent={(label) => onSaveOption('notes', label, data.notes || '')}
+                onManage={() => onManageSavedOptions('notes')}
+              />
+            )}
+          </div>
           <Textarea
             id="notes"
             value={data.notes || ''}
@@ -22,7 +45,18 @@ export const InvoiceFooter = ({ data, onChange }: InvoiceFooterProps) => {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="bankDetails">Bank Details (Optional)</Label>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="bankDetails">Bank Details (Optional)</Label>
+            {onSaveOption && onManageSavedOptions && (
+              <SavedOptionSelect
+                options={savedBankOptions}
+                currentValue={data.bankDetails || ''}
+                onSelect={(value) => onChange({ bankDetails: value })}
+                onSaveCurrent={(label) => onSaveOption('bank_details', label, data.bankDetails || '')}
+                onManage={() => onManageSavedOptions('bank_details')}
+              />
+            )}
+          </div>
           <Textarea
             id="bankDetails"
             value={data.bankDetails || ''}

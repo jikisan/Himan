@@ -17,6 +17,7 @@ export interface InvoiceData {
   dueDate: string;
   currency: CurrencyCode;
   lineItems: LineItem[];
+  rushFee: number | null;
   taxRate: number | null;
   discount: number | null;
   shippingFee: number | null;
@@ -67,6 +68,7 @@ const getEmptyInvoiceData = (): InvoiceData => ({
   dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   currency: 'PHP',
   lineItems: [{ id: generateLineItemId(), description: '', unitCost: 0, quantity: 1 }],
+  rushFee: null,
   taxRate: null,
   discount: null,
   shippingFee: null,
@@ -89,6 +91,7 @@ const getTestInvoiceData = (): InvoiceData => ({
     { id: generateLineItemId(), description: 'SEO Optimization Package', unitCost: 15000, quantity: 1 },
     { id: generateLineItemId(), description: 'Monthly Hosting & Maintenance', unitCost: 3500, quantity: 3 },
   ],
+  rushFee: null,
   taxRate: 12,
   discount: 5000,
   shippingFee: 0,
@@ -127,6 +130,7 @@ export type InvoiceType = {
   dueDate: string | null;
   currency: string;
   lineItems: LineItem[];
+  rushFee: number | null;
   taxRate: number | null;
   discount: number | null;
   shippingFee: number | null;
@@ -181,6 +185,7 @@ export type CreateInvoiceDto = {
   dueDate?: string | null;
   currency?: string;
   lineItems?: LineItem[];
+  rushFee?: number | null;
   taxRate?: number | null;
   discount?: number | null;
   shippingFee?: number | null;
@@ -203,6 +208,7 @@ export type UpdateInvoiceDto = {
   dueDate?: string | null;
   currency?: string;
   lineItems?: LineItem[];
+  rushFee?: number | null;
   taxRate?: number | null;
   discount?: number | null;
   shippingFee?: number | null;

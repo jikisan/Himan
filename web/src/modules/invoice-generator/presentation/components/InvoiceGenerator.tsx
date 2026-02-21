@@ -92,6 +92,7 @@ export const InvoiceGenerator = () => {
       dueDate: invoiceData.dueDate || null,
       currency: invoiceData.currency,
       lineItems: invoiceData.lineItems,
+      rushFee: invoiceData.rushFee,
       taxRate: invoiceData.taxRate,
       discount: invoiceData.discount,
       shippingFee: invoiceData.shippingFee,

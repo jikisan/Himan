@@ -72,7 +72,7 @@ const getEmptyInvoiceData = (): InvoiceData => ({
   taxRate: null,
   discount: null,
   shippingFee: null,
-  notes: 'Payment is due within 15 days',
+  notes: '',
   bankDetails: '',
 });
 

@@ -17,9 +17,9 @@ export interface InvoiceData {
   dueDate: string;
   currency: CurrencyCode;
   lineItems: LineItem[];
-  taxRate: number;
-  discount: number;
-  shippingFee: number;
+  taxRate: number | null;
+  discount: number | null;
+  shippingFee: number | null;
   notes?: string;
   bankDetails?: string;
 }
@@ -67,9 +67,9 @@ const getEmptyInvoiceData = (): InvoiceData => ({
   dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   currency: 'PHP',
   lineItems: [{ id: generateLineItemId(), description: '', unitCost: 0, quantity: 1 }],
-  taxRate: 0,
-  discount: 0,
-  shippingFee: 0,
+  taxRate: null,
+  discount: null,
+  shippingFee: null,
   notes: 'Payment is due within 15 days',
   bankDetails: '',
 });

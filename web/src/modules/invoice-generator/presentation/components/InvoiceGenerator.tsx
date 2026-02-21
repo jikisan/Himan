@@ -102,7 +102,7 @@ export const InvoiceGenerator = () => {
               <Button
                 onClick={handleGeneratePDF}
                 disabled={isGenerating || !invoiceData.invoiceNumber}
-                className="gap-2 bg-green-600 hover:bg-green-700"
+                className="gap-2"
               >
                 <Download className="h-4 w-4" />
                 {isGenerating ? "Generating..." : "Generate PDF"}

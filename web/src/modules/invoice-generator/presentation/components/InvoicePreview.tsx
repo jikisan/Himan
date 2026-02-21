@@ -126,6 +126,7 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
           </div>
 
           {/* Info Grid: Billed To + Dates */}
+          {(data.billTo || data.invoiceDate || data.dueDate || data.poNumber) && (
           <div
             style={{
               display: "flex",
@@ -134,39 +135,41 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
             }}
           >
             {/* Billed To */}
-            <div
-              style={{
-                flex: 1,
-                backgroundColor: ACCENT_LIGHT,
-                borderRadius: "6px",
-                padding: "18px 20px",
-                borderLeft: `4px solid ${ACCENT}`,
-              }}
-            >
+            {data.billTo && (
               <div
                 style={{
-                  fontSize: "9px",
-                  fontWeight: 700,
-                  color: ACCENT,
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                  marginBottom: "8px",
+                  flex: 1,
+                  backgroundColor: ACCENT_LIGHT,
+                  borderRadius: "6px",
+                  padding: "18px 20px",
+                  borderLeft: `4px solid ${ACCENT}`,
                 }}
               >
-                Billed To
+                <div
+                  style={{
+                    fontSize: "9px",
+                    fontWeight: 700,
+                    color: ACCENT,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Billed To
+                </div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: TEXT_PRIMARY,
+                    whiteSpace: "pre-line",
+                    lineHeight: "1.7",
+                    fontWeight: 500,
+                  }}
+                >
+                  {data.billTo}
+                </div>
               </div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: TEXT_PRIMARY,
-                  whiteSpace: "pre-line",
-                  lineHeight: "1.7",
-                  fontWeight: 500,
-                }}
-              >
-                {data.billTo || "-"}
-              </div>
-            </div>
+            )}
 
             {/* Dates & PO */}
             <div
@@ -177,54 +180,60 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
                 minWidth: "280px",
               }}
             >
-              <div style={{ display: "flex", gap: "24px" }}>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      color: TEXT_SECONDARY,
-                      textTransform: "uppercase",
-                      letterSpacing: "1px",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Date of Issue
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      color: TEXT_PRIMARY,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {formatDate(data.invoiceDate)}
-                  </div>
+              {(data.invoiceDate || data.dueDate) && (
+                <div style={{ display: "flex", gap: "24px" }}>
+                  {data.invoiceDate && (
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          color: TEXT_SECONDARY,
+                          textTransform: "uppercase",
+                          letterSpacing: "1px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Date of Issue
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: TEXT_PRIMARY,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatDate(data.invoiceDate)}
+                      </div>
+                    </div>
+                  )}
+                  {data.dueDate && (
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          color: TEXT_SECONDARY,
+                          textTransform: "uppercase",
+                          letterSpacing: "1px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Due Date
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: TEXT_PRIMARY,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatDate(data.dueDate)}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      color: TEXT_SECONDARY,
-                      textTransform: "uppercase",
-                      letterSpacing: "1px",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Due Date
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      color: TEXT_PRIMARY,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {formatDate(data.dueDate)}
-                  </div>
-                </div>
-              </div>
+              )}
               {data.poNumber && (
                 <div>
                   <div
@@ -252,8 +261,10 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
               )}
             </div>
           </div>
+          )}
 
           {/* Line Items Table */}
+          {displayItems.length > 0 && (
           <table
             style={{
               width: "100%",
@@ -385,6 +396,7 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
               ))}
             </tbody>
           </table>
+          )}
 
           {/* Summary Section */}
           <div
@@ -397,6 +409,7 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
           >
             <div style={{ width: "300px" }}>
               {/* Subtotal */}
+              {displayItems.length > 0 && (
               <div
                 style={{
                   display: "flex",
@@ -423,8 +436,10 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
                   {formatWithCurrency(subtotal, data.currency)}
                 </span>
               </div>
+              )}
 
               {/* Tax Rate */}
+              {data.taxRate != null && (
               <div
                 style={{
                   display: "flex",
@@ -446,9 +461,10 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
                   {formatWithCurrency(taxAmount, data.currency)}
                 </span>
               </div>
+              )}
 
               {/* Discount */}
-              {data.discount > 0 && (
+              {data.discount != null && (
                 <div
                   style={{
                     display: "flex",
@@ -473,7 +489,7 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
               )}
 
               {/* Shipping */}
-              {data.shippingFee > 0 && (
+              {data.shippingFee != null && (
                 <div
                   style={{
                     display: "flex",

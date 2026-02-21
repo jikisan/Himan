@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { usePDF } from "react-to-pdf";
-import { Download } from "lucide-react";
+import { Download, Plus, FileText } from "lucide-react";
 import { Button, Card, CardContent, CardHeader } from "@/components/ui";
+import { generateLineItemId } from "@invoice-generator/domain/types";
 import { InvoiceHeader } from "./InvoiceHeader";
 import { InvoiceLineItems } from "./InvoiceLineItems";
 import { InvoiceSummary } from "./InvoiceSummary";
@@ -17,6 +18,7 @@ export const InvoiceGenerator = () => {
     getDefaultInvoiceData,
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     string | null | "all" | "favorites"
@@ -66,6 +68,16 @@ export const InvoiceGenerator = () => {
   const handleDeleteCategory = useCallback(async (id: string) => {
     // Placeholder - implement category delete logic if needed
     console.log("Delete category:", id);
+  }, []);
+
+  const handleAddLineItem = useCallback(() => {
+    setInvoiceData((prev) => ({
+      ...prev,
+      lineItems: [
+        ...prev.lineItems,
+        { id: generateLineItemId(), description: '', unitCost: 0, quantity: 1 },
+      ],
+    }));
   }, []);
 
   // Mock empty categories for now
@@ -127,14 +139,26 @@ export const InvoiceGenerator = () => {
 
               {/* Line Items Section */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex-row items-center justify-between space-y-0">
                   <span className="text-lg font-semibold">Line Items</span>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" onClick={handleAddLineItem} className="gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Item
+                    </Button>
+                    <Button type="button" size="sm" onClick={() => setBulkDialogOpen(true)} className="gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      Bulk Import
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <InvoiceLineItems
                     items={invoiceData.lineItems}
                     currency={invoiceData.currency}
                     onChange={(lineItems) => handleChange({ lineItems })}
+                    bulkDialogOpen={bulkDialogOpen}
+                    onBulkDialogOpenChange={setBulkDialogOpen}
                   />
                 </CardContent>
               </Card>

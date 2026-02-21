@@ -25,7 +25,7 @@ const formatWithCurrency = (amount: number, currency: string): string =>
 
 export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
   ({ data }, ref) => {
-    const { subtotal, taxAmount, total } = calculateInvoiceTotals(data);
+    const { subtotal, rushFeeAmount, taxAmount, total } = calculateInvoiceTotals(data);
 
     const displayItems = data.lineItems.filter(
       (item) => item.description.trim() !== "",
@@ -431,6 +431,31 @@ export const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
                   }}
                 >
                   {formatWithCurrency(subtotal, data.currency)}
+                </span>
+              </div>
+              )}
+
+              {/* Rush Fee */}
+              {data.rushFee != null && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  borderBottom: `1px solid ${BORDER}`,
+                }}
+              >
+                <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>
+                  Rush Fee ({data.rushFee}%)
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: TEXT_PRIMARY,
+                    fontWeight: 500,
+                  }}
+                >
+                  {formatWithCurrency(rushFeeAmount, data.currency)}
                 </span>
               </div>
               )}

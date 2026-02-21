@@ -16,8 +16,9 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
     0
   );
 
+  const rushFeeAmount = subtotal * ((data.rushFee ?? 0) / 100);
   const taxAmount = subtotal * ((data.taxRate ?? 0) / 100);
-  const total = subtotal + taxAmount - (data.discount ?? 0) + (data.shippingFee ?? 0);
+  const total = subtotal + rushFeeAmount + taxAmount - (data.discount ?? 0) + (data.shippingFee ?? 0);
 
   return (
     <div className="space-y-4 max-w-sm ml-auto">
@@ -25,6 +26,29 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
       <div className="flex justify-between items-center py-2 border-b border-border">
         <span className="text-muted-foreground">Subtotal</span>
         <span className="font-mono">{formatCurrency(subtotal, data.currency)}</span>
+      </div>
+
+      {/* Rush Fee Rate */}
+      <div className="flex justify-between items-center gap-4">
+        <Label htmlFor="rushFee" className="text-muted-foreground whitespace-nowrap">
+          Rush Fee (%)
+        </Label>
+        <Input
+          id="rushFee"
+          type="number"
+          value={data.rushFee ?? ''}
+          onChange={(e) => onChange({ rushFee: e.target.value === '' ? null : parseFloat(e.target.value) })}
+          min={0}
+          max={100}
+          step="0.01"
+          className="w-24 text-right"
+        />
+      </div>
+
+      {/* Rush Fee Amount */}
+      <div className="flex justify-between items-center py-2 border-b border-border">
+        <span className="text-muted-foreground">Rush Fee Amount</span>
+        <span className="font-mono">{formatCurrency(rushFeeAmount, data.currency)}</span>
       </div>
 
       {/* Tax Rate */}
@@ -100,8 +124,9 @@ export const calculateInvoiceTotals = (data: InvoiceData) => {
     (sum, item) => sum + item.unitCost * item.quantity,
     0
   );
+  const rushFeeAmount = subtotal * ((data.rushFee ?? 0) / 100);
   const taxAmount = subtotal * ((data.taxRate ?? 0) / 100);
-  const total = subtotal + taxAmount - (data.discount ?? 0) + (data.shippingFee ?? 0);
+  const total = subtotal + rushFeeAmount + taxAmount - (data.discount ?? 0) + (data.shippingFee ?? 0);
 
-  return { subtotal, taxAmount, total, validItems };
+  return { subtotal, rushFeeAmount, taxAmount, total, validItems };
 };

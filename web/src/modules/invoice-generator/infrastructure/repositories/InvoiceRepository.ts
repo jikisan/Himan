@@ -82,6 +82,7 @@ export class InvoiceRepository {
           due_date: dto.dueDate ?? null,
           currency: dto.currency ?? 'PHP',
           line_items: JSON.stringify(dto.lineItems ?? []),
+          rush_fee: dto.rushFee ?? null,
           tax_rate: dto.taxRate ?? null,
           discount: dto.discount ?? null,
           shipping_fee: dto.shippingFee ?? null,
@@ -120,6 +121,7 @@ export class InvoiceRepository {
       if (dto.dueDate !== undefined) updateData.due_date = dto.dueDate;
       if (dto.currency !== undefined) updateData.currency = dto.currency;
       if (dto.lineItems !== undefined) updateData.line_items = JSON.stringify(dto.lineItems);
+      if (dto.rushFee !== undefined) updateData.rush_fee = dto.rushFee;
       if (dto.taxRate !== undefined) updateData.tax_rate = dto.taxRate;
       if (dto.discount !== undefined) updateData.discount = dto.discount;
       if (dto.shippingFee !== undefined) updateData.shipping_fee = dto.shippingFee;
@@ -185,6 +187,7 @@ export class InvoiceRepository {
       dueDate: (data.due_date as string) ?? null,
       currency: data.currency as string,
       lineItems,
+      rushFee: data.rush_fee !== null ? Number(data.rush_fee) : null,
       taxRate: data.tax_rate !== null ? Number(data.tax_rate) : null,
       discount: data.discount !== null ? Number(data.discount) : null,
       shippingFee: data.shipping_fee !== null ? Number(data.shipping_fee) : null,

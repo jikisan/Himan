@@ -53,6 +53,7 @@ interface SidebarListProps<T extends SidebarListItem> {
   editDialogDescription?: string;
   itemIcon?: LucideIcon;
   hideOnMobile?: boolean;
+  onItemSettings?: (id: string) => void;
 }
 
 export const SidebarList = <T extends SidebarListItem>({
@@ -78,6 +79,7 @@ export const SidebarList = <T extends SidebarListItem>({
   editDialogDescription = `Enter a new name for this ${title.toLowerCase().slice(0, -1)} (max ${ITEM_NAME_MAX_LENGTH} characters).`,
   itemIcon,
   hideOnMobile = false,
+  onItemSettings,
 }: SidebarListProps<T>) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -247,6 +249,7 @@ export const SidebarList = <T extends SidebarListItem>({
                     count={item.count}
                     isActive={selectedItemId === item.id}
                     onClick={() => onSelectItem(item.id)}
+                    onSettings={onItemSettings ? () => onItemSettings(item.id) : undefined}
                     onEdit={() => openEditDialog(item)}
                     onDelete={() => onDelete(item.id)}
                   />

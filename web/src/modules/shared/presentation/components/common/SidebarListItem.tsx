@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, Settings, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@core/presentation/utils';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ interface SidebarListItemProps {
   count?: number;
   isActive: boolean;
   onClick: () => void;
+  onSettings?: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -26,6 +27,7 @@ export const SidebarListItem = ({
   count,
   isActive,
   onClick,
+  onSettings,
   onEdit,
   onDelete,
 }: SidebarListItemProps) => {
@@ -60,6 +62,12 @@ export const SidebarListItem = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onSettings && (
+            <DropdownMenuItem onClick={onSettings}>
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={onEdit}>
             <Pencil className="h-4 w-4 mr-2" />
             Rename

@@ -53,7 +53,7 @@ function parseLineItems(text: string): { items: LineItem[]; errors: string[] } {
       id: generateLineItemId(),
       description,
       unitCost,
-      quantity: isNaN(quantity) || quantity <= 0 ? 1 : quantity,
+      quantity: isNaN(quantity) || quantity < 0 ? 0 : quantity,
     });
   }
 

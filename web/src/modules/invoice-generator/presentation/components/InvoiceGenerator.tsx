@@ -402,7 +402,7 @@ export const InvoiceGenerator = () => {
                     transformOrigin: "top center",
                   }}
                 >
-                  <InvoicePreview data={invoiceData} />
+                  <InvoicePreview data={{ ...invoiceData, invoiceNumber: effectiveInvoiceNumber }} />
                 </div>
               </div>
             ) : (
@@ -421,7 +421,7 @@ export const InvoiceGenerator = () => {
 
       {/* Hidden Preview for PDF Generation */}
       <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
-        <InvoicePreview ref={targetRef} data={invoiceData} />
+        <InvoicePreview ref={targetRef} data={{ ...invoiceData, invoiceNumber: effectiveInvoiceNumber }} />
       </div>
 
       {/* Saved Option Dialog */}

@@ -40,7 +40,7 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
       if (result.success && result.storagePath) {
         await onUploadComplete({
           name: file.name,
-          size: file.size,
+          size: result.compressedSize ?? file.size,
           mimeType: file.type,
           storagePath: result.storagePath,
           thumbnailPath: result.thumbnailPath || null,
@@ -127,6 +127,12 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
                 </div>
                 {progress.error && (
                   <p className="text-xs text-destructive">{progress.error}</p>
+                )}
+                {progress.status === 'compressing' && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Compressing...
+                  </p>
                 )}
                 {progress.status === 'processing' && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">

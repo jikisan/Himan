@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { StorageService, ThumbnailService } from '../../infrastructure/services';
+import { StorageService, ThumbnailService, CompressionService } from '../../infrastructure/services';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import type { FileUploadProgress } from '../../domain/types';
@@ -21,6 +21,7 @@ export const useFileUpload = () => {
       fileId?: string;
       storagePath?: string;
       thumbnailPath?: string | null;
+      compressedSize?: number;
       error?: string;
     }> => {
       if (!user?.id) {
@@ -50,18 +51,28 @@ export const useFileUpload = () => {
 
         setIsUploading(true);
 
-        // Update progress to uploading
+        // Show compressing status for images
+        if (file.type.startsWith('image/')) {
+          setUploadProgress((prev) => {
+            const newMap = new Map(prev);
+            const current = newMap.get(fileId);
+            if (current) newMap.set(fileId, { ...current, status: 'compressing', progress: 10 });
+            return newMap;
+          });
+        }
+
+        const fileToUpload = await CompressionService.compress(file);
+
+        // Transition to uploading
         setUploadProgress((prev) => {
           const newMap = new Map(prev);
           const current = newMap.get(fileId);
-          if (current) {
-            newMap.set(fileId, { ...current, status: 'uploading' });
-          }
+          if (current) newMap.set(fileId, { ...current, status: 'uploading', progress: 20 });
           return newMap;
         });
 
         // Upload main file
-        const uploadResult = await StorageService.upload(user.id, fileId, file);
+        const uploadResult = await StorageService.upload(user.id, fileId, fileToUpload);
 
         // Generate and upload thumbnail if it's an image
         let thumbnailPath: string | null = null;
@@ -119,6 +130,7 @@ export const useFileUpload = () => {
           fileId,
           storagePath: uploadResult.path,
           thumbnailPath,
+          compressedSize: fileToUpload.size,
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Upload failed';

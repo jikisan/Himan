@@ -57,6 +57,6 @@ export type FileUploadProgress = {
   fileId: string;
   fileName: string;
   progress: number; // 0-100
-  status: 'pending' | 'uploading' | 'processing' | 'complete' | 'error';
+  status: 'pending' | 'compressing' | 'uploading' | 'processing' | 'complete' | 'error';
   error?: string;
 };

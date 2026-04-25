@@ -15,4 +15,5 @@ MD_files/
 /package-lock.json
 web/.claude/commands/code-review.md
 .DS_Store
+.idea
 node_modules

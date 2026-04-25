@@ -1,2 +1,1 @@
-export * from './CreditCardRepository';
-export * from './CardCategoryRepository';
+export { CreditCardRepository, CardCategoryRepository } from '@himan/shared/cards';

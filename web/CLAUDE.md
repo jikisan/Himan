@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Monorepo Context
+
+This is the `@himan/web` workspace in an npm workspaces monorepo. Domain and infrastructure layers are extracted to `@himan/shared` (`packages/shared/`). Web infrastructure `index.ts` files re-export from the shared package — all path aliases remain unchanged.
+
+**Important**: Run `npm install` from the repo root (not from `web/`) to set up workspace symlinks.
+
+### Shared Package Integration
+
+- Supabase client: initialized in `src/modules/shared/infrastructure/config/supabase.ts` via `initSupabase()` from `@himan/shared`
+- Logger: initialized in `src/modules/shared/infrastructure/services/Logger.ts` via `initLogger()` from `@himan/shared`
+- Module infrastructure `index.ts` files re-export repositories/services from `@himan/shared/<module>`
+- Browser-specific services (ThumbnailService, CompressionService, InvoicePDFService, LocalNotesStorage, etc.) stay in web
+
 ## Development Commands
 
 - **Start dev server**: `npm run dev`
@@ -12,8 +25,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Run tests once**: `npm run test:run`
 - **Run tests with UI**: `npm run test:ui`
 - **Run tests with coverage**: `npm run test:coverage`
-- **Deploy to Cloudflare Pages**: `npm run deploy` (builds and deploys using Wrangler)
-- **Deploy preview**: `npm run deploy:preview` (deploys to preview branch)
 
 ## Architecture Overview
 
@@ -95,6 +106,14 @@ The codebase is organized into feature modules under `src/modules/`:
   - Search and favorites functionality
   - Uses React Query for caching and data synchronization
 
+- **`invoice-generator/`** (aliased as `@invoice-generator`): Invoice Generator module
+  - PDF invoice generation with react-to-pdf
+  - Multi-currency support
+  - Line items, tax, discount, and shipping fee calculations
+  - Folder-based organization with auto-incrementing invoice numbers
+  - Saved options for reusable company details, bill-to, notes, and bank details
+  - PDF upload to Supabase Storage with metadata persistence
+
 - **`subscriptions/`** (aliased as `@subscriptions`): Subscription Management module
   - User subscription tier management (free, beta, pro, enterprise)
   - Role-based access control (user, admin)
@@ -143,6 +162,7 @@ The following aliases are configured in both `tsconfig.app.json` and `vite.confi
 - `@cards/*` → `src/modules/cards/*`
 - `@storage/*` → `src/modules/storage/*`
 - `@subscriptions/*` → `src/modules/subscriptions/*`
+- `@invoice-generator/*` → `src/modules/invoice-generator/*`
 - `@settings/*` → `src/modules/settings/*`
 - `@app/*` → `src/app/*`
 - `@modules/*` → `src/modules/*`
@@ -324,7 +344,10 @@ When creating a new feature module:
    - `tsconfig.app.json` (paths)
    - `vite.config.ts` (resolve.alias)
    - `vitest.config.ts` (resolve.alias)
-6. Update this CLAUDE.md with the new module's purpose
+6. Add the domain+infrastructure code to `packages/shared/src/modules/[module-name]/`
+7. Add an export entry in `packages/shared/package.json` exports field
+8. Create re-export `index.ts` files in the web infrastructure layer pointing to `@himan/shared/[module-name]`
+9. Update this CLAUDE.md with the new module's purpose
 
 ## Code Organization Principles
 

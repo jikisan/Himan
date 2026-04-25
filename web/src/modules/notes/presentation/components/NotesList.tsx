@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Plus, Search, GripVertical, RefreshCw } from 'lucide-react';
 import { Note } from '../../domain/entities/Note';
 import type { Folder } from '../../domain/types';
-import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
+import type { SyncStatus } from '@himan/shared/notes';
 import { NoteItem } from './NoteItem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

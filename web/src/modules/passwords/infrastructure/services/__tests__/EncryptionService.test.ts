@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EncryptionService } from '../EncryptionService';
+import { EncryptionService } from '@himan/shared/passwords';
 
 describe('EncryptionService', () => {
   const testUserId = 'test-user-123';

@@ -3,7 +3,7 @@ import { EditorContent } from '@tiptap/react';
 import { MoreVertical, Pin, Trash2, FolderInput, Menu, Cloud, CloudOff } from 'lucide-react';
 import { z } from 'zod';
 import { Note as NoteEntity } from '../../domain/entities/Note';
-import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
+import type { SyncStatus } from '@himan/shared/notes';
 import { EditorToolbar } from './EditorToolbar';
 import { useEditor } from '../hooks/useEditor';
 import { useSubscription } from '@subscriptions/presentation/hooks';

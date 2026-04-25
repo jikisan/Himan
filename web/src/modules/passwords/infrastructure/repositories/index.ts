@@ -1,2 +1,1 @@
-export { PasswordRepository } from './PasswordRepository';
-export { CategoryRepository } from './CategoryRepository';
+export { PasswordRepository, CategoryRepository } from '@himan/shared/passwords';

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { NoteType as Note, NoteFilters, CreateNoteDto, UpdateNoteDto } from '../../domain';
-import { HybridNoteRepository } from '../../infrastructure/repositories/HybridNoteRepository';
-import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
+import { HybridNoteRepository } from '../../infrastructure/repositories';
+import { LocalNotesStorage } from '../../infrastructure/storage/LocalNotesStorage';
+import type { SyncStatus } from '@himan/shared/notes';
 import { useAuth } from '@auth/presentation/hooks/useAuth';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import { Logger } from '@core/infrastructure/services';
@@ -24,7 +25,7 @@ export const useNotes = (filters?: NoteFilters) => {
   const userId = user?.id;
   const repository = useMemo(() => {
     if (!userId) return null;
-    return new HybridNoteRepository(userId);
+    return new HybridNoteRepository(userId, new LocalNotesStorage(userId));
   }, [userId]);
 
   // Stabilize filters to prevent unnecessary re-renders

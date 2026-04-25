@@ -1,8 +1,11 @@
 {
-  "dependencies": {
-    "@tanstack/react-query": "^5.90.18"
-  },
-  "devDependencies": {
-    "shadcn": "^3.8.5"
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "web",
+    "mobile"
+  ],
+  "scripts": {
+    "build:web": "npm run build -w @himan/web"
   }
 }

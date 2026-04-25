@@ -4,5 +4,8 @@
     "packages/*",
     "web",
     "mobile"
-  ]
+  ],
+  "scripts": {
+    "build:web": "npm run build -w @himan/web"
+  }
 }

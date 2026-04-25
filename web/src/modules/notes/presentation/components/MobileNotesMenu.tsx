@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, FolderOpen, Folder as FolderIcon, Plus, Search, Pin, RefreshCw } from 'lucide-react';
 import type { FolderType as Folder } from '../../domain';
-import type { SyncStatus } from '../../infrastructure/services/NoteSyncService';
+import type { SyncStatus } from '@himan/shared/notes';
 import { Note } from '../../domain/entities/Note';
 import { FolderItem } from './FolderItem';
 import { NoteItem } from './NoteItem';

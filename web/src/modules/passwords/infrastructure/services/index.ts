@@ -1,1 +1,1 @@
-export { EncryptionService } from './EncryptionService';
+export { EncryptionService } from '@himan/shared/passwords';

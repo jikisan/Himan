@@ -1,2 +1,1 @@
-export { SubscriptionRepository } from './SubscriptionRepository';
-export { UsageLimitsRepository } from './UsageLimitsRepository';
+export { SubscriptionRepository, UsageLimitsRepository } from '@himan/shared/subscriptions';

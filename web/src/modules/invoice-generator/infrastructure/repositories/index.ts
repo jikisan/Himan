@@ -1,3 +1,1 @@
-export { InvoiceFolderRepository } from './InvoiceFolderRepository';
-export { InvoiceRepository } from './InvoiceRepository';
-export { SavedOptionRepository } from './SavedOptionRepository';
+export { InvoiceFolderRepository, InvoiceRepository, SavedOptionRepository } from '@himan/shared/invoice-generator';

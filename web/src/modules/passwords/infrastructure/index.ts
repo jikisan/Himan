@@ -1,2 +1,1 @@
-export * from './repositories';
-export * from './services';
+export { PasswordRepository, CategoryRepository, EncryptionService } from '@himan/shared/passwords';

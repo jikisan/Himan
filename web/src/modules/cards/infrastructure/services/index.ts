@@ -1,1 +1,1 @@
-export * from './CardEncryptionService';
+export { CardEncryptionService } from '@himan/shared/cards';

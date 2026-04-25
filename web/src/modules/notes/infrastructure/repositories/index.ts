@@ -1,2 +1,1 @@
-export { NoteRepository } from './NoteRepository';
-export { FolderRepository } from './FolderRepository';
+export { NoteRepository, FolderRepository, HybridNoteRepository } from '@himan/shared/notes';

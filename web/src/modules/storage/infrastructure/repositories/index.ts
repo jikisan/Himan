@@ -1,2 +1,1 @@
-export { FileRepository } from './FileRepository';
-export { StorageFolderRepository } from './StorageFolderRepository';
+export { FileRepository, StorageFolderRepository } from '@himan/shared/storage';

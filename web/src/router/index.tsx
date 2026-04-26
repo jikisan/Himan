@@ -15,6 +15,7 @@ import { CardsPage } from '@cards/presentation/pages';
 import { StoragePage } from '@storage/presentation/pages';
 import { NotFoundPage } from '@core/presentation/pages';
 import { InvoiceGeneratorPage } from '@invoice-generator/presentation/pages';
+import { GroceryPage } from '@grocery/presentation/pages';
 
 export const Router = () => {
   return (
@@ -40,6 +41,7 @@ export const Router = () => {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/invoice-generator" element={<InvoiceGeneratorPage />} />
+            <Route path="/grocery" element={<GroceryPage />} />
           </Route>
         </Route>
 

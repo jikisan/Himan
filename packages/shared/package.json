@@ -15,7 +15,8 @@
     "./notes": "./src/modules/notes/index.ts",
     "./storage": "./src/modules/storage/index.ts",
     "./invoice-generator": "./src/modules/invoice-generator/index.ts",
-    "./auth": "./src/modules/auth/index.ts"
+    "./auth": "./src/modules/auth/index.ts",
+    "./grocery": "./src/modules/grocery/index.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

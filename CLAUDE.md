@@ -4,61 +4,84 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Himan is a personal productivity suite with multiple feature modules (notes, password manager, file storage, credit cards, invoice generator, etc.). The repo is an **npm workspaces monorepo**.
+Himan is a personal productivity suite (notes, password manager, file storage, credit cards, invoice generator, subscriptions, settings). The repo is an **npm workspaces monorepo** with platform-specific apps sharing a common domain layer.
 
 ## Repository Structure
 
 ```
 Himan/
-├── packages/shared/        # @himan/shared — framework-agnostic domain + infrastructure code
-├── web/                    # @himan/web — Vite + React + TypeScript web app (has its own CLAUDE.md)
-├── mobile/                 # @himan/mobile — placeholder for future React Native app
-├── package.json            # root workspace config
-└── web/supabase/migrations/ # Database migration files
+├── packages/shared/         # @himan/shared — framework-agnostic domain + infrastructure
+├── web/                     # @himan/web — Vite + React + TypeScript (has its own CLAUDE.md)
+├── mobile/                  # @himan/mobile — future React Native app
+└── package.json             # root workspace config (workspaces: packages/*, web, mobile)
 ```
+
+## Commands
+
+```bash
+npm install                      # Install all workspaces (MUST run from repo root)
+cd web && npm run dev            # Start web dev server
+cd web && npm run build          # TypeScript check + Vite build
+cd web && npm run lint           # ESLint
+cd web && npm run test:run       # Run tests once (Vitest)
+cd web && npm test               # Tests in watch mode
+cd web && npm run test:coverage  # Tests with coverage
+```
+
+## Architecture
+
+### Simplified Clean Architecture
+
+Every feature module follows three layers:
+
+- **Domain** (`domain/`): Pure business logic — entities, types, use cases. No framework imports.
+- **Infrastructure** (`infrastructure/`): Supabase repositories, services, mappers. Imports domain only.
+- **Presentation** (`presentation/`): UI components, hooks, pages. Platform-specific (web or mobile).
+
+Domain + infrastructure layers live in `packages/shared/` for cross-platform reuse. Each platform app re-exports from `@himan/shared` in its own infrastructure `index.ts` files, keeping path aliases unchanged.
+
+### Module Boundaries
+
+- Each module has an `index.ts` exporting its public API
+- Inter-module imports must go through `index.ts` — never import internal paths
+- Modules should be independently deletable
 
 ### Shared Package (`packages/shared/`)
 
-Contains domain logic and Supabase infrastructure code reusable across web and mobile:
-- `src/config/` — Supabase client factory (`initSupabase`/`getSupabase`)
-- `src/services/` — Logger factory (`initLogger`/`getLogger`)
-- `src/modules/` — Per-module domain (entities, types, usecases) and infrastructure (repositories, services)
-- **No DOM lib** — shared tsconfig omits `"DOM"` to catch browser-specific code at compile time
-- **No build step** — exports raw `.ts` files, consumed directly by Vite/Metro bundlers
+- Exports raw `.ts` files (no build step) — consumed directly by Vite/Metro bundlers
+- **No DOM lib** in tsconfig — catches browser-specific code at compile time
 - Web Crypto ambient types in `src/types/crypto.d.ts`
+- Modules: auth, notes, passwords, cards, storage, invoice-generator, subscriptions
+- Dependencies: `@supabase/supabase-js`, `zod`, `date-fns`
 
 ### Supabase Client Pattern
 
-The shared package uses dependency injection for the Supabase client:
-- `initSupabase({ url, anonKey })` — called once at app startup (web calls this with `import.meta.env` values)
+Dependency injection via init/get singletons:
+- `initSupabase({ url, anonKey })` — called once at app startup (each platform provides its own env values)
 - `getSupabase()` — used by all repositories in the shared package
 - Same pattern for Logger: `initLogger({ isDevelopment })` / `getLogger()`
 
-## Quick Start
+### Backend
 
-```bash
-npm install              # Install all workspaces from root
-cd web && npm run dev    # Start web dev server
-cd web && npm run build  # TypeScript check + Vite build
-cd web && npm run lint   # ESLint
-cd web && npm run test:run  # Run tests once (Vitest)
-```
+- **Supabase**: auth, database, storage, Row-Level Security
+- Migrations in `web/supabase/migrations/`
 
-## Key Architecture
+## Adding New Modules
 
-See `web/CLAUDE.md` for detailed web app documentation. Key points:
+1. Create `packages/shared/src/modules/[name]/` with domain + infrastructure layers
+2. Add export entry in `packages/shared/package.json` exports field
+3. In each platform app (web, mobile):
+   - Create `src/modules/[name]/` with presentation layer + infrastructure re-exports
+   - Add path alias to TypeScript and bundler configs
+4. Browser-specific services (e.g. ThumbnailService, CompressionService) stay in web, not shared
 
-- **Simplified Clean Architecture** with feature modules under `web/src/modules/`
-- Each module has three layers: `domain/` → `infrastructure/` → `presentation/`
-- Domain + infrastructure layers are extracted to `packages/shared/` for cross-platform reuse
-- Web infrastructure `index.ts` files re-export from `@himan/shared` — path aliases unchanged
-- Backend is **Supabase** (auth, database, storage, RLS)
-- UI built with **Tailwind CSS v4**, **Radix UI**, and **shadcn/ui** patterns
-- Deployment: **Cloudflare Pages** with git integration (root directory must be `/`, build command `cd web && npm run build`)
+## Deployment
+
+- **Web**: Cloudflare Pages — root directory `/`, build command `cd web && npm run build`
 
 ## Git Workflow
 
-- Main branch: `main`
-- Development branch: `develop`
-- Commit messages follow conventional commit format (e.g., `feat:`, `fix:`, `refactor:`)
-- Do not include AI attribution in commit messages
+- Main branch: `main`, development branch: `develop`
+- Conventional commits: `feat:`, `fix:`, `refactor:`, etc.
+- Commit descriptions use proper sentences starting with verbs, one per line (not bullet points)
+- Do **not** include AI attribution in commit messages

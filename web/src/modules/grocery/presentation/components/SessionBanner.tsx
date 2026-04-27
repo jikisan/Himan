@@ -1,4 +1,4 @@
-import { Users, StopCircle, UserPlus, ShoppingBag } from 'lucide-react';
+import { Users, Square, UserPlus } from 'lucide-react';
 import type { GrocerySessionType } from '../../domain';
 import { Button } from '@/components/ui/button';
 
@@ -13,16 +13,12 @@ export const SessionBanner = ({
   onEndShopping,
   onManageShoppers,
 }: SessionBannerProps) => {
-  const totalItems = session.items.length;
-  const purchasedItems = session.items.filter((i) => i.isPurchased).length;
-  const remaining = totalItems - purchasedItems;
-  const progress = totalItems > 0 ? (purchasedItems / totalItems) * 100 : 0;
   const totalPrice = session.items
     .filter((i) => i.isPurchased && i.price != null)
     .reduce((sum, i) => sum + (i.price ?? 0), 0);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 flex-1">
       <div className="flex items-start gap-3">
 
         <div className="flex-1 min-w-0">
@@ -39,11 +35,8 @@ export const SessionBanner = ({
             >
               <Users className="h-3 w-3" />
               <span>{session.members.length} {session.members.length === 1 ? 'shopper' : 'shoppers'}</span>
-              <UserPlus className="h-3 w-3" />
+              <UserPlus className="h-3 w-3 text-green-500" />
             </button>
-            {totalPrice > 0 && (
-              <span className="text-xs text-muted-foreground">· ₱{totalPrice.toFixed(2)}</span>
-            )}
           </div>
         </div>
 
@@ -51,10 +44,10 @@ export const SessionBanner = ({
           size="sm"
           variant="outline"
           onClick={onEndShopping}
-          className="flex-shrink-0 h-8 text-xs"
+          className="flex-shrink-0 h-8 text-xs text-red-500 hover:text-red-500"
         >
-          <StopCircle className="h-3.5 w-3.5 mr-1.5" />
-          End
+          <Square className="h-3.5 w-3.5 fill-current" />
+          {totalPrice > 0 && <span className="ml-1.5">₱{totalPrice.toFixed(2)}</span>}
         </Button>
       </div>
 

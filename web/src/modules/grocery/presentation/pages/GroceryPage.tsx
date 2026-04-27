@@ -1,30 +1,19 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Plus,
   ShoppingCart,
   UserPlus,
   Trash2,
   ChevronDown,
-  ChevronRight,
   ShoppingBasket,
-  Check,
-  Loader2,
   ArrowLeft,
-  ChevronsUpDown,
-  ChevronsDownUp,
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/ui';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { cn } from '@core/presentation/utils';
 import {
   useGroceryLists,
   useGroceryItems,
@@ -47,249 +36,11 @@ import {
   InvitationBanner,
   EndShoppingDialog,
   AddShopperDialog,
+  SessionTabsContent,
 } from '../components';
 import type { GroceryItemType, SessionItemType } from '../../domain';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { cn } from '@core/presentation/utils';
+import type { CollapseStamp } from '../components';
 
-// ─── Session item row ──────────────────────────────────────────────────────────
-const SessionItemRow = ({
-  item,
-  onPurchase,
-  onUnpurchase,
-}: {
-  item: SessionItemType;
-  onPurchase: (sessionItemId: string, groceryItemId: string | null, price?: number | null) => Promise<unknown>;
-  onUnpurchase: (sessionItemId: string, groceryItemId: string | null) => Promise<unknown>;
-}) => {
-  const [showPriceInput, setShowPriceInput] = useState(false);
-  const [price, setPrice] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleCheckboxClick = async () => {
-    if (isLoading) return;
-    if (item.isPurchased) {
-      setIsLoading(true);
-      try { await onUnpurchase(item.id, item.groceryItemId); }
-      finally { setIsLoading(false); }
-      return;
-    }
-    setShowPriceInput(true);
-  };
-
-  const handlePriceSubmit = async () => {
-    const parsedPrice = price ? parseFloat(price) : null;
-    setShowPriceInput(false);
-    setPrice('');
-    setIsLoading(true);
-    try { await onPurchase(item.id, item.groceryItemId, parsedPrice); }
-    finally { setIsLoading(false); }
-  };
-
-  const handlePriceSkip = async () => {
-    setShowPriceInput(false);
-    setPrice('');
-    setIsLoading(true);
-    try { await onPurchase(item.id, item.groceryItemId, null); }
-    finally { setIsLoading(false); }
-  };
-
-  const quantityLabel =
-    item.quantity > 1
-      ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`
-      : item.unit ?? '';
-
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-3 px-4 py-3.5 rounded-xl group hover:bg-accent/50 active:bg-accent/60 transition-colors cursor-pointer',
-        (item.isPurchased || isLoading) && 'opacity-60',
-        isLoading && 'pointer-events-none'
-      )}
-      onClick={handleCheckboxClick}
-    >
-      <Popover open={showPriceInput} onOpenChange={setShowPriceInput}>
-        <PopoverTrigger asChild>
-          <button
-            className={cn(
-              'flex-shrink-0 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all',
-              item.isPurchased
-                ? 'bg-emerald-500 border-emerald-500 text-white'
-                : 'border-muted-foreground/30 hover:border-emerald-400'
-            )}
-          >
-            {isLoading
-              ? <Loader2 className="h-3 w-3 animate-spin" />
-              : item.isPurchased && <Check className="h-3 w-3" />
-            }
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-56 p-3" align="start">
-          <p className="text-xs text-muted-foreground mb-2">
-            {item.name} {quantityLabel && `× ${quantityLabel}`}
-          </p>
-          <Input
-            type="number"
-            placeholder="Price (optional)"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handlePriceSubmit(); }}
-            className="mb-2 h-9 text-sm"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <Button size="sm" className="flex-1 h-8 text-xs" onClick={handlePriceSubmit}>Done</Button>
-            <Button size="sm" variant="ghost" className="flex-1 h-8 text-xs" onClick={handlePriceSkip}>Skip</Button>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            'text-sm font-medium truncate',
-            item.isPurchased && 'line-through text-muted-foreground'
-          )}>
-            {item.name}
-          </span>
-          {quantityLabel && (
-            <span className="text-xs text-muted-foreground flex-shrink-0">{quantityLabel}</span>
-          )}
-        </div>
-        {item.notes && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">{item.notes}</p>
-        )}
-        {item.isPurchased && item.price != null && (
-          <p className="text-xs text-muted-foreground mt-0.5">₱{item.price.toFixed(2)}</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ─── Session category group ────────────────────────────────────────────────────
-const SessionCategoryGroup = ({
-  category,
-  items,
-  onPurchase,
-  onUnpurchase,
-  collapseStamp,
-}: {
-  category: string;
-  items: SessionItemType[];
-  onPurchase: (sessionItemId: string, groceryItemId: string | null, price?: number | null) => Promise<unknown>;
-  onUnpurchase: (sessionItemId: string, groceryItemId: string | null) => Promise<unknown>;
-  collapseStamp: { collapsed: boolean; n: number } | null;
-}) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const prevStampRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (collapseStamp !== null && collapseStamp.n !== prevStampRef.current) {
-      prevStampRef.current = collapseStamp.n;
-      setIsCollapsed(collapseStamp.collapsed);
-    }
-  }, [collapseStamp]);
-
-  return (
-    <div>
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-accent/30 active:bg-accent/40 rounded-xl transition-colors"
-      >
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex-1">
-          {category}
-        </span>
-        <span className="text-xs text-muted-foreground/60">{items.length}</span>
-        {isCollapsed
-          ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-          : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-      </button>
-      {!isCollapsed && (
-        <div className="mt-0.5 space-y-0.5">
-          {items.map((item) => (
-            <SessionItemRow key={item.id} item={item} onPurchase={onPurchase} onUnpurchase={onUnpurchase} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Session list group ────────────────────────────────────────────────────────
-const SessionListGroup = ({
-  listName,
-  groupedByCategory,
-  onPurchase,
-  onUnpurchase,
-  collapseStamp,
-  flat = false,
-}: {
-  listName: string;
-  groupedByCategory: Map<string, SessionItemType[]>;
-  onPurchase: (sessionItemId: string, groceryItemId: string | null, price?: number | null) => Promise<unknown>;
-  onUnpurchase: (sessionItemId: string, groceryItemId: string | null) => Promise<unknown>;
-  collapseStamp: { collapsed: boolean; n: number } | null;
-  flat?: boolean;
-}) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const prevStampRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (collapseStamp !== null && collapseStamp.n !== prevStampRef.current) {
-      prevStampRef.current = collapseStamp.n;
-      setIsCollapsed(collapseStamp.collapsed);
-    }
-  }, [collapseStamp]);
-
-  const allItems = Array.from(groupedByCategory.values()).flat();
-  const totalCount = allItems.length;
-
-  return (
-    <div>
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex items-center gap-2.5 px-4 py-3 w-full text-left hover:bg-accent/30 active:bg-accent/40 rounded-xl transition-colors"
-      >
-        <span className="text-sm font-semibold flex-1">{listName}</span>
-        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full tabular-nums">
-          {totalCount}
-        </span>
-        {isCollapsed
-          ? <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-      </button>
-      {!isCollapsed && (
-        <div className="mt-1 pl-2">
-          {flat ? (
-            <div className="space-y-0.5">
-              {allItems.map((item) => (
-                <SessionItemRow key={item.id} item={item} onPurchase={onPurchase} onUnpurchase={onUnpurchase} />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {Array.from(groupedByCategory.entries()).map(([category, items]) => (
-                <SessionCategoryGroup
-                  key={category}
-                  category={category}
-                  items={items}
-                  onPurchase={onPurchase}
-                  onUnpurchase={onUnpurchase}
-                  collapseStamp={collapseStamp}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
 export const GroceryPage = () => {
   const { user } = useAuth();
   const userId = user?.id ?? '';
@@ -304,7 +55,7 @@ export const GroceryPage = () => {
   const [showArchived, setShowArchived] = useState(false);
 
   // Session collapse-all/expand-all
-  const [sessionCollapseStamp, setSessionCollapseStamp] = useState<{ collapsed: boolean; n: number } | null>(null);
+  const [sessionCollapseStamp, setSessionCollapseStamp] = useState<CollapseStamp | null>(null);
   const triggerSessionCollapse = (collapsed: boolean) =>
     setSessionCollapseStamp((prev) => ({ collapsed, n: (prev?.n ?? 0) + 1 }));
 
@@ -416,8 +167,6 @@ export const GroceryPage = () => {
     [startSession]
   );
 
-  const handleEndShopping = useCallback(() => setEndShoppingDialogOpen(true), []);
-
   const handleCompleteShopping = useCallback(async () => {
     await endSession();
     setMobileView('lists');
@@ -438,7 +187,6 @@ export const GroceryPage = () => {
           'w-full md:w-72',
           mobileView === 'detail' ? 'hidden md:flex' : 'flex'
         )}>
-          {/* Header */}
           <div className="px-4 py-3.5 border-b border-border">
             <div className="flex items-center justify-between">
               <h1 className="text-base font-semibold">Grocery</h1>
@@ -467,14 +215,12 @@ export const GroceryPage = () => {
             </div>
           </div>
 
-          {/* Invitations */}
           <InvitationBanner
             invitations={pendingInvitations}
             onAccept={acceptInvitation}
             onDecline={declineInvitation}
           />
 
-          {/* Active session indicator */}
           {activeSession && (
             <button
               onClick={handleViewSession}
@@ -496,10 +242,8 @@ export const GroceryPage = () => {
             </button>
           )}
 
-          {/* List of lists */}
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-0.5">
-              {/* Inline create */}
               {isCreatingList && (
                 <div className="p-2">
                   <Input
@@ -547,7 +291,6 @@ export const GroceryPage = () => {
                 )
               )}
 
-              {/* Archived section */}
               {archivedLists.length > 0 && (
                 <div className="pt-2">
                   <button
@@ -584,24 +327,19 @@ export const GroceryPage = () => {
           {activeSession && selectedListId === null ? (
             /* ── Shopping session view ── */
             <>
-              <div className="px-4 pt-3 pb-3 border-b border-border space-y-3">
-                {/* Mobile back */}
+              <div className="flex flex-row space-x-4 px-4 pt-3 pb-3 border-b border-border space-y-3">
                 <button
                   onClick={() => setMobileView('lists')}
                   className="md:hidden flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground active:text-foreground transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  <span>Lists</span>
                 </button>
-
                 <SessionBanner
                   session={activeSession}
-                  onEndShopping={handleEndShopping}
+                  onEndShopping={() => setEndShoppingDialogOpen(true)}
                   onManageShoppers={() => setShoppersDialogOpen(true)}
                 />
               </div>
-
-              {/* Tab switcher + content */}
               <SessionTabsContent
                 activeSession={activeSession}
                 sessionItemsByListAndCategory={sessionItemsByListAndCategory}
@@ -620,7 +358,6 @@ export const GroceryPage = () => {
               <div className="px-4 py-3.5 border-b border-border">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Mobile back */}
                     <button
                       onClick={() => setMobileView('lists')}
                       className="md:hidden flex-shrink-0 h-9 w-9 flex items-center justify-center rounded-lg hover:bg-accent active:bg-accent/70 transition-colors"
@@ -652,7 +389,6 @@ export const GroceryPage = () => {
 
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-4">
-                  {/* Suggestions */}
                   {suggestions.length > 0 && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Suggestions</p>
@@ -660,7 +396,6 @@ export const GroceryPage = () => {
                     </div>
                   )}
 
-                  {/* Add item input */}
                   <AddItemInput
                     listId={selectedListId!}
                     products={products}
@@ -668,7 +403,6 @@ export const GroceryPage = () => {
                     autoFocus={items.length === 0}
                   />
 
-                  {/* Item groups */}
                   <div className="space-y-2">
                     {Array.from(groupedItems.entries()).map(([category, categoryItems]) => (
                       <CategoryGroup
@@ -684,7 +418,6 @@ export const GroceryPage = () => {
                     ))}
                   </div>
 
-                  {/* Checked items */}
                   {checkedItems.length > 0 && (
                     <div className="pt-1">
                       <div className="flex items-center justify-between px-3 py-2">
@@ -717,7 +450,6 @@ export const GroceryPage = () => {
                     </div>
                   )}
 
-                  {/* Empty state */}
                   {items.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                       <ShoppingBasket className="h-12 w-12 mb-3 opacity-20" />
@@ -729,7 +461,7 @@ export const GroceryPage = () => {
               </ScrollArea>
             </>
           ) : (
-            /* ── No list selected (desktop only; mobile always shows sidebar) ── */
+            /* ── Empty state ── */
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
               <ShoppingCart className="h-12 w-12 mb-3 opacity-20" />
               <p className="text-sm">Select a list or create a new one</p>
@@ -815,186 +547,5 @@ export const GroceryPage = () => {
         isCancelling={isCancelling}
       />
     </>
-  );
-};
-
-// ─── Session tabs content (extracted to keep flex layout working) ──────────────
-const SessionTabsContent = ({
-  activeSession,
-  sessionItemsByListAndCategory,
-  purchasedSessionItems,
-  sessionCollapseStamp,
-  addSessionItem,
-  isAddingSessionItem,
-  purchaseItem,
-  unpurchaseItem,
-  triggerSessionCollapse,
-}: {
-  activeSession: NonNullable<ReturnType<typeof useGrocerySession>['activeSession']>;
-  sessionItemsByListAndCategory: Map<string, Map<string, SessionItemType[]>>;
-  purchasedSessionItems: SessionItemType[];
-  sessionCollapseStamp: { collapsed: boolean; n: number } | null;
-  addSessionItem: (name: string) => Promise<unknown>;
-  isAddingSessionItem: boolean;
-  purchaseItem: (id: string, groceryItemId: string | null, price?: number | null) => Promise<unknown>;
-  unpurchaseItem: (id: string, groceryItemId: string | null) => Promise<unknown>;
-  triggerSessionCollapse: (collapsed: boolean) => void;
-}) => {
-  const [activeTab, setActiveTab] = useState<'to-get' | 'purchased'>('to-get');
-  const [addItemOpen, setAddItemOpen] = useState(false);
-  const [newItem, setNewItem] = useState('');
-  const [allCollapsed, setAllCollapsed] = useState(false);
-
-  const handleToggleCollapse = () => {
-    const next = !allCollapsed;
-    setAllCollapsed(next);
-    triggerSessionCollapse(next);
-  };
-
-  const handleAddItem = async () => {
-    const trimmed = newItem.trim();
-    if (!trimmed) return;
-    await addSessionItem(trimmed);
-    setNewItem('');
-    setAddItemOpen(false);
-  };
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Tab switcher */}
-      <div className="flex border-b border-border">
-        <button
-          onClick={() => setActiveTab('to-get')}
-          className={cn(
-            'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors border-b-2',
-            activeTab === 'to-get'
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          )}
-        >
-          To Get
-          {activeSession.items.filter((i) => !i.isPurchased).length > 0 && (
-            <span className="text-xs bg-primary/10 text-primary rounded-full px-1.5 tabular-nums">
-              {activeSession.items.filter((i) => !i.isPurchased).length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('purchased')}
-          className={cn(
-            'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors border-b-2',
-            activeTab === 'purchased'
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          )}
-        >
-          Purchased
-          {purchasedSessionItems.length > 0 && (
-            <span className="text-xs bg-muted-foreground/10 text-muted-foreground rounded-full px-1.5 tabular-nums">
-              {purchasedSessionItems.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Add Item dialog */}
-      <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setNewItem(''); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add Item</DialogTitle>
-            <DialogDescription className="sr-only">Add an item to the shopping session</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={async (e) => { e.preventDefault(); await handleAddItem(); }}
-            className="flex gap-2 mt-1"
-          >
-            <Input
-              placeholder="Item name..."
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              className="h-9 text-sm"
-              disabled={isAddingSessionItem}
-              autoFocus
-            />
-            <Button
-              type="submit"
-              size="sm"
-              className="h-9 px-3 flex-shrink-0"
-              disabled={!newItem.trim() || isAddingSessionItem}
-            >
-              {isAddingSessionItem ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {activeTab === 'to-get' ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Controls row: add item + collapse/expand */}
-          <div className="flex items-center px-4 py-1.5 border-b border-border">
-            <button
-              onClick={() => setAddItemOpen(true)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground active:text-foreground transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add item
-            </button>
-            {sessionItemsByListAndCategory.size > 0 && (
-              <button
-                onClick={handleToggleCollapse}
-                className="ml-auto p-1 rounded text-muted-foreground hover:text-foreground active:text-foreground transition-colors"
-                title={allCollapsed ? 'Expand all' : 'Collapse all'}
-              >
-                {allCollapsed
-                  ? <ChevronsUpDown className="h-3.5 w-3.5" />
-                  : <ChevronsDownUp className="h-3.5 w-3.5" />}
-              </button>
-            )}
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
-              {Array.from(sessionItemsByListAndCategory.entries()).map(([listName, groupedByCategory]) => (
-                <SessionListGroup
-                  key={listName}
-                  listName={listName}
-                  groupedByCategory={groupedByCategory}
-                  onPurchase={purchaseItem}
-                  onUnpurchase={unpurchaseItem}
-                  collapseStamp={sessionCollapseStamp}
-                  flat={listName === 'Added Items'}
-                />
-              ))}
-              {activeSession.items.every((i) => i.isPurchased) && (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                  <Check className="h-10 w-10 mb-3 opacity-20" />
-                  <p className="text-sm font-medium">All items purchased!</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      ) : (
-        <ScrollArea className="flex-1">
-          <div className="p-3 space-y-0.5">
-            {purchasedSessionItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <ShoppingCart className="h-10 w-10 mb-3 opacity-20" />
-                <p className="text-sm">Nothing purchased yet</p>
-              </div>
-            ) : (
-              purchasedSessionItems.map((item) => (
-                <SessionItemRow
-                  key={item.id}
-                  item={item}
-                  onPurchase={purchaseItem}
-                  onUnpurchase={unpurchaseItem}
-                />
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
   );
 };

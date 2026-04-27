@@ -10,3 +10,8 @@ export { StartSessionDialog } from './StartSessionDialog';
 export { InvitationBanner } from './InvitationBanner';
 export { EndShoppingDialog } from './EndShoppingDialog';
 export { AddShopperDialog } from './AddShopperDialog';
+export { SessionItemRow } from './SessionItemRow';
+export { SessionCategoryGroup } from './SessionCategoryGroup';
+export type { CollapseStamp } from './SessionCategoryGroup';
+export { SessionListGroup } from './SessionListGroup';
+export { SessionTabsContent } from './SessionTabsContent';

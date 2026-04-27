@@ -28,21 +28,19 @@ export const CategoryGroup = ({
     <div>
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex items-center gap-2 px-3 py-1.5 w-full text-left hover:bg-accent/30 rounded-lg transition-colors"
+        className="flex items-center gap-2 px-3 py-2.5 w-full text-left hover:bg-accent/30 active:bg-accent/40 rounded-xl transition-colors"
       >
-        {isCollapsed ? (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        )}
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {isCollapsed
+          ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex-1">
           {category}
         </span>
-        <span className="text-xs text-muted-foreground">({items.length})</span>
+        <span className="text-xs text-muted-foreground/60">{items.length}</span>
       </button>
 
       {!isCollapsed && (
-        <div className="mt-1 space-y-0.5">
+        <div className="mt-0.5 space-y-0.5">
           {items.map((item) => (
             <GroceryItemRow
               key={item.id}

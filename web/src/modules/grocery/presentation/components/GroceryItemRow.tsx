@@ -37,7 +37,6 @@ export const GroceryItemRow = ({
       onUncheck(item.id);
       return;
     }
-
     if (isSessionActive) {
       setShowPriceInput(true);
     } else {
@@ -61,21 +60,21 @@ export const GroceryItemRow = ({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-lg group hover:bg-accent/50 transition-colors',
+        'flex items-center gap-3 px-3 py-3 rounded-xl group hover:bg-accent/50 active:bg-accent/60 transition-colors',
         item.isChecked && 'opacity-60'
       )}
       onClick={handleCheckboxClick}
     >
-      {/* Checkbox */}
+      {/* Circular checkbox */}
       <Popover open={showPriceInput} onOpenChange={setShowPriceInput}>
         <PopoverTrigger asChild>
           <button
             onClick={handleCheckboxClick}
             className={cn(
-              'flex-shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors',
+              'flex-shrink-0 h-[22px] w-[22px] rounded-full border-2 flex items-center justify-center transition-all',
               item.isChecked
                 ? 'bg-primary border-primary text-primary-foreground'
-                : 'border-muted-foreground/40 hover:border-primary'
+                : 'border-muted-foreground/30 hover:border-primary'
             )}
           >
             {item.isChecked && <Check className="h-3 w-3" />}
@@ -93,19 +92,14 @@ export const GroceryItemRow = ({
             onKeyDown={(e) => {
               if (e.key === 'Enter') handlePriceSubmit();
             }}
-            className="mb-2 h-8 text-sm"
+            className="mb-2 h-9 text-sm"
             autoFocus
           />
           <div className="flex gap-2">
-            <Button size="sm" className="flex-1 h-7 text-xs" onClick={handlePriceSubmit}>
+            <Button size="sm" className="flex-1 h-8 text-xs" onClick={handlePriceSubmit}>
               Done
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="flex-1 h-7 text-xs"
-              onClick={handlePriceSkip}
-            >
+            <Button size="sm" variant="ghost" className="flex-1 h-8 text-xs" onClick={handlePriceSkip}>
               Skip
             </Button>
           </div>
@@ -113,16 +107,12 @@ export const GroceryItemRow = ({
       </Popover>
 
       {/* Item info */}
-      <div
-        className="flex-1 min-w-0 cursor-pointer"
-      >
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              'text-sm font-medium truncate',
-              item.isChecked && 'line-through text-muted-foreground'
-            )}
-          >
+          <span className={cn(
+            'text-sm font-medium truncate',
+            item.isChecked && 'line-through text-muted-foreground'
+          )}>
             {item.name}
           </span>
           {entity.quantityLabel && (
@@ -132,32 +122,31 @@ export const GroceryItemRow = ({
           )}
         </div>
         {item.notes && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {item.notes}
-          </p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">{item.notes}</p>
         )}
         {item.isChecked && item.price != null && (
-          <p className="text-xs text-muted-foreground mt-0.5">
-            ₱{item.price.toFixed(2)}
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">₱{item.price.toFixed(2)}</p>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Actions — always visible on mobile, hover-only on desktop */}
+      <div
+        className="flex items-center gap-0.5 flex-shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+        onClick={(e) => e.stopPropagation()}
+      >
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7"
-          onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+          className="h-8 w-8"
+          onClick={() => onEdit(item)}
         >
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 text-destructive hover:text-destructive"
-          onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          onClick={() => onDelete(item.id)}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>

@@ -39,21 +39,19 @@ export const GroceryListCard = ({
     <div
       onClick={onSelect}
       className={cn(
-        'flex flex-col gap-2 p-3 rounded-lg cursor-pointer transition-colors border',
+        'flex flex-col gap-2.5 p-3.5 rounded-xl cursor-pointer transition-colors border',
         isSelected
           ? 'bg-accent border-primary/30'
-          : 'border-transparent hover:bg-accent/50'
+          : 'border-transparent hover:bg-accent/50 active:bg-accent/70'
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-sm truncate">{list.name}</h3>
-          </div>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-            <span>{entity.progressLabel}</span>
+          <h3 className="font-semibold text-sm truncate">{list.name}</h3>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-muted-foreground">{entity.progressLabel}</span>
             {entity.isShared && (
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
                 <Users className="h-3 w-3" />
                 {list.memberCount}
               </span>
@@ -63,7 +61,7 @@ export const GroceryListCard = ({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0">
+            <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0 -mr-1">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -101,17 +99,15 @@ export const GroceryListCard = ({
       </div>
 
       {entity.itemCount > 0 && (
-        <div className="w-full bg-muted rounded-full h-1.5">
+        <div className="w-full bg-muted rounded-full h-1">
           <div
-            className="bg-primary rounded-full h-1.5 transition-all duration-300"
+            className="bg-primary rounded-full h-1 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
       )}
 
-      <p className="text-[11px] text-muted-foreground">
-        {entity.getRelativeTime()}
-      </p>
+      <p className="text-[11px] text-muted-foreground/70">{entity.getRelativeTime()}</p>
     </div>
   );
 };

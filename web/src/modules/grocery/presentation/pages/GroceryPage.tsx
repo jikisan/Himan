@@ -3,9 +3,7 @@ import {
   Plus,
   ShoppingCart,
   UserPlus,
-  Trash2,
   ChevronDown,
-  ShoppingBasket,
   ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
@@ -25,11 +23,7 @@ import {
 } from '../hooks';
 import {
   GroceryListCard,
-  AddItemInput,
-  CategoryGroup,
-  GroceryItemRow,
   SessionBanner,
-  SuggestionChips,
   ShareListDialog,
   ItemDetailSheet,
   StartSessionDialog,
@@ -37,6 +31,7 @@ import {
   EndShoppingDialog,
   AddShopperDialog,
   SessionTabsContent,
+  ListTabsContent,
 } from '../components';
 import type { GroceryItemType, SessionItemType } from '../../domain';
 import type { CollapseStamp } from '../components';
@@ -387,78 +382,20 @@ export const GroceryPage = () => {
                 </div>
               </div>
 
-              <ScrollArea className="flex-1">
-                <div className="p-4 space-y-4">
-                  {suggestions.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Suggestions</p>
-                      <SuggestionChips suggestions={suggestions} listId={selectedListId!} onAddItem={addItem} />
-                    </div>
-                  )}
-
-                  <AddItemInput
-                    listId={selectedListId!}
-                    products={products}
-                    onAddItem={addItem}
-                    autoFocus={items.length === 0}
-                  />
-
-                  <div className="space-y-2">
-                    {Array.from(groupedItems.entries()).map(([category, categoryItems]) => (
-                      <CategoryGroup
-                        key={category}
-                        category={category}
-                        items={categoryItems}
-                        isSessionActive={!!activeSession}
-                        onCheck={checkItem}
-                        onUncheck={uncheckItem}
-                        onEditItem={setEditingItem}
-                        onDeleteItem={(id) => setDeleteItemId(id)}
-                      />
-                    ))}
-                  </div>
-
-                  {checkedItems.length > 0 && (
-                    <div className="pt-1">
-                      <div className="flex items-center justify-between px-3 py-2">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                          Checked ({checkedItems.length})
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs text-muted-foreground"
-                          onClick={() => clearChecked()}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Clear
-                        </Button>
-                      </div>
-                      <div className="space-y-0.5">
-                        {checkedItems.map((item) => (
-                          <GroceryItemRow
-                            key={item.id}
-                            item={item}
-                            isSessionActive={!!activeSession}
-                            onCheck={checkItem}
-                            onUncheck={uncheckItem}
-                            onEdit={setEditingItem}
-                            onDelete={(id) => setDeleteItemId(id)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {items.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                      <ShoppingBasket className="h-12 w-12 mb-3 opacity-20" />
-                      <p className="text-sm font-medium">No items yet</p>
-                      <p className="text-xs mt-1 opacity-70">Add items using the input above</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+              <ListTabsContent
+                listId={selectedListId!}
+                groupedItems={groupedItems}
+                checkedItems={checkedItems}
+                suggestions={suggestions}
+                products={products}
+                isSessionActive={!!activeSession}
+                onAddItem={addItem}
+                onCheck={checkItem}
+                onUncheck={uncheckItem}
+                onEditItem={setEditingItem}
+                onDeleteItem={(id) => setDeleteItemId(id)}
+                onClearChecked={clearChecked}
+              />
             </>
           ) : (
             /* ── Empty state ── */

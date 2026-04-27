@@ -15,3 +15,4 @@ export { SessionCategoryGroup } from './SessionCategoryGroup';
 export type { CollapseStamp } from './SessionCategoryGroup';
 export { SessionListGroup } from './SessionListGroup';
 export { SessionTabsContent } from './SessionTabsContent';
+export { ListTabsContent } from './ListTabsContent';

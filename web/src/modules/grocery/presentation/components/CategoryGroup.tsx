@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { GroceryItemType } from '../../domain';
+import type { CollapseStamp } from './SessionCategoryGroup';
 import { GroceryItemRow } from './GroceryItemRow';
 
 interface CategoryGroupProps {
   category: string;
   items: GroceryItemType[];
   isSessionActive: boolean;
+  collapseStamp?: CollapseStamp | null;
   onCheck: (itemId: string, price?: number | null) => void;
   onUncheck: (itemId: string) => void;
   onEditItem: (item: GroceryItemType) => void;
@@ -17,12 +19,21 @@ export const CategoryGroup = ({
   category,
   items,
   isSessionActive,
+  collapseStamp,
   onCheck,
   onUncheck,
   onEditItem,
   onDeleteItem,
 }: CategoryGroupProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const prevStampRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (collapseStamp !== null && collapseStamp !== undefined && collapseStamp.n !== prevStampRef.current) {
+      prevStampRef.current = collapseStamp.n;
+      setIsCollapsed(collapseStamp.collapsed);
+    }
+  }, [collapseStamp]);
 
   return (
     <div>

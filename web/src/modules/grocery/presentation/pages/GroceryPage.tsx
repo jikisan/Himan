@@ -34,6 +34,7 @@ import {
   StartSessionDialog,
   InvitationBanner,
   EndShoppingDialog,
+  AddShopperDialog,
 } from '../components';
 import type { GroceryItemType, SessionItemType } from '../../domain';
 import {
@@ -182,6 +183,7 @@ export const GroceryPage = () => {
   const [deleteListDialogOpen, setDeleteListDialogOpen] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [endShoppingDialogOpen, setEndShoppingDialogOpen] = useState(false);
+  const [shoppersDialogOpen, setShoppersDialogOpen] = useState(false);
   const [renamingListId, setRenamingListId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -191,7 +193,7 @@ export const GroceryPage = () => {
     useGroceryItems(selectedListId);
   const { products } = useProductCatalog();
   const { suggestions } = useSuggestions(selectedListId, items);
-  const { activeSession, participants, recentStores, startSession, endSession, cancelSession, purchaseItem, unpurchaseItem, isStarting, isEnding, isCancelling } =
+  const { activeSession, participants, recentStores, startSession, endSession, cancelSession, purchaseItem, unpurchaseItem, addShopper, removeShopper, isStarting, isEnding, isCancelling, isAddingShopper } =
     useGrocerySession();
   const {
     pendingInvitations,
@@ -205,7 +207,7 @@ export const GroceryPage = () => {
   } = useGroceryInvitations(selectedListId ?? undefined);
 
   // Realtime subscriptions
-  useGroceryRealtime(selectedListId);
+  useGroceryRealtime(selectedListId, activeSession?.id);
 
   const selectedList = lists.find((l) => l.id === selectedListId) ?? null;
   const activeLists = lists.filter((l) => !l.isArchived);
@@ -452,8 +454,8 @@ export const GroceryPage = () => {
               <div className="p-4 border-b border-border">
                 <SessionBanner
                   session={activeSession}
-                  participants={participants}
                   onEndShopping={handleEndShopping}
+                  onManageShoppers={() => setShoppersDialogOpen(true)}
                 />
               </div>
 
@@ -692,6 +694,20 @@ export const GroceryPage = () => {
         onConfirm={handleDeleteItem}
         variant="destructive"
       />
+
+      {activeSession && (
+        <AddShopperDialog
+          open={shoppersDialogOpen}
+          onOpenChange={setShoppersDialogOpen}
+          members={activeSession.members}
+          participants={participants}
+          currentUserId={userId}
+          startedBy={activeSession.startedBy}
+          onAddShopper={addShopper}
+          onRemoveShopper={removeShopper}
+          isAdding={isAddingShopper}
+        />
+      )}
 
       <EndShoppingDialog
         open={endShoppingDialogOpen}

@@ -1,4 +1,4 @@
-import type { GrocerySessionType, SessionItemType } from '../types/index.js';
+import type { GrocerySessionType, SessionItemType, SessionMemberType } from '../types/index.js';
 
 export class GrocerySession implements GrocerySessionType {
   id: string;
@@ -8,6 +8,7 @@ export class GrocerySession implements GrocerySessionType {
   startedAt: Date;
   completedAt: Date | null;
   items: SessionItemType[];
+  members: SessionMemberType[];
 
   constructor(data: GrocerySessionType) {
     this.id = data.id;
@@ -17,6 +18,7 @@ export class GrocerySession implements GrocerySessionType {
     this.startedAt = data.startedAt;
     this.completedAt = data.completedAt;
     this.items = data.items;
+    this.members = data.members;
   }
 
   get isActive(): boolean {

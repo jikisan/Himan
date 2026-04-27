@@ -13,6 +13,8 @@ export type {
   CheckItemDto,
   SessionItemType,
   CreateGrocerySessionDto,
+  SessionMemberType,
+  AddSessionMemberDto,
   UpdateSessionItemDto,
   CreateProductDto,
   UpdateProductDto,

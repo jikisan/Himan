@@ -56,6 +56,7 @@ export interface GrocerySessionType {
   startedAt: Date;
   completedAt: Date | null;
   items: SessionItemType[];
+  members: SessionMemberType[];
 }
 
 // Product catalog
@@ -92,6 +93,16 @@ export interface GroceryListMemberType {
   userId: string;
   role: 'owner' | 'editor';
   invitedBy: string | null;
+  joinedAt: Date;
+  email?: string;
+}
+
+// Session member
+export interface SessionMemberType {
+  id: string;
+  sessionId: string;
+  userId: string;
+  addedBy: string;
   joinedAt: Date;
   email?: string;
 }
@@ -144,6 +155,11 @@ export interface CheckItemDto {
 export interface CreateGrocerySessionDto {
   listIds: string[];
   storeName: string;
+}
+
+export interface AddSessionMemberDto {
+  sessionId: string;
+  email: string;
 }
 
 export interface UpdateSessionItemDto {

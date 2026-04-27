@@ -4,7 +4,7 @@ import { useAuth } from '@auth/presentation/hooks';
 import { GroceryRealtimeService } from '../../infrastructure/services';
 import { groceryKeys } from './queryKeys';
 
-export const useGroceryRealtime = (listId: string | null) => {
+export const useGroceryRealtime = (listId: string | null, activeSessionId?: string | null) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id;
@@ -37,6 +37,19 @@ export const useGroceryRealtime = (listId: string | null) => {
       realtimeService.unsubscribeFromSessions();
     };
   }, [userId, realtimeService, queryClient]);
+
+  // Subscribe to session item changes (so all members see real-time purchases)
+  useEffect(() => {
+    if (!activeSessionId) return;
+
+    realtimeService.subscribeToSessionItems(activeSessionId, () => {
+      queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
+    });
+
+    return () => {
+      realtimeService.unsubscribeFromSessionItems();
+    };
+  }, [activeSessionId, realtimeService, queryClient]);
 
   return realtimeService;
 };

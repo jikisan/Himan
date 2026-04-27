@@ -91,6 +91,16 @@ CREATE TABLE IF NOT EXISTS grocery_session_items (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Grocery session members: who can participate in a session
+CREATE TABLE IF NOT EXISTS grocery_session_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES grocery_sessions(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  added_by UUID NOT NULL REFERENCES auth.users(id),
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (session_id, user_id)
+);
+
 -- Grocery invitations
 CREATE TABLE IF NOT EXISTS grocery_invitations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -128,6 +138,10 @@ CREATE INDEX idx_product_catalog_name ON product_catalog(user_id, name);
 CREATE INDEX idx_product_catalog_category ON product_catalog(user_id, category);
 CREATE INDEX idx_product_catalog_last_purchased ON product_catalog(user_id, last_purchased_at DESC);
 
+-- Session members
+CREATE INDEX idx_session_members_session ON grocery_session_members(session_id);
+CREATE INDEX idx_session_members_user ON grocery_session_members(user_id);
+
 -- Invitations
 CREATE INDEX idx_grocery_invitations_email ON grocery_invitations(invited_email);
 CREATE INDEX idx_grocery_invitations_list_id ON grocery_invitations(list_id);
@@ -144,6 +158,21 @@ RETURNS boolean AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
+-- Look up a user ID by email (for adding session members)
+CREATE OR REPLACE FUNCTION get_user_id_by_email(lookup_email text)
+RETURNS uuid AS $$
+  SELECT id FROM auth.users WHERE email = lookup_email LIMIT 1;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Session member check (starter is always a member)
+CREATE OR REPLACE FUNCTION is_grocery_session_member(p_session_id uuid)
+RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM grocery_session_members
+    WHERE session_id = p_session_id AND user_id = auth.uid()
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 -- ============================================================
 -- 4. ENABLE RLS
 -- ============================================================
@@ -154,6 +183,7 @@ ALTER TABLE grocery_list_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grocery_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grocery_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grocery_session_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE grocery_session_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grocery_invitations ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
@@ -242,63 +272,68 @@ CREATE POLICY "Members can delete list items"
   ON grocery_items FOR DELETE
   USING (is_grocery_list_member(list_id));
 
--- grocery_sessions: user-based access (sessions are per-user, not per-list)
-CREATE POLICY "Users can view their own sessions"
+-- grocery_sessions: members can view, starter manages lifecycle
+CREATE POLICY "Session members can view sessions"
   ON grocery_sessions FOR SELECT
-  USING (auth.uid() = started_by);
+  USING (is_grocery_session_member(id) OR auth.uid() = started_by);
 
 CREATE POLICY "Users can create their own sessions"
   ON grocery_sessions FOR INSERT
   WITH CHECK (auth.uid() = started_by);
 
-CREATE POLICY "Users can update their own sessions"
+CREATE POLICY "Starter can update sessions"
   ON grocery_sessions FOR UPDATE
   USING (auth.uid() = started_by);
 
-CREATE POLICY "Users can delete their own sessions"
+CREATE POLICY "Starter can delete sessions"
   ON grocery_sessions FOR DELETE
   USING (auth.uid() = started_by);
 
--- grocery_session_items: access through session ownership
-CREATE POLICY "Users can view their session items"
-  ON grocery_session_items FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM grocery_sessions
-      WHERE id = grocery_session_items.session_id
-        AND started_by = auth.uid()
-    )
-  );
+-- grocery_session_members: starter manages, members can view
+CREATE POLICY "Session members can view members"
+  ON grocery_session_members FOR SELECT
+  USING (is_grocery_session_member(session_id));
 
-CREATE POLICY "Users can insert their session items"
-  ON grocery_session_items FOR INSERT
+CREATE POLICY "Starter can add session members"
+  ON grocery_session_members FOR INSERT
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM grocery_sessions
-      WHERE id = grocery_session_items.session_id
+      WHERE id = grocery_session_members.session_id
         AND started_by = auth.uid()
     )
+    -- Also allow auto-insert trigger for starter
+    OR (user_id = auth.uid())
   );
 
-CREATE POLICY "Users can update their session items"
+CREATE POLICY "Starter can remove session members"
+  ON grocery_session_members FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM grocery_sessions
+      WHERE id = grocery_session_members.session_id
+        AND started_by = auth.uid()
+    )
+    -- Members can leave
+    OR user_id = auth.uid()
+  );
+
+-- grocery_session_items: session members have full access
+CREATE POLICY "Session members can view session items"
+  ON grocery_session_items FOR SELECT
+  USING (is_grocery_session_member(session_id));
+
+CREATE POLICY "Session members can insert session items"
+  ON grocery_session_items FOR INSERT
+  WITH CHECK (is_grocery_session_member(session_id));
+
+CREATE POLICY "Session members can update session items"
   ON grocery_session_items FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM grocery_sessions
-      WHERE id = grocery_session_items.session_id
-        AND started_by = auth.uid()
-    )
-  );
+  USING (is_grocery_session_member(session_id));
 
-CREATE POLICY "Users can delete their session items"
+CREATE POLICY "Session members can delete session items"
   ON grocery_session_items FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM grocery_sessions
-      WHERE id = grocery_session_items.session_id
-        AND started_by = auth.uid()
-    )
-  );
+  USING (is_grocery_session_member(session_id));
 
 -- grocery_invitations: owner manages, invitee can view
 CREATE POLICY "Members and invitees can view invitations"
@@ -377,6 +412,50 @@ CREATE TRIGGER create_grocery_list_owner
   FOR EACH ROW
   EXECUTE FUNCTION auto_create_grocery_list_owner();
 
+-- Auto-create starter as session member when a session is created
+CREATE OR REPLACE FUNCTION auto_create_session_starter_member()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO grocery_session_members (session_id, user_id, added_by)
+  VALUES (NEW.id, NEW.started_by, NEW.started_by);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER create_session_starter_member
+  AFTER INSERT ON grocery_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_create_session_starter_member();
+
+-- Sync grocery_items.is_checked when a session item is purchased/unpurchased
+-- Runs as SECURITY DEFINER so it works regardless of list membership
+CREATE OR REPLACE FUNCTION sync_grocery_item_on_session_purchase()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.grocery_item_id IS NOT NULL THEN
+    IF NEW.is_purchased = TRUE AND (OLD.is_purchased = FALSE OR OLD.is_purchased IS NULL) THEN
+      UPDATE grocery_items
+      SET is_checked = TRUE,
+          checked_at = NOW(),
+          price = COALESCE(NEW.price, price)
+      WHERE id = NEW.grocery_item_id;
+    ELSIF NEW.is_purchased = FALSE AND OLD.is_purchased = TRUE THEN
+      UPDATE grocery_items
+      SET is_checked = FALSE,
+          checked_by = NULL,
+          checked_at = NULL
+      WHERE id = NEW.grocery_item_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER sync_item_on_session_purchase
+  AFTER UPDATE OF is_purchased ON grocery_session_items
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_grocery_item_on_session_purchase();
+
 -- Update product catalog when item is checked off
 CREATE OR REPLACE FUNCTION update_product_on_check()
 RETURNS TRIGGER AS $$
@@ -403,3 +482,45 @@ CREATE TRIGGER update_product_on_item_check
 ALTER TABLE usage_limits
   ADD COLUMN IF NOT EXISTS grocery_lists_count INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS grocery_items_count INTEGER DEFAULT 0;
+
+-- ============================================================
+-- 8. REALTIME PUBLICATION
+-- Enable realtime for collaborative tables so all members
+-- receive live updates without polling.
+-- ============================================================
+
+DO $$
+BEGIN
+  -- grocery_items: live list editing
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'grocery_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE grocery_items;
+  END IF;
+
+  -- grocery_session_items: live shopping progress for all session members
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'grocery_session_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE grocery_session_items;
+  END IF;
+
+  -- grocery_session_members: live membership changes
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'grocery_session_members'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE grocery_session_members;
+  END IF;
+
+  -- grocery_sessions: session status changes (start/end)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'grocery_sessions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE grocery_sessions;
+  END IF;
+END;
+$$;

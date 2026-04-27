@@ -2,16 +2,30 @@ import { getSupabase } from '../../../../config/index.js';
 import type {
   GrocerySessionType,
   SessionItemType,
+  SessionMemberType,
   CreateGrocerySessionDto,
   UpdateSessionItemDto,
 } from '../../domain/index.js';
 
 export class GrocerySessionRepository {
   async findActiveForUser(userId: string): Promise<GrocerySessionType | null> {
+    // Find sessions where user is a member (includes starter via trigger)
+    const { data: memberRows, error: memberError } = await getSupabase()
+      .from('grocery_session_members')
+      .select('session_id')
+      .eq('user_id', userId);
+
+    if (memberError) {
+      throw new Error(`Failed to fetch session memberships: ${memberError.message}`);
+    }
+
+    const sessionIds = (memberRows || []).map((r) => r.session_id as string);
+    if (sessionIds.length === 0) return null;
+
     const { data, error } = await getSupabase()
       .from('grocery_sessions')
-      .select('*, grocery_session_items(*)')
-      .eq('started_by', userId)
+      .select('*, grocery_session_items(*), grocery_session_members(*)')
+      .in('id', sessionIds)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -23,10 +37,22 @@ export class GrocerySessionRepository {
   }
 
   async findByUserId(userId: string): Promise<GrocerySessionType[]> {
+    const { data: memberRows, error: memberError } = await getSupabase()
+      .from('grocery_session_members')
+      .select('session_id')
+      .eq('user_id', userId);
+
+    if (memberError) {
+      throw new Error(`Failed to fetch session memberships: ${memberError.message}`);
+    }
+
+    const sessionIds = (memberRows || []).map((r) => r.session_id as string);
+    if (sessionIds.length === 0) return [];
+
     const { data, error } = await getSupabase()
       .from('grocery_sessions')
-      .select('*, grocery_session_items(*)')
-      .eq('started_by', userId)
+      .select('*, grocery_session_items(*), grocery_session_members(*)')
+      .in('id', sessionIds)
       .order('started_at', { ascending: false });
 
     if (error) {
@@ -131,9 +157,16 @@ export class GrocerySessionRepository {
       insertedItems = (inserted || []).map((row) => this.mapSessionItem(row));
     }
 
+    // Fetch members (trigger auto-created the starter as member)
+    const { data: memberData } = await supabase
+      .from('grocery_session_members')
+      .select()
+      .eq('session_id', session.id);
+
     return {
       ...this.mapSessionRow(session),
       items: insertedItems,
+      members: (memberData || []).map((row) => this.mapMember(row)),
     };
   }
 
@@ -145,7 +178,7 @@ export class GrocerySessionRepository {
         completed_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select('*, grocery_session_items(*)')
+      .select('*, grocery_session_items(*), grocery_session_members(*)')
       .single();
 
     if (error) {
@@ -191,16 +224,60 @@ export class GrocerySessionRepository {
     return this.mapSessionItem(data);
   }
 
+  async addMember(sessionId: string, userId: string, addedBy: string): Promise<SessionMemberType> {
+    const { data, error } = await getSupabase()
+      .from('grocery_session_members')
+      .insert({
+        session_id: sessionId,
+        user_id: userId,
+        added_by: addedBy,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to add session member: ${error.message}`);
+    }
+
+    return this.mapMember(data);
+  }
+
+  async removeMember(sessionId: string, userId: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('grocery_session_members')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('user_id', userId);
+
+    if (error) {
+      throw new Error(`Failed to remove session member: ${error.message}`);
+    }
+  }
+
+  async findUserByEmail(email: string): Promise<{ id: string; email: string } | null> {
+    const { data, error } = await getSupabase()
+      .rpc('get_user_id_by_email', { lookup_email: email });
+
+    if (error) {
+      throw new Error(`Failed to find user: ${error.message}`);
+    }
+
+    if (!data) return null;
+    return { id: data as string, email };
+  }
+
   private mapToEntity(data: Record<string, unknown>): GrocerySessionType {
     const sessionItems = data.grocery_session_items as Array<Record<string, unknown>> | undefined;
+    const sessionMembers = data.grocery_session_members as Array<Record<string, unknown>> | undefined;
 
     return {
       ...this.mapSessionRow(data),
       items: (sessionItems || []).map((row) => this.mapSessionItem(row)),
+      members: (sessionMembers || []).map((row) => this.mapMember(row)),
     };
   }
 
-  private mapSessionRow(data: Record<string, unknown>): Omit<GrocerySessionType, 'items'> {
+  private mapSessionRow(data: Record<string, unknown>): Omit<GrocerySessionType, 'items' | 'members'> {
     return {
       id: data.id as string,
       startedBy: data.started_by as string,
@@ -210,6 +287,16 @@ export class GrocerySessionRepository {
       completedAt: data.completed_at
         ? new Date(data.completed_at as string)
         : null,
+    };
+  }
+
+  private mapMember(data: Record<string, unknown>): SessionMemberType {
+    return {
+      id: data.id as string,
+      sessionId: data.session_id as string,
+      userId: data.user_id as string,
+      addedBy: data.added_by as string,
+      joinedAt: new Date(data.joined_at as string),
     };
   }
 

@@ -9,3 +9,4 @@ export { ItemDetailSheet } from './ItemDetailSheet';
 export { StartSessionDialog } from './StartSessionDialog';
 export { InvitationBanner } from './InvitationBanner';
 export { EndShoppingDialog } from './EndShoppingDialog';
+export { AddShopperDialog } from './AddShopperDialog';

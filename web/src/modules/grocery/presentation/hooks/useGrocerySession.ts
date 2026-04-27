@@ -7,13 +7,11 @@ import { GroceryRealtimeService } from '../../infrastructure/services';
 import type { SessionPresence, UpdateSessionItemDto } from '../../domain';
 import { groceryKeys } from './queryKeys';
 import { Logger } from '@core/infrastructure/services';
-import { GroceryItemRepository } from '../../infrastructure/repositories';
 
 export const useGrocerySession = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const repository = useMemo(() => new GrocerySessionRepository(), []);
-  const itemRepository = useMemo(() => new GroceryItemRepository(), []);
   const realtimeService = useMemo(() => new GroceryRealtimeService(), []);
   const userId = user?.id;
   const [participants, setParticipants] = useState<SessionPresence[]>([]);
@@ -93,7 +91,7 @@ export const useGrocerySession = () => {
   });
 
   const purchaseItemMutation = useMutation({
-    mutationFn: async ({ sessionItemId, groceryItemId, price }: {
+    mutationFn: ({ sessionItemId, price }: {
       sessionItemId: string;
       groceryItemId: string | null;
       price?: number | null;
@@ -103,19 +101,7 @@ export const useGrocerySession = () => {
         purchasedAt: new Date(),
         price: price ?? null,
       };
-      const result = await repository.updateSessionItem(sessionItemId, dto);
-
-      // Sync checked state to the original grocery item
-      if (groceryItemId) {
-        await itemRepository.update(groceryItemId, {
-          isChecked: true,
-          checkedBy: userId,
-          checkedAt: new Date(),
-          price: price ?? null,
-        });
-      }
-
-      return result;
+      return repository.updateSessionItem(sessionItemId, dto);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
@@ -128,7 +114,7 @@ export const useGrocerySession = () => {
   });
 
   const unpurchaseItemMutation = useMutation({
-    mutationFn: async ({ sessionItemId, groceryItemId }: {
+    mutationFn: ({ sessionItemId }: {
       sessionItemId: string;
       groceryItemId: string | null;
     }) => {
@@ -137,18 +123,7 @@ export const useGrocerySession = () => {
         purchasedAt: null,
         price: null,
       };
-      const result = await repository.updateSessionItem(sessionItemId, dto);
-
-      // Sync unchecked state to the original grocery item
-      if (groceryItemId) {
-        await itemRepository.update(groceryItemId, {
-          isChecked: false,
-          checkedBy: null,
-          checkedAt: null,
-        });
-      }
-
-      return result;
+      return repository.updateSessionItem(sessionItemId, dto);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
@@ -157,6 +132,38 @@ export const useGrocerySession = () => {
     onError: (err) => {
       Logger.error('Error unpurchasing item', err);
       toast.error('Failed to update item');
+    },
+  });
+
+  const addShopperMutation = useMutation({
+    mutationFn: async (email: string) => {
+      if (!activeSession) throw new Error('No active session');
+      const userResult = await repository.findUserByEmail(email);
+      if (!userResult) throw new Error('User not found');
+      return repository.addMember(activeSession.id, userResult.id, userId!);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
+      toast.success('Shopper added');
+    },
+    onError: (err) => {
+      Logger.error('Error adding shopper', err);
+      toast.error(err.message === 'User not found' ? 'User not found with that email' : 'Failed to add shopper');
+    },
+  });
+
+  const removeShopperMutation = useMutation({
+    mutationFn: async (memberUserId: string) => {
+      if (!activeSession) throw new Error('No active session');
+      return repository.removeMember(activeSession.id, memberUserId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
+      toast.success('Shopper removed');
+    },
+    onError: (err) => {
+      Logger.error('Error removing shopper', err);
+      toast.error('Failed to remove shopper');
     },
   });
 
@@ -188,6 +195,16 @@ export const useGrocerySession = () => {
     [unpurchaseItemMutation]
   );
 
+  const addShopper = useCallback(
+    (email: string) => addShopperMutation.mutateAsync(email),
+    [addShopperMutation]
+  );
+
+  const removeShopper = useCallback(
+    (memberUserId: string) => removeShopperMutation.mutateAsync(memberUserId),
+    [removeShopperMutation]
+  );
+
   return {
     activeSession,
     participants,
@@ -197,8 +214,11 @@ export const useGrocerySession = () => {
     cancelSession,
     purchaseItem,
     unpurchaseItem,
+    addShopper,
+    removeShopper,
     isStarting: startSessionMutation.isPending,
     isEnding: endSessionMutation.isPending,
     isCancelling: cancelSessionMutation.isPending,
+    isAddingShopper: addShopperMutation.isPending,
   };
 };

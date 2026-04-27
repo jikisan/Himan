@@ -6,6 +6,7 @@ type RealtimeChannel = ReturnType<ReturnType<typeof getSupabase>['channel']>;
 export class GroceryRealtimeService {
   private itemsChannel: RealtimeChannel | null = null;
   private sessionChannel: RealtimeChannel | null = null;
+  private sessionItemsChannel: RealtimeChannel | null = null;
   private presenceChannel: RealtimeChannel | null = null;
 
   subscribeToItems(
@@ -64,6 +65,34 @@ export class GroceryRealtimeService {
     }
   }
 
+  subscribeToSessionItems(
+    sessionId: string,
+    onChange: () => void
+  ): void {
+    this.unsubscribeFromSessionItems();
+
+    this.sessionItemsChannel = getSupabase()
+      .channel(`grocery-session-items:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'grocery_session_items',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        () => onChange()
+      )
+      .subscribe();
+  }
+
+  unsubscribeFromSessionItems(): void {
+    if (this.sessionItemsChannel) {
+      getSupabase().removeChannel(this.sessionItemsChannel);
+      this.sessionItemsChannel = null;
+    }
+  }
+
   subscribeToPresence(
     sessionId: string,
     userId: string,
@@ -113,6 +142,7 @@ export class GroceryRealtimeService {
   unsubscribeAll(): void {
     this.unsubscribeFromItems();
     this.unsubscribeFromSessions();
+    this.unsubscribeFromSessionItems();
     this.unsubscribeFromPresence();
   }
 }

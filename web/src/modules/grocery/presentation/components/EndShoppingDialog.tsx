@@ -2,6 +2,7 @@ import { X, CheckCircle, XCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -32,6 +33,7 @@ export const EndShoppingDialog = ({
         <div className="flex items-center justify-between">
           <DialogHeader className="p-0">
             <DialogTitle>End Shopping</DialogTitle>
+            <DialogDescription className="sr-only">Choose how to end this shopping session</DialogDescription>
           </DialogHeader>
           <button
             onClick={() => onOpenChange(false)}

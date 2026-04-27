@@ -4,11 +4,16 @@ import { useAuth } from '@auth/presentation/hooks';
 import { GroceryRealtimeService } from '../../infrastructure/services';
 import { groceryKeys } from './queryKeys';
 
-export const useGroceryRealtime = (listId: string | null, activeSessionId?: string | null) => {
+export const useGroceryRealtime = (
+  listId: string | null,
+  activeSessionId?: string | null,
+  existingService?: GroceryRealtimeService
+) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id;
-  const realtimeService = useMemo(() => new GroceryRealtimeService(), []);
+  const ownService = useMemo(() => new GroceryRealtimeService(), []);
+  const realtimeService = existingService ?? ownService;
 
   // Subscribe to item changes for the selected list
   useEffect(() => {

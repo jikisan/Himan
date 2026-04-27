@@ -30,10 +30,11 @@ export const useGrocerySession = () => {
 
   // Subscribe to presence when active session exists
   useEffect(() => {
-    if (!activeSession || !userId || !user?.email) return;
+    const sessionId = activeSession?.id;
+    if (!sessionId || !userId || !user?.email) return;
 
     realtimeService.subscribeToPresence(
-      activeSession.id,
+      sessionId,
       userId,
       user.email,
       (presences) => setParticipants(presences)
@@ -42,7 +43,7 @@ export const useGrocerySession = () => {
     return () => {
       realtimeService.unsubscribeFromPresence();
     };
-  }, [activeSession, userId, user?.email, realtimeService]);
+  }, [activeSession?.id, userId, user?.email, realtimeService]);
 
   const startSessionMutation = useMutation({
     mutationFn: ({ listIds, storeName }: { listIds: string[]; storeName: string }) =>
@@ -226,6 +227,7 @@ export const useGrocerySession = () => {
     activeSession,
     participants,
     recentStores,
+    realtimeService,
     startSession,
     endSession,
     cancelSession,

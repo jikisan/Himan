@@ -10,12 +10,21 @@ import {
   Check,
   Loader2,
   ArrowLeft,
+  ChevronsUpDown,
+  ChevronsDownUp,
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   useGroceryLists,
   useGroceryItems,
@@ -296,7 +305,6 @@ export const GroceryPage = () => {
 
   // Session collapse-all/expand-all
   const [sessionCollapseStamp, setSessionCollapseStamp] = useState<{ collapsed: boolean; n: number } | null>(null);
-  const [sessionNewItem, setSessionNewItem] = useState('');
   const triggerSessionCollapse = (collapsed: boolean) =>
     setSessionCollapseStamp((prev) => ({ collapsed, n: (prev?.n ?? 0) + 1 }));
 
@@ -319,6 +327,7 @@ export const GroceryPage = () => {
   const { suggestions } = useSuggestions(selectedListId, items);
   const {
     activeSession, participants, recentStores,
+    realtimeService,
     startSession, endSession, cancelSession,
     purchaseItem, unpurchaseItem,
     addShopper, removeShopper, addSessionItem,
@@ -329,7 +338,7 @@ export const GroceryPage = () => {
     invite, acceptInvitation, declineInvitation, cancelInvitation, removeMember,
   } = useGroceryInvitations(selectedListId ?? undefined);
 
-  useGroceryRealtime(selectedListId, activeSession?.id);
+  useGroceryRealtime(selectedListId, activeSession?.id, realtimeService);
 
   const selectedList = lists.find((l) => l.id === selectedListId) ?? null;
   const activeLists = lists.filter((l) => !l.isArchived);
@@ -598,8 +607,6 @@ export const GroceryPage = () => {
                 sessionItemsByListAndCategory={sessionItemsByListAndCategory}
                 purchasedSessionItems={purchasedSessionItems}
                 sessionCollapseStamp={sessionCollapseStamp}
-                sessionNewItem={sessionNewItem}
-                setSessionNewItem={setSessionNewItem}
                 addSessionItem={addSessionItem}
                 isAddingSessionItem={isAddingSessionItem}
                 purchaseItem={purchaseItem}
@@ -817,8 +824,6 @@ const SessionTabsContent = ({
   sessionItemsByListAndCategory,
   purchasedSessionItems,
   sessionCollapseStamp,
-  sessionNewItem,
-  setSessionNewItem,
   addSessionItem,
   isAddingSessionItem,
   purchaseItem,
@@ -829,8 +834,6 @@ const SessionTabsContent = ({
   sessionItemsByListAndCategory: Map<string, Map<string, SessionItemType[]>>;
   purchasedSessionItems: SessionItemType[];
   sessionCollapseStamp: { collapsed: boolean; n: number } | null;
-  sessionNewItem: string;
-  setSessionNewItem: (v: string) => void;
   addSessionItem: (name: string) => Promise<unknown>;
   isAddingSessionItem: boolean;
   purchaseItem: (id: string, groceryItemId: string | null, price?: number | null) => Promise<unknown>;
@@ -838,6 +841,23 @@ const SessionTabsContent = ({
   triggerSessionCollapse: (collapsed: boolean) => void;
 }) => {
   const [activeTab, setActiveTab] = useState<'to-get' | 'purchased'>('to-get');
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [newItem, setNewItem] = useState('');
+  const [allCollapsed, setAllCollapsed] = useState(false);
+
+  const handleToggleCollapse = () => {
+    const next = !allCollapsed;
+    setAllCollapsed(next);
+    triggerSessionCollapse(next);
+  };
+
+  const handleAddItem = async () => {
+    const trimmed = newItem.trim();
+    if (!trimmed) return;
+    await addSessionItem(trimmed);
+    setNewItem('');
+    setAddItemOpen(false);
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -877,52 +897,60 @@ const SessionTabsContent = ({
         </button>
       </div>
 
+      {/* Add Item dialog */}
+      <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setNewItem(''); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add Item</DialogTitle>
+            <DialogDescription className="sr-only">Add an item to the shopping session</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => { e.preventDefault(); await handleAddItem(); }}
+            className="flex gap-2 mt-1"
+          >
+            <Input
+              placeholder="Item name..."
+              value={newItem}
+              onChange={(e) => setNewItem(e.target.value)}
+              className="h-9 text-sm"
+              disabled={isAddingSessionItem}
+              autoFocus
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="h-9 px-3 flex-shrink-0"
+              disabled={!newItem.trim() || isAddingSessionItem}
+            >
+              {isAddingSessionItem ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {activeTab === 'to-get' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Add item */}
-          <div className="px-4 py-2.5 border-b border-border">
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const trimmed = sessionNewItem.trim();
-                if (!trimmed) return;
-                await addSessionItem(trimmed);
-                setSessionNewItem('');
-              }}
-              className="flex gap-2"
+          {/* Controls row: add item + collapse/expand */}
+          <div className="flex items-center px-4 py-1.5 border-b border-border">
+            <button
+              onClick={() => setAddItemOpen(true)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground active:text-foreground transition-colors"
             >
-              <Input
-                placeholder="Add an item..."
-                value={sessionNewItem}
-                onChange={(e) => setSessionNewItem(e.target.value)}
-                className="h-9 text-sm"
-                disabled={isAddingSessionItem}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                variant="outline"
-                className="h-9 px-3 flex-shrink-0"
-                disabled={!sessionNewItem.trim() || isAddingSessionItem}
+              <Plus className="h-3.5 w-3.5" />
+              Add item
+            </button>
+            {sessionItemsByListAndCategory.size > 0 && (
+              <button
+                onClick={handleToggleCollapse}
+                className="ml-auto p-1 rounded text-muted-foreground hover:text-foreground active:text-foreground transition-colors"
+                title={allCollapsed ? 'Expand all' : 'Collapse all'}
               >
-                {isAddingSessionItem
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <Plus className="h-4 w-4" />}
-              </Button>
-            </form>
+                {allCollapsed
+                  ? <ChevronsUpDown className="h-3.5 w-3.5" />
+                  : <ChevronsDownUp className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </div>
-
-          {/* Collapse controls */}
-          {sessionItemsByListAndCategory.size > 0 && (
-            <div className="flex items-center justify-end gap-4 px-4 py-1.5 border-b border-border">
-              <button onClick={() => triggerSessionCollapse(false)} className="text-xs text-muted-foreground hover:text-foreground active:text-foreground transition-colors">
-                Expand all
-              </button>
-              <button onClick={() => triggerSessionCollapse(true)} className="text-xs text-muted-foreground hover:text-foreground active:text-foreground transition-colors">
-                Collapse all
-              </button>
-            </div>
-          )}
 
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-2">

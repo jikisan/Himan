@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -50,6 +51,7 @@ export const AddShopperDialog = ({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Shoppers</DialogTitle>
+          <DialogDescription className="sr-only">Manage shoppers for this session</DialogDescription>
         </DialogHeader>
 
         {/* Current members */}

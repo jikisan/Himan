@@ -24,9 +24,6 @@ export const SessionBanner = ({
   return (
     <div className="space-y-3">
       <div className="flex items-start gap-3">
-        <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-          <ShoppingBag className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -61,28 +58,6 @@ export const SessionBanner = ({
         </Button>
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className={
-            remaining === 0
-              ? 'text-xs font-medium text-emerald-600 dark:text-emerald-400'
-              : 'text-xs text-muted-foreground'
-          }>
-            {remaining === 0
-              ? 'All items purchased!'
-              : `${remaining} item${remaining !== 1 ? 's' : ''} left`}
-          </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {purchasedItems}/{totalItems}
-          </span>
-        </div>
-        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
     </div>
   );
 };

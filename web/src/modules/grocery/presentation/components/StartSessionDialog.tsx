@@ -3,6 +3,7 @@ import { ShoppingCart, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -56,6 +57,7 @@ export const StartSessionDialog = ({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Start Shopping Session</DialogTitle>
+          <DialogDescription className="sr-only">Select lists and a store to begin shopping</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-2">

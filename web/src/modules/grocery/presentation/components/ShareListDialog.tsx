@@ -3,6 +3,7 @@ import { UserPlus, X, Mail } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -66,6 +67,7 @@ export const ShareListDialog = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share &quot;{listName}&quot;</DialogTitle>
+          <DialogDescription className="sr-only">Invite members or manage access to this list</DialogDescription>
         </DialogHeader>
 
         {isOwner && (

@@ -168,6 +168,12 @@ export interface UpdateSessionItemDto {
   price?: number | null;
 }
 
+export interface AddSessionItemDto {
+  name: string;
+  sessionId: string;
+  listName?: string;
+}
+
 export interface CreateProductDto {
   name: string;
   category?: string;

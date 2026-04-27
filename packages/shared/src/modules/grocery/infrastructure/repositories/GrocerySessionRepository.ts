@@ -5,6 +5,7 @@ import type {
   SessionMemberType,
   CreateGrocerySessionDto,
   UpdateSessionItemDto,
+  AddSessionItemDto,
 } from '../../domain/index.js';
 
 export class GrocerySessionRepository {
@@ -252,6 +253,27 @@ export class GrocerySessionRepository {
     if (error) {
       throw new Error(`Failed to remove session member: ${error.message}`);
     }
+  }
+
+  async addSessionItem(dto: AddSessionItemDto): Promise<SessionItemType> {
+    const { data, error } = await getSupabase()
+      .from('grocery_session_items')
+      .insert({
+        session_id: dto.sessionId,
+        grocery_item_id: null,
+        list_name: dto.listName ?? 'Added Items',
+        name: dto.name.trim(),
+        quantity: 1,
+        is_purchased: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to add session item: ${error.message}`);
+    }
+
+    return this.mapSessionItem(data);
   }
 
   async findUserByEmail(email: string): Promise<{ id: string; email: string } | null> {

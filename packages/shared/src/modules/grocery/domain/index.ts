@@ -17,6 +17,7 @@ export type {
   SessionMemberType,
   AddSessionMemberDto,
   UpdateSessionItemDto,
+  AddSessionItemDto,
   CreateProductDto,
   UpdateProductDto,
   GroceryItemFilters,

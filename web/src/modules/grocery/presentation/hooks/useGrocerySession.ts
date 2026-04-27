@@ -167,6 +167,18 @@ export const useGrocerySession = () => {
     },
   });
 
+  const addSessionItemMutation = useMutation({
+    mutationFn: (name: string) =>
+      repository.addSessionItem({ sessionId: activeSession!.id, name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
+    },
+    onError: (err) => {
+      Logger.error('Error adding session item', err);
+      toast.error('Failed to add item');
+    },
+  });
+
   const startSession = useCallback(
     (listIds: string[], storeName: string) =>
       startSessionMutation.mutateAsync({ listIds, storeName }),
@@ -205,6 +217,11 @@ export const useGrocerySession = () => {
     [removeShopperMutation]
   );
 
+  const addSessionItem = useCallback(
+    (name: string) => addSessionItemMutation.mutateAsync(name),
+    [addSessionItemMutation]
+  );
+
   return {
     activeSession,
     participants,
@@ -216,6 +233,8 @@ export const useGrocerySession = () => {
     unpurchaseItem,
     addShopper,
     removeShopper,
+    addSessionItem,
+    isAddingSessionItem: addSessionItemMutation.isPending,
     isStarting: startSessionMutation.isPending,
     isEnding: endSessionMutation.isPending,
     isCancelling: cancelSessionMutation.isPending,

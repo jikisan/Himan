@@ -45,10 +45,25 @@ When adding new aliases, update both `tsconfig.json` and Metro config.
 ## Routing Structure
 
 Expo Router uses file-based routing from `app/` directory:
-- `app/_layout.tsx` — Root Stack navigator
-- `app/index.tsx` — Entry redirect
-- Route groups use parenthesized folders: `(app)/`, `(auth)/`, `(tabs)/`
+- `app/_layout.tsx` — Root Stack navigator with `AuthProvider`
+- `app/index.tsx` — Entry redirect (auth check)
+- `app/(auth)/` — Public routes (login)
+- `app/(app)/` — Protected routes; `_layout.tsx` wraps with `ThemeProvider` + auth guard
 - `_layout.tsx` in each group defines its navigator
+
+Protected route guard pattern in `app/(app)/_layout.tsx`:
+```tsx
+const { user, loading } = useAuth();
+if (loading) return null;
+if (!user) return <Redirect href="/(auth)/login" />;
+```
+
+## Modules
+
+Active feature modules under `src/modules/`:
+- `auth/` — Supabase auth, Google OAuth, session management
+- `shared/` — Supabase init with SecureStore adapter, shared config
+- `grocery/` — Grocery lists, items, sessions, invitations (in progress)
 
 ## Styling Conventions
 

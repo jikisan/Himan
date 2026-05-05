@@ -1,0 +1,7 @@
+** BUILD FAILED **
+
+
+The following build commands failed:
+	CompileC /Users/jk/Library/Developer/Xcode/DerivedData/Himan-euhwwtwymjqiqrahudkrjrhnzppt/Build/Intermediates.noindex/Pods.build/Debug-iphonesimulator/RNGestureHandler.build/Objects-normal/arm64/RNGestureHandlerModule.o /Users/jk/Developer/Personal/Himan/node_modules/react-native-gesture-handler/apple/RNGestureHandlerModule.mm normal arm64 objective-c++ com.apple.compilers.llvm.clang.1_0.compiler (in target 'RNGestureHandler' from project 'Pods')
+	Building workspace Himan with scheme Himan and configuration Debug
+(2 failures)

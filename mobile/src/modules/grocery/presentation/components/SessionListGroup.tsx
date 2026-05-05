@@ -23,7 +23,8 @@ export const SessionListGroup = ({
   useEffect(() => {
     if (collapseStamp !== null && collapseStamp !== undefined && collapseStamp.n !== prevStampRef.current) {
       prevStampRef.current = collapseStamp.n;
-      setIsCollapsed(collapseStamp.collapsed);
+      // Level 0: collapse all, Level 1: expand level 1, Level 2: expand all
+      setIsCollapsed(collapseStamp.level < 1);
     }
   }, [collapseStamp]);
 
@@ -53,12 +54,13 @@ export const SessionListGroup = ({
       </Pressable>
 
       {!isCollapsed && (
-        <View className="space-y-2">
+        <View className="space-y-2 pl-4">
           {Object.entries(groupedByCategory).map(([category, categoryItems]) => (
             <SessionCategoryGroup
               key={category}
               category={category}
               items={categoryItems}
+              collapseStamp={collapseStamp}
               onTogglePurchase={onTogglePurchase}
             />
           ))}

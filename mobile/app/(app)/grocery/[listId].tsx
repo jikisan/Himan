@@ -33,8 +33,8 @@ export default function GroceryListDetailScreen() {
   const [activeTab, setActiveTab] = useState<'to-get' | 'checked'>('to-get');
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [collapseStamp, setCollapseStamp] = useState<{ collapsed: boolean; n: number }>({ collapsed: true, n: 1 });
-  const [allCollapsed, setAllCollapsed] = useState(true);
+  const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 0, n: 1 });
+  const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(0);
 
   // Data hooks
   const { lists, updateList } = useGroceryLists();
@@ -223,13 +223,13 @@ export default function GroceryListDetailScreen() {
                 <View className="px-3 py-2 flex-row justify-end">
                   <Pressable
                     onPress={() => {
-                      const next = !allCollapsed;
-                      setAllCollapsed(next);
-                      setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+                      const nextLevel: 0 | 1 | 2 = collapseLevel === 0 ? 1 : collapseLevel === 1 ? 2 : 0;
+                      setCollapseLevel(nextLevel);
+                      setCollapseStamp(prev => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
                     }}
                     className="p-2"
                   >
-                    <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+                    <Feather name={collapseLevel === 0 ? 'maximize-2' : collapseLevel === 1 ? 'minimize-2' : 'chevrons-down'} size={18} color="#6b7280" />
                   </Pressable>
                 </View>
               )}

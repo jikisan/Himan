@@ -440,7 +440,7 @@ export const GroceryPage = () => {
       <ConfirmDialog
         open={deleteListDialogOpen}
         onOpenChange={setDeleteListDialogOpen}
-        title="Delete List"
+        title={`Delete "${selectedList?.name ?? 'List'}"`}
         description={
           selectedList && selectedList.memberCount > 1
             ? 'This list is shared with other members. Deleting it will remove it for everyone. This action cannot be undone.'

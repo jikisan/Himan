@@ -32,7 +32,8 @@ export const CategoryGroup = ({
   useEffect(() => {
     if (collapseStamp !== null && collapseStamp !== undefined && collapseStamp.n !== prevStampRef.current) {
       prevStampRef.current = collapseStamp.n;
-      setIsCollapsed(collapseStamp.collapsed);
+      // Level 0: collapse all, Level 1: collapse level 2, Level 2: expand all
+      setIsCollapsed(collapseStamp.level < 2);
     }
   }, [collapseStamp]);
 

@@ -25,8 +25,8 @@ export default function GrocerySessionScreen() {
   const [endShoppingDialogOpen, setEndShoppingDialogOpen] = useState(false);
   const [shoppersDialogOpen, setShoppersDialogOpen] = useState(false);
   const [newSessionItem, setNewSessionItem] = useState('');
-  const [collapseStamp, setCollapseStamp] = useState<{ collapsed: boolean; n: number }>({ collapsed: true, n: 1 });
-  const [allCollapsed, setAllCollapsed] = useState(true);
+  const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 0, n: 1 });
+  const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(0);
 
   // Data hooks
   const {
@@ -227,13 +227,13 @@ export default function GrocerySessionScreen() {
                 <View className="px-3 py-2 flex-row justify-end">
                   <Pressable
                     onPress={() => {
-                      const next = !allCollapsed;
-                      setAllCollapsed(next);
-                      setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+                      const nextLevel: 0 | 1 | 2 = collapseLevel === 0 ? 1 : collapseLevel === 1 ? 2 : 0;
+                      setCollapseLevel(nextLevel);
+                      setCollapseStamp(prev => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
                     }}
                     className="p-2"
                   >
-                    <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+                    <Feather name={collapseLevel === 0 ? 'maximize-2' : collapseLevel === 1 ? 'minimize-2' : 'chevrons-down'} size={18} color="#6b7280" />
                   </Pressable>
                 </View>
               )}
@@ -269,13 +269,13 @@ export default function GrocerySessionScreen() {
                 <View className="px-3 py-2 flex-row justify-end">
                   <Pressable
                     onPress={() => {
-                      const next = !allCollapsed;
-                      setAllCollapsed(next);
-                      setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+                      const nextLevel: 0 | 1 | 2 = collapseLevel === 0 ? 1 : collapseLevel === 1 ? 2 : 0;
+                      setCollapseLevel(nextLevel);
+                      setCollapseStamp(prev => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
                     }}
                     className="p-2"
                   >
-                    <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+                    <Feather name={collapseLevel === 0 ? 'maximize-2' : collapseLevel === 1 ? 'minimize-2' : 'chevrons-down'} size={18} color="#6b7280" />
                   </Pressable>
                 </View>
               )}

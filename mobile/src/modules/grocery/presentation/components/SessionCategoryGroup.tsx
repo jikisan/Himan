@@ -5,7 +5,7 @@ import type { SessionItemType } from '@himan/shared/grocery';
 import { SessionItemRow } from './SessionItemRow';
 
 export interface CollapseStamp {
-  collapsed: boolean;
+  level: 0 | 1 | 2; // 0: collapse all, 1: expand level 1 only, 2: expand all
   n: number;
 }
 
@@ -28,7 +28,8 @@ export const SessionCategoryGroup = ({
   useEffect(() => {
     if (collapseStamp !== null && collapseStamp !== undefined && collapseStamp.n !== prevStampRef.current) {
       prevStampRef.current = collapseStamp.n;
-      setIsCollapsed(collapseStamp.collapsed);
+      // Level 0: collapse all, Level 1: expand level 1, collapse level 2, Level 2: expand all
+      setIsCollapsed(collapseStamp.level < 2);
     }
   }, [collapseStamp]);
 
@@ -50,7 +51,7 @@ export const SessionCategoryGroup = ({
       </Pressable>
 
       {!isCollapsed && (
-        <View className="mt-0.5 space-y-0.5">
+        <View className="mt-0.5 space-y-0.5 pl-4">
           {items.map((item) => (
             <SessionItemRow
               key={item.id}

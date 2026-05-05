@@ -129,10 +129,10 @@ export default function GrocerySessionScreen() {
           </View>
 
           <Pressable onPress={() => setShoppersDialogOpen(true)} className="p-2">
-            <Feather name="users" size={20} color="#6b7280" />
+            <Feather name="user-plus" size={20} color="#6b7280" />
           </Pressable>
           <Pressable onPress={() => setEndShoppingDialogOpen(true)} className="p-2">
-            <Feather name="check-circle" size={18} color="#22c55e" />
+            <View className="w-[18px] h-[18px] bg-red-500 rounded-sm" />
           </Pressable>
         </View>
       </View>
@@ -147,6 +147,31 @@ export default function GrocerySessionScreen() {
           onEnd={() => setEndShoppingDialogOpen(true)}
           onCancel={handleCancelShopping}
         />
+      </View>
+
+      {/* Ad-hoc add item input */}
+      <View className="mt-4 px-3 py-3 border-gray-200 dark:border-gray-700">
+        <View className="flex flex-row gap-2">
+          <TextInput
+              placeholder="Add item..."
+              placeholderTextColor="#9ca3af"
+              value={newSessionItem}
+              onChangeText={setNewSessionItem}
+              onSubmitEditing={handleAddSessionItem}
+              className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
+          />
+          <Pressable
+              onPress={handleAddSessionItem}
+              disabled={!newSessionItem.trim() || isAddingSessionItem}
+              className={`rounded-lg px-4 justify-center ${
+                  !newSessionItem.trim() || isAddingSessionItem
+                      ? 'bg-gray-300 dark:bg-gray-700'
+                      : 'bg-indigo-500'
+              }`}
+          >
+            <Feather name="plus" size={20} color="#ffffff" />
+          </Pressable>
+        </View>
       </View>
 
       {/* Participants */}
@@ -310,30 +335,6 @@ export default function GrocerySessionScreen() {
           <View className="h-24" />
         </ScrollView>
 
-        {/* Ad-hoc add item input */}
-        <View className="px-3 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <View className="flex flex-row gap-2">
-            <TextInput
-              placeholder="Add item..."
-              placeholderTextColor="#9ca3af"
-              value={newSessionItem}
-              onChangeText={setNewSessionItem}
-              onSubmitEditing={handleAddSessionItem}
-              className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
-            />
-            <Pressable
-              onPress={handleAddSessionItem}
-              disabled={!newSessionItem.trim() || isAddingSessionItem}
-              className={`rounded-lg px-4 justify-center ${
-                !newSessionItem.trim() || isAddingSessionItem
-                  ? 'bg-gray-300 dark:bg-gray-700'
-                  : 'bg-indigo-500'
-              }`}
-            >
-              <Feather name="plus" size={20} color="#ffffff" />
-            </Pressable>
-          </View>
-        </View>
       </KeyboardAvoidingView>
 
       {/* End shopping modal */}

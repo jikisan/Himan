@@ -40,19 +40,19 @@ export const AddShopperModal = ({
     <Modal
       visible={open}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={() => onOpenChange(false)}
     >
       <Pressable
-        className="flex-1 bg-black/40 justify-end"
+        className="flex-1 bg-black/40 justify-center items-center px-6"
         onPress={() => onOpenChange(false)}
       >
-        <Pressable className="bg-white dark:bg-gray-900 rounded-t-2xl p-6">
+        <Pressable className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full">
           <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Add Shopper
           </Text>
 
-          <View className="space-y-4">
+          <View className="space-y-4 gap-4">
             <View>
               <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email address

@@ -9,25 +9,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLogin } from '@/modules/auth/presentation/hooks/useLogin';
 
 export default function LoginScreen() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { loading, error, loginWithEmail, loginWithGoogle } = useLogin();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    // TODO: wire up auth
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
+    await loginWithEmail(email, password);
   };
 
   return (
@@ -103,7 +93,7 @@ export default function LoginScreen() {
             </View>
 
             <Pressable
-              onPress={() => router.replace('/(app)/dashboard')}
+              onPress={loginWithGoogle}
               className="w-full flex-row items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white py-3.5 active:bg-gray-50"
             >
               <View className="h-5 w-5 items-center justify-center">

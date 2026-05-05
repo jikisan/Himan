@@ -44,7 +44,7 @@ export const useGrocerySession = () => {
     return () => {
       realtimeService.unsubscribeFromPresence();
     };
-  }, [activeSession?.id, userId, user?.email, realtimeService]);
+  }, [activeSession?.id, userId, user?.email]);
 
   const startSessionMutation = useMutation({
     mutationFn: ({ listIds, storeName }: { listIds: string[]; storeName: string }) =>

@@ -28,12 +28,12 @@ export const SessionBanner = ({
           </Text>
         </View>
         <View className="flex flex-row items-center gap-2">
-          <Pressable onPress={onCancel} className="p-1">
-            <Feather name="x-circle" size={18} color="#ef4444" />
-          </Pressable>
-          <Pressable onPress={onEnd} className="p-1">
-            <Feather name="check-circle" size={18} color="#22c55e" />
-          </Pressable>
+          {/*<Pressable onPress={onCancel} className="p-1">*/}
+          {/*  <Feather name="x-circle" size={18} color="#ef4444" />*/}
+          {/*</Pressable>*/}
+          {/*<Pressable onPress={onEnd} className="p-1">*/}
+          {/*  <Feather name="check-circle" size={18} color="#22c55e" />*/}
+          {/*</Pressable>*/}
         </View>
       </View>
 

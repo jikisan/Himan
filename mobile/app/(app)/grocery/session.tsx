@@ -25,6 +25,8 @@ export default function GrocerySessionScreen() {
   const [endShoppingDialogOpen, setEndShoppingDialogOpen] = useState(false);
   const [shoppersDialogOpen, setShoppersDialogOpen] = useState(false);
   const [newSessionItem, setNewSessionItem] = useState('');
+  const [collapseStamp, setCollapseStamp] = useState<{ collapsed: boolean; n: number }>({ collapsed: true, n: 1 });
+  const [allCollapsed, setAllCollapsed] = useState(true);
 
   // Data hooks
   const {
@@ -112,7 +114,7 @@ export default function GrocerySessionScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" >
       {/* Header */}
       <View className="px-4 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
         <View className="flex flex-row items-center gap-3">
@@ -125,11 +127,12 @@ export default function GrocerySessionScreen() {
               {activeSession.storeName}
             </Text>
           </View>
+
           <Pressable onPress={() => setShoppersDialogOpen(true)} className="p-2">
             <Feather name="users" size={20} color="#6b7280" />
           </Pressable>
           <Pressable onPress={() => setEndShoppingDialogOpen(true)} className="p-2">
-            <Feather name="more-vertical" size={20} color="#6b7280" />
+            <Feather name="check-circle" size={18} color="#22c55e" />
           </Pressable>
         </View>
       </View>
@@ -145,6 +148,21 @@ export default function GrocerySessionScreen() {
           onCancel={handleCancelShopping}
         />
       </View>
+
+      <View className="px-3 mt-2 flex-row justify-end">
+        <Pressable
+            onPress={() => {
+              const next = !allCollapsed;
+              setAllCollapsed(next);
+              setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+            }}
+            className="p-2"
+        >
+          <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+        </Pressable>
+      </View>
+
+
 
       {/* Participants */}
       {participants.length > 1 && (
@@ -172,6 +190,7 @@ export default function GrocerySessionScreen() {
                 key={listName}
                 listName={listName}
                 items={unpurchasedListItems}
+                collapseStamp={collapseStamp}
                 onTogglePurchase={handleTogglePurchase}
               />
             );

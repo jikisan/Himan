@@ -8,6 +8,7 @@ export class GroceryRealtimeService {
   private sessionChannel: RealtimeChannel | null = null;
   private sessionItemsChannel: RealtimeChannel | null = null;
   private presenceChannel: RealtimeChannel | null = null;
+  private presenceSessionId: string | null = null;
 
   subscribeToItems(
     listId: string,
@@ -99,10 +100,12 @@ export class GroceryRealtimeService {
     displayName: string,
     onSync: (presences: SessionPresence[]) => void
   ): void {
+    if (this.presenceSessionId === sessionId && this.presenceChannel) return;
     this.unsubscribeFromPresence();
 
+    this.presenceSessionId = sessionId;
     this.presenceChannel = getSupabase()
-      .channel(`grocery-session:${sessionId}`)
+      .channel(`grocery-session:${sessionId}:${Date.now()}`)
       .on('presence', { event: 'sync' }, () => {
         if (!this.presenceChannel) return;
         const state = this.presenceChannel.presenceState();
@@ -136,6 +139,7 @@ export class GroceryRealtimeService {
     if (this.presenceChannel) {
       getSupabase().removeChannel(this.presenceChannel);
       this.presenceChannel = null;
+      this.presenceSessionId = null;
     }
   }
 

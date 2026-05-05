@@ -33,6 +33,8 @@ export default function GroceryListDetailScreen() {
   const [showChecked, setShowChecked] = useState(false);
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [collapseStamp, setCollapseStamp] = useState<{ collapsed: boolean; n: number }>({ collapsed: true, n: 1 });
+  const [allCollapsed, setAllCollapsed] = useState(true);
 
   // Data hooks
   const { lists, updateList } = useGroceryLists();
@@ -140,6 +142,16 @@ export default function GroceryListDetailScreen() {
               {members.length} member{members.length !== 1 ? 's' : ''}
             </Text>
           </View>
+          <Pressable
+            onPress={() => {
+              const next = !allCollapsed;
+              setAllCollapsed(next);
+              setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+            }}
+            className="p-2"
+          >
+            <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+          </Pressable>
           <Pressable onPress={() => setShareDialogOpen(true)} className="p-2">
             <Feather name="share-2" size={20} color="#6b7280" />
           </Pressable>
@@ -168,6 +180,7 @@ export default function GroceryListDetailScreen() {
               category={category}
               items={items}
               isSessionActive={!!activeSession}
+              collapseStamp={collapseStamp}
               onCheck={checkItem}
               onUncheck={uncheckItem}
               onEditItem={handleEditItem}

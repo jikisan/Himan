@@ -20,6 +20,7 @@ node_modules
 packages/shared/tsconfig.tsbuildinfo
 /graphify-out
 /mobile/ios
+/mobile/android
 /.expo
 /mobile/.expo/web
 /.claude/settings.json

@@ -21,7 +21,7 @@ export default function GrocerySessionScreen() {
   const userId = user?.id ?? '';
 
   // State
-  const [showPurchased, setShowPurchased] = useState(false);
+  const [activeTab, setActiveTab] = useState<'to-get' | 'purchased'>('to-get');
   const [endShoppingDialogOpen, setEndShoppingDialogOpen] = useState(false);
   const [shoppersDialogOpen, setShoppersDialogOpen] = useState(false);
   const [newSessionItem, setNewSessionItem] = useState('');
@@ -149,21 +149,6 @@ export default function GrocerySessionScreen() {
         />
       </View>
 
-      <View className="px-3 mt-2 flex-row justify-end">
-        <Pressable
-            onPress={() => {
-              const next = !allCollapsed;
-              setAllCollapsed(next);
-              setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
-            }}
-            className="p-2"
-        >
-          <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
-        </Pressable>
-      </View>
-
-
-
       {/* Participants */}
       {participants.length > 1 && (
         <View className="px-3 mt-3">
@@ -176,60 +161,149 @@ export default function GrocerySessionScreen() {
         </View>
       )}
 
+      {/* Tab switcher */}
+      <View className="flex flex-row border-b border-gray-200 dark:border-gray-700 mt-2">
+        <Pressable
+          onPress={() => setActiveTab('to-get')}
+          className={`flex-1 flex-row items-center justify-center gap-1.5 py-3 border-b-2 ${
+            activeTab === 'to-get'
+              ? 'border-indigo-500'
+              : 'border-transparent'
+          }`}
+        >
+          <Text
+            className={`text-sm font-medium ${
+              activeTab === 'to-get'
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            To Get
+          </Text>
+          {unpurchasedItems.length > 0 && (
+            <View className="bg-indigo-500/10 rounded-full px-1.5 py-0.5">
+              <Text className="text-xs text-indigo-500 font-medium">
+                {unpurchasedItems.length}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab('purchased')}
+          className={`flex-1 flex-row items-center justify-center gap-1.5 py-3 border-b-2 ${
+            activeTab === 'purchased'
+              ? 'border-indigo-500'
+              : 'border-transparent'
+          }`}
+        >
+          <Text
+            className={`text-sm font-medium ${
+              activeTab === 'purchased'
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            Purchased
+          </Text>
+          {purchasedItems.length > 0 && (
+            <View className="bg-gray-500/10 rounded-full px-1.5 py-0.5">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                {purchasedItems.length}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <ScrollView className="flex-1">
-          {/* Unpurchased items grouped by list */}
-          {Object.entries(sessionItemsByList).map(([listName, listItems]) => {
-            const unpurchasedListItems = listItems.filter((i: any) => !i.isPurchased);
-            if (unpurchasedListItems.length === 0) return null;
-            return (
-              <SessionListGroup
-                key={listName}
-                listName={listName}
-                items={unpurchasedListItems}
-                collapseStamp={collapseStamp}
-                onTogglePurchase={handleTogglePurchase}
-              />
-            );
-          })}
-
-          {/* Purchased items section */}
-          {purchasedItems.length > 0 && (
-            <View className="mt-4">
-              <Pressable
-                onPress={() => setShowPurchased(!showPurchased)}
-                className="flex flex-row items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800"
-              >
-                {showPurchased ? (
-                  <Feather name="chevron-down" size={16} color="#6b7280" />
-                ) : (
-                  <Feather name="chevron-right" size={16} color="#6b7280" />
-                )}
-                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Purchased ({purchasedItems.length})
-                </Text>
-              </Pressable>
-
-              {showPurchased && (
-                <View className="mt-1">
-                  {Object.entries(sessionItemsByList).map(([listName, listItems]) => {
-                    const purchasedListItems = listItems.filter((i: any) => i.isPurchased);
-                    if (purchasedListItems.length === 0) return null;
-                    return (
-                      <SessionListGroup
-                        key={listName}
-                        listName={listName}
-                        items={purchasedListItems}
-                        onTogglePurchase={handleTogglePurchase}
-                      />
-                    );
-                  })}
+          {activeTab === 'to-get' ? (
+            <>
+              {/* Collapse toggle */}
+              {Object.keys(sessionItemsByList).length > 0 && (
+                <View className="px-3 py-2 flex-row justify-end">
+                  <Pressable
+                    onPress={() => {
+                      const next = !allCollapsed;
+                      setAllCollapsed(next);
+                      setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+                    }}
+                    className="p-2"
+                  >
+                    <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+                  </Pressable>
                 </View>
               )}
-            </View>
+
+              {/* Unpurchased items grouped by list */}
+              {Object.entries(sessionItemsByList).map(([listName, listItems]) => {
+                const unpurchasedListItems = listItems.filter((i: any) => !i.isPurchased);
+                if (unpurchasedListItems.length === 0) return null;
+                return (
+                  <SessionListGroup
+                    key={listName}
+                    listName={listName}
+                    items={unpurchasedListItems}
+                    collapseStamp={collapseStamp}
+                    onTogglePurchase={handleTogglePurchase}
+                  />
+                );
+              })}
+
+              {activeSession.items.every((i) => i.isPurchased) && (
+                <View className="flex flex-col items-center justify-center py-16">
+                  <Feather name="check-circle" size={40} color="#9ca3af" opacity={0.2} />
+                  <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-3">
+                    All items purchased!
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Collapse toggle */}
+              {purchasedItems.length > 0 && (
+                <View className="px-3 py-2 flex-row justify-end">
+                  <Pressable
+                    onPress={() => {
+                      const next = !allCollapsed;
+                      setAllCollapsed(next);
+                      setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+                    }}
+                    className="p-2"
+                  >
+                    <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Purchased items grouped by list */}
+              {purchasedItems.length === 0 ? (
+                <View className="flex flex-col items-center justify-center py-16">
+                  <Feather name="shopping-cart" size={40} color="#9ca3af" opacity={0.2} />
+                  <Text className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                    Nothing purchased yet
+                  </Text>
+                </View>
+              ) : (
+                Object.entries(sessionItemsByList).map(([listName, listItems]) => {
+                  const purchasedListItems = listItems.filter((i: any) => i.isPurchased);
+                  if (purchasedListItems.length === 0) return null;
+                  return (
+                    <SessionListGroup
+                      key={listName}
+                      listName={listName}
+                      items={purchasedListItems}
+                      collapseStamp={collapseStamp}
+                      onTogglePurchase={handleTogglePurchase}
+                    />
+                  );
+                })
+              )}
+            </>
           )}
 
           {/* Bottom padding */}

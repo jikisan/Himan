@@ -113,7 +113,7 @@ export const GroceryListCard = ({
               <Pressable
                 onPress={() => {
                   setShowMenu(false);
-                  Alert.alert('Delete List', 'Are you sure you want to delete this list?', [
+                  Alert.alert(`Delete "${list.name}"`, `Are you sure you want to delete "${list.name}"?`, [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Delete', style: 'destructive', onPress: onDelete },
                   ]);

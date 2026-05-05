@@ -51,7 +51,7 @@ export const GroceryItemRow = ({
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Item', 'Are you sure you want to delete this item?', [
+    Alert.alert(`Delete "${item.name}"`, `Are you sure you want to delete "${item.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => onDelete(item.id) },
     ]);

@@ -30,7 +30,7 @@ export default function GroceryListDetailScreen() {
   const userId = user?.id ?? '';
 
   // State
-  const [showChecked, setShowChecked] = useState(false);
+  const [activeTab, setActiveTab] = useState<'to-get' | 'checked'>('to-get');
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [collapseStamp, setCollapseStamp] = useState<{ collapsed: boolean; n: number }>({ collapsed: true, n: 1 });
@@ -142,20 +142,73 @@ export default function GroceryListDetailScreen() {
               {members.length} member{members.length !== 1 ? 's' : ''}
             </Text>
           </View>
-          <Pressable
-            onPress={() => {
-              const next = !allCollapsed;
-              setAllCollapsed(next);
-              setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
-            }}
-            className="p-2"
-          >
-            <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
-          </Pressable>
           <Pressable onPress={() => setShareDialogOpen(true)} className="p-2">
             <Feather name="share-2" size={20} color="#6b7280" />
           </Pressable>
         </View>
+      </View>
+
+      {/* Add item input */}
+      <View className="px-3 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        <AddItemInput
+            listId={listId}
+            products={products}
+            onAddItem={handleAddItem}
+        />
+      </View>
+
+      {/* Tab switcher */}
+      <View className="flex flex-row border-b border-gray-200 dark:border-gray-700">
+        <Pressable
+          onPress={() => setActiveTab('to-get')}
+          className={`flex-1 flex-row items-center justify-center gap-1.5 py-3 border-b-2 ${
+            activeTab === 'to-get'
+              ? 'border-indigo-500'
+              : 'border-transparent'
+          }`}
+        >
+          <Text
+            className={`text-sm font-medium ${
+              activeTab === 'to-get'
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            To Get
+          </Text>
+          {uncheckedItems.length > 0 && (
+            <View className="bg-indigo-500/10 rounded-full px-1.5 py-0.5">
+              <Text className="text-xs text-indigo-500 font-medium">
+                {uncheckedItems.length}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab('checked')}
+          className={`flex-1 flex-row items-center justify-center gap-1.5 py-3 border-b-2 ${
+            activeTab === 'checked'
+              ? 'border-indigo-500'
+              : 'border-transparent'
+          }`}
+        >
+          <Text
+            className={`text-sm font-medium ${
+              activeTab === 'checked'
+                ? 'text-gray-900 dark:text-white'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            Checked
+          </Text>
+          {checkedItems.length > 0 && (
+            <View className="bg-gray-500/10 rounded-full px-1.5 py-0.5">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                {checkedItems.length}
+              </Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
@@ -163,79 +216,103 @@ export default function GroceryListDetailScreen() {
         className="flex-1"
       >
         <ScrollView className="flex-1">
-          {/* Suggestions */}
-          {suggestionNames.length > 0 && (
-            <View className="mt-2">
-              <SuggestionChips
-                suggestions={suggestionNames}
-                onSelectSuggestion={handleSelectSuggestion}
-              />
-            </View>
-          )}
-
-          {/* Unchecked items grouped by category */}
-          {Array.from(groupedItems.entries()).map(([category, items]) => (
-            <CategoryGroup
-              key={category}
-              category={category}
-              items={items}
-              isSessionActive={!!activeSession}
-              collapseStamp={collapseStamp}
-              onCheck={checkItem}
-              onUncheck={uncheckItem}
-              onEditItem={handleEditItem}
-              onDeleteItem={handleDeleteItem}
-            />
-          ))}
-
-          {/* Checked items section */}
-          {checkedItems.length > 0 && (
-            <View className="mt-4">
-              <Pressable
-                onPress={() => setShowChecked(!showChecked)}
-                className="flex flex-row items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800"
-              >
-                {showChecked ? (
-                  <Feather name="chevron-down" size={16} color="#6b7280" />
-                ) : (
-                  <Feather name="chevron-right" size={16} color="#6b7280" />
-                )}
-                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Checked ({checkedItems.length})
-                </Text>
-              </Pressable>
-
-              {showChecked && (
-                <View className="mt-1">
-                  {checkedItems.map((item) => (
-                    <CategoryGroup
-                      key={item.id}
-                      category={item.category || 'Other'}
-                      items={[item]}
-                      isSessionActive={!!activeSession}
-                      onCheck={checkItem}
-                      onUncheck={uncheckItem}
-                      onEditItem={handleEditItem}
-                      onDeleteItem={handleDeleteItem}
-                    />
-                  ))}
+          {activeTab === 'to-get' ? (
+            <>
+              {/* Collapse toggle */}
+              {groupedItems.size > 0 && (
+                <View className="px-3 py-2 flex-row justify-end">
+                  <Pressable
+                    onPress={() => {
+                      const next = !allCollapsed;
+                      setAllCollapsed(next);
+                      setCollapseStamp(prev => ({ collapsed: next, n: (prev?.n ?? 0) + 1 }));
+                    }}
+                    className="p-2"
+                  >
+                    <Feather name={allCollapsed ? 'maximize-2' : 'minimize-2'} size={18} color="#6b7280" />
+                  </Pressable>
                 </View>
               )}
-            </View>
+
+              {/* Suggestions */}
+              {suggestionNames.length > 0 && (
+                <View className="mt-2">
+                  <SuggestionChips
+                    suggestions={suggestionNames}
+                    onSelectSuggestion={handleSelectSuggestion}
+                  />
+                </View>
+              )}
+
+              {/* Unchecked items grouped by category */}
+              {Array.from(groupedItems.entries()).map(([category, items]) => (
+                <CategoryGroup
+                  key={category}
+                  category={category}
+                  items={items}
+                  isSessionActive={!!activeSession}
+                  collapseStamp={collapseStamp}
+                  onCheck={checkItem}
+                  onUncheck={uncheckItem}
+                  onEditItem={handleEditItem}
+                  onDeleteItem={handleDeleteItem}
+                />
+              ))}
+
+              {uncheckedItems.length === 0 && checkedItems.length === 0 && (
+                <View className="flex flex-col items-center justify-center py-16">
+                  <Feather name="shopping-bag" size={40} color="#9ca3af" opacity={0.2} />
+                  <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-3">
+                    No items yet
+                  </Text>
+                  <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Add items to get started
+                  </Text>
+                </View>
+              )}
+
+              {uncheckedItems.length === 0 && checkedItems.length > 0 && (
+                <View className="flex flex-col items-center justify-center py-16">
+                  <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    All items checked
+                  </Text>
+                  <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Switch to Checked tab to review
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Checked items grouped by category */}
+              {checkedItems.length === 0 ? (
+                <View className="flex flex-col items-center justify-center py-16">
+                  <Feather name="shopping-bag" size={40} color="#9ca3af" opacity={0.2} />
+                  <Text className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                    Nothing checked yet
+                  </Text>
+                </View>
+              ) : (
+                checkedItems.map((item) => (
+                  <CategoryGroup
+                    key={item.id}
+                    category={item.category || 'Other'}
+                    items={[item]}
+                    isSessionActive={!!activeSession}
+                    onCheck={checkItem}
+                    onUncheck={uncheckItem}
+                    onEditItem={handleEditItem}
+                    onDeleteItem={handleDeleteItem}
+                  />
+                ))
+              )}
+            </>
           )}
 
           {/* Bottom padding for keyboard */}
           <View className="h-4" />
         </ScrollView>
 
-        {/* Add item input */}
-        <View className="px-3 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <AddItemInput
-            listId={listId}
-            products={products}
-            onAddItem={handleAddItem}
-          />
-        </View>
       </KeyboardAvoidingView>
 
       {/* Item detail sheet */}

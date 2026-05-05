@@ -74,7 +74,8 @@ export default function GroceryScreen() {
   }, [renamingListId, renameValue, updateList]);
 
   const handleDeleteList = useCallback(async (listId: string) => {
-    Alert.alert('Delete List', 'Are you sure you want to delete this list?', [
+    const list = lists.find((l) => l.id === listId);
+    Alert.alert(`Delete "${list?.name ?? 'List'}"`, `Are you sure you want to delete "${list?.name ?? 'this list'}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -84,7 +85,7 @@ export default function GroceryScreen() {
         },
       },
     ]);
-  }, [deleteList]);
+  }, [deleteList, lists]);
 
   const handleArchiveList = useCallback(async (listId: string, isArchived: boolean) => {
     await updateList(listId, { isArchived: !isArchived });

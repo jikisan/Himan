@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme, type ThemeMode } from '../../contexts/ThemeProvider';
+import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
 
 type ThemeOption = {
   value: ThemeMode;
@@ -19,6 +20,21 @@ const themeOptions: ThemeOption[] = [
 export default function SettingsScreen() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { signOut } = useAuth();
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
@@ -79,6 +95,16 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+      </View>
+
+      <View className="px-6 mt-4">
+        <Pressable
+          onPress={handleSignOut}
+          className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-5 py-4 flex-row items-center gap-3"
+        >
+          <Feather name="log-out" size={20} color="#ef4444" />
+          <Text className="text-base font-medium text-red-500">Sign Out</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );

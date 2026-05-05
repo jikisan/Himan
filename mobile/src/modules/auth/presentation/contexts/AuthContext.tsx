@@ -15,9 +15,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: remove mock before release
-    setUser({ id: '0660bb87-043a-40b8-a3e8-71d8ec99bdf8' } as SupabaseUser);
-    setLoading(false);
+    const supabase = getSupabase();
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {

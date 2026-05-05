@@ -21,7 +21,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -31,27 +31,27 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="mb-8">
-            <Text className="text-4xl font-bold text-gray-900 tracking-tight">
+            <Text className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
               Himan
             </Text>
-            <Text className="mt-2 text-base text-gray-500">
+            <Text className="mt-2 text-base text-gray-500 dark:text-gray-400">
               Sign in to your account
             </Text>
           </View>
 
-          <View className="bg-white rounded-2xl border border-gray-200 px-6 py-8 shadow-sm">
+          <View className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-6 py-8 shadow-sm">
             {error ? (
-              <View className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-                <Text className="text-sm text-red-600">{error}</Text>
+              <View className="mb-5 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-4 py-3">
+                <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
               </View>
             ) : null}
 
             <View className="mb-4">
-              <Text className="mb-2 text-sm font-medium text-gray-700">
+              <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email address
               </Text>
               <TextInput
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-gray-900"
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-4 py-3.5 text-base text-gray-900 dark:text-white"
                 placeholder="you@example.com"
                 placeholderTextColor="#9ca3af"
                 value={email}
@@ -63,11 +63,11 @@ export default function LoginScreen() {
             </View>
 
             <View className="mb-6">
-              <Text className="mb-2 text-sm font-medium text-gray-700">
+              <Text className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Password
               </Text>
               <TextInput
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-base text-gray-900"
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-4 py-3.5 text-base text-gray-900 dark:text-white"
                 placeholder="••••••••"
                 placeholderTextColor="#9ca3af"
                 value={password}
@@ -87,32 +87,32 @@ export default function LoginScreen() {
             </Pressable>
 
             <View className="my-6 flex-row items-center gap-3">
-              <View className="flex-1 border-t border-gray-200" />
-              <Text className="text-sm text-gray-400">Or continue with</Text>
-              <View className="flex-1 border-t border-gray-200" />
+              <View className="flex-1 border-t border-gray-200 dark:border-gray-600" />
+              <Text className="text-sm text-gray-400 dark:text-gray-500">Or continue with</Text>
+              <View className="flex-1 border-t border-gray-200 dark:border-gray-600" />
             </View>
 
             <Pressable
               onPress={loginWithGoogle}
-              className="w-full flex-row items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white py-3.5 active:bg-gray-50"
+              className="w-full flex-row items-center justify-center gap-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 py-3.5 active:bg-gray-50 dark:active:bg-gray-600"
             >
               <View className="h-5 w-5 items-center justify-center">
                 <Text className="text-sm font-bold" style={{ color: '#4285F4' }}>
                   G
                 </Text>
               </View>
-              <Text className="text-base font-medium text-gray-700">
+              <Text className="text-base font-medium text-gray-700 dark:text-gray-200">
                 Sign in with Google
               </Text>
             </Pressable>
           </View>
 
           <View className="mt-6 flex-row justify-center gap-1">
-            <Text className="text-sm text-gray-500">
+            <Text className="text-sm text-gray-500 dark:text-gray-400">
               Don't have an account?
             </Text>
             <Pressable>
-              <Text className="text-sm font-medium text-indigo-600">
+              <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                 Sign up
               </Text>
             </Pressable>

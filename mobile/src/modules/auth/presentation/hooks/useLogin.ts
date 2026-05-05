@@ -1,45 +1,18 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { getSupabase } from '@himan/shared';
 import { MobileAuthRepository } from '../../infrastructure/api/MobileAuthRepository';
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+});
 
 export const useLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const repository = useMemo(() => new MobileAuthRepository(), []);
-
-  const [_request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || 'not_configured',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || 'not_configured',
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = response.params.id_token;
-      if (idToken) {
-        getSupabase()
-          .auth.signInWithIdToken({ provider: 'google', token: idToken })
-          .then(({ error: authError }) => {
-            if (authError) setError(authError.message);
-            else router.replace('/(app)/dashboard');
-          })
-          .catch((err: any) => setError(err.message))
-          .finally(() => setLoading(false));
-      } else {
-        setError('Google sign-in failed: no ID token');
-        setLoading(false);
-      }
-    } else if (response?.type === 'error') {
-      setError(response.error?.message ?? 'Google sign-in failed');
-      setLoading(false);
-    }
-  }, [response]);
 
   const loginWithEmail = async (email: string, password: string) => {
     setError(null);
@@ -61,8 +34,26 @@ export const useLogin = () => {
   const loginWithGoogle = async () => {
     setError(null);
     setLoading(true);
-    const result = await promptAsync();
-    if (result.type !== 'success') {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken;
+      if (!idToken) throw new Error('Google sign-in failed: no ID token');
+      const { error: authError } = await getSupabase().auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+      if (authError) throw new Error(authError.message);
+      router.replace('/(app)/dashboard');
+    } catch (err: any) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        // user cancelled, no error shown
+      } else if (err.code === statusCodes.IN_PROGRESS) {
+        setError('Sign-in already in progress');
+      } else {
+        setError(err.message ?? 'Google sign-in failed');
+      }
+    } finally {
       setLoading(false);
     }
   };

@@ -14,7 +14,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.himan.app"
+      "bundleIdentifier": "com.himan.app",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.428840355906-9j1i82herkr76nhaoq0urld17rq0onh0"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {

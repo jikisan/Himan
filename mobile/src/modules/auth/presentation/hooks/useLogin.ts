@@ -6,6 +6,7 @@ import { MobileAuthRepository } from '../../infrastructure/api/MobileAuthReposit
 
 GoogleSignin.configure({
   webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
 });
 
 export const useLogin = () => {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Himan",
     "slug": "himan",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "orientation": "portrait",
     "scheme": "himan",
     "userInterfaceStyle": "automatic",
@@ -21,8 +21,14 @@
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.428840355906-9j1i82herkr76nhaoq0urld17rq0onh0"
             ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.428840355906-9j1i82herkr76nhaoq0urld17rq0onh0"
+            ]
           }
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "appleTeamId": "4Y5UX7K5DW"
     },
@@ -46,6 +52,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "13d47930-b61b-43e1-96a8-9b3f1586b7f7"
+      }
     }
   }
 }

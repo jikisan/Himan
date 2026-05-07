@@ -22,14 +22,6 @@ export function SessionSection({
 }: SessionSectionProps) {
   return (
     <View className="px-3 mt-2">
-      <SessionBanner
-        storeName={storeName}
-        progress={progress}
-        completedCount={completedCount}
-        totalCount={totalCount}
-        onEnd={onEnd}
-        onCancel={onCancel}
-      />
       <Pressable
         onPress={onViewSession}
         className="mt-2 bg-green-500 rounded-lg py-3 items-center"

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, Modal, Alert } from 'react-native';
+import { View, Pressable, TextInput, Modal, Alert, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryItemType } from '@himan/shared/grocery';
 import { GroceryItem } from '@himan/shared/grocery';
+import {Checkbox} from "@/modules/grocery/presentation/shared/Checkbox";
+import {ItemRowContent} from "@/modules/grocery/presentation/shared/ItemRowContent";
 
 interface GroceryItemRowProps {
   item: GroceryItemType;
@@ -66,46 +68,17 @@ export const GroceryItemRow = ({
           item.isChecked ? 'opacity-60' : 'bg-white dark:bg-gray-800'
         }`}
       >
-        {/* Circular checkbox */}
-        <Pressable
-          onPress={handleCheckboxClick}
-          className={`flex-shrink-0 h-[22px] w-[22px] rounded-full border-2 flex items-center justify-center ${
-            item.isChecked
-              ? 'bg-indigo-500 border-indigo-500'
-              : 'border-gray-300 dark:border-gray-600'
-          }`}
-        >
-          {item.isChecked && <Feather name="check" size={12} color="#ffffff" />}
+        <Pressable onPress={handleCheckboxClick}>
+          <Checkbox checked={item.isChecked} color="indigo" />
         </Pressable>
 
-        {/* Item info */}
-        <View className="flex-1 min-w-0">
-          <View className="flex flex-row items-center gap-2">
-            <Text
-              className={`text-sm font-medium ${
-                item.isChecked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'
-              }`}
-              numberOfLines={1}
-            >
-              {item.name}
-            </Text>
-            {entity.quantityLabel && (
-              <Text className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                {entity.quantityLabel}
-              </Text>
-            )}
-          </View>
-          {item.notes && (
-            <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" numberOfLines={1}>
-              {item.notes}
-            </Text>
-          )}
-          {item.isChecked && item.price != null && (
-            <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              ₱{item.price.toFixed(2)}
-            </Text>
-          )}
-        </View>
+        <ItemRowContent
+          name={item.name}
+          quantityLabel={entity.quantityLabel}
+          notes={item.notes}
+          price={item.price}
+          checked={item.isChecked}
+        />
 
         {/* Actions */}
         <View className="flex flex-row items-center gap-0.5 flex-shrink-0">

@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform, Text } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
 import {
   useGroceryLists,
@@ -116,12 +117,11 @@ export default function GroceryListDetailScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
       <GroceryListDetailHeader
         listName={selectedList.name}
         memberCount={members.length}
         onShare={() => setShareDialogOpen(true)}
-        onAddItem={handleAddItem}
       />
 
       <GroceryListTabSwitcher
@@ -185,6 +185,15 @@ export default function GroceryListDetailScreen() {
         onCancelInvitation={cancelInvitation}
         onRemoveMember={removeMember}
       />
+
+      <View className="absolute bottom-6 right-4">
+        <Pressable
+          onPress={handleAddItem}
+          className="w-14 h-14 bg-indigo-500 rounded-full items-center justify-center shadow-lg"
+        >
+          <Feather name="plus" size={28} color="#ffffff" />
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }

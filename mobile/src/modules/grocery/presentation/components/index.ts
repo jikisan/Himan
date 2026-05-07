@@ -21,12 +21,19 @@ export * from './GroceryList/RenameModal';
 // Session - Shopping session components
 export * from './Session/AddShopperModal';
 export * from './Session/EndShoppingModal';
+export * from './Session/SessionAddItem';
 export * from './Session/SessionBanner';
 export * from './Session/SessionCategoryGroup';
+export * from './Session/SessionCollapseToggle';
+export * from './Session/SessionHeader';
+export * from './Session/SessionItemList';
 export * from './Session/SessionItemRow';
 export * from './Session/SessionListGroup';
+export * from './Session/SessionParticipants';
 export * from './Session/SessionSection';
+export * from './Session/SessionTabSwitcher';
 export * from './Session/StartSessionModal';
+export * from './Session/types';
 
 // Invitation - Sharing and collaboration
 export * from './Invitation/InvitationBanner';

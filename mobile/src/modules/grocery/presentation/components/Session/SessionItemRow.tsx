@@ -15,7 +15,7 @@ export const SessionItemRow = ({
     <Pressable
       onPress={() => onTogglePurchase(item.id, item.groceryItemId)}
       className={`flex flex-row items-center gap-3 px-3 py-3 rounded-xl ${
-        item.isPurchased ? 'opacity-60' : 'bg-white dark:bg-gray-900'
+        item.isPurchased ? 'opacity-60' : 'bg-white dark:bg-gray-800'
       }`}
     >
       <View
@@ -29,19 +29,28 @@ export const SessionItemRow = ({
       </View>
 
       <View className="flex-1 min-w-0">
-        <Text
-          className={`text-sm font-medium ${
-            item.isPurchased ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'
-          }`}
-          numberOfLines={1}
-        >
-          {item.name}
-        </Text>
-        {item.quantity && (
-          <Text className="text-xs text-gray-500 dark:text-gray-400">{item.quantity}</Text>
+        <View className="flex flex-row items-center gap-2">
+          <Text
+            className={`text-sm font-medium ${
+              item.isPurchased ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'
+            }`}
+            numberOfLines={1}
+          >
+            {item.name}
+          </Text>
+          {item.quantity > 0 && (
+            <Text className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              {item.unit ? `${item.quantity} ${item.unit}` : item.quantity}
+            </Text>
+          )}
+        </View>
+        {item.notes && (
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" numberOfLines={1}>
+            {item.notes}
+          </Text>
         )}
         {item.isPurchased && item.price != null && (
-          <Text className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+          <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             ₱{item.price.toFixed(2)}
           </Text>
         )}

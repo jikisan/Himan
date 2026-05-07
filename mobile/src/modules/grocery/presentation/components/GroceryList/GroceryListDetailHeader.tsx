@@ -6,14 +6,12 @@ interface GroceryListDetailHeaderProps {
   listName: string;
   memberCount: number;
   onShare: () => void;
-  onAddItem?: () => void;
 }
 
 export function GroceryListDetailHeader({
   listName,
   memberCount,
   onShare,
-  onAddItem,
 }: GroceryListDetailHeaderProps) {
   const router = useRouter();
 
@@ -31,11 +29,6 @@ export function GroceryListDetailHeader({
             {memberCount} member{memberCount !== 1 ? 's' : ''}
           </Text>
         </View>
-        {onAddItem && (
-          <Pressable onPress={onAddItem} className="p-2">
-            <Feather name="plus" size={22} color="#6366f1" />
-          </Pressable>
-        )}
         <Pressable onPress={onShare} className="p-2">
           <Feather name="share-2" size={20} color="#6b7280" />
         </Pressable>

@@ -13,7 +13,7 @@ interface ItemDetailSheetProps {
   onSave: (id: string, dto: UpdateGroceryItemDto) => void;
   onAdd?: (dto: CreateGroceryItemDto) => void;
   onDelete: (id: string) => void;
-  listId?: string;
+  listId?: string | null;
 }
 
 export const ItemDetailSheet = ({
@@ -54,9 +54,9 @@ export const ItemDetailSheet = ({
     if (!name.trim()) return;
     
     if (isAddMode) {
-      if (!listId || !onAdd) return;
+      if (!onAdd) return;
       onAdd({
-        listId,
+        listId: listId || '',
         name: name.trim(),
         category: category.trim() || undefined,
         quantity: parseFloat(quantity) || 1,
@@ -174,7 +174,10 @@ export const ItemDetailSheet = ({
                   </View>
                   <TextInput
                     value={quantity}
-                    onChangeText={setQuantity}
+                    onChangeText={(text) => {
+                      const filtered = text.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+                      setQuantity(filtered);
+                    }}
                     keyboardType="decimal-pad"
                     className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500 text-center"
                   />

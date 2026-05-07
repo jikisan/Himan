@@ -172,6 +172,10 @@ export interface AddSessionItemDto {
   name: string;
   sessionId: string;
   listName?: string;
+  category?: string;
+  quantity?: number;
+  unit?: string;
+  notes?: string;
 }
 
 export interface CreateProductDto {

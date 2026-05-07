@@ -102,7 +102,13 @@ export default function GrocerySessionScreen() {
   const handleAddNewItem = useCallback(
     async (dto: any) => {
       try {
-        await addSessionItem(dto.name);
+        await addSessionItem({
+          name: dto.name,
+          category: dto.category,
+          quantity: dto.quantity,
+          unit: dto.unit,
+          notes: dto.notes,
+        });
         setIsAddingItem(false);
       } catch (err) {
         console.error('Failed to add item:', err);

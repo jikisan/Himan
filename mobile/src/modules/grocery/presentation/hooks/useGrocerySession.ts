@@ -170,8 +170,8 @@ export const useGrocerySession = () => {
   });
 
   const addSessionItemMutation = useMutation({
-    mutationFn: (name: string) =>
-      repository.addSessionItem({ sessionId: activeSession!.id, name }),
+    mutationFn: (dto: { name: string; category?: string; quantity?: number; unit?: string; notes?: string }) =>
+      repository.addSessionItem({ sessionId: activeSession!.id, ...dto }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
     },
@@ -220,7 +220,8 @@ export const useGrocerySession = () => {
   );
 
   const addSessionItem = useCallback(
-    (name: string) => addSessionItemMutation.mutateAsync(name),
+    (dto: { name: string; category?: string; quantity?: number; unit?: string; notes?: string }) =>
+      addSessionItemMutation.mutateAsync(dto),
     [addSessionItemMutation]
   );
 

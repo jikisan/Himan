@@ -9,22 +9,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { GroceryItemType, UpdateGroceryItemDto } from '../../domain';
+import type { GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto } from '@himan/shared/grocery';
+
+type ItemDetailMode = 'add' | 'edit';
 
 interface ItemDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: GroceryItemType | null;
+  mode?: ItemDetailMode;
   onSave: (id: string, dto: UpdateGroceryItemDto) => void;
+  onAdd?: (dto: CreateGroceryItemDto) => void;
   onDelete: (id: string) => void;
+  listId?: string;
 }
 
 export const ItemDetailSheet = ({
   open,
   onOpenChange,
   item,
+  mode = 'edit',
   onSave,
+  onAdd,
   onDelete,
+  listId,
 }: ItemDetailSheetProps) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
@@ -32,30 +40,52 @@ export const ItemDetailSheet = ({
   const [unit, setUnit] = useState('');
   const [notes, setNotes] = useState('');
 
+  const isAddMode = mode === 'add';
+
   useEffect(() => {
-    if (item) {
+    if (isAddMode) {
+      setName('');
+      setCategory('');
+      setQuantity('1');
+      setUnit('');
+      setNotes('');
+    } else if (item) {
       setName(item.name);
       setCategory(item.category ?? '');
       setQuantity(String(item.quantity));
       setUnit(item.unit ?? '');
       setNotes(item.notes ?? '');
     }
-  }, [item]);
+  }, [item, isAddMode, open]);
 
   const handleSave = () => {
-    if (!item || !name.trim()) return;
-    onSave(item.id, {
-      name: name.trim(),
-      category: category.trim() || undefined,
-      quantity: parseFloat(quantity) || 1,
-      unit: unit.trim() || undefined,
-      notes: notes.trim() || undefined,
-    });
+    if (!name.trim()) return;
+
+    if (isAddMode) {
+      if (!listId || !onAdd) return;
+      onAdd({
+        listId,
+        name: name.trim(),
+        category: category.trim() || undefined,
+        quantity: parseFloat(quantity) || 1,
+        unit: unit.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+    } else {
+      if (!item) return;
+      onSave(item.id, {
+        name: name.trim(),
+        category: category.trim() || undefined,
+        quantity: parseFloat(quantity) || 1,
+        unit: unit.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+    }
     onOpenChange(false);
   };
 
   const handleDelete = () => {
-    if (!item) return;
+    if (!item || isAddMode) return;
     onDelete(item.id);
     onOpenChange(false);
   };
@@ -64,7 +94,7 @@ export const ItemDetailSheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Edit Item</SheetTitle>
+          <SheetTitle>{isAddMode ? 'Add Item' : 'Edit Item'}</SheetTitle>
         </SheetHeader>
         <div className="space-y-4 mt-4">
           <div>
@@ -123,14 +153,16 @@ export const ItemDetailSheet = ({
 
           <div className="flex gap-2 pt-2">
             <Button onClick={handleSave} className="flex-1">
-              Save
+              {isAddMode ? 'Add' : 'Save'}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-            >
-              Delete
-            </Button>
+            {!isAddMode && (
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+              >
+                Delete
+              </Button>
+            )}
           </div>
         </div>
       </SheetContent>

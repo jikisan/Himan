@@ -13,7 +13,6 @@ import {
   useGroceryRealtime,
 } from '@/modules/grocery/presentation/hooks';
 import {
-  AddItemInput,
   ItemDetailSheet,
   ShareListModal,
   GroceryListDetailHeader,
@@ -32,6 +31,7 @@ export default function GroceryListDetailScreen() {
   // State
   const [activeTab, setActiveTab] = useState<'to-get' | 'checked'>('to-get');
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
+  const [isAddingItem, setIsAddingItem] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 0, n: 1 });
   const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(0);
@@ -65,6 +65,17 @@ export default function GroceryListDetailScreen() {
 
   const handleEditItem = useCallback((item: GroceryItemType) => {
     setEditingItem(item);
+    setIsAddingItem(false);
+  }, []);
+
+  const handleAddItem = useCallback(() => {
+    setIsAddingItem(true);
+    setEditingItem(null);
+  }, []);
+
+  const handleCloseSheet = useCallback(() => {
+    setEditingItem(null);
+    setIsAddingItem(false);
   }, []);
 
   const handleSelectSuggestion = useCallback(
@@ -87,6 +98,13 @@ export default function GroceryListDetailScreen() {
     [updateItem]
   );
 
+  const handleAddNewItem = useCallback(
+    async (dto: any) => {
+      await addItem(dto);
+    },
+    [addItem]
+  );
+
   if (!selectedList) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
@@ -103,11 +121,8 @@ export default function GroceryListDetailScreen() {
         listName={selectedList.name}
         memberCount={members.length}
         onShare={() => setShareDialogOpen(true)}
+        onAddItem={handleAddItem}
       />
-
-      <View className="px-3 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        <AddItemInput listId={listId} products={products} onAddItem={addItem} />
-      </View>
 
       <GroceryListTabSwitcher
         activeTab={activeTab}
@@ -149,10 +164,13 @@ export default function GroceryListDetailScreen() {
       </KeyboardAvoidingView>
 
       <ItemDetailSheet
-        open={!!editingItem}
-        onOpenChange={(open) => !open && setEditingItem(null)}
+        open={!!editingItem || isAddingItem}
+        onOpenChange={(open) => !open && handleCloseSheet()}
         item={editingItem}
+        mode={isAddingItem ? 'add' : 'edit'}
+        listId={listId}
         onSave={handleSaveItem}
+        onAdd={handleAddNewItem}
         onDelete={deleteItem}
       />
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryItemType } from '@himan/shared/grocery';
-import type { CollapseStamp } from './SessionCategoryGroup';
+import type { CollapseStamp } from '../Session/SessionCategoryGroup';
 import { GroceryItemRow } from './GroceryItemRow';
 
 interface CategoryGroupProps {

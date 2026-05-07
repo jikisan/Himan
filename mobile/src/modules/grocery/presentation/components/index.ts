@@ -1,21 +1,34 @@
-export * from './GroceryListCard';
-export * from './GroceryItemRow';
-export * from './CategoryGroup';
-export * from './AddItemInput';
-export * from './SuggestionChips';
-export * from './InvitationBanner';
-export * from './SessionBanner';
-export * from './SessionItemRow';
-export * from './SessionCategoryGroup';
-export * from './SessionListGroup';
-export * from './ItemDetailSheet';
-export * from './StartSessionModal';
-export * from './EndShoppingModal';
-export * from './ShareListModal';
-export * from './AddShopperModal';
-export * from './GroceryHeader';
-export * from './SessionSection';
-export * from './InvitationsSection';
-export * from './CreateListInput';
-export * from './ListsSection';
-export * from './RenameModal';
+// Main - Core grocery components
+export * from './Main/AddItemInput';
+export * from './Main/CategoryGroup';
+export * from './Main/GroceryHeader';
+export * from './Main/GroceryItemRow';
+export * from './Main/ItemDetailSheet';
+export * from './Main/SuggestionChips';
+
+// GroceryList - List management components
+export * from './GroceryList/CreateListInput';
+export * from './GroceryList/GroceryListCard';
+export * from './GroceryList/GroceryListCheckedContent';
+export * from './GroceryList/GroceryListCollapseToggle';
+export * from './GroceryList/GroceryListDetailHeader';
+export * from './GroceryList/GroceryListEmptyState';
+export * from './GroceryList/GroceryListTabSwitcher';
+export * from './GroceryList/GroceryListToGetContent';
+export * from './GroceryList/ListsSection';
+export * from './GroceryList/RenameModal';
+
+// Session - Shopping session components
+export * from './Session/AddShopperModal';
+export * from './Session/EndShoppingModal';
+export * from './Session/SessionBanner';
+export * from './Session/SessionCategoryGroup';
+export * from './Session/SessionItemRow';
+export * from './Session/SessionListGroup';
+export * from './Session/SessionSection';
+export * from './Session/StartSessionModal';
+
+// Invitation - Sharing and collaboration
+export * from './Invitation/InvitationBanner';
+export * from './Invitation/InvitationsSection';
+export * from './Invitation/ShareListModal';

@@ -85,28 +85,30 @@ export default function GroceryScreen() {
         shoppingButtonDisabled={activeLists.every((l) => l.itemCount === 0)}
       />
 
-      <ScrollView className="flex-1">
-        {activeSession && (
+      {activeSession && (
           <SessionSection
-            storeName={activeSession.storeName || 'Unknown Store'}
-            progress={
-              activeSession.items.length > 0
-                ? activeSession.items.filter((i) => i.isPurchased).length / activeSession.items.length
-                : 0
-            }
-            completedCount={activeSession.items.filter((i) => i.isPurchased).length}
-            totalCount={activeSession.items.length}
-            onEnd={() => setEndShoppingDialogOpen(true)}
-            onCancel={handlers.handleCancelShopping}
-            onViewSession={() => router.push('/grocery/session')}
+              storeName={activeSession.storeName || 'Unknown Store'}
+              progress={
+                activeSession.items.length > 0
+                    ? activeSession.items.filter((i) => i.isPurchased).length / activeSession.items.length
+                    : 0
+              }
+              completedCount={activeSession.items.filter((i) => i.isPurchased).length}
+              totalCount={activeSession.items.length}
+              onEnd={() => setEndShoppingDialogOpen(true)}
+              onCancel={handlers.handleCancelShopping}
+              onViewSession={() => router.push('/grocery/session')}
           />
-        )}
+      )}
 
-        <InvitationsSection
+      <InvitationsSection
           invitations={pendingInvitations}
           onAccept={acceptInvitation}
           onDecline={declineInvitation}
-        />
+      />
+
+      <ScrollView className="flex-1">
+
 
         <View className="px-3 mt-4">
           <CreateListInput

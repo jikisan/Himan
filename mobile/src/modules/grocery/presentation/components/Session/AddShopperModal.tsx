@@ -48,8 +48,11 @@ export const AddShopperModal = ({
         onPress={() => onOpenChange(false)}
       >
         <Pressable className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full">
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Add Shopper
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Add User
+          </Text>
+          <Text className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Invite someone to shop together in this session
           </Text>
 
           <View className="space-y-4 gap-4">
@@ -78,7 +81,7 @@ export const AddShopperModal = ({
             >
               <Feather name="user-plus" size={18} color="#ffffff" />
               <Text className="text-white font-medium">
-                {isAdding ? 'Adding...' : 'Add Shopper'}
+                {isAdding ? 'Adding...' : 'Add User'}
               </Text>
             </Pressable>
           </View>

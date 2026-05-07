@@ -31,7 +31,7 @@ export function GroceryHeader({
                 : 'bg-indigo-500'
             }`}
           >
-            <Feather name="shopping-cart" size={20} color="#ffffff" />
+            <Feather name="play" size={20} color="#ffffff" />
           </Pressable>
         )}
       </View>

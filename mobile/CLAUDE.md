@@ -58,12 +58,30 @@ if (loading) return null;
 if (!user) return <Redirect href="/(auth)/login" />;
 ```
 
+## Data Fetching
+
+**TanStack React Query** — same patterns as web. Grocery hooks in `src/modules/grocery/presentation/hooks/`.
+
+**Realtime** — `GroceryRealtimeService` (from `@himan/shared/grocery`) subscribes to Supabase postgres_changes and invalidates React Query cache. `useGroceryRealtime` wraps all subscriptions (items, sessions, session items). Presence tracking via Supabase Presence channels — active shoppers in a session tracked with `userId`, `displayName`, `onlineAt`.
+
 ## Modules
 
 Active feature modules under `src/modules/`:
-- `auth/` — Supabase auth, Google OAuth, session management
-- `shared/` — Supabase init with SecureStore adapter, shared config
-- `grocery/` — Grocery lists, items, sessions, invitations (in progress)
+
+### `auth/`
+Supabase auth, Google OAuth, session management.
+
+### `shared/`
+Supabase init with SecureStore adapter, shared config.
+
+### `grocery/`
+Realtime collaborative shopping. Components split into four groups:
+- `GroceryList/` — list management (create, rename, tab between to-get/checked)
+- `Main/` — item browsing, category grouping, inline add, suggestion chips, item detail sheet
+- `Session/` — active shopping session UI; participants (presence), session item rows, start/end modals
+- `Invitation/` — share list, accept/decline invitations
+
+Hooks: `useGroceryLists`, `useGroceryItems`, `useGrocerySession`, `useGroceryRealtime`, `useGroceryInvitations`, `useGroceryScreenHandlers`, `useSuggestions`.
 
 ## Styling Conventions
 

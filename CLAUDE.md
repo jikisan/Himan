@@ -71,7 +71,7 @@ Exports raw `.ts` files (no build step) via subpath exports — consumed directl
 
 - **No DOM lib** in tsconfig — catches browser-specific code at compile time
 - Dependencies: `@supabase/supabase-js`, `zod`, `date-fns`
-- Browser-specific services (ThumbnailService, CompressionService, InvoicePDFService) stay in web
+- Browser-specific services (ThumbnailService, CompressionService, InvoicePDFService, LocalNotesStorage) stay in web
 
 ### Supabase Client Pattern
 

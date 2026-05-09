@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 interface SessionHeaderProps {
   storeName: string;
   progress: number;
+  isOwner: boolean;
   onOpenShoppers: () => void;
   onOpenEndShopping: () => void;
 }
@@ -12,6 +13,7 @@ interface SessionHeaderProps {
 export const SessionHeader = ({
   storeName,
     progress,
+  isOwner,
   onOpenShoppers,
   onOpenEndShopping,
 }: SessionHeaderProps) => {
@@ -34,9 +36,11 @@ export const SessionHeader = ({
             <Feather name="user-plus" size={20} color="#6b7280" />
           </Pressable>
 
-          <Pressable onPress={onOpenEndShopping} className="p-2">
-            <View className="w-[18px] h-[18px] bg-red-500 rounded-sm" />
-          </Pressable>
+          {isOwner && (
+            <Pressable onPress={onOpenEndShopping} className="p-2">
+              <View className="w-[18px] h-[18px] bg-red-500 rounded-sm" />
+            </Pressable>
+          )}
         </View>
 
 

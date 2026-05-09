@@ -11,6 +11,7 @@ interface AddShopperModalProps {
   members: SessionMemberType[];
   participants: SessionPresence[];
   startedBy: string;
+  currentUserId: string;
 }
 
 export const AddShopperModal = ({
@@ -21,6 +22,7 @@ export const AddShopperModal = ({
   members,
   participants,
   startedBy,
+  currentUserId,
 }: AddShopperModalProps) => {
   const [email, setEmail] = useState('');
 
@@ -43,6 +45,7 @@ export const AddShopperModal = ({
   };
 
   const presenceMap = new Map(participants.map((p) => [p.userId, p]));
+  const isOwner = currentUserId === startedBy;
 
   return (
     <Modal
@@ -106,36 +109,38 @@ export const AddShopperModal = ({
             </View>
           )}
 
-          <View className="space-y-4 gap-4">
-            <View>
-              <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Add Shopper
-              </Text>
-              <TextInput
-                placeholder="Enter shopper's email..."
-                placeholderTextColor="#9ca3af"
-                value={email}
-                onChangeText={setEmail}
-                onSubmitEditing={handleAdd}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
-              />
-            </View>
+          {isOwner && (
+            <View className="space-y-4 gap-4">
+              <View>
+                <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                  Add Shopper
+                </Text>
+                <TextInput
+                  placeholder="Enter shopper's email..."
+                  placeholderTextColor="#9ca3af"
+                  value={email}
+                  onChangeText={setEmail}
+                  onSubmitEditing={handleAdd}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
+                />
+              </View>
 
-            <Pressable
-              onPress={handleAdd}
-              disabled={isAdding || !email.trim()}
-              className={`flex flex-row items-center justify-center gap-2 py-3 rounded-lg ${
-                isAdding || !email.trim() ? 'bg-gray-300 dark:bg-gray-700' : 'bg-indigo-500'
-              }`}
-            >
-              <Feather name="user-plus" size={18} color="#ffffff" />
-              <Text className="text-white font-medium">
-                {isAdding ? 'Adding...' : 'Add User'}
-              </Text>
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={handleAdd}
+                disabled={isAdding || !email.trim()}
+                className={`flex flex-row items-center justify-center gap-2 py-3 rounded-lg ${
+                  isAdding || !email.trim() ? 'bg-gray-300 dark:bg-gray-700' : 'bg-indigo-500'
+                }`}
+              >
+                <Feather name="user-plus" size={18} color="#ffffff" />
+                <Text className="text-white font-medium">
+                  {isAdding ? 'Adding...' : 'Add User'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </Pressable>
       </Pressable>
     </Modal>

@@ -26,11 +26,14 @@ export const SessionItemList = ({
   onToggleCollapse,
   onTogglePurchase,
 }: SessionItemListProps) => {
-  if (activeTab === 'to-get') {
-    const allPurchased = unpurchasedItems.length === 0 && purchasedItems.length > 0;
+  const allPurchased = unpurchasedItems.length === 0 && purchasedItems.length > 0;
+  const hasPurchasedItems = purchasedItems.length > 0;
+  const isToGet = activeTab === 'to-get';
 
-    return (
-      <>
+  return (
+    <>
+      {/* to-get tab — always mounted to preserve collapse state */}
+      <View style={{ display: isToGet ? 'flex' : 'none' }}>
         <View className="flex flex-row items-center justify-end px-2">
           <SessionCollapseToggle
             collapseLevel={collapseLevel}
@@ -61,44 +64,39 @@ export const SessionItemList = ({
             </Text>
           </View>
         )}
-      </>
-    );
-  }
-
-  // purchased tab
-  const hasPurchasedItems = purchasedItems.length > 0;
-
-  return (
-    <>
-      <View className="flex flex-row items-center justify-end px-2">
-        <SessionCollapseToggle
-          collapseLevel={collapseLevel}
-          onToggle={onToggleCollapse}
-          visible={hasPurchasedItems}
-        />
       </View>
 
-      {!hasPurchasedItems ? (
-        <View className="flex flex-col items-center justify-center py-16">
-          <Feather name="shopping-cart" size={40} color="#9ca3af" opacity={0.2} />
-          <Text className="text-sm text-gray-500 dark:text-gray-400 mt-3">Nothing purchased yet</Text>
+      {/* purchased tab — always mounted to preserve collapse state */}
+      <View style={{ display: isToGet ? 'none' : 'flex' }}>
+        <View className="flex flex-row items-center justify-end px-2">
+          <SessionCollapseToggle
+            collapseLevel={collapseLevel}
+            onToggle={onToggleCollapse}
+            visible={hasPurchasedItems}
+          />
         </View>
-      ) : (
-        Object.entries(sessionItemsByList).map(([listName, listItems]) => {
-          const items = listItems.filter((i) => i.isPurchased);
-          if (items.length === 0) return null;
-          return (
-            <SessionListGroup
-              key={listName}
-              listName={listName}
-              items={items}
-              collapseStamp={collapseStamp}
-              onTogglePurchase={onTogglePurchase}
-            />
-          );
-        })
-      )}
 
+        {!hasPurchasedItems ? (
+          <View className="flex flex-col items-center justify-center py-16">
+            <Feather name="shopping-cart" size={40} color="#9ca3af" opacity={0.2} />
+            <Text className="text-sm text-gray-500 dark:text-gray-400 mt-3">Nothing purchased yet</Text>
+          </View>
+        ) : (
+          Object.entries(sessionItemsByList).map(([listName, listItems]) => {
+            const items = listItems.filter((i) => i.isPurchased);
+            if (items.length === 0) return null;
+            return (
+              <SessionListGroup
+                key={listName}
+                listName={listName}
+                items={items}
+                collapseStamp={collapseStamp}
+                onTogglePurchase={onTogglePurchase}
+              />
+            );
+          })
+        )}
+      </View>
     </>
   );
 };

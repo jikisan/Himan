@@ -52,6 +52,8 @@ export default function GrocerySessionScreen() {
   useGroceryRealtime(null, activeSession?.id ?? null, realtimeService);
 
   // Derived state
+  const isOwner = !!user && !!activeSession && user.id === activeSession.startedBy;
+
   const sessionItemsByList = activeSession
     ? activeSession.items.reduce((acc: Record<string, any[]>, item) => {
         const listName = item.listName || 'Unknown';
@@ -142,6 +144,7 @@ export default function GrocerySessionScreen() {
       <SessionHeader
         storeName={activeSession.storeName || 'Unknown Store'}
         progress={activeSession.items.length > 0 ? purchasedItems.length / activeSession.items.length : 0}
+        isOwner={isOwner}
         onOpenShoppers={() => setShoppersDialogOpen(true)}
         onOpenEndShopping={() => setEndShoppingDialogOpen(true)}
       />
@@ -183,14 +186,16 @@ export default function GrocerySessionScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <EndShoppingModal
-        open={endShoppingDialogOpen}
-        onOpenChange={setEndShoppingDialogOpen}
-        onComplete={handleCompleteShopping}
-        onCancel={handleCancelShopping}
-        isCompleting={isEnding}
-        isCancelling={isCancelling}
-      />
+      {isOwner && (
+        <EndShoppingModal
+          open={endShoppingDialogOpen}
+          onOpenChange={setEndShoppingDialogOpen}
+          onComplete={handleCompleteShopping}
+          onCancel={handleCancelShopping}
+          isCompleting={isEnding}
+          isCancelling={isCancelling}
+        />
+      )}
 
       <AddShopperModal
         open={shoppersDialogOpen}
@@ -200,6 +205,7 @@ export default function GrocerySessionScreen() {
         members={activeSession.members}
         participants={participants}
         startedBy={activeSession.startedBy}
+        currentUserId={user?.id ?? ''}
       />
 
       <ItemDetailSheet

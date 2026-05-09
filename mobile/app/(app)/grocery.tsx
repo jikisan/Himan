@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView } from 'react-native';
+import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
@@ -15,7 +15,6 @@ import {
   GroceryHeader,
   SessionSection,
   InvitationsSection,
-  CreateListInput,
   ListsSection,
   RenameModal,
 } from '@/modules/grocery/presentation/components';
@@ -108,30 +107,23 @@ export default function GroceryScreen() {
       />
 
       <ScrollView className="flex-1">
-
-
-        <View className="px-3 mt-4">
-          <CreateListInput
-            isCreating={isCreatingList}
-            value={newListName}
-            onChangeText={setNewListName}
-            onSubmit={() => handlers.handleCreateList(newListName, handleCreateListSuccess)}
-            onStartCreating={() => setIsCreatingList(true)}
-            onCancelCreating={handleCreateListSuccess}
-          />
-        </View>
-
         <ListsSection
           activeLists={activeLists}
           archivedLists={archivedLists}
           userId={userId}
           showArchived={showArchived}
+          isCreating={isCreatingList}
+          newListName={newListName}
           onToggleArchived={() => setShowArchived(!showArchived)}
           onSelectList={handleSelectList}
           onRenameList={handleRenameListClick}
           onArchiveList={handlers.handleArchiveList}
           onDeleteList={handlers.handleDeleteList}
           onLeaveList={handlers.handleLeaveList}
+          onStartCreating={() => setIsCreatingList(true)}
+          onCancelCreating={handleCreateListSuccess}
+          onChangeListName={setNewListName}
+          onSubmitList={() => handlers.handleCreateList(newListName, handleCreateListSuccess)}
         />
       </ScrollView>
 

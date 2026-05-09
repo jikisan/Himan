@@ -46,10 +46,12 @@ export function CreateListInput({
   return (
     <Pressable
       onPress={onStartCreating}
-      className="flex flex-row items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700"
+      className="flex flex-row items-center gap-2.5 p-3.5 bg-indigo-50 dark:bg-indigo-950/25 rounded-xl border border-indigo-200 dark:border-indigo-800/60 active:bg-indigo-100 dark:active:bg-indigo-950/40"
     >
-      <Feather name="plus" size={20} color="#6b7280" />
-      <Text className="text-gray-500 dark:text-gray-400">Create new list</Text>
+      <View className="w-6 h-6 rounded-full bg-indigo-500 items-center justify-center">
+        <Feather name="plus" size={14} color="#ffffff" />
+      </View>
+      <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">New list</Text>
     </Pressable>
   );
 }

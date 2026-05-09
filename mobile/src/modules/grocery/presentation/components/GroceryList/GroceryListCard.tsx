@@ -39,43 +39,63 @@ export const GroceryListCard = ({
       <Pressable
         onPress={onSelect}
         onLongPress={() => setShowMenu(true)}
-        className={`flex flex-col gap-2.5 p-3.5 rounded-xl border ${
+        style={{ flex: 1 }}
+        className={`rounded-2xl overflow-hidden active:opacity-75 ${
           isSelected
-            ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800'
-            : 'border-transparent bg-white dark:bg-gray-800'
+            ? 'bg-indigo-50 dark:bg-indigo-950/40'
+            : 'bg-white dark:bg-gray-800'
         }`}
       >
-        <View className="flex flex-row items-start justify-between gap-2">
-          <View className="flex-1 min-w-0">
-            <Text className="font-semibold text-sm text-gray-900 dark:text-white" numberOfLines={1}>
+        <View className="p-4 gap-3">
+          {/* Top row: icon + menu */}
+          <View className="flex-row items-start justify-between">
+            <View className={`w-9 h-9 rounded-xl items-center justify-center ${
+              isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'bg-indigo-50 dark:bg-indigo-900/30'
+            }`}>
+              <Feather name="shopping-bag" size={16} color="#6366f1" />
+            </View>
+            <Pressable
+              onPress={() => setShowMenu(true)}
+              className="p-1 -mt-1 -mr-1 active:opacity-50"
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            >
+              <Feather name="more-horizontal" size={16} color="#9ca3af" />
+            </Pressable>
+          </View>
+
+          {/* Name + meta */}
+          <View className="gap-0.5">
+            <Text
+              className="font-semibold text-sm text-gray-900 dark:text-white leading-snug"
+              numberOfLines={2}
+            >
               {list.name}
             </Text>
-            <View className="flex flex-row items-center gap-2 mt-0.5">
-              <Text className="text-xs text-gray-500 dark:text-gray-400">{entity.progressLabel}</Text>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-xs text-gray-400 dark:text-gray-500">
+                {entity.progressLabel}
+              </Text>
               {entity.isShared && (
-                <View className="flex flex-row items-center gap-0.5">
-                  <Feather name="users" size={12} color="#6b7280" />
-                  <Text className="text-xs text-gray-500 dark:text-gray-400">{list.memberCount}</Text>
+                <View className="flex-row items-center gap-0.5">
+                  <Feather name="users" size={10} color="#9ca3af" />
+                  <Text className="text-xs text-gray-400 dark:text-gray-500">
+                    {list.memberCount}
+                  </Text>
                 </View>
               )}
             </View>
           </View>
-
-          <Pressable onPress={() => setShowMenu(true)} className="p-1 -mr-1">
-            <Feather name="more-vertical" size={16} color="#6b7280" />
-          </Pressable>
         </View>
 
-        {entity.itemCount > 0 && (
-          <View className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+        {/* Progress bar — flush to bottom */}
+        <View className="h-1 bg-gray-100 dark:bg-gray-700">
+          {entity.itemCount > 0 && (
             <View
-              className="bg-indigo-500 rounded-full h-1"
-              style={{ width: `${progress}%` }}
+              className={`h-1 ${progress >= 100 ? 'bg-green-400' : 'bg-indigo-400'}`}
+              style={{ width: `${Math.min(progress, 100)}%` }}
             />
-          </View>
-        )}
-
-        <Text className="text-[11px] text-gray-400 dark:text-gray-500">{entity.getRelativeTime()}</Text>
+          )}
+        </View>
       </Pressable>
 
       <Modal

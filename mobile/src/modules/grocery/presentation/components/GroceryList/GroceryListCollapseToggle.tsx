@@ -14,7 +14,7 @@ export function GroceryListCollapseToggle({
 }: GroceryListCollapseToggleProps) {
   if (!visible) return null;
 
-  const iconName = collapseLevel === 0 ? 'maximize-2' : collapseLevel === 1 ? 'minimize-2' : 'chevrons-down';
+  const iconName = collapseLevel === 2 ? 'minimize-2' : 'maximize-2';
 
   return (
     <View className="px-3 py-2 flex-row justify-end">

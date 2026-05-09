@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform, Text, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
@@ -25,6 +25,7 @@ import type { GroceryItemType } from '@himan/shared/grocery';
 
 export default function GroceryListDetailScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const listId = params.listId as string;
   const userId = user?.id ?? '';
@@ -34,8 +35,8 @@ export default function GroceryListDetailScreen() {
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 0, n: 1 });
-  const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(0);
+  const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 2, n: 1 });
+  const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(2);
 
   // Data hooks
   const { lists } = useGroceryLists();
@@ -87,7 +88,7 @@ export default function GroceryListDetailScreen() {
   );
 
   const handleToggleCollapse = useCallback(() => {
-    const nextLevel: 0 | 1 | 2 = collapseLevel === 0 ? 1 : collapseLevel === 1 ? 2 : 0;
+    const nextLevel: 0 | 1 | 2 = collapseLevel === 2 ? 0 : 2;
     setCollapseLevel(nextLevel);
     setCollapseStamp((prev) => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
   }, [collapseLevel]);
@@ -133,7 +134,8 @@ export default function GroceryListDetailScreen() {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <ScrollView className="flex-1">
-          {activeTab === 'to-get' ? (
+          {/* to-get tab — always mounted to preserve collapse state */}
+          <View style={{ display: activeTab === 'to-get' ? 'flex' : 'none' }}>
             <GroceryListToGetContent
               groupedItems={groupedItems}
               uncheckedItems={uncheckedItems}
@@ -149,7 +151,9 @@ export default function GroceryListDetailScreen() {
               onEditItem={handleEditItem}
               onDeleteItem={deleteItem}
             />
-          ) : (
+          </View>
+          {/* checked tab — always mounted to preserve state */}
+          <View style={{ display: activeTab === 'checked' ? 'flex' : 'none' }}>
             <GroceryListCheckedContent
               checkedItems={checkedItems}
               isSessionActive={!!activeSession}
@@ -158,7 +162,7 @@ export default function GroceryListDetailScreen() {
               onEditItem={handleEditItem}
               onDeleteItem={deleteItem}
             />
-          )}
+          </View>
           <View className="h-4" />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -186,7 +190,7 @@ export default function GroceryListDetailScreen() {
         onRemoveMember={removeMember}
       />
 
-      <View className="absolute bottom-6 right-4">
+      <View style={{ position: 'absolute', bottom: 24 + insets.bottom, right: 16 }}>
         <Pressable
           onPress={handleAddItem}
           className="w-14 h-14 bg-indigo-500 rounded-full items-center justify-center shadow-lg"

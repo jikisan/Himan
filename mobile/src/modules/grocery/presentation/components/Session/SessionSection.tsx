@@ -44,7 +44,7 @@ export function SessionSection({
       </Text>
       <Pressable
         onPress={onViewSession}
-        className=" border border-green-500  rounded-2xl p-4"
+        className=" border border-green-900  rounded-2xl p-4"
       >
         {/* Live indicator + chevron */}
         <View className="flex-row items-center justify-between mb-2.5">

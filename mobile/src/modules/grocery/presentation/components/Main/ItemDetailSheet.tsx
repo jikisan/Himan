@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, Pressable, TextInput, Modal, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto } from '@himan/shared/grocery';
 
@@ -31,6 +32,7 @@ export const ItemDetailSheet = ({
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState('');
   const [notes, setNotes] = useState('');
+  const insets = useSafeAreaInsets();
 
   const isAddMode = mode === 'add';
 
@@ -107,7 +109,7 @@ export const ItemDetailSheet = ({
           onPress={() => onOpenChange(false)}
         />
         <Pressable className="bg-white dark:bg-gray-900 rounded-t-3xl max-h-[85%] shadow-2xl">
-          <ScrollView keyboardShouldPersistTaps="handled" className="p-6">
+          <ScrollView keyboardShouldPersistTaps="handled" className="p-6" contentContainerStyle={{ paddingBottom: insets.bottom }}>
             {/* Drag Handle */}
             <View className="items-center mb-4">
               <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-700" />

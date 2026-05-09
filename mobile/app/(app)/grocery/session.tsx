@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, Animated, ActivityIndicator } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Shadow } from 'react-native-shadow-2';
@@ -21,6 +21,7 @@ import { TabType, CollapseLevel } from '@/modules/grocery/presentation/component
 export default function GrocerySessionScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // UI State
   const [activeTab, setActiveTab] = useState<TabType>('to-get');
@@ -47,9 +48,28 @@ export default function GrocerySessionScreen() {
     isEnding,
     isCancelling,
     isAddingShopper,
+    isPurchasing,
   } = useGrocerySession({ enablePresence: true });
 
   useGroceryRealtime(null, activeSession?.id ?? null, realtimeService);
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const toastAnim = useRef(new Animated.Value(-120)).current;
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ message, type });
+    Animated.spring(toastAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
+    toastTimerRef.current = setTimeout(() => {
+      Animated.timing(toastAnim, { toValue: -80, duration: 250, useNativeDriver: true }).start(() =>
+        setToast(null)
+      );
+    }, 2500);
+  }, [toastAnim]);
+
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
 
   // Derived state
   const isOwner = !!user && !!activeSession && user.id === activeSession.startedBy;
@@ -68,15 +88,21 @@ export default function GrocerySessionScreen() {
 
   // Handlers
   const handleTogglePurchase = useCallback(
-    (sessionItemId: string, groceryItemId: string | null) => {
+    async (sessionItemId: string, groceryItemId: string | null) => {
       const item = activeSession?.items.find((i) => i.id === sessionItemId);
-      if (item?.isPurchased) {
-        unpurchaseItem(sessionItemId, groceryItemId);
-      } else {
-        purchaseItem(sessionItemId, groceryItemId);
+      try {
+        if (item?.isPurchased) {
+          await unpurchaseItem(sessionItemId, groceryItemId);
+          showToast('Item moved back to list', 'success');
+        } else {
+          await purchaseItem(sessionItemId, groceryItemId);
+          showToast('Item marked as purchased', 'success');
+        }
+      } catch {
+        showToast('Failed to update item', 'error');
       }
     },
-    [activeSession, purchaseItem, unpurchaseItem]
+    [activeSession, purchaseItem, unpurchaseItem, showToast]
   );
 
   const handleCompleteShopping = useCallback(async () => {
@@ -140,6 +166,7 @@ export default function GrocerySessionScreen() {
   }
 
   return (
+    <View className="flex-1">
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
       <SessionHeader
         storeName={activeSession.storeName || 'Unknown Store'}
@@ -227,6 +254,42 @@ export default function GrocerySessionScreen() {
               <Feather name="plus" size={28} color="#ffffff" />
           </Pressable>
       </View>
+
+      {/* Loading overlay while purchasing */}
+      {isPurchasing && (
+        <View className="absolute inset-0 bg-black/20 items-center justify-center z-40">
+          <View className="bg-white dark:bg-gray-800 rounded-2xl px-6 py-4 items-center gap-2 shadow-lg">
+            <ActivityIndicator size="small" color="#6366f1" />
+            <Text className="text-gray-700 dark:text-gray-300 text-sm">Updating...</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
+
+    {/* Toast — sibling of SafeAreaView, covers full screen top including status bar */}
+    {toast && (
+      <Animated.View
+        style={{
+          transform: [{ translateY: toastAnim }],
+          top: 0,
+          paddingTop: insets.top + 10,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          zIndex: 100,
+        }}
+        className={`px-4 pb-3 flex-row items-center gap-2 shadow-md ${
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        }`}
+      >
+        <Feather
+          name={toast.type === 'success' ? 'check-circle' : 'x-circle'}
+          size={18}
+          color="#ffffff"
+        />
+        <Text className="text-white font-medium flex-1">{toast.message}</Text>
+      </Animated.View>
+    )}
+    </View>
   );
 }

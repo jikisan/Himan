@@ -112,7 +112,6 @@ export const useGrocerySession = ({ enablePresence = false }: { enablePresence?:
     },
     onError: (err) => {
       logger.error('Error purchasing item', err);
-      Alert.alert('Error', 'Failed to update item');
     },
   });
 
@@ -134,7 +133,6 @@ export const useGrocerySession = ({ enablePresence = false }: { enablePresence?:
     },
     onError: (err) => {
       logger.error('Error unpurchasing item', err);
-      Alert.alert('Error', 'Failed to update item');
     },
   });
 
@@ -244,5 +242,6 @@ export const useGrocerySession = ({ enablePresence = false }: { enablePresence?:
     isEnding: endSessionMutation.isPending,
     isCancelling: cancelSessionMutation.isPending,
     isAddingShopper: addShopperMutation.isPending,
+    isPurchasing: purchaseItemMutation.isPending || unpurchaseItemMutation.isPending,
   };
 };

@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, Modal, Alert, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import type { SessionMemberType, SessionPresence } from '@himan/shared/grocery';
 
 interface AddShopperModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAddShopper: (email: string) => Promise<unknown>;
   isAdding: boolean;
+  members: SessionMemberType[];
+  participants: SessionPresence[];
+  startedBy: string;
 }
 
 export const AddShopperModal = ({
@@ -14,6 +18,9 @@ export const AddShopperModal = ({
   onOpenChange,
   onAddShopper,
   isAdding,
+  members,
+  participants,
+  startedBy,
 }: AddShopperModalProps) => {
   const [email, setEmail] = useState('');
 
@@ -21,7 +28,6 @@ export const AddShopperModal = ({
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
 
-    // Basic email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       Alert.alert('Error', 'Please enter a valid email address');
       return;
@@ -36,6 +42,8 @@ export const AddShopperModal = ({
     }
   };
 
+  const presenceMap = new Map(participants.map((p) => [p.userId, p]));
+
   return (
     <Modal
       visible={open}
@@ -47,18 +55,61 @@ export const AddShopperModal = ({
         className="flex-1 bg-black/40 justify-center items-center px-6"
         onPress={() => onOpenChange(false)}
       >
-        <Pressable className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full">
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Add User
+        <Pressable className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-h-[80%]">
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+            Shoppers
           </Text>
-          <Text className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Invite someone to shop together in this session
+          <Text className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Manage who's shopping in this session
           </Text>
+
+          {members.length > 0 && (
+            <View className="mb-5">
+              <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Members
+              </Text>
+              <ScrollView className="max-h-48">
+                {members.map((member) => {
+                  const presence = presenceMap.get(member.userId);
+                  const isOnline = !!presence;
+                  const displayName = presence?.displayName ?? null;
+                  const isOwner = member.userId === startedBy;
+
+                  return (
+                    <View
+                      key={member.id}
+                      className="flex-row items-center py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0"
+                    >
+                      <View className="relative mr-3">
+                        <View className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 items-center justify-center">
+                          <Feather name="user" size={14} color={isOwner ? '#6366f1' : '#9ca3af'} />
+                        </View>
+                        <View
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
+                            isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        />
+                      </View>
+
+                      <View className="flex-1">
+                        <Text className="text-sm font-medium text-gray-900 dark:text-white" numberOfLines={1}>
+                          {displayName ?? 'Member'}
+                        </Text>
+                        <Text className="text-xs text-gray-400 dark:text-gray-500">
+                          {isOnline ? 'Online' : 'Offline'} · {isOwner ? 'Owner' : 'Shopper'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           <View className="space-y-4 gap-4">
             <View>
-              <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email address
+              <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Add Shopper
               </Text>
               <TextInput
                 placeholder="Enter shopper's email..."

@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Shadow } from 'react-native-shadow-2';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
-import { useGrocerySession } from '@/modules/grocery/presentation/hooks';
+import { useGrocerySession, useGroceryRealtime } from '@/modules/grocery/presentation/hooks';
 import {
   SessionBanner,
   EndShoppingModal,
@@ -37,6 +37,7 @@ export default function GrocerySessionScreen() {
   const {
     activeSession,
     participants,
+    realtimeService,
     endSession,
     cancelSession,
     purchaseItem,
@@ -46,7 +47,9 @@ export default function GrocerySessionScreen() {
     isEnding,
     isCancelling,
     isAddingShopper,
-  } = useGrocerySession();
+  } = useGrocerySession({ enablePresence: true });
+
+  useGroceryRealtime(null, activeSession?.id ?? null, realtimeService);
 
   // Derived state
   const sessionItemsByList = activeSession
@@ -194,6 +197,9 @@ export default function GrocerySessionScreen() {
         onOpenChange={setShoppersDialogOpen}
         onAddShopper={handleAddShopper}
         isAdding={isAddingShopper}
+        members={activeSession.members}
+        participants={participants}
+        startedBy={activeSession.startedBy}
       />
 
       <ItemDetailSheet

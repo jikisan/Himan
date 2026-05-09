@@ -9,7 +9,7 @@ import { getLogger } from '@himan/shared';
 
 const logger = getLogger();
 
-export const useGrocerySession = () => {
+export const useGrocerySession = ({ enablePresence = false }: { enablePresence?: boolean } = {}) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const repository = useMemo(() => new GrocerySessionRepository(), []);
@@ -29,8 +29,9 @@ export const useGrocerySession = () => {
     enabled: !!userId,
   });
 
-  // Subscribe to presence when active session exists
+  // Subscribe to presence only when explicitly enabled (session screen only)
   useEffect(() => {
+    if (!enablePresence) return;
     const sessionId = activeSession?.id;
     if (!sessionId || !userId || !user?.email) return;
 
@@ -44,7 +45,7 @@ export const useGrocerySession = () => {
     return () => {
       realtimeService.unsubscribeFromPresence();
     };
-  }, [activeSession?.id, userId, user?.email]);
+  }, [enablePresence, activeSession?.id, userId, user?.email]);
 
   const startSessionMutation = useMutation({
     mutationFn: ({ listIds, storeName }: { listIds: string[]; storeName: string }) =>

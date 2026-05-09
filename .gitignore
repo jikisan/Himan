@@ -24,4 +24,5 @@ packages/shared/tsconfig.tsbuildinfo
 /.expo
 /mobile/.expo/web
 /.claude/settings.json
+/.claude/settings.local.json
 /tsconfig.json

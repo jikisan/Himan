@@ -15,12 +15,12 @@ type QuickLink = {
 };
 
 const quickLinks: QuickLink[] = [
-  {
-    id: 'notes',
-    icon: 'file-text',
-    label: 'Notes',
-    description: 'Manage your notes',
-  },
+  // {
+  //   id: 'notes',
+  //   icon: 'file-text',
+  //   label: 'Notes',
+  //   description: 'Manage your notes',
+  // },
   {
     id: 'passwords',
     icon: 'key',
@@ -40,12 +40,12 @@ const quickLinks: QuickLink[] = [
     description: 'Collaborative grocery lists',
     route: '/(app)/grocery',
   },
-  {
-    id: 'invoice',
-    icon: 'file',
-    label: 'Invoice Generator',
-    description: 'Create professional invoices',
-  },
+  // {
+  //   id: 'invoice',
+  //   icon: 'file',
+  //   label: 'Invoice Generator',
+  //   description: 'Create professional invoices',
+  // },
 ];
 
 export default function DashboardScreen() {

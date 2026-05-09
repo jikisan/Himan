@@ -246,7 +246,7 @@ export default function GrocerySessionScreen() {
         onDelete={() => {}}
       />
 
-      <View className="absolute bottom-6 right-4">
+      <View style={{ position: 'absolute', bottom: 24 + insets.bottom, right: 16 }}>
           <Pressable
               onPress={handleAddItem}
               className="w-14 h-14 bg-indigo-500 rounded-full items-center justify-center"

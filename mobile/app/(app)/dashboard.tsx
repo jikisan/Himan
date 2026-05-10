@@ -32,6 +32,7 @@ const quickLinks: QuickLink[] = [
     icon: 'credit-card',
     label: 'Cards',
     description: 'Manage your credit cards',
+    route: '/(app)/cards',
   },
   {
     id: 'grocery',

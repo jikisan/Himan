@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, Animated, ActivityIndicator } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToast } from '@/modules/shared/components/useToast';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Shadow } from 'react-native-shadow-2';
@@ -53,23 +54,7 @@ export default function GrocerySessionScreen() {
 
   useGroceryRealtime(null, activeSession?.id ?? null, realtimeService);
 
-  // Toast state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const toastAnim = useRef(new Animated.Value(-120)).current;
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast({ message, type });
-    Animated.spring(toastAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
-    toastTimerRef.current = setTimeout(() => {
-      Animated.timing(toastAnim, { toValue: -80, duration: 250, useNativeDriver: true }).start(() =>
-        setToast(null)
-      );
-    }, 2500);
-  }, [toastAnim]);
-
-  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+  const { showToast, ToastView } = useToast();
 
   // Derived state
   const isOwner = !!user && !!activeSession && user.id === activeSession.startedBy;
@@ -266,30 +251,7 @@ export default function GrocerySessionScreen() {
       )}
     </SafeAreaView>
 
-    {/* Toast — sibling of SafeAreaView, covers full screen top including status bar */}
-    {toast && (
-      <Animated.View
-        style={{
-          transform: [{ translateY: toastAnim }],
-          top: 0,
-          paddingTop: insets.top + 10,
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          zIndex: 100,
-        }}
-        className={`px-4 pb-3 flex-row items-center gap-2 shadow-md ${
-          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        }`}
-      >
-        <Feather
-          name={toast.type === 'success' ? 'check-circle' : 'x-circle'}
-          size={18}
-          color="#ffffff"
-        />
-        <Text className="text-white font-medium flex-1">{toast.message}</Text>
-      </Animated.View>
-    )}
+    {ToastView}
     </View>
   );
 }

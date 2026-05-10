@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, Modal, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -14,6 +14,7 @@ interface CardDetailSheetProps {
   onEdit: (card: CreditCardType) => void;
   onDelete: (card: CreditCardType) => void;
   onToggleFavorite: (id: string, isFavorite: boolean) => void;
+  onCopied?: (label: string) => void;
 }
 
 export const CardDetailSheet = ({
@@ -24,6 +25,7 @@ export const CardDetailSheet = ({
   onEdit,
   onDelete,
   onToggleFavorite,
+  onCopied,
 }: CardDetailSheetProps) => {
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
@@ -43,12 +45,12 @@ export const CardDetailSheet = ({
 
   const handleCopyCardNumber = async () => {
     await Clipboard.setStringAsync(card.cardNumber.replace(/\D/g, ''));
-    Alert.alert('Copied', 'Card number copied to clipboard');
+    onCopied?.('Card number copied');
   };
 
   const handleCopyCvv = async () => {
     await Clipboard.setStringAsync(card.cvv);
-    Alert.alert('Copied', 'CVV copied to clipboard');
+    onCopied?.('CVV copied');
   };
 
   const handleClose = () => {

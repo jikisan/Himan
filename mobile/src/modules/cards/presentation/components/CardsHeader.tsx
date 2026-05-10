@@ -47,12 +47,6 @@ export const CardsHeader = ({
               color={isDark ? '#9ca3af' : '#6b7280'}
             />
           </Pressable>
-          <Pressable
-            onPress={onAdd}
-            className="w-9 h-9 rounded-full bg-indigo-500 items-center justify-center"
-          >
-            <Feather name="plus" size={20} color="#ffffff" />
-          </Pressable>
         </View>
       </View>
 

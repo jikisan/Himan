@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { FlatList, View, Pressable } from 'react-native';
+import { useToast } from '@/modules/shared/components/useToast';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -29,10 +30,11 @@ export default function CardsScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<SelectedCategoryId>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<CreditCardType | null>(null);
+const [selectedCard, setSelectedCard] = useState<CreditCardType | null>(null);
   const [deleteCard, setDeleteCard] = useState<CreditCardType | null>(null);
   const [categoryModal, setCategoryModal] = useState<CategoryModalState>(null);
 
+  const { showToast, ToastView } = useToast();
   const { cards: allCards, loading, deleteCard: doDelete, toggleFavorite } = useCards();
   const { categories, createCategory, updateCategory, deleteCategory } = useCardCategories();
 
@@ -83,6 +85,7 @@ export default function CardsScreen() {
   const hasSearch = isSearchOpen && searchQuery.trim().length > 0;
 
   return (
+    <View className="flex-1">
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
       <CardsHeader
         onBack={() => router.back()}
@@ -109,6 +112,7 @@ export default function CardsScreen() {
             card={item}
             onPress={setSelectedCard}
             onToggleFavorite={handleToggleFavorite}
+            onCopied={(label) => showToast(label, 'success')}
           />
         )}
         contentContainerStyle={
@@ -149,6 +153,7 @@ export default function CardsScreen() {
           setDeleteCard(card);
         }}
         onToggleFavorite={handleToggleFavorite}
+        onCopied={(label) => showToast(label, 'success')}
       />
 
       <DeleteCardModal
@@ -177,5 +182,7 @@ export default function CardsScreen() {
         onClose={() => setCategoryModal(null)}
       />
     </SafeAreaView>
+    {ToastView}
+    </View>
   );
 }

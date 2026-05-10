@@ -1,5 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { CreditCard } from '@himan/shared/cards';
 import type { CreditCardType } from '@himan/shared/cards';
 
@@ -7,72 +8,114 @@ interface CardListItemProps {
   card: CreditCardType;
   onPress: (card: CreditCardType) => void;
   onToggleFavorite: (id: string, isFavorite: boolean) => void;
+  onCopied?: (label: string) => void;
 }
 
-export const CardListItem = ({ card, onPress, onToggleFavorite }: CardListItemProps) => {
+export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: CardListItemProps) => {
   const entity = new CreditCard(card);
   const isExpired = entity.isExpired();
   const isExpiringSoon = !isExpired && entity.isExpiringSoon(3);
-  const masked = entity.getMaskedNumber();
   const brand = entity.getCardBrand();
 
+  const digits = card.cardNumber.replace(/\D/g, '');
+  const last4 = digits.slice(-4);
   const expiryStr = `${String(card.expiryMonth).padStart(2, '0')}/${card.expiryYear}`;
 
+  const handleCopyCardNumber = async () => {
+    await Clipboard.setStringAsync(digits);
+    onCopied?.('Card number copied');
+  };
+
+  const handleCopyCvv = async () => {
+    await Clipboard.setStringAsync(card.cvv);
+    onCopied?.('CVV copied');
+  };
+
+  const subtitle = [
+    brand !== 'Unknown' ? brand : null,
+    card.bankName || null,
+    expiryStr,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <Pressable
-      onPress={() => onPress(card)}
-      className="mx-4 mb-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden active:opacity-80"
-    >
-      <View className="flex-row items-center px-4 py-3.5 gap-3">
-        {/* Brand indicator */}
-        <View className="w-10 h-10 rounded-xl bg-indigo-500/10 items-center justify-center shrink-0">
-          <Feather name="credit-card" size={18} color="#6366f1" />
+    <View className="mx-4 mb-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Main row */}
+      <Pressable
+        onPress={() => onPress(card)}
+        className="flex-row items-center px-4 pt-4 pb-3 gap-3 active:opacity-75"
+      >
+        {/* Icon */}
+        <View className="w-11 h-11 rounded-xl bg-indigo-500/10 items-center justify-center shrink-0">
+          <Feather name="credit-card" size={20} color="#6366f1" />
         </View>
 
-        {/* Main info */}
-        <View className="flex-1 min-w-0">
-          <View className="flex-row items-center gap-2 flex-wrap">
+        {/* Info */}
+        <View className="flex-1 min-w-0 gap-0.5">
+          <View className="flex-row items-center gap-2">
             <Text
-              className="text-sm font-semibold text-gray-900 dark:text-white"
+              className="text-sm font-semibold text-gray-900 dark:text-white flex-shrink"
               numberOfLines={1}
             >
               {card.cardName}
             </Text>
             {isExpired && (
-              <View className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 rounded">
+              <View className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 rounded shrink-0">
                 <Text className="text-xs font-medium text-red-600 dark:text-red-400">Expired</Text>
               </View>
             )}
             {isExpiringSoon && (
-              <View className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 rounded">
+              <View className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 rounded shrink-0">
                 <Text className="text-xs font-medium text-orange-600 dark:text-orange-400">Expiring</Text>
               </View>
             )}
           </View>
-          <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-mono" numberOfLines={1}>
-            {masked}
+          <Text className="text-sm font-mono text-gray-500 dark:text-gray-400">
+            •••• •••• •••• {last4}
           </Text>
-          <View className="flex-row items-center gap-2 mt-0.5">
-            <Text className="text-xs text-gray-400 dark:text-gray-500">{expiryStr}</Text>
-            {(brand !== 'Unknown' || card.cardIssuer) && (
-              <Text className="text-xs text-gray-400 dark:text-gray-500">· {brand}</Text>
-            )}
-          </View>
+          {subtitle ? (
+            <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
 
-        {/* Favorite star */}
+        {/* Favorite */}
         <Pressable
           onPress={() => onToggleFavorite(card.id, !card.isFavorite)}
-          hitSlop={8}
-          className="p-1"
+          className="w-11 h-11 items-center justify-center shrink-0"
         >
           <Feather
-            name={card.isFavorite ? 'star' : 'star'}
-            size={18}
+            name="star"
+            size={20}
             color={card.isFavorite ? '#f59e0b' : '#d1d5db'}
           />
         </Pressable>
+      </Pressable>
+
+      {/* Action row — full 44pt height targets */}
+      <View className="flex-row border-t border-gray-100 dark:border-gray-700">
+        <Pressable
+          onPress={handleCopyCardNumber}
+          className="flex-1 flex-row items-center justify-center gap-2 py-3 active:bg-gray-50 dark:active:bg-gray-700/40"
+          style={{ minHeight: 44 }}
+        >
+          <Feather name="copy" size={15} color="#6366f1" />
+          <Text className="text-sm font-medium text-indigo-500">Copy Number</Text>
+        </Pressable>
+
+        <View className="w-px bg-gray-100 dark:bg-gray-700" />
+
+        <Pressable
+          onPress={handleCopyCvv}
+          className="flex-1 flex-row items-center justify-center gap-2 py-3 active:bg-gray-50 dark:active:bg-gray-700/40"
+          style={{ minHeight: 44 }}
+        >
+          <Feather name="copy" size={15} color="#6366f1" />
+          <Text className="text-sm font-medium text-indigo-500">Copy CVV</Text>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 };

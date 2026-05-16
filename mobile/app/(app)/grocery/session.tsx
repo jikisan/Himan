@@ -15,6 +15,7 @@ import {
   SessionParticipants,
   SessionTabSwitcher,
   SessionItemList,
+  PriceInputModal,
 } from '@/modules/grocery/presentation/components';
 import { ItemDetailSheet } from '@/modules/grocery/presentation/components';
 import { TabType, CollapseLevel } from '@/modules/grocery/presentation/components/Session/types';
@@ -34,6 +35,15 @@ export default function GrocerySessionScreen() {
     n: 1,
   });
   const [collapseLevel, setCollapseLevel] = useState<CollapseLevel>(0);
+  const [pendingPurchaseItem, setPendingPurchaseItem] = useState<{
+    sessionItemId: string;
+    groceryItemId: string | null;
+    name: string;
+    quantity: number;
+    unit: string | null;
+    notes: string | null;
+    price: number | null;
+  } | null>(null);
 
   // Data hooks
   const {
@@ -75,19 +85,43 @@ export default function GrocerySessionScreen() {
   const handleTogglePurchase = useCallback(
     async (sessionItemId: string, groceryItemId: string | null) => {
       const item = activeSession?.items.find((i) => i.id === sessionItemId);
-      try {
-        if (item?.isPurchased) {
+      if (!item) return;
+
+      if (item.isPurchased) {
+        try {
           await unpurchaseItem(sessionItemId, groceryItemId);
           showToast('Item moved back to list', 'success');
-        } else {
-          await purchaseItem(sessionItemId, groceryItemId);
-          showToast('Item marked as purchased', 'success');
+        } catch {
+          showToast('Failed to update item', 'error');
         }
+      } else {
+        setPendingPurchaseItem({
+          sessionItemId,
+          groceryItemId,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          notes: item.notes,
+          price: item.price,
+        });
+      }
+    },
+    [activeSession, unpurchaseItem, showToast]
+  );
+
+  const handlePriceConfirm = useCallback(
+    async (price: number | null) => {
+      if (!pendingPurchaseItem) return;
+      const { sessionItemId, groceryItemId } = pendingPurchaseItem;
+      setPendingPurchaseItem(null);
+      try {
+        await purchaseItem(sessionItemId, groceryItemId, price);
+        showToast('Item marked as purchased', 'success');
       } catch {
         showToast('Failed to update item', 'error');
       }
     },
-    [activeSession, purchaseItem, unpurchaseItem, showToast]
+    [pendingPurchaseItem, purchaseItem, showToast]
   );
 
   const handleCompleteShopping = useCallback(async () => {
@@ -218,6 +252,17 @@ export default function GrocerySessionScreen() {
         participants={participants}
         startedBy={activeSession.startedBy}
         currentUserId={user?.id ?? ''}
+      />
+
+      <PriceInputModal
+        open={pendingPurchaseItem !== null}
+        onOpenChange={(open) => { if (!open) setPendingPurchaseItem(null); }}
+        itemName={pendingPurchaseItem?.name ?? ''}
+        quantity={pendingPurchaseItem?.quantity ?? 1}
+        unit={pendingPurchaseItem?.unit ?? null}
+        notes={pendingPurchaseItem?.notes ?? null}
+        previousPrice={pendingPurchaseItem?.price ?? null}
+        onConfirm={handlePriceConfirm}
       />
 
       <ItemDetailSheet

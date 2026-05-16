@@ -21,6 +21,7 @@ export * from './GroceryList/RenameModal';
 // Session - Shopping session components
 export * from './Session/AddShopperModal';
 export * from './Session/EndShoppingModal';
+export * from './Session/PriceInputModal';
 export * from './Session/SessionAddItem';
 export * from './Session/SessionBanner';
 export * from './Session/SessionCategoryGroup';

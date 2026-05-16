@@ -27,6 +27,7 @@ cd web && npm run dev            # Start dev server
 cd web && npm run build          # TypeScript check + Vite build
 cd web && npm run lint           # ESLint
 cd web && npm run test:run       # Run tests once (Vitest)
+cd web && npm run test:run -- src/path/to/file.test.ts  # Run single test file
 cd web && npm test               # Tests in watch mode
 cd web && npm run test:coverage  # Tests with coverage
 
@@ -67,6 +68,8 @@ Exports raw `.ts` files (no build step) via subpath exports — consumed directl
 @himan/shared/invoice-generator
 @himan/shared/subscriptions
 @himan/shared/grocery
+@himan/shared/config
+@himan/shared/services
 ```
 
 - **No DOM lib** in tsconfig — catches browser-specific code at compile time
@@ -110,7 +113,7 @@ Mobile uses only `@/*` → `./src/*`.
 1. Create `packages/shared/src/modules/[name]/` with `domain/` + `infrastructure/` layers
 2. Add subpath export in `packages/shared/package.json` exports field
 3. **Web**: create `web/src/modules/[name]/` with presentation layer + `infrastructure/index.ts` re-exporting from shared; add alias to `vite.config.ts`, `tsconfig.app.json`, `vitest.config.ts`
-4. **Mobile**: create `mobile/src/modules/[name]/` same structure; add alias to `tsconfig.json` + Metro config
+4. **Mobile**: create `mobile/src/modules/[name]/` same structure; add alias to `tsconfig.json` + Metro config. Active mobile modules: `auth`, `cards`, `grocery`, `shared`
 
 ## Deployment
 

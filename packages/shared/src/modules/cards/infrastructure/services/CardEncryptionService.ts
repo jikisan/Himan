@@ -21,17 +21,17 @@ export class CardEncryptionService {
     const encoder = new TextEncoder();
     const keyMaterial = encoder.encode(userId + this.SALT);
 
-    // Import the key material
     const importedKey = await crypto.subtle.importKey(
       'raw',
       keyMaterial,
       { name: 'PBKDF2' },
       false,
-      ['deriveBits', 'deriveKey']
+      ['deriveBits']
     );
 
-    // Derive the actual encryption key
-    return crypto.subtle.deriveKey(
+    // Use deriveBits + importKey instead of deriveKey for cross-platform compatibility
+    // (react-native-quick-crypto implements deriveBits but not deriveKey)
+    const derivedBits = await crypto.subtle.deriveBits(
       {
         name: 'PBKDF2',
         salt: encoder.encode(this.SALT),
@@ -39,7 +39,13 @@ export class CardEncryptionService {
         hash: 'SHA-256',
       },
       importedKey,
-      { name: this.ALGORITHM, length: this.KEY_LENGTH },
+      this.KEY_LENGTH
+    );
+
+    return crypto.subtle.importKey(
+      'raw',
+      derivedBits,
+      { name: this.ALGORITHM },
       false,
       ['encrypt', 'decrypt']
     );

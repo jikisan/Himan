@@ -1,4 +1,5 @@
-import 'react-native-quick-crypto';
+import { install } from 'react-native-quick-crypto';
+install();
 import '../global.css';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

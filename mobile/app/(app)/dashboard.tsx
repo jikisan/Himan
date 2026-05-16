@@ -26,6 +26,7 @@ const quickLinks: QuickLink[] = [
     icon: 'key',
     label: 'Passwords',
     description: 'Manage your passwords',
+    route: '/(app)/passwords',
   },
   {
     id: 'cards',

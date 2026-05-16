@@ -93,6 +93,19 @@ NativeWind classes matching existing patterns:
 - SafeAreaView wraps all screens
 - KeyboardAvoidingView with `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` for forms
 
+## Safe Area Insets
+
+Always use `useSafeAreaInsets()` from `react-native-safe-area-context`. Never hardcode device-specific spacing.
+
+| Scenario | Pattern |
+|---|---|
+| Full screen | `<SafeAreaView className="flex-1">` — handles all sides automatically |
+| Bottom sheet footer | `paddingBottom: Math.max(insets.bottom, 24)` |
+| Bottom sheet ScrollView | `contentContainerStyle={{ paddingBottom: insets.bottom }}` |
+| FAB / floating button | `bottom: 24 + insets.bottom, right: 16` (inline style) |
+| Top toast / overlay | `paddingTop: insets.top + 10` on absolutely-positioned container |
+| Keyboard + form | `<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>` inside SafeAreaView |
+
 ## Key Config Files
 
 - `metro.config.js` — Monorepo watchFolders, NativeWind integration, `.js` → `.ts` resolver for shared package

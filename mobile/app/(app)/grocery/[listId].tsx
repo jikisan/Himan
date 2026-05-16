@@ -163,6 +163,7 @@ export default function GroceryListDetailScreen() {
               onDeleteItem={deleteItem}
             />
           </View>
+          <View className="h-20"/>
           <View className="h-4" />
         </ScrollView>
       </KeyboardAvoidingView>

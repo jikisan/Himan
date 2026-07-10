@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Trash2, Copy } from "lucide-react";
 import {
   Button,
@@ -21,6 +21,45 @@ interface InvoiceLineItemsProps {
   bulkDialogOpen: boolean;
   onBulkDialogOpenChange: (open: boolean) => void;
 }
+
+interface NumericCellProps {
+  value: number;
+  onChange: (n: number) => void;
+  integer?: boolean;
+  className?: string;
+}
+
+const NumericCell = ({ value, onChange, integer, className }: NumericCellProps) => {
+  const [raw, setRaw] = useState<string>(value === 0 ? "" : String(value));
+
+  useEffect(() => {
+    const parsed = raw === "" || raw === "-" ? 0 : integer ? parseInt(raw, 10) : parseFloat(raw);
+    const normalized = Number.isNaN(parsed) ? 0 : parsed;
+    if (normalized !== value) {
+      setRaw(value === 0 ? "" : String(value));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <Input
+      type="text"
+      inputMode={integer ? "numeric" : "decimal"}
+      value={raw}
+      onChange={(e) => {
+        const v = e.target.value;
+        setRaw(v);
+        if (v === "" || v === "-") {
+          onChange(0);
+          return;
+        }
+        const parsed = integer ? parseInt(v, 10) : parseFloat(v);
+        if (!Number.isNaN(parsed)) onChange(parsed);
+      }}
+      className={className}
+    />
+  );
+};
 
 function parseLineItems(text: string): { items: LineItem[]; errors: string[] } {
   const lines = text.split("\n");
@@ -177,33 +216,17 @@ SEO Package | 15000 | 1
                   />
                 </td>
                 <td className="py-2 px-2">
-                  <Input
-                    type="number"
-                    value={item.unitCost || ""}
-                    onChange={(e) =>
-                      handleItemChange(
-                        item.id,
-                        "unitCost",
-                        parseFloat(e.target.value) || 0,
-                      )
-                    }
-                    min={0}
-                    step="0.01"
+                  <NumericCell
+                    value={item.unitCost}
+                    onChange={(n) => handleItemChange(item.id, "unitCost", n)}
                     className="text-right border-0 bg-transparent focus-visible:ring-1"
                   />
                 </td>
                 <td className="py-2 px-2">
-                  <Input
-                    type="number"
-                    value={item.quantity || ""}
-                    onChange={(e) =>
-                      handleItemChange(
-                        item.id,
-                        "quantity",
-                        parseInt(e.target.value) || 0,
-                      )
-                    }
-                    min={0}
+                  <NumericCell
+                    value={item.quantity}
+                    integer
+                    onChange={(n) => handleItemChange(item.id, "quantity", n)}
                     className="text-right border-0 bg-transparent focus-visible:ring-1"
                   />
                 </td>

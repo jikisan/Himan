@@ -22,7 +22,16 @@ npx expo start --ios     # Start with iOS simulator directly
 npx expo start --android # Start with Android emulator directly
 npm run typecheck        # TypeScript check (tsc --noEmit)
 npx expo prebuild        # Generate native ios/ and android/ directories
+npx expo prebuild --clean  # Regenerate native dirs (wipes existing ios/ android/)
 npx expo run:ios         # Build and run on iOS simulator (native build)
+npx expo run:android --device  # Build and run on Android device/emulator (native build)
+npx expo start --clear   # Start dev server with cleared Metro cache
+npx expo install         # Install Expo-compatible package versions
+npx expo doctor          # Check for config/dependency issues
+eas build --platform android --profile preview --local  # Build APK locally
+eas build --platform android --profile production --local  # Build AAB locally (Play Store)
+eas build --platform ios --profile preview --local  # Build IPA locally
+eas build --platform all --profile production  # Build both platforms on EAS cloud
 ```
 
 ## Technology Stack

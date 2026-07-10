@@ -4,6 +4,61 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto } from '@himan/shared/grocery';
 
+const GROCERY_CATEGORIES = [
+  'Produce',
+  'Dairy',
+  'Meat & Seafood',
+  'Bakery',
+  'Frozen',
+  'Pantry',
+  'Beverages',
+  'Snacks',
+  'Condiments & Sauces',
+  'Breakfast & Cereal',
+  'Pasta, Rice & Grains',
+  'Canned Goods',
+  'Spices & Seasonings',
+  'Cooking Oils',
+  'Deli',
+  'Organic & Healthy',
+  'International Foods',
+  'Baby Products',
+  'Pet Supplies',
+  'Health & Wellness',
+  'Household',
+  'Cleaning Supplies',
+  'Laundry',
+  'Paper Products',
+  'Personal Care',
+  'Beauty & Cosmetics',
+  'Pharmacy',
+  'Alcohol',
+  'Tobacco',
+  'Party Supplies',
+  'Kitchen Supplies',
+  'Office Supplies',
+  'Electronics',
+  'Seasonal',
+] as const;
+
+const GROCERY_UNITS = [
+  'pcs',
+  'kg',
+  'g',
+  'L',
+  'mL',
+  'lb',
+  'oz',
+  'tray',
+  'pack',
+  'bottle',
+  'can',
+  'box',
+  'bag',
+  'dozen',
+  'bunch',
+] as const;
+
 type ItemDetailMode = 'add' | 'edit';
 
 interface ItemDetailSheetProps {
@@ -29,8 +84,14 @@ export const ItemDetailSheet = ({
 }: ItemDetailSheetProps) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+  const [isOtherCategory, setIsOtherCategory] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState('');
+  const [customUnit, setCustomUnit] = useState('');
+  const [isOtherUnit, setIsOtherUnit] = useState(false);
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -40,38 +101,70 @@ export const ItemDetailSheet = ({
     if (isAddMode) {
       setName('');
       setCategory('');
+      setCustomCategory('');
+      setIsOtherCategory(false);
       setQuantity('1');
       setUnit('');
+      setCustomUnit('');
+      setIsOtherUnit(false);
       setNotes('');
     } else if (item) {
       setName(item.name);
-      setCategory(item.category ?? '');
+      const cat = item.category ?? '';
+      const isPredefined = GROCERY_CATEGORIES.includes(cat as typeof GROCERY_CATEGORIES[number]);
+      if (cat && !isPredefined) {
+        setCategory('Other');
+        setCustomCategory(cat);
+        setIsOtherCategory(true);
+      } else {
+        setCategory(cat);
+        setCustomCategory('');
+        setIsOtherCategory(false);
+      }
       setQuantity(String(item.quantity));
-      setUnit(item.unit ?? '');
+      const u = item.unit ?? '';
+      const isPredefinedUnit = GROCERY_UNITS.includes(u as typeof GROCERY_UNITS[number]);
+      if (u && !isPredefinedUnit) {
+        setUnit('Other');
+        setCustomUnit(u);
+        setIsOtherUnit(true);
+      } else {
+        setUnit(u);
+        setCustomUnit('');
+        setIsOtherUnit(false);
+      }
       setNotes(item.notes ?? '');
     }
   }, [item, isAddMode, open]);
 
   const handleSave = () => {
     if (!name.trim()) return;
-    
+
+    const resolvedCategory = isOtherCategory
+      ? customCategory.trim() || undefined
+      : category || undefined;
+
+    const resolvedUnit = isOtherUnit
+      ? customUnit.trim() || undefined
+      : unit || undefined;
+
     if (isAddMode) {
       if (!onAdd) return;
       onAdd({
         listId: listId || '',
         name: name.trim(),
-        category: category.trim() || undefined,
+        category: resolvedCategory,
         quantity: parseFloat(quantity) || 1,
-        unit: unit.trim() || undefined,
+        unit: resolvedUnit,
         notes: notes.trim() || undefined,
       });
     } else {
       if (!item) return;
       onSave(item.id, {
         name: name.trim(),
-        category: category.trim() || undefined,
+        category: resolvedCategory,
         quantity: parseFloat(quantity) || 1,
-        unit: unit.trim() || undefined,
+        unit: resolvedUnit,
         notes: notes.trim() || undefined,
       });
     }
@@ -158,13 +251,74 @@ export const ItemDetailSheet = ({
                   <Feather name="folder" size={14} color="#6366f1" />
                   <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Category</Text>
                 </View>
-                <TextInput
-                  value={category}
-                  onChangeText={setCategory}
-                  placeholder="e.g., Dairy, Produce, Pantry"
-                  placeholderTextColor="#9ca3af"
-                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500"
-                />
+                <Pressable
+                  onPress={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 bg-gray-50 dark:bg-gray-800/50 flex flex-row items-center justify-between"
+                >
+                  <Text className={`text-base ${
+                    category
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-400'
+                  }`}>
+                    {isOtherCategory ? 'Other' : category || 'Select a category'}
+                  </Text>
+                  <Feather name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#9ca3af" />
+                </Pressable>
+                {categoryDropdownOpen && (
+                  <View className="border-2 border-gray-200 dark:border-gray-700 rounded-xl mt-1 bg-white dark:bg-gray-800 overflow-hidden">
+                    <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
+                      {GROCERY_CATEGORIES.map((cat) => (
+                        <Pressable
+                          key={cat}
+                          onPress={() => {
+                            setCategory(cat);
+                            setIsOtherCategory(false);
+                            setCustomCategory('');
+                            setCategoryDropdownOpen(false);
+                          }}
+                          className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
+                            category === cat ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                          }`}
+                        >
+                          <Text className={`text-base ${
+                            category === cat
+                              ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {cat}
+                          </Text>
+                        </Pressable>
+                      ))}
+                      <Pressable
+                        onPress={() => {
+                          setCategory('Other');
+                          setIsOtherCategory(true);
+                          setCategoryDropdownOpen(false);
+                        }}
+                        className={`px-4 py-3 ${
+                          isOtherCategory ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                        }`}
+                      >
+                        <Text className={`text-base ${
+                          isOtherCategory
+                            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                            : 'text-gray-900 dark:text-white'
+                        }`}>
+                          Other
+                        </Text>
+                      </Pressable>
+                    </ScrollView>
+                  </View>
+                )}
+                {isOtherCategory && (
+                  <TextInput
+                    value={customCategory}
+                    onChangeText={setCustomCategory}
+                    placeholder="Enter custom category"
+                    placeholderTextColor="#9ca3af"
+                    className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500 mt-2"
+                  />
+                )}
               </View>
 
               {/* Quantity & Unit - Row */}
@@ -189,15 +343,76 @@ export const ItemDetailSheet = ({
                     <Feather name="box" size={14} color="#6366f1" />
                     <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Unit</Text>
                   </View>
-                  <TextInput
-                    value={unit}
-                    onChangeText={setUnit}
-                    placeholder="kg, pcs, L"
-                    placeholderTextColor="#9ca3af"
-                    className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500"
-                  />
+                  <Pressable
+                    onPress={() => setUnitDropdownOpen(!unitDropdownOpen)}
+                    className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 bg-gray-50 dark:bg-gray-800/50 flex flex-row items-center justify-between"
+                  >
+                    <Text className={`text-base ${
+                      unit
+                        ? 'text-gray-900 dark:text-white'
+                        : 'text-gray-400'
+                    }`}>
+                      {isOtherUnit ? 'Other' : unit || 'Select'}
+                    </Text>
+                    <Feather name={unitDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#9ca3af" />
+                  </Pressable>
                 </View>
               </View>
+              {unitDropdownOpen && (
+                <View className="border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden">
+                  <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
+                    {GROCERY_UNITS.map((u) => (
+                      <Pressable
+                        key={u}
+                        onPress={() => {
+                          setUnit(u);
+                          setIsOtherUnit(false);
+                          setCustomUnit('');
+                          setUnitDropdownOpen(false);
+                        }}
+                        className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
+                          unit === u ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                        }`}
+                      >
+                        <Text className={`text-base ${
+                          unit === u
+                            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                            : 'text-gray-900 dark:text-white'
+                        }`}>
+                          {u}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    <Pressable
+                      onPress={() => {
+                        setUnit('Other');
+                        setIsOtherUnit(true);
+                        setUnitDropdownOpen(false);
+                      }}
+                      className={`px-4 py-3 ${
+                        isOtherUnit ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                      }`}
+                    >
+                      <Text className={`text-base ${
+                        isOtherUnit
+                          ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+                          : 'text-gray-900 dark:text-white'
+                      }`}>
+                        Other
+                      </Text>
+                    </Pressable>
+                  </ScrollView>
+                </View>
+              )}
+              {isOtherUnit && (
+                <TextInput
+                  value={customUnit}
+                  onChangeText={setCustomUnit}
+                  placeholder="Enter custom unit"
+                  placeholderTextColor="#9ca3af"
+                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500"
+                />
+              )}
 
               {/* Notes */}
               <View>

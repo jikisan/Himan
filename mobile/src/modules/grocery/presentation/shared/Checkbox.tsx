@@ -19,7 +19,8 @@ export const Checkbox = ({
 
   return (
     <View
-      className={`flex-shrink-0 h-[${size}px] w-[${size}px] rounded-full border-2 flex items-center justify-center ${colorClasses[color as keyof typeof colorClasses]}`}
+      style={{ width: size, height: size }}
+      className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center ${colorClasses[color as keyof typeof colorClasses]}`}
     >
       {checked && <Feather name="check" size={12} color="#ffffff" />}
     </View>

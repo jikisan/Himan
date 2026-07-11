@@ -49,7 +49,7 @@ export const CURRENCY_OPTIONS: { value: CurrencyCode; label: string }[] = [
 
 // Validation helper
 export const isValidLineItem = (item: LineItem): boolean =>
-  item.description.trim() !== '' && item.unitCost > 0 && item.quantity > 0;
+  item.description.trim() !== '' && item.unitCost !== 0 && item.quantity > 0;
 
 // Generate unique ID for line items
 export const generateLineItemId = (): string =>

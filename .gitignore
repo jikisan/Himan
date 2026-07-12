@@ -15,3 +15,22 @@ web/.claude/commands/code-review.md
 .DS_Store
 .idea
 node_modules
+
+# Claude local settings
+.claude/settings.json
+
+# Graphify output
+graphify-out/
+
+# Stray root TS config
+/tsconfig.json
+
+# Expo scaffold + native projects
+.expo/
+mobile/.expo/
+mobile/expo-env.d.ts
+mobile/android/
+mobile/ios/
+
+# Mobile build artifacts
+mobile/*.apk

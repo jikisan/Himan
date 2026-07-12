@@ -1,11 +1,21 @@
 {
   "private": true,
+  "packageManager": "npm@11.6.2",
   "workspaces": [
     "packages/*",
     "web",
     "mobile"
   ],
   "scripts": {
-    "build:web": "npm run build -w @himan/web"
+    "build:web": "npm run build -w @himan/web",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  },
+  "name": "Himan",
+  "version": "1.0.0",
+  "dependencies": {
+    "expo": "~54.0.34",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

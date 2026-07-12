@@ -263,7 +263,10 @@ export class GrocerySessionRepository {
         grocery_item_id: null,
         list_name: dto.listName ?? 'Added Items',
         name: dto.name.trim(),
-        quantity: 1,
+        category: dto.category ?? null,
+        quantity: dto.quantity ?? 1,
+        unit: dto.unit ?? null,
+        notes: dto.notes ?? null,
         is_purchased: false,
       })
       .select()

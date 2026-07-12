@@ -30,31 +30,6 @@ npm run deploy:preview # Build + deploy to Cloudflare Pages (preview)
 ## Architecture
 
 See root `CLAUDE.md` for the three-layer architecture pattern. Feature modules live under `src/modules/`.
-## Monorepo Context
-
-This is the `@himan/web` workspace in an npm workspaces monorepo. See the root `CLAUDE.md` for overall architecture and shared package details.
-
-**Important**: Run `npm install` from the repo root (not from `web/`) to set up workspace symlinks.
-
-### Shared Package Integration
-
-- Supabase client: initialized in `src/modules/shared/infrastructure/config/supabase.ts` via `initSupabase()` from `@himan/shared`
-- Logger: initialized in `src/modules/shared/infrastructure/services/Logger.ts` via `initLogger()` from `@himan/shared`
-- Module infrastructure `index.ts` files re-export repositories/services from `@himan/shared/<module>`
-- Browser-specific services (ThumbnailService, CompressionService, InvoicePDFService, LocalNotesStorage) stay in web
-
-## Commands
-
-```bash
-npm run dev          # Start dev server
-npm run build        # TypeScript check + Vite build
-npm run lint         # ESLint
-npm test             # Vitest in watch mode
-npm run test:run     # Run tests once
-npm run test:coverage # Tests with coverage
-npm run deploy       # Build + deploy to Cloudflare Pages (production)
-npm run deploy:preview # Build + deploy to Cloudflare Pages (preview)
-```
 
 ## Path Aliases
 

@@ -7,7 +7,9 @@ export class GroceryRealtimeService {
   private itemsChannel: RealtimeChannel | null = null;
   private sessionChannel: RealtimeChannel | null = null;
   private sessionItemsChannel: RealtimeChannel | null = null;
+  private sessionItemsSessionId: string | null = null;
   private presenceChannel: RealtimeChannel | null = null;
+  private presenceSessionId: string | null = null;
 
   subscribeToItems(
     listId: string,
@@ -69,8 +71,10 @@ export class GroceryRealtimeService {
     sessionId: string,
     onChange: () => void
   ): void {
+    if (this.sessionItemsSessionId === sessionId && this.sessionItemsChannel) return;
     this.unsubscribeFromSessionItems();
 
+    this.sessionItemsSessionId = sessionId;
     this.sessionItemsChannel = getSupabase()
       .channel(`grocery-session-items:${sessionId}`)
       .on(
@@ -90,6 +94,7 @@ export class GroceryRealtimeService {
     if (this.sessionItemsChannel) {
       getSupabase().removeChannel(this.sessionItemsChannel);
       this.sessionItemsChannel = null;
+      this.sessionItemsSessionId = null;
     }
   }
 
@@ -99,8 +104,10 @@ export class GroceryRealtimeService {
     displayName: string,
     onSync: (presences: SessionPresence[]) => void
   ): void {
+    if (this.presenceSessionId === sessionId && this.presenceChannel) return;
     this.unsubscribeFromPresence();
 
+    this.presenceSessionId = sessionId;
     this.presenceChannel = getSupabase()
       .channel(`grocery-session:${sessionId}`)
       .on('presence', { event: 'sync' }, () => {
@@ -136,6 +143,7 @@ export class GroceryRealtimeService {
     if (this.presenceChannel) {
       getSupabase().removeChannel(this.presenceChannel);
       this.presenceChannel = null;
+      this.presenceSessionId = null;
     }
   }
 

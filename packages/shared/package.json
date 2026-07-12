@@ -17,8 +17,10 @@
     "./invoice-generator": "./src/modules/invoice-generator/index.ts",
     "./auth": "./src/modules/auth/index.ts"
   },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.89.0"
+  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0",
     "zod": "^4.2.1",
     "date-fns": "^4.1.0"
   }

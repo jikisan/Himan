@@ -22,7 +22,7 @@ export default defineConfig({
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', '@supabase/supabase-js'],
   },
   optimizeDeps: {
     include: ['@tanstack/react-query'],

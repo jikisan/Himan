@@ -17,3 +17,18 @@ web/.claude/commands/code-review.md
 .DS_Store
 .idea
 node_modules
+/graphify-out
+/mobile/.expo
+/.expo
+/.claude/settings.json
+
+# Expo/React Native native build artifacts
+/mobile/android
+/mobile/ios
+/mobile/*.apk
+/mobile/*.aab
+/mobile/*.ipa
+/mobile/expo-env.d.ts
+
+# Root tsconfig (if editor-generated)
+/tsconfig.json

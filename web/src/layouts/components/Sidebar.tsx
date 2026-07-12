@@ -8,7 +8,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Receipt
+  Receipt,
+  ShoppingCart
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 
@@ -24,6 +25,7 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/notes', label: 'Notes', icon: FileText },
+    { path: '/grocery', label: 'Grocery', icon: ShoppingCart },
     { path: '/invoice-generator', label: 'Invoices', icon: Receipt },
     { path: '/profile', label: 'Profile', icon: User },
     { path: '/settings', label: 'Settings', icon: Settings },

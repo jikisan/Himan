@@ -2,7 +2,40 @@
   "name": "@himan/mobile",
   "version": "0.1.0",
   "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
-    "@himan/shared": "*"
+    "@himan/shared": "*",
+    "@react-native-google-signin/google-signin": "^16.1.2",
+    "@tanstack/react-query": "^5.0.0",
+    "expo": "~54.0.0",
+    "expo-auth-session": "~7.0.11",
+    "expo-constants": "~18.0.0",
+    "expo-font": "~14.0.0",
+    "expo-linking": "~8.0.0",
+    "expo-router": "~6.0.0",
+    "expo-secure-store": "~14.2.0",
+    "expo-status-bar": "~2.2.0",
+    "expo-web-browser": "~15.0.11",
+    "nativewind": "^4.2.3",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.3.0",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "~4.16.0",
+    "expo-clipboard": "~7.1.0",
+    "react-native-quick-crypto": "^0.7.15",
+    "react-native-shadow-2": "^7.1.2",
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.8.0"
   }
 }

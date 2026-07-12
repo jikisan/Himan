@@ -30,6 +30,7 @@
       "@settings/*": ["src/modules/settings/*"],
       "@subscriptions/*": ["src/modules/subscriptions/*"],
       "@invoice-generator/*": ["src/modules/invoice-generator/*"],
+      "@grocery/*": ["src/modules/grocery/*"],
       "@app/*": ["src/app/*"],
       "@modules/*": ["src/modules/*"]
     },

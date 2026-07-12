@@ -6,6 +6,7 @@ import {
   Textarea,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -240,6 +241,7 @@ SEO Package | 15000 | 1
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Bulk Import Line Items</DialogTitle>
+            <DialogDescription className="sr-only">Enter line items in bulk using the pipe-separated format</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">

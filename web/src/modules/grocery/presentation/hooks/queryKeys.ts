@@ -1,0 +1,14 @@
+export const groceryKeys = {
+  all: ['grocery'] as const,
+  lists: () => [...groceryKeys.all, 'lists'] as const,
+  list: (id: string) => [...groceryKeys.all, 'list', id] as const,
+  items: (listId: string) => [...groceryKeys.all, 'items', listId] as const,
+  activeSession: () => [...groceryKeys.all, 'activeSession'] as const,
+  sessions: () => [...groceryKeys.all, 'sessions'] as const,
+  catalog: () => [...groceryKeys.all, 'catalog'] as const,
+  catalogSearch: (query: string) => [...groceryKeys.all, 'catalog', query] as const,
+  suggestions: (listId: string) => [...groceryKeys.all, 'suggestions', listId] as const,
+  invitations: () => [...groceryKeys.all, 'invitations'] as const,
+  recentStores: () => [...groceryKeys.all, 'recentStores'] as const,
+  members: (listId: string) => [...groceryKeys.all, 'members', listId] as const,
+};

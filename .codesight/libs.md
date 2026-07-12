@@ -1,0 +1,142 @@
+# Libraries
+
+- `packages/shared/src/config/supabase.ts`
+  - function initSupabase: (config) => SupabaseClient
+  - function getSupabase: () => SupabaseClient
+  - interface SupabaseConfig
+- `packages/shared/src/modules/auth/domain/entities/User.ts` — class User
+- `packages/shared/src/modules/cards/domain/entities/CardCategory.ts` — class CardCategory
+- `packages/shared/src/modules/cards/domain/entities/CreditCard.ts` — class CreditCard
+- `packages/shared/src/modules/cards/infrastructure/repositories/CardCategoryRepository.ts` — class CardCategoryRepository
+- `packages/shared/src/modules/cards/infrastructure/repositories/CreditCardRepository.ts` — class CreditCardRepository
+- `packages/shared/src/modules/cards/infrastructure/services/CardEncryptionService.ts` — class CardEncryptionService
+- `packages/shared/src/modules/grocery/domain/entities/GroceryItem.ts` — class GroceryItem
+- `packages/shared/src/modules/grocery/domain/entities/GroceryList.ts` — class GroceryList
+- `packages/shared/src/modules/grocery/domain/entities/GrocerySession.ts` — class GrocerySession
+- `packages/shared/src/modules/grocery/domain/entities/Product.ts` — class Product
+- `packages/shared/src/modules/grocery/domain/usecases/SuggestItems.ts` — class SuggestItems
+- `packages/shared/src/modules/grocery/infrastructure/repositories/GroceryInvitationRepository.ts` — class GroceryInvitationRepository
+- `packages/shared/src/modules/grocery/infrastructure/repositories/GroceryItemRepository.ts` — class GroceryItemRepository
+- `packages/shared/src/modules/grocery/infrastructure/repositories/GroceryListRepository.ts` — class GroceryListRepository
+- `packages/shared/src/modules/grocery/infrastructure/repositories/GrocerySessionRepository.ts` — class GrocerySessionRepository
+- `packages/shared/src/modules/grocery/infrastructure/repositories/ProductCatalogRepository.ts` — class ProductCatalogRepository
+- `packages/shared/src/modules/grocery/infrastructure/services/GroceryRealtimeService.ts` — class GroceryRealtimeService
+- `packages/shared/src/modules/invoice-generator/domain/entities/Invoice.ts` — class Invoice
+- `packages/shared/src/modules/invoice-generator/domain/entities/InvoiceFolder.ts` — class InvoiceFolder
+- `packages/shared/src/modules/invoice-generator/domain/entities/InvoiceSavedOption.ts` — class InvoiceSavedOption
+- `packages/shared/src/modules/invoice-generator/domain/types/index.ts`
+  - function isValidLineItem
+  - function generateLineItemId
+  - interface LineItem
+  - interface InvoiceData
+  - interface CurrencyConfig
+  - type CurrencyCode
+  - _...15 more_
+- `packages/shared/src/modules/invoice-generator/infrastructure/repositories/InvoiceFolderRepository.ts` — class InvoiceFolderRepository
+- `packages/shared/src/modules/invoice-generator/infrastructure/repositories/InvoiceRepository.ts` — class InvoiceRepository
+- `packages/shared/src/modules/invoice-generator/infrastructure/repositories/SavedOptionRepository.ts` — class SavedOptionRepository
+- `packages/shared/src/modules/invoice-generator/infrastructure/services/InvoiceNumberService.ts` — class InvoiceNumberService
+- `packages/shared/src/modules/notes/domain/entities/Folder.ts` — class Folder
+- `packages/shared/src/modules/notes/domain/entities/Note.ts` — class Note
+- `packages/shared/src/modules/notes/infrastructure/repositories/FolderRepository.ts` — class FolderRepository
+- `packages/shared/src/modules/notes/infrastructure/repositories/HybridNoteRepository.ts` — class HybridNoteRepository
+- `packages/shared/src/modules/notes/infrastructure/repositories/NoteRepository.ts` — class NoteRepository
+- `packages/shared/src/modules/notes/infrastructure/services/NoteSyncService.ts` — class NoteSyncService
+- `packages/shared/src/modules/passwords/domain/entities/Category.ts` — class Category
+- `packages/shared/src/modules/passwords/domain/entities/Password.ts` — class Password
+- `packages/shared/src/modules/passwords/infrastructure/repositories/CategoryRepository.ts` — class CategoryRepository
+- `packages/shared/src/modules/passwords/infrastructure/repositories/PasswordRepository.ts` — class PasswordRepository
+- `packages/shared/src/modules/passwords/infrastructure/services/EncryptionService.ts` — class EncryptionService
+- `packages/shared/src/modules/storage/domain/entities/File.ts` — class File
+- `packages/shared/src/modules/storage/domain/entities/StorageFolder.ts` — class StorageFolder
+- `packages/shared/src/modules/storage/infrastructure/repositories/FileRepository.ts` — class FileRepository
+- `packages/shared/src/modules/storage/infrastructure/repositories/StorageFolderRepository.ts` — class StorageFolderRepository
+- `packages/shared/src/modules/storage/infrastructure/services/StorageService.ts` — class StorageService
+- `packages/shared/src/modules/subscriptions/domain/constants/tierLimits.ts`
+  - function isUnlimited
+  - function getLimit
+  - const TIER_LIMITS: Record<TierType, TierLimits>
+  - const TIER_NAMES: Record<TierType, string>
+  - const TIER_DESCRIPTIONS: Record<TierType, string>
+  - const ROLE_NAMES: Record<string, string>
+  - _...1 more_
+- `packages/shared/src/modules/subscriptions/domain/entities/Subscription.ts` — class Subscription
+- `packages/shared/src/modules/subscriptions/domain/entities/UsageLimits.ts` — class UsageLimits
+- `packages/shared/src/modules/subscriptions/domain/usecases/CheckFeatureAccess.ts` — class CheckFeatureAccess
+- `packages/shared/src/modules/subscriptions/domain/usecases/GetCurrentUsage.ts` — class GetCurrentUsage
+- `packages/shared/src/modules/subscriptions/infrastructure/repositories/SubscriptionRepository.ts` — class SubscriptionRepository
+- `packages/shared/src/modules/subscriptions/infrastructure/repositories/UsageLimitsRepository.ts` — class UsageLimitsRepository
+- `packages/shared/src/services/Logger.ts`
+  - function initLogger: (config) => LoggerService
+  - function getLogger: () => LoggerService
+  - interface LoggerConfig
+- `web/src/modules/auth/domain/entities/User.ts` — class User
+- `web/src/modules/auth/infrastructure/api/SupabaseAuthRepository.ts` — class SupabaseAuthRepository
+- `web/src/modules/auth/presentation/hooks/useAuth.ts` — function useAuth
+- `web/src/modules/auth/presentation/hooks/useLogin.ts` — function useLogin
+- `web/src/modules/cards/domain/entities/CardCategory.ts` — class CardCategory
+- `web/src/modules/cards/domain/entities/CreditCard.ts` — class CreditCard
+- `web/src/modules/cards/presentation/hooks/useCardCategories.ts` — function useCardCategories
+- `web/src/modules/cards/presentation/hooks/useCards.ts` — function useCards
+- `web/src/modules/grocery/presentation/hooks/useGroceryInvitations.ts` — function useGroceryInvitations
+- `web/src/modules/grocery/presentation/hooks/useGroceryItems.ts` — function useGroceryItems
+- `web/src/modules/grocery/presentation/hooks/useGroceryLists.ts` — function useGroceryLists
+- `web/src/modules/grocery/presentation/hooks/useGroceryRealtime.ts` — function useGroceryRealtime
+- `web/src/modules/grocery/presentation/hooks/useGrocerySession.ts` — function useGrocerySession
+- `web/src/modules/grocery/presentation/hooks/useProductCatalog.ts` — function useProductCatalog
+- `web/src/modules/grocery/presentation/hooks/useSuggestions.ts` — function useSuggestions
+- `web/src/modules/invoice-generator/domain/entities/Invoice.ts` — class Invoice
+- `web/src/modules/invoice-generator/domain/entities/InvoiceFolder.ts` — class InvoiceFolder
+- `web/src/modules/invoice-generator/domain/entities/InvoiceSavedOption.ts` — class InvoiceSavedOption
+- `web/src/modules/invoice-generator/domain/types/index.ts`
+  - function isValidLineItem
+  - function generateLineItemId
+  - interface LineItem
+  - interface InvoiceData
+  - interface CurrencyConfig
+  - type CurrencyCode
+  - _...15 more_
+- `web/src/modules/invoice-generator/infrastructure/services/InvoicePDFService.ts` — class InvoicePDFService
+- `web/src/modules/invoice-generator/presentation/hooks/useInvoiceFolders.ts` — function useInvoiceFolders, const invoiceFolderKeys
+- `web/src/modules/invoice-generator/presentation/hooks/useInvoiceNumber.ts` — function useInvoiceNumber
+- `web/src/modules/invoice-generator/presentation/hooks/useInvoicePDF.ts` — function useInvoicePDF
+- `web/src/modules/invoice-generator/presentation/hooks/useInvoices.ts` — function useInvoices
+- `web/src/modules/invoice-generator/presentation/hooks/useSavedOptions.ts` — function useSavedOptions
+- `web/src/modules/invoice-generator/presentation/utils/currency.ts`
+  - function formatCurrency
+  - function getCurrencySymbol
+  - function parseCurrencyInput
+- `web/src/modules/invoice-generator/presentation/utils/pdf.ts` — function getPDFOptions, function getPDFBuildOptions
+- `web/src/modules/notes/domain/entities/Folder.ts` — class Folder
+- `web/src/modules/notes/domain/entities/Note.ts` — class Note
+- `web/src/modules/notes/infrastructure/storage/LocalNotesStorage.ts` — class LocalNotesStorage
+- `web/src/modules/notes/presentation/hooks/useEditor.ts` — function useEditor, const NOTE_CONTENT_MAX_LENGTH
+- `web/src/modules/notes/presentation/hooks/useFolders.ts` — function useFolders
+- `web/src/modules/notes/presentation/hooks/useNotes.ts` — function useNotes
+- `web/src/modules/passwords/domain/entities/Category.ts` — class Category
+- `web/src/modules/passwords/domain/entities/Password.ts` — class Password
+- `web/src/modules/passwords/presentation/hooks/useCategories.ts` — function useCategories
+- `web/src/modules/passwords/presentation/hooks/usePasswords.ts` — function usePasswords
+- `web/src/modules/shared/presentation/utils/cn.ts` — function cn: (...inputs) => void
+- `web/src/modules/shared/presentation/utils/date.ts` — function formatRelativeTime: (date) => string
+- `web/src/modules/shared/presentation/utils/url.ts` — function isSafeUrl, function safeOpenUrl
+- `web/src/modules/storage/domain/entities/File.ts` — class File
+- `web/src/modules/storage/domain/entities/StorageFolder.ts` — class StorageFolder
+- `web/src/modules/storage/infrastructure/services/CompressionService.ts` — class CompressionService
+- `web/src/modules/storage/infrastructure/services/ThumbnailService.ts` — class ThumbnailService
+- `web/src/modules/storage/presentation/hooks/useFileUpload.ts` — function useFileUpload
+- `web/src/modules/storage/presentation/hooks/useFiles.ts` — function useFiles
+- `web/src/modules/storage/presentation/hooks/useStorageFolders.ts` — function useStorageFolders
+- `web/src/modules/subscriptions/domain/constants/tierLimits.ts`
+  - function isUnlimited
+  - function getLimit
+  - const TIER_LIMITS: Record<TierType, TierLimits>
+  - const TIER_NAMES: Record<TierType, string>
+  - const TIER_DESCRIPTIONS: Record<TierType, string>
+  - const ROLE_NAMES: Record<string, string>
+  - _...1 more_
+- `web/src/modules/subscriptions/domain/entities/Subscription.ts` — class Subscription
+- `web/src/modules/subscriptions/domain/entities/UsageLimits.ts` — class UsageLimits
+- `web/src/modules/subscriptions/domain/usecases/CheckFeatureAccess.ts` — class CheckFeatureAccess
+- `web/src/modules/subscriptions/domain/usecases/GetCurrentUsage.ts` — class GetCurrentUsage
+- `web/src/modules/subscriptions/presentation/hooks/useSubscription.ts` — function useSubscription

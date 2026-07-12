@@ -1,29 +1,62 @@
-# MCP configuration with sensitive tokens
-.mcp.json
-
-# Environment variables
+# ==========================================
+# Environment & Secrets
+# ==========================================
 .env
 web/.env
-
-# Google OAuth secrets
+.mcp.json
 client_secret_*.json
 
-# Documentation backup folder (if needed)
+# ==========================================
+# Dependencies
+# ==========================================
+node_modules/
+
+# ==========================================
+# IDE & OS Files
+# ==========================================
+.DS_Store
+.idea/
+
+# ==========================================
+# Claude
+# ==========================================
+.claude/settings.json
+.claude/settings.local.json
+web/.claude/commands/code-review.md
+
+# ==========================================
+# Documentation
+# ==========================================
 MD_files/
 
-# Root package-lock — keep committed so EAS detects npm (not yarn)
-# /package-lock.json
-web/.claude/commands/code-review.md
-.DS_Store
-.idea
-node_modules
-packages/shared/tsconfig.tsbuildinfo
-/graphify-out
-/mobile/ios
-/mobile/android
-/.expo
-/mobile/.expo/web
-/.claude/settings.json
-/.claude/settings.local.json
-/tsconfig.json
+# ==========================================
+# Build Artifacts
+# ==========================================
+graphify-out/
 *.apk
+mobile/*.apk
+
+# ==========================================
+# Expo
+# ==========================================
+.expo/
+mobile/.expo/
+mobile/expo-env.d.ts
+
+# ==========================================
+# Native Mobile Projects
+# ==========================================
+mobile/android/
+mobile/ios/
+
+# ==========================================
+# TypeScript
+# ==========================================
+tsconfig.json
+packages/shared/tsconfig.tsbuildinfo
+
+# ==========================================
+# Lock Files
+# ==========================================
+# Keep package-lock.json committed so EAS uses npm instead of Yarn.
+# package-lock.json

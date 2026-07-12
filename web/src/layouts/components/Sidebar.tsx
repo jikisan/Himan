@@ -68,7 +68,7 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) => cn(
+            className={({ isActive }: { isActive: boolean }) => cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-foreground",
               "hover:bg-accent",
               isActive && "bg-accent text-primary",

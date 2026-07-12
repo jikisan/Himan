@@ -11,8 +11,6 @@ client_secret_*.json
 # Documentation backup folder (if needed)
 MD_files/
 
-# Root package-lock (if using workspaces)
-/package-lock.json
 web/.claude/commands/code-review.md
 .DS_Store
 .idea

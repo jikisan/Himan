@@ -48,7 +48,7 @@ export const MobileNav = ({ isOpen, onClose }: MobileNavProps) => {
               key={item.path}
               to={item.path}
               onClick={onClose}
-              className={({ isActive }) => cn(
+              className={({ isActive }: { isActive: boolean }) => cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-foreground",
                 "hover:bg-accent",
                 isActive && "bg-accent font-medium text-primary"

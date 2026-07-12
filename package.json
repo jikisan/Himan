@@ -6,7 +6,8 @@
     "mobile"
   ],
   "scripts": {
-    "build:web": "npm run build -w @himan/web"
+    "build:web": "node scripts/install-platform-bindings.mjs && npm run build -w @himan/web",
+    "postinstall": "node scripts/install-platform-bindings.mjs"
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-x64-gnu": "1.0.0-beta.50",

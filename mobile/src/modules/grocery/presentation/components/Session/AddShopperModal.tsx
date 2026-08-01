@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, TextInput, Modal, Alert, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { SessionMemberType, SessionPresence } from '@himan/shared/grocery';
+import { FriendPicker } from '../Invitation/FriendPicker';
 
 interface AddShopperModalProps {
   open: boolean;
@@ -107,6 +108,17 @@ export const AddShopperModal = ({
                 })}
               </ScrollView>
             </View>
+          )}
+
+          {isOwner && (
+            <FriendPicker
+              excludeUserIds={members.map((m) => m.userId)}
+              onPick={async (friendEmail) => {
+                await onAddShopper(friendEmail);
+                onOpenChange(false);
+              }}
+              disabled={isAdding}
+            />
           )}
 
           {isOwner && (

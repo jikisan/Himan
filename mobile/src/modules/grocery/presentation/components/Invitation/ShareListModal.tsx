@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, TextInput, Modal, ScrollView, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryInvitationType } from '@himan/shared/grocery';
+import { FriendPicker } from './FriendPicker';
 
 interface ShareListModalProps {
   open: boolean;
@@ -69,6 +70,14 @@ export const ShareListModal = ({
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Share "{listName}"
             </Text>
+
+            {isOwner && (
+              <FriendPicker
+                excludeUserIds={members.map((m) => m.userId)}
+                onPick={(friendEmail) => onInvite(friendEmail)}
+                disabled={isInviting}
+              />
+            )}
 
             {isOwner && (
               <View className="flex flex-row gap-2 mb-4">

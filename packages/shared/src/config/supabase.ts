@@ -1,4 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database.types.js';
+
+/** Supabase client typed against the generated `Database` schema. */
+export type TypedSupabaseClient = SupabaseClient<Database>;
 
 export interface SupabaseConfig {
   url: string;
@@ -10,10 +14,10 @@ export interface SupabaseConfig {
   };
 }
 
-let _supabase: SupabaseClient | null = null;
+let _supabase: TypedSupabaseClient | null = null;
 
-export function initSupabase(config: SupabaseConfig): SupabaseClient {
-  _supabase = createClient(config.url, config.anonKey, {
+export function initSupabase(config: SupabaseConfig): TypedSupabaseClient {
+  _supabase = createClient<Database>(config.url, config.anonKey, {
     auth: {
       ...(config.authStorage && { storage: config.authStorage }),
     },
@@ -21,7 +25,7 @@ export function initSupabase(config: SupabaseConfig): SupabaseClient {
   return _supabase;
 }
 
-export function getSupabase(): SupabaseClient {
+export function getSupabase(): TypedSupabaseClient {
   if (!_supabase) {
     throw new Error('Supabase not initialized. Call initSupabase() first.');
   }

@@ -105,7 +105,7 @@ Mobile uses only `@/*` → `./src/*`.
 ### Backend
 
 - **Supabase**: auth, database, storage, Row-Level Security on all tables
-- Migrations in `web/supabase/migrations/` (timestamped SQL files)
+- Migrations in `supabase/migrations/` (repo root, timestamped SQL files, managed by Supabase CLI)
 - RLS policies use `auth.uid()` — every table scoped to authenticated user
 
 ## Adding New Modules

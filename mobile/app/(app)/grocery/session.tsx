@@ -1,302 +1,175 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useToast } from '@/modules/shared/components/useToast';
+import { useMemo } from 'react';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
-import { Shadow } from 'react-native-shadow-2';
+import { useColorScheme } from 'nativewind';
+import { GrocerySession, UserPreferencesRepository } from '@himan/shared/grocery';
+import type { SessionItemType } from '@himan/shared/grocery';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
-import { useGrocerySession, useGroceryRealtime } from '@/modules/grocery/presentation/hooks';
+import { useErrandSession } from '@/modules/grocery/presentation/hooks/useErrandSession';
+import { groceryKeys } from '@/modules/grocery/presentation/hooks/queryKeys';
 import {
-  SessionBanner,
-  EndShoppingModal,
-  AddShopperModal,
-  SessionHeader,
-  SessionParticipants,
-  SessionTabSwitcher,
-  SessionItemList,
-  PriceInputModal,
-} from '@/modules/grocery/presentation/components';
-import { ItemDetailSheet } from '@/modules/grocery/presentation/components';
-import { TabType, CollapseLevel } from '@/modules/grocery/presentation/components/Session/types';
+  PaperSurface,
+  SectionHeading,
+  PurchaseRow,
+  SyncBadge,
+} from '@/modules/grocery/presentation/components/notebook';
+import { notebook } from '@/modules/grocery/presentation/theme/notebook';
 
-export default function GrocerySessionScreen() {
-  const { user } = useAuth();
+export default function ErrandSessionScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { colorScheme } = useColorScheme();
+  const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
+  const { session, isLoading, togglePurchase, completeErrand, cancelErrand } =
+    useErrandSession();
 
-  // UI State
-  const [activeTab, setActiveTab] = useState<TabType>('to-get');
-  const [endShoppingDialogOpen, setEndShoppingDialogOpen] = useState(false);
-  const [shoppersDialogOpen, setShoppersDialogOpen] = useState(false);
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [collapseStamp, setCollapseStamp] = useState<{ level: CollapseLevel; n: number }>({
-    level: 0,
-    n: 1,
+  const { data: currency = '₱' } = useQuery({
+    queryKey: [...groceryKeys.all, 'currency'],
+    queryFn: async () => (await new UserPreferencesRepository().get(user!.id)).currency,
+    enabled: !!user?.id,
   });
-  const [collapseLevel, setCollapseLevel] = useState<CollapseLevel>(0);
-  const [pendingPurchaseItem, setPendingPurchaseItem] = useState<{
-    sessionItemId: string;
-    groceryItemId: string | null;
-    name: string;
-    quantity: number;
-    unit: string | null;
-    notes: string | null;
-    price: number | null;
-  } | null>(null);
 
-  // Data hooks
-  const {
-    activeSession,
-    participants,
-    realtimeService,
-    endSession,
-    cancelSession,
-    purchaseItem,
-    unpurchaseItem,
-    addShopper,
-    addSessionItem,
-    isEnding,
-    isCancelling,
-    isAddingShopper,
-    isPurchasing,
-  } = useGrocerySession({ enablePresence: true });
+  const errand = useMemo(() => (session ? new GrocerySession(session) : null), [session]);
 
-  useGroceryRealtime(null, activeSession?.id ?? null, realtimeService);
+  const groups = useMemo(() => {
+    const map = new Map<string, SessionItemType[]>();
+    for (const item of session?.items ?? []) {
+      const key = item.category || 'Other';
+      const arr = map.get(key) ?? [];
+      arr.push(item);
+      map.set(key, arr);
+    }
+    return Array.from(map.entries());
+  }, [session]);
 
-  const { showToast, ToastView } = useToast();
+  const money = (n: number) => `${currency}${n.toFixed(2)}`;
 
-  // Derived state
-  const isOwner = !!user && !!activeSession && user.id === activeSession.startedBy;
-
-  const sessionItemsByList = activeSession
-    ? activeSession.items.reduce((acc: Record<string, any[]>, item) => {
-        const listName = item.listName || 'Unknown';
-        if (!acc[listName]) acc[listName] = [];
-        acc[listName].push(item);
-        return acc;
-      }, {})
-    : {};
-
-  const unpurchasedItems = activeSession?.items.filter((i) => !i.isPurchased) ?? [];
-  const purchasedItems = activeSession?.items.filter((i) => i.isPurchased) ?? [];
-
-  // Handlers
-  const handleTogglePurchase = useCallback(
-    async (sessionItemId: string, groceryItemId: string | null) => {
-      const item = activeSession?.items.find((i) => i.id === sessionItemId);
-      if (!item) return;
-
-      if (item.isPurchased) {
-        try {
-          await unpurchaseItem(sessionItemId, groceryItemId);
-          showToast('Item moved back to list', 'success');
-        } catch {
-          showToast('Failed to update item', 'error');
-        }
-      } else {
-        setPendingPurchaseItem({
-          sessionItemId,
-          groceryItemId,
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          notes: item.notes,
-          price: item.price,
-        });
-      }
-    },
-    [activeSession, unpurchaseItem, showToast]
-  );
-
-  const handlePriceConfirm = useCallback(
-    async (price: number | null) => {
-      if (!pendingPurchaseItem) return;
-      const { sessionItemId, groceryItemId } = pendingPurchaseItem;
-      setPendingPurchaseItem(null);
-      try {
-        await purchaseItem(sessionItemId, groceryItemId, price);
-        showToast('Item marked as purchased', 'success');
-      } catch {
-        showToast('Failed to update item', 'error');
-      }
-    },
-    [pendingPurchaseItem, purchaseItem, showToast]
-  );
-
-  const handleCompleteShopping = useCallback(async () => {
-    await endSession();
-    router.back();
-  }, [endSession, router]);
-
-  const handleCancelShopping = useCallback(async () => {
-    await cancelSession();
-    router.back();
-  }, [cancelSession, router]);
-
-  const handleAddShopper = useCallback(
-    async (email: string) => {
-      await addShopper(email);
-    },
-    [addShopper]
-  );
-
-  const handleAddItem = useCallback(() => {
-    setIsAddingItem(true);
-  }, []);
-
-  const handleCloseSheet = useCallback(() => {
-    setIsAddingItem(false);
-  }, []);
-
-  const handleAddNewItem = useCallback(
-    async (dto: any) => {
-      try {
-        await addSessionItem({
-          name: dto.name,
-          category: dto.category,
-          quantity: dto.quantity,
-          unit: dto.unit,
-          notes: dto.notes,
-        });
-        setIsAddingItem(false);
-      } catch (err) {
-        console.error('Failed to add item:', err);
-      }
-    },
-    [addSessionItem]
-  );
-
-  const handleToggleCollapse = useCallback(() => {
-    const nextLevel: CollapseLevel = collapseLevel === 0 ? 1 : collapseLevel === 1 ? 2 : 0;
-    setCollapseLevel(nextLevel);
-    setCollapseStamp((prev) => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
-  }, [collapseLevel]);
-
-  // Empty state
-  if (!activeSession) {
+  if (!isLoading && !errand) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-gray-500 dark:text-gray-400">No active session</Text>
-        </View>
-      </SafeAreaView>
+      <PaperSurface>
+        <SafeAreaView className="flex-1 items-center justify-center px-8">
+          <Feather name="book-open" size={40} color={c.inkSoft} />
+          <Text className="mt-4 text-center text-ink-soft dark:text-ink-softdark">
+            No errand in progress. Start one from your lists.
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            className="mt-6 rounded-full px-5 py-2.5"
+            style={{ backgroundColor: c.accent }}
+          >
+            <Text className="font-medium" style={{ color: colorScheme === 'dark' ? '#1C1B18' : '#F7F3E9' }}>
+              Back to lists
+            </Text>
+          </Pressable>
+        </SafeAreaView>
+      </PaperSurface>
     );
   }
 
+  const confirmComplete = () =>
+    Alert.alert('Finish errand?', 'Records prices to your catalog and closes this errand.', [
+      { text: 'Keep shopping', style: 'cancel' },
+      {
+        text: 'Finish',
+        onPress: async () => {
+          await completeErrand();
+          router.back();
+        },
+      },
+    ]);
+
+  const confirmCancel = () =>
+    Alert.alert('Discard errand?', 'This errand and its progress will be deleted.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: async () => {
+          await cancelErrand();
+          router.back();
+        },
+      },
+    ]);
+
   return (
-    <View className="flex-1">
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
-      <SessionHeader
-        storeName={activeSession.storeName || 'Unknown Store'}
-        progress={activeSession.items.length > 0 ? purchasedItems.length / activeSession.items.length : 0}
-        isOwner={isOwner}
-        onOpenShoppers={() => setShoppersDialogOpen(true)}
-        onOpenEndShopping={() => setEndShoppingDialogOpen(true)}
-      />
+    <PaperSurface>
+      <SafeAreaView className="flex-1" edges={['top']}>
+        <View className="px-5 pt-2 pb-3 border-b border-rule dark:border-rule-dark">
+          <View className="flex-row items-center justify-between">
+            <Pressable onPress={() => router.back()} className="flex-row items-center gap-1 active:opacity-60">
+              <Feather name="chevron-left" size={22} color={c.ink} />
+              <Text className="text-ink dark:text-ink-dark">Lists</Text>
+            </Pressable>
+            <SyncBadge />
+          </View>
+          <SectionHeading size="xl" className="mt-1">
+            {errand?.name || errand?.storeName || 'Errand'}
+          </SectionHeading>
+          {errand?.storeName && errand?.name ? (
+            <Text className="text-ink-soft dark:text-ink-softdark">{errand.storeName}</Text>
+          ) : null}
+          <Text className="mt-0.5 text-ink-soft dark:text-ink-softdark">
+            {errand ? `${errand.purchasedCount}/${errand.items.length} crossed off` : ''}
+          </Text>
+        </View>
 
-      <View className="px-3 mt-2">
-        <SessionBanner
-          storeName={activeSession.storeName || 'Unknown Store'}
-          progress={activeSession.items.length > 0 ? purchasedItems.length / activeSession.items.length : 0}
-          completedCount={purchasedItems.length}
-          totalCount={activeSession.items.length}
-          onEnd={() => setEndShoppingDialogOpen(true)}
-          onCancel={handleCancelShopping}
-        />
-      </View>
-
-
-      <SessionParticipants count={participants.length} />
-
-      <SessionTabSwitcher
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        toGetCount={unpurchasedItems.length}
-        purchasedCount={purchasedItems.length}
-      />
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <ScrollView className="flex-1">
-          <SessionItemList
-            activeTab={activeTab}
-            sessionItemsByList={sessionItemsByList}
-            unpurchasedItems={unpurchasedItems}
-            purchasedItems={purchasedItems}
-            collapseLevel={collapseLevel}
-            collapseStamp={collapseStamp}
-            onToggleCollapse={handleToggleCollapse}
-            onTogglePurchase={handleTogglePurchase}
-          />
-          <View className="h-24" />
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 150 }}>
+          {groups.map(([category, items]) => (
+            <View key={category}>
+              <Text className="px-6 pt-4 pb-1 text-xs uppercase tracking-wider text-ink-soft dark:text-ink-softdark">
+                {category}
+              </Text>
+              {items.map((item) => (
+                <PurchaseRow
+                  key={item.id}
+                  name={item.name}
+                  category={null}
+                  quantityLabel={
+                    item.quantity ? `${item.quantity}${item.unit ? ` ${item.unit}` : ''}` : null
+                  }
+                  priceLabel={
+                    item.isPurchased && item.pricePaid != null
+                      ? money(item.pricePaid * (item.quantityPurchased ?? item.quantity ?? 1))
+                      : item.price != null
+                        ? money(item.price)
+                        : null
+                  }
+                  purchased={item.isPurchased}
+                  onToggle={() => togglePurchase(item)}
+                />
+              ))}
+            </View>
+          ))}
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {isOwner && (
-        <EndShoppingModal
-          open={endShoppingDialogOpen}
-          onOpenChange={setEndShoppingDialogOpen}
-          onComplete={handleCompleteShopping}
-          onCancel={handleCancelShopping}
-          isCompleting={isEnding}
-          isCancelling={isCancelling}
-        />
-      )}
-
-      <AddShopperModal
-        open={shoppersDialogOpen}
-        onOpenChange={setShoppersDialogOpen}
-        onAddShopper={handleAddShopper}
-        isAdding={isAddingShopper}
-        members={activeSession.members}
-        participants={participants}
-        startedBy={activeSession.startedBy}
-        currentUserId={user?.id ?? ''}
-      />
-
-      <PriceInputModal
-        open={pendingPurchaseItem !== null}
-        onOpenChange={(open) => { if (!open) setPendingPurchaseItem(null); }}
-        itemName={pendingPurchaseItem?.name ?? ''}
-        quantity={pendingPurchaseItem?.quantity ?? 1}
-        unit={pendingPurchaseItem?.unit ?? null}
-        notes={pendingPurchaseItem?.notes ?? null}
-        previousPrice={pendingPurchaseItem?.price ?? null}
-        onConfirm={handlePriceConfirm}
-      />
-
-      <ItemDetailSheet
-        open={isAddingItem}
-        onOpenChange={(open) => !open && handleCloseSheet()}
-        item={null}
-        mode="add"
-        listId=""
-        onAdd={handleAddNewItem}
-        onSave={() => {}}
-        onDelete={() => {}}
-      />
-
-      <View style={{ position: 'absolute', bottom: 24 + insets.bottom, right: 16 }}>
-          <Pressable
-              onPress={handleAddItem}
-              className="w-14 h-14 bg-indigo-500 rounded-full items-center justify-center"
-          >
-              <Feather name="plus" size={28} color="#ffffff" />
-          </Pressable>
-      </View>
-
-      {/* Loading overlay while purchasing */}
-      {isPurchasing && (
-        <View className="absolute inset-0 bg-black/20 items-center justify-center z-40">
-          <View className="bg-white dark:bg-gray-800 rounded-2xl px-6 py-4 items-center gap-2 shadow-lg">
-            <ActivityIndicator size="small" color="#6366f1" />
-            <Text className="text-gray-700 dark:text-gray-300 text-sm">Updating...</Text>
+        <View className="absolute left-0 right-0 bottom-0 px-5 pt-3 pb-6 border-t border-rule dark:border-rule-dark bg-paper dark:bg-paper-dark">
+          <View className="flex-row justify-between">
+            <Text className="text-ink-soft dark:text-ink-softdark">Estimated</Text>
+            <Text className="text-ink-soft dark:text-ink-softdark" style={{ fontVariant: ['tabular-nums'] }}>
+              {money(errand?.estimatedTotal ?? 0)}
+            </Text>
+          </View>
+          <View className="flex-row justify-between mt-0.5">
+            <Text className="text-ink dark:text-ink-dark font-medium">Actual so far</Text>
+            <Text className="text-ink dark:text-ink-dark font-semibold text-base" style={{ fontVariant: ['tabular-nums'] }}>
+              {money(errand?.actualTotal ?? 0)}
+            </Text>
+          </View>
+          <View className="flex-row gap-3 mt-3">
+            <Pressable onPress={confirmCancel} className="flex-1 rounded-full py-3 items-center border" style={{ borderColor: c.margin }}>
+              <Text style={{ color: c.margin }} className="font-medium">Discard</Text>
+            </Pressable>
+            <Pressable onPress={confirmComplete} className="flex-1 rounded-full py-3 items-center" style={{ backgroundColor: c.accent }}>
+              <Text className="font-semibold" style={{ color: colorScheme === 'dark' ? '#1C1B18' : '#F7F3E9' }}>
+                Finish errand
+              </Text>
+            </Pressable>
           </View>
         </View>
-      )}
-    </SafeAreaView>
-
-    {ToastView}
-    </View>
+      </SafeAreaView>
+    </PaperSurface>
   );
 }

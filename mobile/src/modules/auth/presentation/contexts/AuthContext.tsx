@@ -17,13 +17,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const supabase = getSupabase();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+      })
+      .catch(() => {
+        // Network error reading/refreshing the session: stay on whatever
+        // cached user we have rather than bouncing to login while offline.
+      })
+      .finally(() => setLoading(false));
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only clear the user on an explicit sign-out (invalid refresh token).
+      // Transient refresh failures while offline keep the session intact.
+      if (session?.user) {
+        setUser(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
     });
 
     return () => subscription.unsubscribe();

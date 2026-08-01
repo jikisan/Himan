@@ -36,6 +36,7 @@ export interface SessionItemType {
   id: string;
   sessionId: string;
   groceryItemId: string | null;
+  productId: string | null;
   listName: string;
   name: string;
   category: string | null;
@@ -44,19 +45,54 @@ export interface SessionItemType {
   notes: string | null;
   isPurchased: boolean;
   purchasedAt: Date | null;
-  price: number | null;
+  price: number | null; // estimated / snapshot price
+  pricePaid: number | null;
+  quantityPurchased: number | null;
+  aisle: string | null;
+  storeId: string | null;
 }
 
 // Grocery session
 export interface GrocerySessionType {
   id: string;
+  name: string | null;
   startedBy: string;
   storeName: string | null;
+  storeId: string | null;
   status: 'active' | 'completed';
   startedAt: Date;
   completedAt: Date | null;
   items: SessionItemType[];
   members: SessionMemberType[];
+}
+
+// Store
+export interface StoreType {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Per-store product info
+export interface ProductStoreType {
+  id: string;
+  productId: string;
+  storeId: string;
+  price: number | null;
+  aisle: string | null;
+  availability: boolean;
+  sku: string | null;
+  updatedAt: Date;
+}
+
+// User preferences (currency etc.)
+export interface UserPreferencesType {
+  userId: string;
+  currency: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Product catalog
@@ -65,6 +101,12 @@ export interface ProductType {
   userId: string;
   name: string;
   category: string | null;
+  brand: string | null;
+  barcode: string | null;
+  packageSize: string | null;
+  imagePath: string | null;
+  notes: string | null;
+  isFavorite: boolean;
   defaultQuantity: number;
   defaultUnit: string | null;
   lifespanDays: number | null;
@@ -116,6 +158,7 @@ export interface SessionPresence {
 
 // DTOs
 export interface CreateGroceryListDto {
+  id?: string; // client-generated for offline
   name: string;
 }
 
@@ -125,6 +168,7 @@ export interface UpdateGroceryListDto {
 }
 
 export interface CreateGroceryItemDto {
+  id?: string; // client-generated for offline
   listId: string;
   name: string;
   category?: string;
@@ -153,8 +197,11 @@ export interface CheckItemDto {
 }
 
 export interface CreateGrocerySessionDto {
+  id?: string; // client-generated for offline
   listIds: string[];
   storeName: string;
+  name?: string;
+  storeId?: string | null;
 }
 
 export interface AddSessionMemberDto {
@@ -163,12 +210,22 @@ export interface AddSessionMemberDto {
 }
 
 export interface UpdateSessionItemDto {
+  name?: string;
+  category?: string | null;
+  quantity?: number;
+  unit?: string | null;
+  notes?: string | null;
   isPurchased?: boolean;
-  purchasedAt?: Date | null;
+  purchasedAt?: Date | string | null;
   price?: number | null;
+  pricePaid?: number | null;
+  quantityPurchased?: number | null;
+  aisle?: string | null;
+  storeId?: string | null;
 }
 
 export interface AddSessionItemDto {
+  id?: string; // client-generated for offline
   name: string;
   sessionId: string;
   listName?: string;
@@ -176,11 +233,21 @@ export interface AddSessionItemDto {
   quantity?: number;
   unit?: string;
   notes?: string;
+  productId?: string;
+  storeId?: string | null;
+  aisle?: string;
 }
 
 export interface CreateProductDto {
+  id?: string; // client-generated for offline
   name: string;
   category?: string;
+  brand?: string;
+  barcode?: string;
+  packageSize?: string;
+  imagePath?: string;
+  notes?: string;
+  isFavorite?: boolean;
   defaultQuantity?: number;
   defaultUnit?: string;
   lifespanDays?: number;
@@ -189,9 +256,37 @@ export interface CreateProductDto {
 export interface UpdateProductDto {
   name?: string;
   category?: string;
+  brand?: string;
+  barcode?: string;
+  packageSize?: string;
+  imagePath?: string;
+  notes?: string;
+  isFavorite?: boolean;
   defaultQuantity?: number;
   defaultUnit?: string;
   lifespanDays?: number;
+}
+
+export interface CreateStoreDto {
+  id?: string; // client-generated for offline
+  name: string;
+}
+
+export interface UpdateStoreDto {
+  name?: string;
+}
+
+export interface UpsertProductStoreDto {
+  productId: string;
+  storeId: string;
+  price?: number | null;
+  aisle?: string | null;
+  availability?: boolean;
+  sku?: string | null;
+}
+
+export interface UpdateUserPreferencesDto {
+  currency?: string;
 }
 
 // Filters
@@ -205,6 +300,10 @@ export interface GroceryItemFilters {
 export interface ProductFilters {
   searchQuery?: string;
   category?: string;
+  favorite?: boolean;
+  barcode?: string;
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 // Suggestion types

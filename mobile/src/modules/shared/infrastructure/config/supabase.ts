@@ -1,5 +1,6 @@
 import { initSupabase } from '@himan/shared';
 import * as SecureStore from 'expo-secure-store';
+import { AppState } from 'react-native';
 
 const CHUNK_SIZE = 1800;
 
@@ -51,4 +52,14 @@ export const supabase = initSupabase({
   url: process.env.EXPO_PUBLIC_SUPABASE_URL!,
   anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
   authStorage: ExpoSecureStoreAdapter,
+});
+
+// Only auto-refresh the session while the app is foregrounded. Prevents
+// wasted refresh attempts (and spurious failures) while backgrounded/offline.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh();
+  } else {
+    supabase.auth.stopAutoRefresh();
+  }
 });

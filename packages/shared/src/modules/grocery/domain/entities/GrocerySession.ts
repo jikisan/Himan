@@ -2,8 +2,10 @@ import type { GrocerySessionType, SessionItemType, SessionMemberType } from '../
 
 export class GrocerySession implements GrocerySessionType {
   id: string;
+  name: string | null;
   startedBy: string;
   storeName: string | null;
+  storeId: string | null;
   status: 'active' | 'completed';
   startedAt: Date;
   completedAt: Date | null;
@@ -12,8 +14,10 @@ export class GrocerySession implements GrocerySessionType {
 
   constructor(data: GrocerySessionType) {
     this.id = data.id;
+    this.name = data.name;
     this.startedBy = data.startedBy;
     this.storeName = data.storeName;
+    this.storeId = data.storeId;
     this.status = data.status;
     this.startedAt = data.startedAt;
     this.completedAt = data.completedAt;
@@ -23,6 +27,26 @@ export class GrocerySession implements GrocerySessionType {
 
   get isActive(): boolean {
     return this.status === 'active';
+  }
+
+  /** Estimated total from snapshot prices × quantity. */
+  get estimatedTotal(): number {
+    return this.items.reduce(
+      (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
+      0
+    );
+  }
+
+  /** Actual total from prices paid × quantity purchased, for purchased items. */
+  get actualTotal(): number {
+    return this.items.reduce((sum, item) => {
+      if (!item.isPurchased || item.pricePaid == null) return sum;
+      return sum + item.pricePaid * (item.quantityPurchased ?? item.quantity ?? 1);
+    }, 0);
+  }
+
+  get purchasedCount(): number {
+    return this.items.filter((i) => i.isPurchased).length;
   }
 
   get duration(): string {

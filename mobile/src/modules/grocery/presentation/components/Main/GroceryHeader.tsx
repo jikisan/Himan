@@ -1,5 +1,7 @@
 import { View, Pressable, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useFriends } from '@/modules/grocery/presentation/hooks';
 
 interface GroceryHeaderProps {
   onBack: () => void;
@@ -14,6 +16,7 @@ export function GroceryHeader({
   showShoppingButton,
   shoppingButtonDisabled,
 }: GroceryHeaderProps) {
+  const { incomingRequests } = useFriends();
   return (
     <View className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
       <View className="flex flex-row items-center gap-3">
@@ -24,6 +27,14 @@ export function GroceryHeader({
           <Feather name="shopping-bag" size={18} color="#6366f1" />
           <Text className="text-xl font-bold text-gray-900 dark:text-white">Grocery</Text>
         </View>
+        <Pressable onPress={() => router.push('/(app)/friends')} className="p-2">
+          <Feather name="users" size={20} color="#6b7280" />
+          {incomingRequests.length > 0 && (
+            <View className="absolute top-0 right-0 min-w-4 h-4 px-1 rounded-full bg-red-500 items-center justify-center">
+              <Text className="text-[10px] font-bold text-white">{incomingRequests.length}</Text>
+            </View>
+          )}
+        </Pressable>
         {showShoppingButton && (
           <Pressable
             onPress={onStartShopping}

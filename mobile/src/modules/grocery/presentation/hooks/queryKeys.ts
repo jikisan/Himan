@@ -11,4 +11,6 @@ export const groceryKeys = {
   invitations: () => [...groceryKeys.all, 'invitations'] as const,
   recentStores: () => [...groceryKeys.all, 'recentStores'] as const,
   members: (listId: string) => [...groceryKeys.all, 'members', listId] as const,
+  friends: () => [...groceryKeys.all, 'friends'] as const,
+  friendRequests: () => [...groceryKeys.all, 'friendRequests'] as const,
 };

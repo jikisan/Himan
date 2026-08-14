@@ -7,7 +7,6 @@ import type {
   CreateProductDto,
   UpdateProductDto,
   ProductFilters,
-  ProductType,
 } from '@himan/shared/grocery';
 import { groceryKeys } from './queryKeys';
 import { getLogger } from '@himan/shared';
@@ -64,34 +63,9 @@ export const useProductCatalog = (filters?: ProductFilters) => {
     },
   });
 
-  const favoriteMutation = useMutation({
-    mutationFn: ({ id, isFavorite }: { id: string; isFavorite: boolean }) =>
-      repository.toggleFavorite(id, isFavorite),
-    onMutate: async ({ id, isFavorite }) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<ProductType[]>(queryKey);
-      queryClient.setQueryData<ProductType[]>(queryKey, (old) =>
-        old?.map((p) => (p.id === id ? { ...p, isFavorite } : p))
-      );
-      return { previous };
-    },
-    onError: (err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
-      logger.error('Error toggling favorite', err);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: groceryKeys.catalog() });
-    },
-  });
-
   const upsertProduct = useCallback(
     (dto: CreateProductDto) => upsertMutation.mutateAsync(dto),
     [upsertMutation]
-  );
-
-  const toggleFavorite = useCallback(
-    (id: string, isFavorite: boolean) => favoriteMutation.mutate({ id, isFavorite }),
-    [favoriteMutation]
   );
 
   const updateProduct = useCallback(
@@ -110,6 +84,5 @@ export const useProductCatalog = (filters?: ProductFilters) => {
     upsertProduct,
     updateProduct,
     deleteProduct,
-    toggleFavorite,
   };
 };

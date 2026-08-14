@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ProductStoreRepository, StoreRepository } from '@himan/shared/grocery';
 import type { ProductStoreType, StoreType } from '@himan/shared/grocery';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
@@ -15,6 +15,7 @@ export interface StorePrice {
 export function useProductStores(productId: string | null) {
   const { user } = useAuth();
   const userId = user?.id;
+  const queryClient = useQueryClient();
   const productStores = useMemo(() => new ProductStoreRepository(), []);
   const storeRepo = useMemo(() => new StoreRepository(), []);
 
@@ -41,5 +42,31 @@ export function useProductStores(productId: string | null) {
       .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
   }, [rows, stores]);
 
-  return { prices, isLoading };
+  const unattachedStores = useMemo(() => {
+    const attached = new Set((rows as ProductStoreType[]).map((r) => r.storeId));
+    return (stores as StoreType[]).filter((s) => !attached.has(s.id));
+  }, [stores, rows]);
+
+  const updateDetailsMutation = useMutation({
+    mutationFn: ({ storeId, price, aisle }: { storeId: string; price?: number | null; aisle?: string | null }) =>
+      productStores.upsert({ productId: productId!, storeId, price, aisle }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: groceryKeys.productStores(productId!) });
+    },
+  });
+
+  const removeStoreMutation = useMutation({
+    mutationFn: (storeId: string) => productStores.delete(productId!, storeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: groceryKeys.productStores(productId!) });
+    },
+  });
+
+  return {
+    prices,
+    isLoading,
+    unattachedStores,
+    updateDetails: updateDetailsMutation.mutateAsync,
+    removeStore: removeStoreMutation.mutateAsync,
+  };
 }

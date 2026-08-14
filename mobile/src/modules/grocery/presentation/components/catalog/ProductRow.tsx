@@ -8,11 +8,9 @@ import { notebook } from '../../theme/notebook';
 export function ProductRow({
   product,
   onPress,
-  onToggleFavorite,
 }: {
   product: ProductType;
   onPress: () => void;
-  onToggleFavorite: () => void;
 }) {
   const { colorScheme } = useColorScheme();
   const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
@@ -36,14 +34,7 @@ export function ProductRow({
           ) : null}
         </View>
       </View>
-      <Pressable onPress={onToggleFavorite} hitSlop={10} className="p-1 active:opacity-60">
-        <Feather
-          name="star"
-          size={20}
-          color={product.isFavorite ? c.accent : c.inkSoft}
-          style={{ opacity: product.isFavorite ? 1 : 0.5 }}
-        />
-      </Pressable>
+      <Feather name="chevron-right" size={18} color={c.inkFaint} />
     </Pressable>
   );
 }

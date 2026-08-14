@@ -122,7 +122,6 @@ export default function TemplatesScreen() {
               onLongPress={(e) => openMenu(item, e.currentTarget)}
               className="flex-row items-center gap-3 pl-6 pr-4 py-4 border-b border-rule dark:border-rule-dark active:bg-black/5"
             >
-              <View className="absolute left-3 top-0 bottom-0 w-px" style={{ backgroundColor: c.margin }} />
               <View className="flex-1">
                 <Text className="text-lg font-hand text-ink dark:text-ink-dark">{item.name}</Text>
                 <Text className="text-xs text-ink-soft dark:text-ink-softdark mt-0.5 font-serif">

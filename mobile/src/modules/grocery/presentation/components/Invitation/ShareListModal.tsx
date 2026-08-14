@@ -8,7 +8,14 @@ interface ShareListModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   listName: string;
-  members: Array<{ id: string; userId: string; role: string; joinedAt: Date }>;
+  members: Array<{
+    id: string;
+    userId: string;
+    email: string;
+    displayName: string;
+    role: string;
+    joinedAt: Date;
+  }>;
   invitations: GroceryInvitationType[];
   currentUserId: string;
   onInvite: (email: string) => Promise<unknown>;
@@ -58,18 +65,28 @@ export const ShareListModal = ({
     <Modal
       visible={open}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={() => onOpenChange(false)}
     >
       <Pressable
-        className="flex-1 bg-black/40 justify-end"
+        className="flex-1 bg-black/40 justify-center items-center px-6"
         onPress={() => onOpenChange(false)}
       >
-        <Pressable className="bg-paper dark:bg-paper-dark rounded-t-3xl p-6 max-h-[80%]">
-          <ScrollView keyboardShouldPersistTaps="handled">
-            <Text className="text-2xl font-serifsemi text-ink dark:text-ink-dark mb-4 border-b-2 border-ink dark:border-ink-dark pb-2">
+        <Pressable className="bg-paper dark:bg-paper-dark rounded-2xl p-6 w-full max-h-[80%]">
+          <View className="flex-row items-center justify-between mb-4 border-b-2 border-ink dark:border-ink-dark pb-2">
+            <Text className="text-2xl font-serifsemi text-ink dark:text-ink-dark flex-1 pr-3" numberOfLines={1}>
               Share "{listName}"
             </Text>
+            <Pressable
+              onPress={() => onOpenChange(false)}
+              hitSlop={10}
+              className="w-8 h-8 rounded-full items-center justify-center bg-surface dark:bg-surface-dark active:opacity-60"
+            >
+              <Feather name="x" size={18} color="#7d7979" />
+            </Pressable>
+          </View>
+
+          <ScrollView keyboardShouldPersistTaps="handled">
 
             {isOwner && (
               <FriendPicker
@@ -115,12 +132,12 @@ export const ShareListModal = ({
                       <View className="flex flex-row items-center gap-2">
                         <View className="h-7 w-7 rounded-full bg-sticky dark:bg-sticky-dark flex items-center justify-center">
                           <Text className="text-xs font-serifsemi text-accent-text dark:text-accent-textdark">
-                            {member.userId === currentUserId ? 'You' : '?'}
+                            {member.userId === currentUserId ? 'You' : member.displayName.charAt(0).toUpperCase()}
                           </Text>
                         </View>
                         <View>
                           <Text className="text-[15px] font-serif text-ink dark:text-ink-dark">
-                            {member.userId === currentUserId ? 'You' : member.userId.slice(0, 8)}
+                            {member.userId === currentUserId ? 'You' : member.displayName}
                           </Text>
                           <Text className="text-[13px] font-serif text-ink-soft dark:text-ink-softdark capitalize">
                             {member.role}

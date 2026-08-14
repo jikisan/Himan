@@ -70,9 +70,6 @@ export const AddItemInput = ({
   return (
     <View className="relative">
       <View className="relative">
-        <View className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10">
-          <Feather name="plus" size={18} color={c.accent} />
-        </View>
         <TextInput
           ref={inputRef}
           placeholder="Add an item…"
@@ -97,7 +94,7 @@ export const AddItemInput = ({
               addCustom();
             }
           }}
-          className="pl-10 pr-4 py-3 bg-surface dark:bg-surface-dark border border-rule dark:border-rule-dark rounded-sm font-serifitalic text-[15px] text-ink dark:text-ink-dark"
+          className="px-4 py-3 bg-surface dark:bg-surface-dark border border-rule dark:border-rule-dark rounded-sm font-serifitalic text-[15px] text-ink dark:text-ink-dark"
         />
       </View>
 

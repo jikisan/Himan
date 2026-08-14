@@ -12,7 +12,7 @@ export const Checkbox = ({ checked, size = 24 }: CheckboxProps) => {
   return (
     <View
       style={{ width: size, height: size }}
-      className={`flex-shrink-0 rounded-md border-2 items-center justify-center ${
+      className={`flex-shrink-0 rounded-2xl border-2 items-center justify-center ${
         checked ? 'bg-accent border-accent dark:bg-accent-dark dark:border-accent-dark' : 'border-ink-faint dark:border-ink-faintdark'
       }`}
     >

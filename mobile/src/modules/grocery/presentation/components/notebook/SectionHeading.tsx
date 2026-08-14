@@ -1,9 +1,8 @@
 import { Text, View } from 'react-native';
 
 /**
- * Handwritten-style heading — the notebook's voice. Used for store names,
- * screen titles, and section labels. Falls back gracefully if the Caveat
- * font hasn't loaded yet (system font, slightly smaller line-height).
+ * Serif heading — the chrome's voice. Everything is Source Serif 4. Used for
+ * screen titles and section labels. Big and calm, iOS-Notes scale.
  */
 export function SectionHeading({
   children,
@@ -14,10 +13,10 @@ export function SectionHeading({
   size?: 'md' | 'lg' | 'xl';
   className?: string;
 }) {
-  const sizeClass = size === 'xl' ? 'text-5xl' : size === 'lg' ? 'text-4xl' : 'text-3xl';
+  const sizeClass = size === 'xl' ? 'text-[32px]' : size === 'lg' ? 'text-2xl' : 'text-xl';
   return (
     <View className={className}>
-      <Text className={`font-handbold text-ink dark:text-ink-dark ${sizeClass}`}>
+      <Text className={`font-serifsemi text-ink dark:text-ink-dark ${sizeClass}`}>
         {children}
       </Text>
     </View>

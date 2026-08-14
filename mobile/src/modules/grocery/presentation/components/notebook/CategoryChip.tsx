@@ -1,16 +1,11 @@
-import { Text, View } from 'react-native';
-import { categoryColor } from '../../theme/notebook';
+import { Text } from 'react-native';
 
-/** Colored category tag — a felt-tip highlighter dot + label. */
+/** Flush-left cyan #tag — one accent, no fill, no dot. */
 export function CategoryChip({ category }: { category: string | null | undefined }) {
-  const color = categoryColor(category);
+  const label = (category || 'other').toLowerCase().replace(/\s+/g, '');
   return (
-    <View className="flex-row items-center gap-1.5 rounded-full px-2 py-0.5"
-      style={{ backgroundColor: `${color}22` }}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
-      <Text className="text-xs text-ink-soft dark:text-ink-softdark" style={{ color }}>
-        {category || 'Other'}
-      </Text>
-    </View>
+    <Text className="text-[15px] font-serif text-accent-text dark:text-accent-textdark">
+      #{label}
+    </Text>
   );
 }

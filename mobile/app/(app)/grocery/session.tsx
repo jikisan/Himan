@@ -2,14 +2,12 @@ import { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { GrocerySession, UserPreferencesRepository } from '@himan/shared/grocery';
+import { GrocerySession } from '@himan/shared/grocery';
 import type { SessionItemType } from '@himan/shared/grocery';
-import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
 import { useErrandSession } from '@/modules/grocery/presentation/hooks/useErrandSession';
-import { groceryKeys } from '@/modules/grocery/presentation/hooks/queryKeys';
+import { useCurrency } from '@/modules/grocery/presentation/hooks/useCurrency';
 import {
   PaperSurface,
   SectionHeading,
@@ -20,17 +18,11 @@ import { notebook } from '@/modules/grocery/presentation/theme/notebook';
 
 export default function ErrandSessionScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const { colorScheme } = useColorScheme();
   const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
   const { session, isLoading, togglePurchase, completeErrand, cancelErrand } =
     useErrandSession();
-
-  const { data: currency = '₱' } = useQuery({
-    queryKey: [...groceryKeys.all, 'currency'],
-    queryFn: async () => (await new UserPreferencesRepository().get(user!.id)).currency,
-    enabled: !!user?.id,
-  });
+  const { format: money } = useCurrency();
 
   const errand = useMemo(() => (session ? new GrocerySession(session) : null), [session]);
 
@@ -45,14 +37,12 @@ export default function ErrandSessionScreen() {
     return Array.from(map.entries());
   }, [session]);
 
-  const money = (n: number) => `${currency}${n.toFixed(2)}`;
-
   if (!isLoading && !errand) {
     return (
       <PaperSurface>
         <SafeAreaView className="flex-1 items-center justify-center px-8">
           <Feather name="book-open" size={40} color={c.inkSoft} />
-          <Text className="mt-4 text-center text-ink-soft dark:text-ink-softdark">
+          <Text className="mt-4 text-center text-ink-soft dark:text-ink-softdark font-serif">
             No errand in progress. Start one from your lists.
           </Text>
           <Pressable
@@ -60,7 +50,7 @@ export default function ErrandSessionScreen() {
             className="mt-6 rounded-full px-5 py-2.5"
             style={{ backgroundColor: c.accent }}
           >
-            <Text className="font-medium" style={{ color: colorScheme === 'dark' ? '#1C1B18' : '#F7F3E9' }}>
+            <Text className="font-medium" style={{ color: colorScheme === 'dark' ? '#201e1d' : '#ffffff' }}>
               Back to lists
             </Text>
           </Pressable>
@@ -101,7 +91,7 @@ export default function ErrandSessionScreen() {
           <View className="flex-row items-center justify-between">
             <Pressable onPress={() => router.back()} className="flex-row items-center gap-1 active:opacity-60">
               <Feather name="chevron-left" size={22} color={c.ink} />
-              <Text className="text-ink dark:text-ink-dark">Lists</Text>
+              <Text className="text-ink dark:text-ink-dark font-serif">Lists</Text>
             </Pressable>
             <SyncBadge />
           </View>
@@ -109,9 +99,9 @@ export default function ErrandSessionScreen() {
             {errand?.name || errand?.storeName || 'Errand'}
           </SectionHeading>
           {errand?.storeName && errand?.name ? (
-            <Text className="text-ink-soft dark:text-ink-softdark">{errand.storeName}</Text>
+            <Text className="text-ink-soft dark:text-ink-softdark font-serif">{errand.storeName}</Text>
           ) : null}
-          <Text className="mt-0.5 text-ink-soft dark:text-ink-softdark">
+          <Text className="mt-0.5 text-ink-soft dark:text-ink-softdark font-serif">
             {errand ? `${errand.purchasedCount}/${errand.items.length} crossed off` : ''}
           </Text>
         </View>
@@ -119,7 +109,7 @@ export default function ErrandSessionScreen() {
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 150 }}>
           {groups.map(([category, items]) => (
             <View key={category}>
-              <Text className="px-6 pt-4 pb-1 text-xs uppercase tracking-wider text-ink-soft dark:text-ink-softdark">
+              <Text className="px-6 pt-4 pb-1 text-xs uppercase tracking-wider text-ink-soft dark:text-ink-softdark font-serif">
                 {category}
               </Text>
               {items.map((item) => (
@@ -147,14 +137,14 @@ export default function ErrandSessionScreen() {
 
         <View className="absolute left-0 right-0 bottom-0 px-5 pt-3 pb-6 border-t border-rule dark:border-rule-dark bg-paper dark:bg-paper-dark">
           <View className="flex-row justify-between">
-            <Text className="text-ink-soft dark:text-ink-softdark">Estimated</Text>
-            <Text className="text-ink-soft dark:text-ink-softdark" style={{ fontVariant: ['tabular-nums'] }}>
+            <Text className="text-ink-soft dark:text-ink-softdark font-serif">Estimated</Text>
+            <Text className="text-ink-soft dark:text-ink-softdark font-serif" style={{ fontVariant: ['tabular-nums'] }}>
               {money(errand?.estimatedTotal ?? 0)}
             </Text>
           </View>
           <View className="flex-row justify-between mt-0.5">
-            <Text className="text-ink dark:text-ink-dark font-medium">Actual so far</Text>
-            <Text className="text-ink dark:text-ink-dark font-semibold text-base" style={{ fontVariant: ['tabular-nums'] }}>
+            <Text className="text-ink dark:text-ink-dark font-medium font-serif">Actual so far</Text>
+            <Text className="text-ink dark:text-ink-dark font-semibold text-base font-serif" style={{ fontVariant: ['tabular-nums'] }}>
               {money(errand?.actualTotal ?? 0)}
             </Text>
           </View>
@@ -163,7 +153,7 @@ export default function ErrandSessionScreen() {
               <Text style={{ color: c.margin }} className="font-medium">Discard</Text>
             </Pressable>
             <Pressable onPress={confirmComplete} className="flex-1 rounded-full py-3 items-center" style={{ backgroundColor: c.accent }}>
-              <Text className="font-semibold" style={{ color: colorScheme === 'dark' ? '#1C1B18' : '#F7F3E9' }}>
+              <Text className="font-semibold" style={{ color: colorScheme === 'dark' ? '#201e1d' : '#ffffff' }}>
                 Finish errand
               </Text>
             </Pressable>

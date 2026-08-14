@@ -16,7 +16,7 @@ export const FriendPicker = ({ excludeUserIds = [], onPick, disabled }: FriendPi
 
   return (
     <View className="mb-4">
-      <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+      <Text className="text-xs font-semibold text-ink-soft dark:text-ink-softdark uppercase tracking-wide mb-2">
         Friends
       </Text>
       <ScrollView className="max-h-40" keyboardShouldPersistTaps="handled">
@@ -25,15 +25,15 @@ export const FriendPicker = ({ excludeUserIds = [], onPick, disabled }: FriendPi
             key={f.id}
             onPress={() => !disabled && onPick(f.email)}
             disabled={disabled}
-            className="flex-row items-center justify-between py-2.5 border-b border-gray-100 dark:border-gray-800"
+            className="flex-row items-center justify-between py-2.5 border-b border-rule dark:border-rule-dark"
           >
             <View className="flex-row items-center gap-2 flex-1">
-              <View className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 items-center justify-center">
-                <Feather name="user" size={14} color="#6366f1" />
+              <View className="h-7 w-7 rounded-full bg-sticky dark:bg-sticky-dark items-center justify-center">
+                <Feather name="user" size={14} color="#0088b0" />
               </View>
-              <Text className="text-sm text-gray-900 dark:text-white flex-1" numberOfLines={1}>{f.email}</Text>
+              <Text className="text-sm text-ink dark:text-ink-dark flex-1" numberOfLines={1}>{f.email}</Text>
             </View>
-            <Feather name="plus-circle" size={18} color="#6366f1" />
+            <Feather name="plus-circle" size={18} color="#0088b0" />
           </Pressable>
         ))}
       </ScrollView>

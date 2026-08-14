@@ -40,17 +40,17 @@ export const SessionListGroup = ({
     <View className="mt-4">
       <Pressable
         onPress={() => setIsCollapsed(!isCollapsed)}
-        className="flex flex-row items-center gap-2 px-3 py-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl mb-2"
+        className="flex flex-row items-center gap-2 px-3 py-3 bg-sticky dark:bg-sticky-dark rounded-xl mb-2"
       >
         {isCollapsed ? (
-          <Feather name="chevron-right" size={16} color="#6366f1" />
+          <Feather name="chevron-right" size={16} color="#0088b0" />
         ) : (
-          <Feather name="chevron-down" size={16} color="#6366f1" />
+          <Feather name="chevron-down" size={16} color="#0088b0" />
         )}
-        <Text className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 flex-1">
+        <Text className="text-sm font-semibold text-accent-text dark:text-accent-textdark flex-1">
           {listName}
         </Text>
-        <Text className="text-xs text-indigo-500 dark:text-indigo-400">{items.length} items</Text>
+        <Text className="text-xs text-accent-text dark:text-accent-textdark">{items.length} items</Text>
       </Pressable>
 
       {!isCollapsed && (

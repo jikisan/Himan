@@ -54,7 +54,7 @@ export function PurchaseRow({
 
   const boxStyle = useAnimatedStyle(() => ({
     backgroundColor: pop.value > 0.5 ? c.accent : 'transparent',
-    borderColor: pop.value > 0.5 ? c.accent : c.inkSoft,
+    borderColor: pop.value > 0.5 ? c.accent : c.inkFaint,
     transform: [{ scale: 1 + pop.value * 0.12 }],
   }));
 
@@ -64,24 +64,21 @@ export function PurchaseRow({
     <Pressable
       onPress={onToggle}
       onLongPress={onLongPress}
-      className="flex-row items-center gap-3 pl-6 pr-4 py-3.5 border-b border-rule dark:border-rule-dark active:bg-black/5"
+      className="flex-row items-center gap-3 px-5 py-3.5 border-b border-rule dark:border-rule-dark active:bg-black/5"
     >
-      {/* red left-margin rule */}
-      <View className="absolute left-3 top-0 bottom-0 w-px" style={{ backgroundColor: c.margin }} />
-
       <Animated.View
         style={boxStyle}
-        className="h-6 w-6 rounded-full border-2 items-center justify-center"
+        className="h-6 w-6 rounded-md border-2 items-center justify-center"
       >
         <Animated.View style={checkStyle}>
-          <Feather name="check" size={14} color={colorScheme === 'dark' ? '#1C1B18' : '#FFFFFF'} />
+          <Feather name="check" size={14} color="#FFFFFF" />
         </Animated.View>
       </Animated.View>
 
       <View className="flex-1">
         <View className="self-start">
           <Text
-            className={`text-base ${purchased ? 'text-ink-soft dark:text-ink-softdark' : 'text-ink dark:text-ink-dark'}`}
+            className={`text-[17px] font-serif ${purchased ? 'text-ink-faint dark:text-ink-faintdark' : 'text-ink dark:text-ink-dark'}`}
           >
             {name}
           </Text>
@@ -101,17 +98,17 @@ export function PurchaseRow({
             ]}
           />
         </View>
-        <View className="flex-row items-center gap-2 mt-1">
+        <View className="flex-row items-center gap-2 mt-0.5">
           {category ? <CategoryChip category={category} /> : null}
           {quantityLabel ? (
-            <Text className="text-xs text-ink-soft dark:text-ink-softdark">{quantityLabel}</Text>
+            <Text className="text-[14px] font-serif text-ink-soft dark:text-ink-softdark">{quantityLabel}</Text>
           ) : null}
         </View>
       </View>
 
       {priceLabel ? (
         <Text
-          className="text-sm text-ink dark:text-ink-dark"
+          className="text-[14px] font-serif text-ink-faint dark:text-ink-faintdark"
           style={{ fontVariant: ['tabular-nums'] }}
         >
           {priceLabel}

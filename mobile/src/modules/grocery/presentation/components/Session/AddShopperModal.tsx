@@ -59,17 +59,17 @@ export const AddShopperModal = ({
         className="flex-1 bg-black/40 justify-center items-center px-6"
         onPress={() => onOpenChange(false)}
       >
-        <Pressable className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-h-[80%]">
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+        <Pressable className="bg-paper dark:bg-paper-dark rounded-2xl p-6 w-full max-h-[80%]">
+          <Text className="text-lg font-semibold text-ink dark:text-ink-dark mb-1">
             Shoppers
           </Text>
-          <Text className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          <Text className="text-sm text-ink-soft dark:text-ink-softdark mb-4">
             Manage who's shopping in this session
           </Text>
 
           {members.length > 0 && (
             <View className="mb-5">
-              <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              <Text className="text-xs font-semibold text-ink-soft dark:text-ink-softdark uppercase tracking-wide mb-2">
                 Members
               </Text>
               <ScrollView className="max-h-48">
@@ -82,24 +82,24 @@ export const AddShopperModal = ({
                   return (
                     <View
                       key={member.id}
-                      className="flex-row items-center py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0"
+                      className="flex-row items-center py-2.5 border-b border-rule dark:border-rule-dark last:border-b-0"
                     >
                       <View className="relative mr-3">
-                        <View className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 items-center justify-center">
-                          <Feather name="user" size={14} color={isOwner ? '#6366f1' : '#9ca3af'} />
+                        <View className="w-8 h-8 rounded-full bg-sticky dark:bg-sticky-dark items-center justify-center">
+                          <Feather name="user" size={14} color={isOwner ? '#0088b0' : '#9b9797'} />
                         </View>
                         <View
-                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-900 ${
-                            isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-paper dark:border-paper-dark ${
+                            isOnline ? 'bg-accent dark:bg-accent-dark' : 'bg-surface dark:bg-surface-dark'
                           }`}
                         />
                       </View>
 
                       <View className="flex-1">
-                        <Text className="text-sm font-medium text-gray-900 dark:text-white" numberOfLines={1}>
+                        <Text className="text-sm font-medium text-ink dark:text-ink-dark" numberOfLines={1}>
                           {displayName ?? 'Member'}
                         </Text>
-                        <Text className="text-xs text-gray-400 dark:text-gray-500">
+                        <Text className="text-xs text-ink-faint dark:text-ink-faintdark">
                           {isOnline ? 'Online' : 'Offline'} · {isOwner ? 'Owner' : 'Shopper'}
                         </Text>
                       </View>
@@ -124,18 +124,18 @@ export const AddShopperModal = ({
           {isOwner && (
             <View className="space-y-4 gap-4">
               <View>
-                <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                <Text className="text-xs font-semibold text-ink-soft dark:text-ink-softdark uppercase tracking-wide mb-2">
                   Add Shopper
                 </Text>
                 <TextInput
                   placeholder="Enter shopper's email..."
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor="#9b9797"
                   value={email}
                   onChangeText={setEmail}
                   onSubmitEditing={handleAdd}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
+                  className="border border-rule dark:border-rule-dark rounded-lg p-3 text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
                 />
               </View>
 
@@ -143,7 +143,7 @@ export const AddShopperModal = ({
                 onPress={handleAdd}
                 disabled={isAdding || !email.trim()}
                 className={`flex flex-row items-center justify-center gap-2 py-3 rounded-lg ${
-                  isAdding || !email.trim() ? 'bg-gray-300 dark:bg-gray-700' : 'bg-indigo-500'
+                  isAdding || !email.trim() ? 'bg-surface dark:bg-surface-dark' : 'bg-accent dark:bg-accent-dark'
                 }`}
               >
                 <Feather name="user-plus" size={18} color="#ffffff" />

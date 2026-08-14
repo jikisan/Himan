@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Keyboard } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useColorScheme } from 'nativewind';
 import type { ProductType, CreateGroceryItemDto } from '@himan/shared/grocery';
+import { notebook } from '@/modules/grocery/presentation/theme/notebook';
 
 interface AddItemInputProps {
   listId: string;
@@ -20,6 +22,8 @@ export const AddItemInput = ({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<TextInput>(null);
+  const { colorScheme } = useColorScheme();
+  const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
 
   const matches = useMemo(() => {
     if (!query.trim()) return [];
@@ -67,12 +71,12 @@ export const AddItemInput = ({
     <View className="relative">
       <View className="relative">
         <View className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10">
-          <Feather name="plus" size={16} color="#9ca3af" />
+          <Feather name="plus" size={18} color={c.accent} />
         </View>
         <TextInput
           ref={inputRef}
-          placeholder="Add an item..."
-          placeholderTextColor="#9ca3af"
+          placeholder="Add an item…"
+          placeholderTextColor={c.inkFaint}
           value={query}
           onChangeText={(text) => {
             setQuery(text);
@@ -93,46 +97,44 @@ export const AddItemInput = ({
               addCustom();
             }
           }}
-          className="pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white"
+          className="pl-10 pr-4 py-3 bg-surface dark:bg-surface-dark border border-rule dark:border-rule-dark rounded-sm font-serifitalic text-[15px] text-ink dark:text-ink-dark"
         />
       </View>
 
       {isOpen && query.trim() && (
-        <View className="absolute top-full mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-64">
+        <View className="absolute top-full mt-1 w-full bg-paper dark:bg-paper-dark border border-rule dark:border-rule-dark rounded-sm z-50 max-h-64">
           <ScrollView keyboardShouldPersistTaps="handled">
             {matches.map((product, index) => (
               <Pressable
                 key={product.id}
                 onPress={() => addFromProduct(product)}
-                className={`flex flex-row items-center gap-3 px-4 py-3 ${
-                  index === selectedIndex ? 'bg-gray-100 dark:bg-gray-800' : ''
+                className={`flex flex-row items-center gap-3 px-4 py-3 border-b border-rule dark:border-rule-dark ${
+                  index === selectedIndex ? 'bg-surface dark:bg-surface-dark' : ''
                 }`}
               >
-                <Text className="flex-1 text-sm font-medium text-gray-900 dark:text-white" numberOfLines={1}>
+                <Text className="flex-1 text-[15px] font-serif text-ink dark:text-ink-dark" numberOfLines={1}>
                   {product.name}
                 </Text>
                 {product.category && (
-                  <Text className="text-xs text-gray-500 dark:text-gray-400 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-md">
-                    {product.category}
+                  <Text className="text-[14px] font-serif text-accent-text dark:text-accent-textdark">
+                    #{product.category.toLowerCase().replace(/\s+/g, '')}
                   </Text>
                 )}
-                <Text className="text-xs text-gray-500 dark:text-gray-400">
+                <Text className="text-[14px] font-serif text-ink-faint dark:text-ink-faintdark">
                   {product.defaultQuantity}
                   {product.defaultUnit ? ` ${product.defaultUnit}` : ''}
                 </Text>
               </Pressable>
             ))}
 
-            {matches.length > 0 && <View className="h-px bg-gray-200 dark:bg-gray-700" />}
-
             <Pressable
               onPress={addCustom}
               className={`flex flex-row items-center gap-2 px-4 py-3 ${
-                selectedIndex === matches.length ? 'bg-gray-100 dark:bg-gray-800' : ''
+                selectedIndex === matches.length ? 'bg-surface dark:bg-surface-dark' : ''
               }`}
             >
-              <Feather name="plus" size={16} color="#9ca3af" />
-              <Text className="text-sm text-gray-900 dark:text-white">Add "{query.trim()}"</Text>
+              <Feather name="plus" size={16} color={c.accent} />
+              <Text className="text-[15px] font-serif text-ink dark:text-ink-dark">Add “{query.trim()}”</Text>
             </Pressable>
           </ScrollView>
         </View>

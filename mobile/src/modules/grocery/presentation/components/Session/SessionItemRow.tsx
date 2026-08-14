@@ -16,10 +16,10 @@ export const SessionItemRow = ({
     <Pressable
       onPress={() => onTogglePurchase(item.id, item.groceryItemId)}
       className={`flex flex-row items-center gap-3 px-3 py-3 rounded-xl ${
-        item.isPurchased ? 'opacity-60' : 'bg-white dark:bg-gray-800'
+        item.isPurchased ? 'opacity-60' : 'bg-surface dark:bg-surface-dark'
       }`}
     >
-      <Checkbox checked={item.isPurchased} color="green" />
+      <Checkbox checked={item.isPurchased} />
       <ItemRowContent
         name={item.name}
         quantity={item.quantity}

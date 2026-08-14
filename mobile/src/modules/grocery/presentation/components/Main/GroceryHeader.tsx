@@ -18,19 +18,19 @@ export function GroceryHeader({
 }: GroceryHeaderProps) {
   const { incomingRequests } = useFriends();
   return (
-    <View className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
+    <View className="px-4 py-3 border-b border-rule dark:border-rule-dark bg-surface dark:bg-surface-dark">
       <View className="flex flex-row items-center gap-3">
         <Pressable onPress={onBack} className="p-2 -ml-1">
           <Feather name="arrow-left" size={20} color="#6b7280" />
         </Pressable>
         <View className="flex-1 flex-row items-center gap-2">
-          <Feather name="shopping-bag" size={18} color="#6366f1" />
-          <Text className="text-xl font-bold text-gray-900 dark:text-white">Grocery</Text>
+          <Feather name="shopping-bag" size={18} color="#0088b0" />
+          <Text className="text-2xl font-serifsemi text-ink dark:text-ink-dark">Grocery</Text>
         </View>
         <Pressable onPress={() => router.push('/(app)/friends')} className="p-2">
           <Feather name="users" size={20} color="#6b7280" />
           {incomingRequests.length > 0 && (
-            <View className="absolute top-0 right-0 min-w-4 h-4 px-1 rounded-full bg-red-500 items-center justify-center">
+            <View className="absolute top-0 right-0 min-w-4 h-4 px-1 rounded-full bg-accent dark:bg-accent-dark items-center justify-center">
               <Text className="text-[10px] font-bold text-white">{incomingRequests.length}</Text>
             </View>
           )}
@@ -41,12 +41,12 @@ export function GroceryHeader({
             disabled={shoppingButtonDisabled}
             className={`flex-row items-center gap-1.5 px-3 py-2 rounded-xl ${
               shoppingButtonDisabled
-                ? 'bg-gray-100 dark:bg-gray-700'
-                : 'bg-indigo-500 active:bg-indigo-600'
+                ? 'bg-surface dark:bg-surface-dark'
+                : 'bg-accent dark:bg-accent-dark active:opacity-90'
             }`}
           >
             <Feather name="shopping-cart" size={15} color={shoppingButtonDisabled ? '#9ca3af' : '#ffffff'} />
-            <Text className={`text-sm font-semibold ${shoppingButtonDisabled ? 'text-gray-400 dark:text-gray-500' : 'text-white'}`}>
+            <Text className={`text-sm font-semibold ${shoppingButtonDisabled ? 'text-ink-faint dark:text-ink-faintdark' : 'text-white'}`}>
               Shop
             </Text>
           </Pressable>

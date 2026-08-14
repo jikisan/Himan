@@ -19,7 +19,7 @@ export function GroceryListCollapseToggle({
   return (
     <View className="px-3 py-2 flex-row justify-end">
       <Pressable onPress={onToggle} className="p-2">
-        <Feather name={iconName} size={18} color="#6b7280" />
+        <Feather name={iconName} size={18} color="#7d7979" />
       </Pressable>
     </View>
   );

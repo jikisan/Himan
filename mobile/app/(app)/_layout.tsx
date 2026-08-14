@@ -1,6 +1,11 @@
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
 import { Redirect, Stack } from 'expo-router';
-import { useFonts, Caveat_600SemiBold, Caveat_700Bold } from '@expo-google-fonts/caveat';
+import {
+  useFonts,
+  SourceSerif4_400Regular,
+  SourceSerif4_600SemiBold,
+  SourceSerif4_400Regular_Italic,
+} from '@expo-google-fonts/source-serif-4';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ThemeProvider } from '../../contexts/ThemeProvider';
@@ -22,7 +27,11 @@ const queryClient = new QueryClient({
 
 export default function AppLayout() {
   const { user, loading } = useAuth();
-  const [fontsLoaded] = useFonts({ Caveat_600SemiBold, Caveat_700Bold });
+  const [fontsLoaded] = useFonts({
+    SourceSerif4_400Regular,
+    SourceSerif4_600SemiBold,
+    SourceSerif4_400Regular_Italic,
+  });
   if (loading || !fontsLoaded) return null;
   if (!user) return <Redirect href="/(auth)/login" />;
   return (

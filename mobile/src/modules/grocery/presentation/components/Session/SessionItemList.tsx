@@ -58,8 +58,8 @@ export const SessionItemList = ({
 
         {allPurchased && (
           <View className="flex flex-col items-center justify-center py-16">
-            <Feather name="check-circle" size={40} color="#9ca3af" opacity={0.2} />
-            <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-3">
+            <Feather name="check-circle" size={40} color="#9b9797" opacity={0.2} />
+            <Text className="text-sm font-medium text-ink-soft dark:text-ink-softdark mt-3">
               All items purchased!
             </Text>
           </View>
@@ -78,8 +78,8 @@ export const SessionItemList = ({
 
         {!hasPurchasedItems ? (
           <View className="flex flex-col items-center justify-center py-16">
-            <Feather name="shopping-cart" size={40} color="#9ca3af" opacity={0.2} />
-            <Text className="text-sm text-gray-500 dark:text-gray-400 mt-3">Nothing purchased yet</Text>
+            <Feather name="shopping-cart" size={40} color="#9b9797" opacity={0.2} />
+            <Text className="text-sm text-ink-soft dark:text-ink-softdark mt-3">Nothing purchased yet</Text>
           </View>
         ) : (
           Object.entries(sessionItemsByList).map(([listName, listItems]) => {

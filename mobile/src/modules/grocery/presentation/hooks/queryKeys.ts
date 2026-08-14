@@ -13,4 +13,8 @@ export const groceryKeys = {
   members: (listId: string) => [...groceryKeys.all, 'members', listId] as const,
   friends: () => [...groceryKeys.all, 'friends'] as const,
   friendRequests: () => [...groceryKeys.all, 'friendRequests'] as const,
+  history: () => [...groceryKeys.all, 'history'] as const,
+  stores: () => [...groceryKeys.all, 'stores'] as const,
+  productStores: (productId: string) => [...groceryKeys.all, 'productStores', productId] as const,
+  preferences: () => [...groceryKeys.all, 'preferences'] as const,
 };

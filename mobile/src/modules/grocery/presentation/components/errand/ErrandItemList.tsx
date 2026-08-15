@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import type { SessionItemType } from '@himan/shared/grocery';
@@ -21,6 +22,48 @@ function priceLabel(item: SessionItemType, money: CurrencyFormat): string | null
   }
   if (item.price != null) return money(item.price);
   return null;
+}
+
+type SortKey = 'name' | 'aisle' | 'price';
+type SortDir = 'asc' | 'desc';
+
+const SORT_KEYS: { key: SortKey; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'aisle', label: 'Aisle' },
+  { key: 'price', label: 'Price' },
+];
+
+function effectivePrice(item: SessionItemType): number | null {
+  if (item.pricePaid != null) {
+    return item.pricePaid * (item.quantityPurchased ?? item.quantity ?? 1);
+  }
+  return item.price ?? null;
+}
+
+function compareItems(a: SessionItemType, b: SessionItemType, key: SortKey): number {
+  switch (key) {
+    case 'name':
+      return a.name.localeCompare(b.name);
+    case 'aisle':
+      // Empty aisles sort last; natural order so A2 < A10.
+      return (a.aisle || '').localeCompare(b.aisle || '', undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    case 'price': {
+      const pa = effectivePrice(a);
+      const pb = effectivePrice(b);
+      if (pa == null && pb == null) return 0;
+      if (pa == null) return 1; // missing prices last
+      if (pb == null) return -1;
+      return pa - pb;
+    }
+  }
+}
+
+function sortItems(items: SessionItemType[], key: SortKey, dir: SortDir): SessionItemType[] {
+  const sign = dir === 'asc' ? 1 : -1;
+  return [...items].sort((a, b) => compareItems(a, b, key) * sign);
 }
 
 interface ErrandItemListProps {
@@ -60,7 +103,7 @@ function ErrandCategoryGroup({ category, items, money, signal, onPress }: Errand
   }, [signal]);
 
   return (
-    <View>
+    <Animated.View layout={LinearTransition.duration(200)}>
       <Pressable
         onPress={() => setCollapsed((c) => !c)}
         className="flex-row items-center gap-2 px-6 pt-4 pb-1"
@@ -91,7 +134,7 @@ function ErrandCategoryGroup({ category, items, money, signal, onPress }: Errand
             onToggle={() => onPress(item)}
           />
         ))}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -100,9 +143,20 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
   const { colorScheme } = useColorScheme();
   const [editing, setEditing] = useState<SessionItemType | null>(null);
   const [signal, setSignal] = useState<CollapseSignal>({ collapsed: false, n: 0 });
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const toggleAll = () =>
     setSignal((s) => ({ collapsed: !s.collapsed, n: s.n + 1 }));
+
+  const selectSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   const handlePress = (item: SessionItemType) => {
     // Crossed-off items un-cross on tap; pending items open the editor first.
@@ -134,16 +188,44 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
     <>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 150 }}>
         {groups.length > 0 && (
-          <View className="flex-row justify-end px-4 pt-2">
+          <View className="flex-row items-center px-4 pt-2 gap-2">
+            <Text className="text-xs uppercase tracking-wider text-ink-faint dark:text-ink-faintdark font-serif">
+              Sort
+            </Text>
+            {SORT_KEYS.map(({ key, label }) => {
+              const active = key === sortKey;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => selectSort(key)}
+                  className="flex-row items-center gap-1 px-2 py-1"
+                >
+                  <Text
+                    className={`text-xs font-serif ${
+                      active
+                        ? 'text-accent-text dark:text-accent-textdark'
+                        : 'text-ink-faint dark:text-ink-faintdark'
+                    }`}
+                  >
+                    {label}
+                  </Text>
+                  {active && (
+                    <Feather
+                      name={sortDir === 'asc' ? 'arrow-up' : 'arrow-down'}
+                      size={12}
+                      color={colorScheme === 'dark' ? '#736e69' : '#9b9797'}
+                    />
+                  )}
+                </Pressable>
+              );
+            })}
+            <View className="flex-1" />
             <Pressable onPress={toggleAll} className="flex-row items-center gap-1.5 p-2">
               <Feather
                 name={signal.collapsed ? 'chevrons-down' : 'chevrons-up'}
                 size={14}
                 color={colorScheme === 'dark' ? '#736e69' : '#9b9797'}
               />
-              <Text className="text-xs uppercase tracking-wider text-ink-faint dark:text-ink-faintdark font-serif">
-                {signal.collapsed ? 'Expand all' : 'Collapse all'}
-              </Text>
             </Pressable>
           </View>
         )}
@@ -151,7 +233,7 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
           <ErrandCategoryGroup
             key={category}
             category={category}
-            items={items}
+            items={sortItems(items, sortKey, sortDir)}
             money={money}
             signal={signal}
             onPress={handlePress}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -28,7 +28,7 @@ export interface PurchaseRowProps {
  * way you'd score through a paper shopping list. Ruled bottom line + red
  * left-margin rule complete the notebook page.
  */
-export function PurchaseRow({
+function PurchaseRowComponent({
   name,
   category,
   quantityLabel,
@@ -43,8 +43,17 @@ export function PurchaseRow({
 
   const progress = useSharedValue(purchased ? 1 : 0);
   const pop = useSharedValue(purchased ? 1 : 0);
+  const mounted = useRef(false);
 
   useEffect(() => {
+    // Snap to state on first mount (e.g. expanding a category); only animate
+    // on a real toggle so re-mounting many rows doesn't kick off N animations.
+    if (!mounted.current) {
+      mounted.current = true;
+      progress.value = purchased ? 1 : 0;
+      pop.value = purchased ? 1 : 0;
+      return;
+    }
     progress.value = withTiming(purchased ? 1 : 0, { duration: 260 });
     pop.value = withSpring(purchased ? 1 : 0, { damping: 12, stiffness: 180 });
   }, [purchased, progress, pop]);
@@ -130,3 +139,5 @@ export function PurchaseRow({
     </Pressable>
   );
 }
+
+export const PurchaseRow = memo(PurchaseRowComponent);

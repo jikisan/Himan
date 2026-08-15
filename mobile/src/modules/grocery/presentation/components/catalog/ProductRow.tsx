@@ -22,14 +22,7 @@ export function ProductRow({
     >
       <View className="flex-col flex-1">
 
-        <View className="flex-row items-center gap-2 mt-0.5">
-          <Text className="text-[17px] font-serif text-ink dark:text-ink-dark">{product.name}</Text>
-          {product.packageSize ? (
-              <Text className="text-[14px] font-serif text-ink-soft dark:text-ink-softdark">
-                {product.packageSize}
-              </Text>
-          ) : null}
-        </View>
+        <Text className="flex-row items-center gap-2 mt-0.5 text-[17px] font-serif text-ink dark:text-ink-dark">{product.name}</Text>
 
         {product.category ? <CategoryChip category={product.category} /> : null}
 

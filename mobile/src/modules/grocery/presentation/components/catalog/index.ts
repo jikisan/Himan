@@ -4,4 +4,5 @@ export { CatalogProductList } from './CatalogProductList';
 export { CatalogAddRow } from './CatalogAddRow';
 export { CatalogEmptyState } from './CatalogEmptyState';
 export { ProductRow } from './ProductRow';
-export { ProductDialog } from './ProductDialog';
+export { ProductDetailScreen } from './ProductDetailScreen';
+export { ProductEditScreen } from './ProductEditScreen';

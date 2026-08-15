@@ -28,8 +28,8 @@ export default function HistoryScreen() {
 
   return (
     <PaperSurface>
-      <SafeAreaView className="flex-1" edges={['top']}>
-        <View className="px-5 pt-2 pb-3 border-b border-rule dark:border-rule-dark">
+      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+        <View className="px-5 pt-8 pb-3 border-b border-rule dark:border-rule-dark">
           <View className="flex-row items-center justify-between">
             <Pressable onPress={() => router.back()} className="flex-row items-center gap-1 active:opacity-60">
               <Feather name="chevron-left" size={22} color={c.ink} />
@@ -37,7 +37,7 @@ export default function HistoryScreen() {
             </Pressable>
             <SyncBadge />
           </View>
-          <SectionHeading size="xl" className="mt-1">Errand History</SectionHeading>
+          <SectionHeading size="xl" className="mt-6">History</SectionHeading>
         </View>
 
         <SectionList<GrocerySession, { title: string; total: number }>

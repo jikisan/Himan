@@ -48,7 +48,7 @@ export const CategoryGroup = ({
         className="flex flex-row items-center gap-2 px-5 pt-5 pb-1.5"
       >
         <Text className="text-[15px] font-serif text-accent-text dark:text-accent-textdark flex-1">
-          #{tag}
+          {tag}
         </Text>
         <Text className="text-[14px] font-serif text-ink-faint dark:text-ink-faintdark">{items.length}</Text>
         <Feather

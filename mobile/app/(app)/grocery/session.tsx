@@ -86,8 +86,8 @@ export default function ErrandSessionScreen() {
 
   return (
     <PaperSurface>
-      <SafeAreaView className="flex-1" edges={['top']}>
-        <View className="px-5 pt-2 pb-3 border-b border-rule dark:border-rule-dark">
+      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+        <View className="px-5 pt-6 pb-6 border-b border-rule dark:border-rule-dark">
           <View className="flex-row items-center justify-between">
             <Pressable onPress={() => router.back()} className="flex-row items-center gap-1 active:opacity-60">
               <Feather name="chevron-left" size={22} color={c.ink} />
@@ -95,7 +95,7 @@ export default function ErrandSessionScreen() {
             </Pressable>
             <SyncBadge />
           </View>
-          <SectionHeading size="xl" className="mt-1">
+          <SectionHeading size="xl" className="mt-6">
             {errand?.name || errand?.storeName || 'Errand'}
           </SectionHeading>
           {errand?.storeName && errand?.name ? (
@@ -159,6 +159,7 @@ export default function ErrandSessionScreen() {
             </Pressable>
           </View>
         </View>
+
       </SafeAreaView>
     </PaperSurface>
   );

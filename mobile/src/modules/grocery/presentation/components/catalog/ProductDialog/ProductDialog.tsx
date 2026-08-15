@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Modal, Pressable, ScrollView } from 'react-native';
+import { View, Modal, Pressable, ScrollView, Keyboard, Platform } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { ProductType, UpdateProductDto } from '@himan/shared/grocery';
 import { useProductStores } from '@/modules/grocery/presentation/hooks/useProductStores';
@@ -29,9 +29,22 @@ export function ProductDialog({ product, onClose, onUpdate, onDelete, formatMone
   }));
 
   const { prices, unattachedStores, updateDetails, removeStore } = useProductStores(p?.id ?? null);
-  const { priceDrafts, aisleDrafts, setPriceDraft, setAisleDraft, commitPrice, commitAisle } =
+  const { priceDrafts, aisleDrafts, setPriceDraft, setAisleDraft, commitPrice, commitAisle, flushDrafts } =
     useStoreDrafts({ prices, updateDetails });
   const [showStorePicker, setShowStorePicker] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) =>
+      setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const { isEditing, setIsEditing, form, patchForm, saving, handleSave } = useProductEditForm(
     product,
@@ -47,6 +60,11 @@ export function ProductDialog({ product, onClose, onUpdate, onDelete, formatMone
     setShowStorePicker(false);
   };
 
+  const handleSaveAll = async () => {
+    await flushDrafts();
+    await handleSave();
+  };
+
   return (
     <Modal
       visible={!!rendered}
@@ -55,7 +73,10 @@ export function ProductDialog({ product, onClose, onUpdate, onDelete, formatMone
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-center items-center px-5">
+      <View
+        className="flex-1 justify-center items-center px-5"
+        style={{ paddingBottom: keyboardHeight }}
+      >
         <Pressable className="absolute inset-0" onPress={onClose}>
           <Animated.View className="flex-1 bg-black/50" style={backdropStyle} />
         </Pressable>
@@ -67,6 +88,8 @@ export function ProductDialog({ product, onClose, onUpdate, onDelete, formatMone
           {p ? (
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              automaticallyAdjustKeyboardInsets
               contentContainerStyle={{ padding: 22 }}
               showsVerticalScrollIndicator={false}
             >
@@ -96,7 +119,7 @@ export function ProductDialog({ product, onClose, onUpdate, onDelete, formatMone
                   showStorePicker={showStorePicker}
                   onShowStorePicker={() => setShowStorePicker(true)}
                   onAddStore={handleAddStore}
-                  onSave={handleSave}
+                  onSave={handleSaveAll}
                   saving={saving}
                 />
               ) : (

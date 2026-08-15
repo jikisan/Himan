@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import type { StorePrice } from '@/modules/grocery/presentation/hooks/useProductStores';
 
@@ -11,12 +11,20 @@ export function useStoreDrafts({ prices, updateDetails }: UseStoreDraftsArgs) {
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [aisleDrafts, setAisleDrafts] = useState<Record<string, string>>({});
 
+  // `prices` is a fresh array reference on most renders, so depend on a stable
+  // content signature to avoid an infinite reset loop.
+  const signature = useMemo(
+    () => prices.map((sp) => `${sp.store.id}:${sp.price ?? ''}:${sp.aisle ?? ''}`).join('|'),
+    [prices]
+  );
+
   useEffect(() => {
     setPriceDrafts(
       Object.fromEntries(prices.map((sp) => [sp.store.id, sp.price != null ? String(sp.price) : '']))
     );
     setAisleDrafts(Object.fromEntries(prices.map((sp) => [sp.store.id, sp.aisle ?? ''])));
-  }, [prices]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
 
   const setPriceDraft = (storeId: string, value: string) =>
     setPriceDrafts((d) => ({ ...d, [storeId]: value }));
@@ -43,5 +51,23 @@ export function useStoreDrafts({ prices, updateDetails }: UseStoreDraftsArgs) {
     }
   };
 
-  return { priceDrafts, aisleDrafts, setPriceDraft, setAisleDraft, commitPrice, commitAisle };
+  // Persist every store's current price + aisle draft in one upsert per store.
+  // Needed because the fields otherwise only commit on blur, which never fires
+  // when the user taps "Save changes" straight from a focused field.
+  const flushDrafts = async () => {
+    for (const sp of prices) {
+      const storeId = sp.store.id;
+      const rawPrice = (priceDrafts[storeId] ?? '').trim();
+      const price = rawPrice ? Number(rawPrice) : null;
+      if (price != null && Number.isNaN(price)) continue;
+      const aisle = (aisleDrafts[storeId] ?? '').trim() || null;
+      try {
+        await updateDetails({ storeId, price, aisle });
+      } catch (err) {
+        Alert.alert('Could not save store details', err instanceof Error ? err.message : String(err));
+      }
+    }
+  };
+
+  return { priceDrafts, aisleDrafts, setPriceDraft, setAisleDraft, commitPrice, commitAisle, flushDrafts };
 }

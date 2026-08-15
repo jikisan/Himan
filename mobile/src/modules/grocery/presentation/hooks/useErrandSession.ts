@@ -75,10 +75,9 @@ export function useErrandSession() {
       patchItem(item.id, {
         isPurchased: nextPurchased,
         purchasedAt,
-        pricePaid: nextPurchased ? details?.pricePaid ?? item.pricePaid : null,
-        quantityPurchased: nextPurchased
-          ? details?.quantityPurchased ?? item.quantityPurchased
-          : null,
+        pricePaid: details?.pricePaid ?? item.pricePaid,
+        quantityPurchased:
+          details?.quantityPurchased ?? item.quantityPurchased,
         aisle: details?.aisle ?? item.aisle,
         storeId: details?.storeId ?? item.storeId,
         category: details?.category ?? item.category,
@@ -94,14 +93,15 @@ export function useErrandSession() {
           purchasedAt: purchasedAt ? purchasedAt.toISOString() : null,
           ...(nextPurchased && details
             ? {
-                pricePaid: details.pricePaid ?? null,
-                quantityPurchased: details.quantityPurchased ?? null,
+                pricePaid: details.pricePaid ?? item.pricePaid ?? null,
+                quantityPurchased:
+                  details.quantityPurchased ?? item.quantityPurchased ?? null,
                 aisle: details.aisle ?? null,
                 storeId: details.storeId ?? null,
                 category: details.category ?? null,
                 notes: details.notes ?? null,
               }
-            : { pricePaid: null, quantityPurchased: null }),
+            : {}),
         },
       });
     },

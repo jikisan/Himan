@@ -66,18 +66,18 @@ export function PurchaseRow({
     <Pressable
       onPress={onToggle}
       onLongPress={onLongPress}
-      className="flex-row items-center gap-3 px-5 py-3.5 border-b border-rule dark:border-rule-dark active:bg-black/5"
+      className="flex-row items-center justify-start gap-3 px-5 py-3.5 border-b border-rule dark:border-rule-dark active:bg-black/5"
     >
       <Animated.View
         style={boxStyle}
-        className="h-6 w-6 rounded-3xl border-2 items-center justify-center"
+        className="h-6 w-6 rounded-3xl border-2 items-center justify-start"
       >
         <Animated.View style={checkStyle}>
           <Feather name="check" size={14} color="#FFFFFF" />
         </Animated.View>
       </Animated.View>
 
-      <View className="flex-1">
+      <View className="w-[50%]">
         <View className="self-start">
           <Text
             className={`text-[17px] font-serif ${purchased ? 'text-ink-faint dark:text-ink-faintdark' : 'text-ink dark:text-ink-dark'}`}

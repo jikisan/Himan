@@ -31,6 +31,7 @@ export const notebook = {
 } as const;
 
 export type NotebookScheme = keyof typeof notebook;
+export type NotebookColors = (typeof notebook)[NotebookScheme];
 
 // One accent now — category tags render as flush-left cyan #tags, not colored
 // dots. Kept for any callers that still want a per-category tint.

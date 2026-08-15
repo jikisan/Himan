@@ -74,6 +74,7 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
                 name={item.name}
                 category={null}
                 quantityLabel={quantityLabel(item)}
+                aisleLabel={item.aisle || null}
                 priceLabel={priceLabel(item, money)}
                 purchased={item.isPurchased}
                 onToggle={() => handlePress(item)}

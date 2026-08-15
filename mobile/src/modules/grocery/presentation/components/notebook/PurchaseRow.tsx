@@ -15,6 +15,7 @@ export interface PurchaseRowProps {
   name: string;
   category: string | null;
   quantityLabel?: string | null; // e.g. "2 kg"
+  aisleLabel?: string | null; // e.g. "A3"
   priceLabel?: string | null; // e.g. "₱120.00"
   purchased: boolean;
   onToggle: () => void;
@@ -31,6 +32,7 @@ export function PurchaseRow({
   name,
   category,
   quantityLabel,
+  aisleLabel,
   priceLabel,
   purchased,
   onToggle,
@@ -105,6 +107,17 @@ export function PurchaseRow({
           ) : null}
         </View>
       </View>
+
+      {aisleLabel ? (
+        <View className="items-center px-1">
+          <Text className="text-[12px] font-serif text-ink-soft dark:text-ink-softdark mt-0.5">
+            Aisle
+          </Text>
+          <Text className="text-[12px] font-serif text-ink-soft dark:text-ink-softdark mt-0.5">
+            {aisleLabel}
+          </Text>
+        </View>
+      ) : null}
 
       {priceLabel ? (
         <Text

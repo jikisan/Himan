@@ -24,11 +24,12 @@ function priceLabel(item: SessionItemType, money: CurrencyFormat): string | null
   return null;
 }
 
-type SortKey = 'name' | 'aisle' | 'price';
+// 'category' keeps the grouped view; 'aisle'/'price' flatten into one list.
+type SortKey = 'category' | 'aisle' | 'price';
 type SortDir = 'asc' | 'desc';
 
 const SORT_KEYS: { key: SortKey; label: string }[] = [
-  { key: 'name', label: 'Name' },
+  { key: 'category', label: 'Category' },
   { key: 'aisle', label: 'Aisle' },
   { key: 'price', label: 'Price' },
 ];
@@ -40,10 +41,11 @@ function effectivePrice(item: SessionItemType): number | null {
   return item.price ?? null;
 }
 
-function compareItems(a: SessionItemType, b: SessionItemType, key: SortKey): number {
+// Flat sort keys only; 'category' never reaches here (it stays grouped).
+type FlatSortKey = Exclude<SortKey, 'category'>;
+
+function compareItems(a: SessionItemType, b: SessionItemType, key: FlatSortKey): number {
   switch (key) {
-    case 'name':
-      return a.name.localeCompare(b.name);
     case 'aisle':
       // Empty aisles sort last; natural order so A2 < A10.
       return (a.aisle || '').localeCompare(b.aisle || '', undefined, {
@@ -61,7 +63,7 @@ function compareItems(a: SessionItemType, b: SessionItemType, key: SortKey): num
   }
 }
 
-function sortItems(items: SessionItemType[], key: SortKey, dir: SortDir): SessionItemType[] {
+function sortItems(items: SessionItemType[], key: FlatSortKey, dir: SortDir): SessionItemType[] {
   const sign = dir === 'asc' ? 1 : -1;
   return [...items].sort((a, b) => compareItems(a, b, key) * sign);
 }
@@ -143,8 +145,9 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
   const { colorScheme } = useColorScheme();
   const [editing, setEditing] = useState<SessionItemType | null>(null);
   const [signal, setSignal] = useState<CollapseSignal>({ collapsed: false, n: 0 });
-  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortKey, setSortKey] = useState<SortKey>('category');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const grouped = sortKey === 'category';
 
   const toggleAll = () =>
     setSignal((s) => ({ collapsed: !s.collapsed, n: s.n + 1 }));
@@ -209,7 +212,7 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
                   >
                     {label}
                   </Text>
-                  {active && (
+                  {active && !grouped && (
                     <Feather
                       name={sortDir === 'asc' ? 'arrow-up' : 'arrow-down'}
                       size={12}
@@ -220,25 +223,44 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
               );
             })}
             <View className="flex-1" />
-            <Pressable onPress={toggleAll} className="flex-row items-center gap-1.5 p-2">
-              <Feather
-                name={signal.collapsed ? 'chevrons-down' : 'chevrons-up'}
-                size={14}
-                color={colorScheme === 'dark' ? '#736e69' : '#9b9797'}
-              />
-            </Pressable>
+            {grouped && (
+              <Pressable onPress={toggleAll} className="flex-row items-center gap-1.5 p-2">
+                <Feather
+                  name={signal.collapsed ? 'chevrons-down' : 'chevrons-up'}
+                  size={14}
+                  color={colorScheme === 'dark' ? '#736e69' : '#9b9797'}
+                />
+              </Pressable>
+            )}
           </View>
         )}
-        {groups.map(([category, items]) => (
-          <ErrandCategoryGroup
-            key={category}
-            category={category}
-            items={sortItems(items, sortKey, sortDir)}
-            money={money}
-            signal={signal}
-            onPress={handlePress}
-          />
-        ))}
+        {sortKey === 'category'
+          ? groups.map(([category, items]) => (
+              <ErrandCategoryGroup
+                key={category}
+                category={category}
+                items={items}
+                money={money}
+                signal={signal}
+                onPress={handlePress}
+              />
+            ))
+          : sortItems(
+              groups.flatMap(([, items]) => items),
+              sortKey,
+              sortDir
+            ).map((item) => (
+              <PurchaseRow
+                key={item.id}
+                name={item.name}
+                category={null}
+                quantityLabel={quantityLabel(item)}
+                aisleLabel={item.aisle || null}
+                priceLabel={priceLabel(item, money)}
+                purchased={item.isPurchased}
+                onToggle={() => handlePress(item)}
+              />
+            ))}
       </ScrollView>
 
       <ErrandItemEditModal

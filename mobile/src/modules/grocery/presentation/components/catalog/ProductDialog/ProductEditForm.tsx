@@ -1,5 +1,6 @@
-import { View, Text, TextInput } from 'react-native';
+import { View, Text, TextInput, ScrollView } from 'react-native';
 import { useColorScheme } from 'nativewind';
+import { SUGGESTED_CATEGORIES } from '@himan/shared/grocery';
 import type { StoreType } from '@himan/shared/grocery';
 import type { StorePrice } from '@/modules/grocery/presentation/hooks/useProductStores';
 import { PressableScale } from '@/modules/grocery/presentation/components/notebook';
@@ -59,7 +60,7 @@ export function ProductEditForm({
   const accentTextColor = colorScheme === 'dark' ? '#201e1d' : '#ffffff';
 
   return (
-    <View className="mt-6 gap-4">
+    <View className="mt-6 gap-6">
       <Field label="Category">
         <TextInput
           value={form.category}
@@ -68,6 +69,34 @@ export function ProductEditForm({
           placeholderTextColor={c.inkSoft}
           className={INPUT}
         />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          className="mt-2 -mx-1"
+          contentContainerStyle={{ paddingHorizontal: 4, gap: 6 }}
+        >
+          {SUGGESTED_CATEGORIES.map((cat) => {
+            const active = form.category.trim().toLowerCase() === cat.toLowerCase();
+            return (
+              <PressableScale
+                key={cat}
+                onPress={() => onFormChange({ category: cat })}
+                className="rounded-full px-3 py-1.5"
+                style={{
+                  backgroundColor: active ? c.accent : c.surface,
+                }}
+              >
+                <Text
+                  className="text-[13px] font-serif"
+                  style={{ color: active ? accentTextColor : c.inkSoft }}
+                >
+                  {cat}
+                </Text>
+              </PressableScale>
+            );
+          })}
+        </ScrollView>
       </Field>
 
       {/*<View className="flex-row gap-3">*/}

@@ -79,16 +79,17 @@ function PurchaseRowComponent({
     >
       <Animated.View
         style={boxStyle}
-        className="h-6 w-6 rounded-3xl border-2 items-center justify-start"
+        className="h-6 w-6 rounded-3xl border-2 items-center justify-center"
       >
         <Animated.View style={checkStyle}>
           <Feather name="check" size={14} color="#FFFFFF" />
         </Animated.View>
       </Animated.View>
 
-      <View className="w-[50%]">
-        <View className="self-start">
+      <View className="flex-1 min-w-0">
+        <View className="self-start max-w-full">
           <Text
+            numberOfLines={1}
             className={`text-[17px] font-serif ${purchased ? 'text-ink-faint dark:text-ink-faintdark' : 'text-ink dark:text-ink-dark'}`}
           >
             {name}
@@ -119,23 +120,27 @@ function PurchaseRowComponent({
 
       {aisleLabel ? (
         <View className="items-center px-1">
-          <Text className="text-[12px] font-serif text-ink-soft dark:text-ink-softdark mt-0.5">
+          <Text className="text-[10px] font-serif text-ink-soft dark:text-ink-softdark mt-0.5">
             Aisle
           </Text>
-          <Text className="text-[12px] font-serif text-ink-soft dark:text-ink-softdark mt-0.5">
+          <Text className="text-[12px] font-bold font-serif text-ink-soft dark:text-ink-softdark mt-0.5">
             {aisleLabel}
           </Text>
         </View>
       ) : null}
 
-      {priceLabel ? (
-        <Text
-          className="text-[14px] font-serif text-ink-faint dark:text-ink-faintdark"
-          style={{ fontVariant: ['tabular-nums'] }}
-        >
-          {priceLabel}
-        </Text>
-      ) : null}
+      {/* Price column — fixed width, right-aligned, tabular figures. */}
+      <View className="w-20 items-end">
+        {priceLabel ? (
+          <Text
+            className="text-[14px] font-serif text-ink-faint dark:text-ink-faintdark"
+            style={{ fontVariant: ['tabular-nums'] }}
+            numberOfLines={1}
+          >
+            {priceLabel}
+          </Text>
+        ) : null}
+      </View>
     </Pressable>
   );
 }

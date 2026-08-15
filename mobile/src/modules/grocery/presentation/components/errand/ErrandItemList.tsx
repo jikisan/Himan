@@ -46,12 +46,16 @@ type FlatSortKey = Exclude<SortKey, 'category'>;
 
 function compareItems(a: SessionItemType, b: SessionItemType, key: FlatSortKey): number {
   switch (key) {
-    case 'aisle':
-      // Empty aisles sort last; natural order so A2 < A10.
-      return (a.aisle || '').localeCompare(b.aisle || '', undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
+    case 'aisle': {
+      // Empty aisles rank after any labelled aisle; digit runs compare
+      // numerically so A2 < A10.
+      const aa = a.aisle?.trim() || '';
+      const ba = b.aisle?.trim() || '';
+      if (!aa && !ba) return 0;
+      if (!aa) return 1;
+      if (!ba) return -1;
+      return aa.localeCompare(ba, undefined, { numeric: true, sensitivity: 'base' });
+    }
     case 'price': {
       const pa = effectivePrice(a);
       const pb = effectivePrice(b);
@@ -189,13 +193,12 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
 
   return (
     <>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 150 }}>
-        {groups.length > 0 && (
-          <View className="flex-row items-center px-4 pt-2 gap-2">
-            <Text className="text-xs uppercase tracking-wider text-ink-faint dark:text-ink-faintdark font-serif">
-              Sort
-            </Text>
-            {SORT_KEYS.map(({ key, label }) => {
+      {groups.length > 0 && (
+        <View className="flex-row items-center px-4 pt-2 gap-2">
+          <Text className="text-xs uppercase tracking-wider text-ink-faint dark:text-ink-faintdark font-serif">
+            Sort
+          </Text>
+          {SORT_KEYS.map(({ key, label }) => {
               const active = key === sortKey;
               return (
                 <Pressable
@@ -232,8 +235,9 @@ export function ErrandItemList({ groups, onToggle, onUpdate }: ErrandItemListPro
                 />
               </Pressable>
             )}
-          </View>
-        )}
+        </View>
+      )}
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 150 }}>
         {sortKey === 'category'
           ? groups.map(([category, items]) => (
               <ErrandCategoryGroup

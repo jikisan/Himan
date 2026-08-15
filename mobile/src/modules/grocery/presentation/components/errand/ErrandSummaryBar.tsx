@@ -27,15 +27,15 @@ export function ErrandSummaryBar({
       className="absolute left-0 right-0 bottom-0 px-5 pt-3 border-t border-rule dark:border-rule-dark bg-paper dark:bg-paper-dark"
       style={{ paddingBottom: Math.max(insets.bottom, 24) }}
     >
-      <View className="flex-row justify-between">
-        <Text className="text-ink-soft dark:text-ink-softdark font-serif">Estimated</Text>
-        <Text className="text-ink-soft dark:text-ink-softdark font-serif" style={{ fontVariant: ['tabular-nums'] }}>
-          {money(estimatedTotal)}
-        </Text>
-      </View>
-      <View className="flex-row justify-between mt-0.5">
-        <Text className="text-ink dark:text-ink-dark font-medium font-serif">Actual so far</Text>
-        <Text className="text-ink dark:text-ink-dark font-semibold text-base font-serif" style={{ fontVariant: ['tabular-nums'] }}>
+      {/*<View className="flex-row justify-between">*/}
+      {/*  <Text className="text-ink-soft dark:text-ink-softdark font-serif">Estimated</Text>*/}
+      {/*  <Text className="text-ink-soft dark:text-ink-softdark font-serif" style={{ fontVariant: ['tabular-nums'] }}>*/}
+      {/*    {money(estimatedTotal)}*/}
+      {/*  </Text>*/}
+      {/*</View>*/}
+      <View className="flex-row justify-between mt-0.5 py-4">
+        <Text className="text-ink dark:text-ink-dark font-normal font-serif">Total</Text>
+        <Text className="text-xl text-ink dark:text-ink-dark font-semibold text-base font-serif" style={{ fontVariant: ['tabular-nums'] }}>
           {money(actualTotal)}
         </Text>
       </View>

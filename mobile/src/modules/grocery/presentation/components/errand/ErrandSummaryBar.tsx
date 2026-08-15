@@ -1,4 +1,5 @@
 import { View, Text, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { useCurrency } from '@/modules/grocery/presentation/hooks/useCurrency';
 import { notebook } from '@/modules/grocery/presentation/theme/notebook';
@@ -19,9 +20,13 @@ export function ErrandSummaryBar({
   const { colorScheme } = useColorScheme();
   const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
   const { format: money } = useCurrency();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View className="absolute left-0 right-0 bottom-0 px-5 pt-3 pb-6 border-t border-rule dark:border-rule-dark bg-paper dark:bg-paper-dark">
+    <View
+      className="absolute left-0 right-0 bottom-0 px-5 pt-3 border-t border-rule dark:border-rule-dark bg-paper dark:bg-paper-dark"
+      style={{ paddingBottom: Math.max(insets.bottom, 24) }}
+    >
       <View className="flex-row justify-between">
         <Text className="text-ink-soft dark:text-ink-softdark font-serif">Estimated</Text>
         <Text className="text-ink-soft dark:text-ink-softdark font-serif" style={{ fontVariant: ['tabular-nums'] }}>

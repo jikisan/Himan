@@ -51,6 +51,22 @@ export function useErrandSession() {
     [queryClient]
   );
 
+  const updateItem = useCallback(
+    async (
+      itemId: string,
+      patch: Pick<Partial<SessionItemType>, 'name' | 'category' | 'quantity' | 'aisle' | 'price'>
+    ) => {
+      patchItem(itemId, patch);
+      await enqueue({
+        type: 'update',
+        entity: 'sessionItem',
+        entityId: itemId,
+        payload: patch,
+      });
+    },
+    [enqueue, patchItem]
+  );
+
   const togglePurchase = useCallback(
     async (item: SessionItemType, details?: PurchaseDetails) => {
       const nextPurchased = !item.isPurchased;
@@ -113,6 +129,7 @@ export function useErrandSession() {
     session,
     isLoading,
     togglePurchase,
+    updateItem,
     completeErrand,
     cancelErrand,
   };

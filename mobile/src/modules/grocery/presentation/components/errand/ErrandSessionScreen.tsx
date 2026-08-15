@@ -13,7 +13,7 @@ import { ErrandSummaryBar } from './ErrandSummaryBar';
 
 export function ErrandSessionScreen() {
   const router = useRouter();
-  const { session, isLoading, togglePurchase, completeErrand, cancelErrand } =
+  const { session, isLoading, togglePurchase, updateItem, completeErrand, cancelErrand } =
     useErrandSession();
 
   const errand = useMemo(() => (session ? new GrocerySession(session) : null), [session]);
@@ -62,7 +62,7 @@ export function ErrandSessionScreen() {
     <PaperSurface>
       <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
         <ErrandSessionHeader errand={errand} />
-        <ErrandItemList groups={groups} onToggle={togglePurchase} />
+        <ErrandItemList groups={groups} onToggle={togglePurchase} onUpdate={updateItem} />
         <ErrandSummaryBar
           estimatedTotal={errand?.estimatedTotal ?? 0}
           actualTotal={errand?.actualTotal ?? 0}

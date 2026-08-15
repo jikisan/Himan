@@ -68,7 +68,7 @@ export function PurchaseRow({
     >
       <Animated.View
         style={boxStyle}
-        className="h-6 w-6 rounded-md border-2 items-center justify-center"
+        className="h-6 w-6 rounded-3xl border-2 items-center justify-center"
       >
         <Animated.View style={checkStyle}>
           <Feather name="check" size={14} color="#FFFFFF" />

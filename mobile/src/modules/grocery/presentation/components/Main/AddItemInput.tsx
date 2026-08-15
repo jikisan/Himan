@@ -9,6 +9,7 @@ interface AddItemInputProps {
   listId: string;
   products: ProductType[];
   onAddItem: (dto: CreateGroceryItemDto) => void;
+  onRequestAddDetails: (name: string) => void;
   autoFocus?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const AddItemInput = ({
   listId,
   products,
   onAddItem,
+  onRequestAddDetails,
   autoFocus = false,
 }: AddItemInputProps) => {
   const [query, setQuery] = useState('');
@@ -61,10 +63,9 @@ export const AddItemInput = ({
   const addCustom = () => {
     const trimmed = query.trim();
     if (!trimmed) return;
-    onAddItem({ listId, name: trimmed });
+    onRequestAddDetails(trimmed);
     setQuery('');
     setIsOpen(false);
-    inputRef.current?.focus();
   };
 
   return (
@@ -94,7 +95,7 @@ export const AddItemInput = ({
               addCustom();
             }
           }}
-          className="px-4 py-3 bg-surface dark:bg-surface-dark border border-rule dark:border-rule-dark rounded-sm font-serifitalic text-[15px] text-ink dark:text-ink-dark"
+          className="px-5 py-3 bg-surface dark:bg-surface-dark border border-rule dark:border-rule-dark rounded-3xl font-serifitalic text-[15px] text-ink dark:text-ink-dark"
         />
       </View>
 

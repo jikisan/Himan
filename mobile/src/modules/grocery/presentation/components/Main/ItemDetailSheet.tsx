@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable, TextInput, Modal, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import type { GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto } from '@himan/shared/grocery';
+import {GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto, SUGGESTED_CATEGORIES} from '@himan/shared/grocery';
 
 const GROCERY_CATEGORIES = [
   'Produce',
@@ -66,6 +66,7 @@ interface ItemDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   item: GroceryItemType | null;
   mode?: ItemDetailMode;
+  initialName?: string;
   onSave: (id: string, dto: UpdateGroceryItemDto) => void;
   onAdd?: (dto: CreateGroceryItemDto) => void;
   onDelete: (id: string) => void;
@@ -77,6 +78,7 @@ export const ItemDetailSheet = ({
   onOpenChange,
   item,
   mode = 'edit',
+  initialName = '',
   onSave,
   onAdd,
   onDelete,
@@ -99,7 +101,7 @@ export const ItemDetailSheet = ({
 
   useEffect(() => {
     if (isAddMode) {
-      setName('');
+      setName(initialName);
       setCategory('');
       setCustomCategory('');
       setIsOtherCategory(false);
@@ -135,7 +137,7 @@ export const ItemDetailSheet = ({
       }
       setNotes(item.notes ?? '');
     }
-  }, [item, isAddMode, open]);
+  }, [item, isAddMode, open, initialName]);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -267,7 +269,7 @@ export const ItemDetailSheet = ({
                 {categoryDropdownOpen && (
                   <View className="border border-rule dark:border-rule-dark rounded-sm mt-1 bg-paper dark:bg-paper-dark overflow-hidden">
                     <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
-                      {GROCERY_CATEGORIES.map((cat) => (
+                      {SUGGESTED_CATEGORIES.map((cat) => (
                         <Pressable
                           key={cat}
                           onPress={() => {

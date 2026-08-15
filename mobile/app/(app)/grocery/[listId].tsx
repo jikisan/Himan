@@ -34,6 +34,7 @@ export default function GroceryListDetailScreen() {
 
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [pendingItemName, setPendingItemName] = useState('');
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 2, n: 1 });
   const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(2);
@@ -84,6 +85,13 @@ export default function GroceryListDetailScreen() {
   const handleCloseSheet = useCallback(() => {
     setEditingItem(null);
     setIsAddingItem(false);
+    setPendingItemName('');
+  }, []);
+
+  const handleRequestAddDetails = useCallback((name: string) => {
+    setEditingItem(null);
+    setPendingItemName(name);
+    setIsAddingItem(true);
   }, []);
 
   const handleSelectSuggestion = useCallback(
@@ -98,6 +106,16 @@ export default function GroceryListDetailScreen() {
     setCollapseLevel(nextLevel);
     setCollapseStamp((prev) => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
   }, [collapseLevel]);
+
+  const allSelected = items.length > 0 && uncheckedItems.length === 0;
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      checkedItems.forEach((item) => uncheckItem(item.id));
+    } else {
+      uncheckedItems.forEach((item) => checkItem(item.id));
+    }
+  }, [allSelected, checkedItems, uncheckedItems, checkItem, uncheckItem]);
 
   const handleSaveItem = useCallback(
     async (id: string, dto: any) => {
@@ -137,15 +155,23 @@ export default function GroceryListDetailScreen() {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
           <View className="px-5 pt-3">
-            <AddItemInput listId={listId} products={products} onAddItem={handleAddNewItem} />
+            <AddItemInput
+              listId={listId}
+              products={products}
+              onAddItem={handleAddNewItem}
+              onRequestAddDetails={handleRequestAddDetails}
+            />
           </View>
 
+          <GroceryListCollapseToggle
+            collapseLevel={collapseLevel}
+            onToggle={handleToggleCollapse}
+            visible={groupedAll.size > 0}
+            allSelected={allSelected}
+            onToggleSelectAll={handleToggleSelectAll}
+          />
+
           <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
-            <GroceryListCollapseToggle
-              collapseLevel={collapseLevel}
-              onToggle={handleToggleCollapse}
-              visible={groupedAll.size > 0}
-            />
 
             {Array.from(groupedAll.entries()).map(([category, catItems]) => (
               <CategoryGroup
@@ -171,6 +197,7 @@ export default function GroceryListDetailScreen() {
         onOpenChange={(open) => !open && handleCloseSheet()}
         item={editingItem}
         mode={isAddingItem ? 'add' : 'edit'}
+        initialName={pendingItemName}
         listId={listId}
         onSave={handleSaveItem}
         onAdd={handleAddNewItem}

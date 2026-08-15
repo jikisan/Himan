@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { View, Text, Pressable, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, Pressable, Modal, TextInput, ScrollView, Keyboard, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import type { SessionItemType } from '@himan/shared/grocery';
+import { SUGGESTED_CATEGORIES } from '@himan/shared/grocery';
 import { notebook } from '@/modules/grocery/presentation/theme/notebook';
 
 export interface ErrandItemEdits {
@@ -28,6 +29,22 @@ function parseNumber(text: string): number | null {
 export function ErrandItemEditModal({ item, onClose, onSave, onSkip }: ErrandItemEditModalProps) {
   const { colorScheme } = useColorScheme();
   const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
+
+  // Track keyboard height manually — KeyboardAvoidingView is unreliable inside
+  // a native Modal (Android renders it in a separate window that ignores resize).
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, (e) =>
+      setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
@@ -61,12 +78,12 @@ export function ErrandItemEditModal({ item, onClose, onSave, onSkip }: ErrandIte
 
   return (
     <Modal visible={!!item} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <Pressable
+        className="flex-1 bg-black/50 justify-center items-center px-5"
+        style={{ paddingBottom: keyboardHeight }}
+        onPress={onClose}
       >
-        <Pressable className="flex-1 bg-black/50 justify-center items-center px-5" onPress={onClose}>
-          <Pressable className="bg-paper dark:bg-paper-dark rounded-3xl w-full max-w-sm shadow-xl overflow-hidden">
+        <Pressable className="bg-paper dark:bg-paper-dark rounded-3xl w-full max-w-sm max-h-full shadow-xl overflow-hidden">
             <View className="flex-row items-center justify-between px-5 pt-5 pb-3">
               <Text className="text-lg font-semibold text-ink dark:text-ink-dark font-serif">Edit item</Text>
               <Pressable onPress={onClose} className="active:opacity-60 p-1">
@@ -74,7 +91,11 @@ export function ErrandItemEditModal({ item, onClose, onSave, onSkip }: ErrandIte
               </Pressable>
             </View>
 
-            <ScrollView className="px-5" contentContainerStyle={{ paddingBottom: 4 }}>
+            <ScrollView
+              className="px-5"
+              contentContainerStyle={{ paddingBottom: 4 }}
+              keyboardShouldPersistTaps="handled"
+            >
               <View className="gap-3">
                 <View>
                   <Text className="text-xs uppercase tracking-wider text-ink-soft dark:text-ink-softdark mb-1.5 font-serif">Name</Text>
@@ -96,6 +117,38 @@ export function ErrandItemEditModal({ item, onClose, onSave, onSkip }: ErrandIte
                     placeholder="Other"
                     placeholderTextColor={c.inkFaint}
                   />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    className="mt-2 -mx-1"
+                    contentContainerStyle={{ paddingHorizontal: 4, gap: 6 }}
+                  >
+                    {SUGGESTED_CATEGORIES.map((cat) => {
+                      const active = category.trim().toLowerCase() === cat.toLowerCase();
+                      return (
+                        <Pressable
+                          key={cat}
+                          onPress={() => setCategory(cat)}
+                          className="rounded-full px-3 py-2.5 active:opacity-70"
+                          style={{ backgroundColor: active ? c.accent : c.surface }}
+                        >
+                          <Text
+                            className="text-[13px] font-serif"
+                            style={{
+                              color: active
+                                ? colorScheme === 'dark'
+                                  ? '#201e1d'
+                                  : '#ffffff'
+                                : c.inkSoft,
+                            }}
+                          >
+                            {cat}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
 
                 <View className="flex-row gap-3">
@@ -154,8 +207,7 @@ export function ErrandItemEditModal({ item, onClose, onSave, onSkip }: ErrandIte
               </Pressable>
             </View>
           </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
+      </Pressable>
     </Modal>
   );
 }

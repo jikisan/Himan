@@ -70,31 +70,31 @@ export function ProductEditForm({
         />
       </Field>
 
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <Field label="Package size">
-            <TextInput
-              value={form.packageSize}
-              onChangeText={(v) => onFormChange({ packageSize: v })}
-              placeholder="500g, 1L, 12-pack"
-              placeholderTextColor={c.inkSoft}
-              className={INPUT}
-            />
-          </Field>
-        </View>
-        <View className="flex-1">
-          <Field label="Lifespan (days)">
-            <TextInput
-              value={form.lifespanDays}
-              onChangeText={(v) => onFormChange({ lifespanDays: v.replace(/[^0-9]/g, '') })}
-              placeholder="Days until it runs out"
-              placeholderTextColor={c.inkSoft}
-              keyboardType="number-pad"
-              className={INPUT}
-            />
-          </Field>
-        </View>
-      </View>
+      {/*<View className="flex-row gap-3">*/}
+      {/*  <View className="flex-1">*/}
+      {/*    <Field label="Package size">*/}
+      {/*      <TextInput*/}
+      {/*        value={form.packageSize}*/}
+      {/*        onChangeText={(v) => onFormChange({ packageSize: v })}*/}
+      {/*        placeholder="500g, 1L, 12-pack"*/}
+      {/*        placeholderTextColor={c.inkSoft}*/}
+      {/*        className={INPUT}*/}
+      {/*      />*/}
+      {/*    </Field>*/}
+      {/*  </View>*/}
+      {/*  <View className="flex-1">*/}
+      {/*    <Field label="Lifespan (days)">*/}
+      {/*      <TextInput*/}
+      {/*        value={form.lifespanDays}*/}
+      {/*        onChangeText={(v) => onFormChange({ lifespanDays: v.replace(/[^0-9]/g, '') })}*/}
+      {/*        placeholder="Days until it runs out"*/}
+      {/*        placeholderTextColor={c.inkSoft}*/}
+      {/*        keyboardType="number-pad"*/}
+      {/*        className={INPUT}*/}
+      {/*      />*/}
+      {/*    </Field>*/}
+      {/*  </View>*/}
+      {/*</View>*/}
 
       <ProductStoreEditSection
         prices={prices}

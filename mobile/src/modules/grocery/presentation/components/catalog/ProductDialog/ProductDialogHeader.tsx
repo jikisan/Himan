@@ -54,18 +54,19 @@ export function ProductDialogHeader({
         ) : null}
       </View>
       <View className="flex-row items-center gap-1.5">
-        <PressableScale
-          onPress={onEditToggle}
-          hitSlop={6}
-          className="w-9 h-9 rounded-full items-center justify-center"
-          style={{ backgroundColor: isEditing ? c.accent : c.surface }}
+        {!isEditing && <PressableScale
+            onPress={onEditToggle}
+            hitSlop={6}
+            className="w-9 h-9 rounded-full items-center justify-center"
+            style={{ backgroundColor: c.surface }}
         >
           <Feather
-            name={isEditing ? 'check' : 'edit-2'}
-            size={16}
-            color={isEditing ? accentTextColor : c.inkSoft}
+              name={'edit-2'}
+              size={16}
+              color={c.inkSoft}
           />
-        </PressableScale>
+        </PressableScale>}
+
         <PressableScale
           onPress={() =>
             Alert.alert('Delete product?', `Remove "${product.name}" from your catalog.`, [

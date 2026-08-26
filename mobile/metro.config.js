@@ -20,11 +20,22 @@ config.resolver.nodeModulesPaths = [
 // imports like @himan/shared/auth, @himan/shared/notes, etc.
 config.resolver.unstable_enablePackageExports = true;
 
-// @himan/shared internal imports use .js extensions (ESM TypeScript convention:
-// e.g. `from './config/index.js'` which resolves to ./config/index.ts).
-// Metro looks for files literally and won't find the .ts file without this remap.
-const defaultResolveRequest = config.resolver.resolveRequest;
+const projectSrc = path.resolve(projectRoot, 'src');
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Resolve the `@/*` alias explicitly to `src/*`. Do NOT rely on Expo's
+  // tsconfig-paths resolver: it is silently inactive during EAS eager bundle
+  // (`expo export:embed --eager`), which breaks every `@/...` import there
+  // even though it works in local `expo start`/`export`. Mapping to an
+  // absolute file path here makes resolution environment-independent.
+  if (moduleName.startsWith('@/')) {
+    const target = path.join(projectSrc, moduleName.slice(2));
+    return context.resolveRequest(context, target, platform);
+  }
+
+  // @himan/shared internal imports use .js extensions (ESM TypeScript
+  // convention: `from './config/index.js'` resolves to ./config/index.ts).
+  // Metro looks for files literally and won't find the .ts without this remap.
   if (
     moduleName.endsWith('.js') &&
     context.originModulePath.includes(`${path.sep}packages${path.sep}shared${path.sep}`)
@@ -36,9 +47,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // fall through to default resolution
     }
   }
-  return defaultResolveRequest
-    ? defaultResolveRequest(context, moduleName, platform)
-    : context.resolveRequest(context, moduleName, platform);
+
+  return context.resolveRequest(context, moduleName, platform);
 };
 
 module.exports = withNativeWind(config, {

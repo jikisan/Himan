@@ -6,6 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Himan is a personal productivity suite (notes, passwords, file storage, credit cards, invoice generator, grocery lists, subscriptions). The repo is an **npm workspaces monorepo** with platform-specific apps sharing a common domain layer.
 
+## Codebase Map — read this before exploring
+
+`docs/` is an Obsidian vault holding the orientation layer. **Start with `docs/MAP.md`**
+(~500 tokens: module table, core abstractions, gotchas, verified plan status), then
+`docs/modules/<name>.md` for a specific module's layers, blast radius, routes, and migrations.
+
+For anything deeper, query the knowledge graph rather than reading source files:
+
+```bash
+graphify query "how does grocery session sync work?" --budget 1500
+graphify path "SyncEngine" "GrocerySessionRepository"   # shortest path between concepts
+/graphify . --update                                     # incremental rebuild after changes
+```
+
+The graph lives in `graphify-out/` (gitignored): 2,801 nodes, 5,999 edges, 255 communities,
+covering all 630 source files, 19 SQL migrations, and the project's design docs.
+
+Note that `docs/` plan documents can lag the code — `docs/MAP.md` carries a verified
+status block. Trust the code and the graph over a plan's checkboxes.
+
 ## Repository Structure
 
 ```

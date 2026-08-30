@@ -1,3 +1,11 @@
+---
+type: spec
+area: friends
+status: implemented
+created: 2026-08-01
+plan: "[[2026-08-01-grocery-friends]]"
+---
+
 # Grocery Friends — Design
 
 **Date:** 2026-08-01

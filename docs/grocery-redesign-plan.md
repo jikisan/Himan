@@ -1,3 +1,11 @@
+---
+type: plan
+area: grocery
+status: phase-c-in-progress
+created: 2026-08-01
+note: "Phases A+B verified shipped 2026-08-30. Migrations live in supabase/migrations/ at repo root, not web/supabase/ as written below."
+---
+
 # Grocery & Errand Assistant Redesign — Data Model → Offline Sync → Notebook UI
 
 ## Context

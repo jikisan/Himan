@@ -1,6 +1,5 @@
 ---
 description: Generate a clean, conventional git commit message with no AI attribution
-allowed-tools: Read, Edit, MultiEdit
 ---
 
 Create a git commit message based on the provided code changes.
@@ -22,3 +21,7 @@ Quality guidelines:
 - Use present-tense, imperative mood
 - Group related changes logically
 - Avoid redundancy
+
+After generating the commit message:
+- Stage all modified files with git add
+- Execute git commit with the generated message

@@ -1,3 +1,12 @@
+---
+type: plan
+area: friends
+status: shipped
+created: 2026-08-01
+spec: "[[2026-08-01-grocery-friends-design]]"
+note: "Verified shipped 2026-08-30 despite unticked checkboxes: migration 20260801000000_create_friendships.sql, packages/shared/src/modules/friends/, mobile/app/(app)/friends.tsx all exist."
+---
+
 # Grocery Friends Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

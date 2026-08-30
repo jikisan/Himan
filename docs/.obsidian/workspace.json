@@ -4,17 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "150447adfef0b181",
+        "id": "7bf9d4570913c5c7",
         "type": "tabs",
         "children": [
           {
-            "id": "d5f8a875ad95c759",
+            "id": "a34cb030f408b036",
             "type": "leaf",
             "state": {
-              "type": "empty",
+              "type": "graph",
               "state": {},
-              "icon": "lucide-file",
-              "title": "New tab"
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -95,6 +95,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "modules/dashboard.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -113,6 +114,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "modules/dashboard.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -155,6 +157,7 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "modules/dashboard.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -183,11 +186,9 @@
       "claude-code-mcp:Toggle Claude Terminal": false
     }
   },
-  "active": "d5f8a875ad95c759",
+  "active": "a34cb030f408b036",
   "lastOpenFiles": [
-    "himan.base",
-    "bugs.md",
-    "MAP.md",
+    "modules/dashboard.md",
     "modules/subscriptions.md",
     "modules/storage.md",
     "modules/shared.md",
@@ -197,9 +198,18 @@
     "modules/invoice-generator.md",
     "modules/grocery.md",
     "modules/friends.md",
-    "modules/dashboard.md",
     "modules/cards.md",
     "modules/auth.md",
-    "modules"
+    "modules",
+    "himan.base",
+    "bugs.md",
+    "MAP.md",
+    "superpowers/specs/2026-08-01-grocery-friends-design.md",
+    "superpowers/plans/2026-08-01-grocery-friends.md",
+    "superpowers/specs",
+    "superpowers/plans",
+    "superpowers",
+    "grocery-redesign-plan.md",
+    "BUGS.md"
   ]
 }

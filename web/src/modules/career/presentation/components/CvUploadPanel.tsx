@@ -9,10 +9,11 @@ interface CvUploadPanelProps {
   hasCv: boolean;
   onUpload: (file: File) => Promise<void>;
   onRemove: () => Promise<void>;
+  onCopyLink: () => Promise<void>;
   isSaving: boolean;
 }
 
-export const CvUploadPanel = ({ hasCv, onUpload, onRemove, isSaving }: CvUploadPanelProps) => {
+export const CvUploadPanel = ({ hasCv, onUpload, onRemove, onCopyLink, isSaving }: CvUploadPanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +45,9 @@ export const CvUploadPanel = ({ hasCv, onUpload, onRemove, isSaving }: CvUploadP
           </span>
           <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
             Replace
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCopyLink}>
+            Copy CV link
           </Button>
           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onRemove} disabled={isSaving}>
             <X className="h-3.5 w-3.5" />

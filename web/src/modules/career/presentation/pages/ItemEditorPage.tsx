@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ListChecks, Printer, ShieldOff } from 'lucide-react';
+import { ArrowLeft, Copy, Link2, ListChecks, Printer, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -231,6 +231,7 @@ export const ItemEditorPage = () => {
               hasCv={!!item.cvFilePath}
               onUpload={handleUploadCv}
               onRemove={handleRemoveCv}
+              onCopyLink={handleCopyCvLink}
               isSaving={isUploadingCv}
             />
 
@@ -290,24 +291,6 @@ export const ItemEditorPage = () => {
               </div>
 
               <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
-
-              <div className="flex flex-wrap justify-end gap-2">
-                {item.cvFilePath && (
-                  <Button variant="outline" size="sm" onClick={handleCopyCvLink}>
-                    Copy CV link
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={handleCopyText} disabled={!generate.canGenerate}>
-                  Copy cover letter
-                </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint} disabled={!generate.canGenerate}>
-                  <Printer className="h-4 w-4 mr-1.5" />
-                  Print / Save PDF
-                </Button>
-                <Button size="sm" onClick={handleCopyShareLink} disabled={!generate.canGenerate || generate.isPublishing || isLinking}>
-                  {generate.isPublishing || isLinking ? 'Publishing...' : 'Copy cover letter link'}
-                </Button>
-              </div>
             </div>
           </div>
 
@@ -321,6 +304,24 @@ export const ItemEditorPage = () => {
                   {selection.length === 0 ? 'No blocks set up yet — click "Edit blocks" to draft the letter.' : 'Fill in job title and company to preview the letter.'}
                 </p>
               )}
+            </div>
+            <div className="flex justify-end gap-1 mt-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
+                <Printer className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Copy cover letter link"
+                onClick={handleCopyShareLink}
+                disabled={!generate.canGenerate || generate.isPublishing || isLinking}
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>

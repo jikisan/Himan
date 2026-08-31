@@ -24,11 +24,14 @@ import { useItemBlocks } from '../hooks/useItemBlocks';
 import { useCareerBlocks } from '../hooks/useCareerBlocks';
 import { useGenerateLetter } from '../hooks/useGenerateLetter';
 import { ComposePane, type SelectedBlock } from '../components/ComposePane';
+import { BlockSwapList } from '../components/BlockSwapList';
 import { LetterPreview } from '../components/LetterPreview';
+import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterText';
 import { CvUploadPanel } from '../components/CvUploadPanel';
 import { CareerStorageService } from '../../infrastructure';
 import { buildStoragePath, type CareerLength, type ComposableBlock } from '@himan/shared/career';
 import { Logger } from '@core/infrastructure/services';
+import { cn } from '@core/presentation/utils';
 
 // Used only inside the blocks dialog, where the actual job title/company
 // aren't known yet — the point there is to sanity-check block order, not
@@ -83,6 +86,17 @@ export const ItemEditorPage = () => {
   const handleSaveSelection = async () => {
     await saveItemBlocks(selection.map((s, index) => ({ blockId: s.blockId, position: index, length: s.length })));
     setBlocksDialogOpen(false);
+  };
+
+  const handleSwapBlock = async (index: number, newBlockId: string) => {
+    const next = selection.map((s, i) => (i === index ? { ...s, blockId: newBlockId } : s));
+    setSelection(next);
+    try {
+      await saveItemBlocks(next.map((s, i) => ({ blockId: s.blockId, position: i, length: s.length })));
+      toast.success('Block swapped');
+    } catch {
+      // useItemBlocks already surfaces the failure toast.
+    }
   };
 
   const handleSaveName = async () => {
@@ -211,96 +225,102 @@ export const ItemEditorPage = () => {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-4 max-w-2xl mx-auto space-y-4">
-          <CvUploadPanel
-            hasCv={!!item.cvFilePath}
-            onUpload={handleUploadCv}
-            onRemove={handleRemoveCv}
-            isSaving={isUploadingCv}
-          />
+        <div className="p-4 max-w-5xl mx-auto grid gap-6 lg:grid-cols-2">
+          <div className="space-y-4">
+            <CvUploadPanel
+              hasCv={!!item.cvFilePath}
+              onUpload={handleUploadCv}
+              onRemove={handleRemoveCv}
+              isSaving={isUploadingCv}
+            />
 
-          <div className="rounded-lg border border-border p-4 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border p-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="jobTitle">Job title</Label>
+                  <Input
+                    id="jobTitle"
+                    value={generate.jobTitle}
+                    onChange={(e) => generate.setJobTitle(e.target.value)}
+                    placeholder="Senior Software Engineer"
+                    className={cn(generate.missing.includes('job_title') && 'border-destructive focus-visible:ring-destructive')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company">Company</Label>
+                  <Input
+                    id="company"
+                    value={generate.company}
+                    onChange={(e) => generate.setCompany(e.target.value)}
+                    placeholder="Acme Corp"
+                    className={cn(generate.missing.includes('company') && 'border-destructive focus-visible:ring-destructive')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hiringManager">Recipient (optional)</Label>
+                  <Input
+                    id="hiringManager"
+                    value={generate.hiringManager}
+                    onChange={(e) => generate.setHiringManager(e.target.value)}
+                    placeholder="Falls back to “Hiring Team”"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="length">Length</Label>
+                  <Select value={generate.length} onValueChange={(v) => generate.setLength(v as CareerLength)}>
+                    <SelectTrigger id="length">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="short">Short</SelectItem>
+                      <SelectItem value="long">Long</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="jobTitle">Job title</Label>
+                <Label htmlFor="hook">Hook (optional)</Label>
                 <Input
-                  id="jobTitle"
-                  value={generate.jobTitle}
-                  onChange={(e) => generate.setJobTitle(e.target.value)}
-                  placeholder="Senior Software Engineer"
+                  id="hook"
+                  value={generate.hook}
+                  onChange={(e) => generate.setHook(e.target.value)}
+                  placeholder="Dropped entirely if left blank"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  value={generate.company}
-                  onChange={(e) => generate.setCompany(e.target.value)}
-                  placeholder="Acme Corp"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hiringManager">Recipient (optional)</Label>
-                <Input
-                  id="hiringManager"
-                  value={generate.hiringManager}
-                  onChange={(e) => generate.setHiringManager(e.target.value)}
-                  placeholder="Falls back to “Hiring Team”"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="length">Length</Label>
-                <Select value={generate.length} onValueChange={(v) => generate.setLength(v as CareerLength)}>
-                  <SelectTrigger id="length">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="short">Short</SelectItem>
-                    <SelectItem value="long">Long</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
+
+              <div className="flex flex-wrap justify-end gap-2">
+                {item.cvFilePath && (
+                  <Button variant="outline" size="sm" onClick={handleCopyCvLink}>
+                    Copy CV link
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleCopyText} disabled={!generate.canGenerate}>
+                  Copy cover letter
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrint} disabled={!generate.canGenerate}>
+                  <Printer className="h-4 w-4 mr-1.5" />
+                  Print / Save PDF
+                </Button>
+                <Button size="sm" onClick={handleCopyShareLink} disabled={!generate.canGenerate || generate.isPublishing || isLinking}>
+                  {generate.isPublishing || isLinking ? 'Publishing...' : 'Copy cover letter link'}
+                </Button>
               </div>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="hook">Hook (optional)</Label>
-              <Input
-                id="hook"
-                value={generate.hook}
-                onChange={(e) => generate.setHook(e.target.value)}
-                placeholder="Dropped entirely if left blank"
-              />
-            </div>
-
-            <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-80 overflow-y-auto">
-              {generate.missing.length > 0 && (
-                <p className="text-xs text-destructive mb-2">Unresolved placeholders: {generate.missing.join(', ')}</p>
-              )}
+          <div className="lg:sticky lg:top-4 lg:self-start">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-2">Preview</h3>
+            <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-[70vh] overflow-y-auto">
               {generate.text.trim() ? (
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">{generate.text}</div>
+                <div className="text-sm whitespace-pre-wrap leading-relaxed">{renderHighlightedLetterText(generate.text)}</div>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {selection.length === 0 ? 'No blocks set up yet — click "Edit blocks" to draft the letter.' : 'Fill in job title and company to preview the letter.'}
                 </p>
               )}
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              {item.cvFilePath && (
-                <Button variant="outline" size="sm" onClick={handleCopyCvLink}>
-                  Copy CV link
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={handleCopyText} disabled={!generate.canGenerate}>
-                Copy cover letter
-              </Button>
-              <Button variant="outline" size="sm" onClick={handlePrint} disabled={!generate.canGenerate}>
-                <Printer className="h-4 w-4 mr-1.5" />
-                Print / Save PDF
-              </Button>
-              <Button size="sm" onClick={handleCopyShareLink} disabled={!generate.canGenerate || generate.isPublishing || isLinking}>
-                {generate.isPublishing || isLinking ? 'Publishing...' : 'Copy cover letter link'}
-              </Button>
             </div>
           </div>
         </div>

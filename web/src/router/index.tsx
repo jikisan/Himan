@@ -16,6 +16,7 @@ import { StoragePage } from '@storage/presentation/pages';
 import { NotFoundPage } from '@core/presentation/pages';
 import { InvoiceGeneratorPage } from '@invoice-generator/presentation/pages';
 import { GroceryPage } from '@grocery/presentation/pages';
+import { ItemsPage as CareerItemsPage, ItemEditorPage as CareerItemEditorPage, BlocksPage as CareerBlocksPage } from '@career/presentation/pages';
 
 export const Router = () => {
   return (
@@ -42,6 +43,10 @@ export const Router = () => {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/invoice-generator" element={<InvoiceGeneratorPage />} />
             <Route path="/grocery" element={<GroceryPage />} />
+            <Route path="/career" element={<CareerItemsPage />} />
+            <Route path="/career/blocks" element={<CareerBlocksPage />} />
+            <Route path="/career/new" element={<CareerItemEditorPage />} />
+            <Route path="/career/:itemId" element={<CareerItemEditorPage />} />
           </Route>
         </Route>
 

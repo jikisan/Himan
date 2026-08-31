@@ -1,7 +1,7 @@
 ---
 type: plan
 area: career
-status: draft
+status: implemented
 created: 2026-08-31
 revised: 2026-08-31
 spec: null
@@ -55,7 +55,7 @@ Everything downstream assumes Supabase serves a stored `text/html` object *inlin
 - Renders as a page → proceed as planned.
 - Downloads or serves as `text/plain` → **stop and report.** The fallback is to serve the letter from a public web route (`/share/:token`) that reads the render row directly, which changes Task 7 but nothing else.
 
-- [ ] **Step 2: Write the migration SQL**
+- [x] **Step 2: Write the migration SQL**
 
 ```sql
 -- ============================================================
@@ -219,21 +219,21 @@ Verify: RLS is on for all four tables, the `career` bucket exists and is **not**
 
 **Rules:** pure TypeScript, no framework imports, no DOM. Templates return HTML **strings**, so the artifact a recruiter opens and the artifact the browser prints are the same bytes and cannot drift.
 
-- [ ] **Step 1: Types and entities**
+- [x] **Step 1: Types and entities** — `domain/types/index.ts` only; no separate `entities/` files. Repositories follow the invoice-generator convention (private `mapToEntity` returning the plain type) instead, so a wrapper class would have added no behavior.
 
 Placeholder tokens: `{{job_title}}`, `{{company}}`, `{{hiring_manager}}` (fallback `Hiring Team`), `{{hook}}` (optional — when absent its whole sentence is dropped, not left blank).
 
 `CareerLength = 'short' | 'long'`. An item-block's `length` is `CareerLength | null`, where `null` means "include in every variant". There is no `'any'` member: the previous design used one enum as both a variant and a filter, which made `career_renders.length = 'any'` representable and meaningless.
 
-- [ ] **Step 2: `resolvePlaceholders`**
+- [x] **Step 2: `resolvePlaceholders`**
 
 Unresolved tokens must render **visibly** (`[[job_title]]`) rather than silently emptying, so a missing value is caught in preview instead of in a recruiter's inbox. Return every unresolved token in `missing`.
 
-- [ ] **Step 3: `composeLetter`**
+- [x] **Step 3: `composeLetter`**
 
 Order by `position`; drop blocks whose `length` is non-null and not the requested variant; join with blank lines; propagate `missing`. The filter reads `career_item_blocks.length` only — `career_blocks` deliberately has no `length` column, so there is exactly one source of truth.
 
-- [ ] **Step 4: `storagePaths`**
+- [x] **Step 4: `storagePaths`**
 
 ```
 career/{userId}/{shareToken}/letter.html
@@ -243,7 +243,7 @@ The random `shareToken` is both the unguessable path segment and the revocation 
 
 `buildDownloadFilename` derives from the caller-supplied full name (`kyle-santerna-cv.pdf`), falling back to `cv.pdf` when absent. Never hardcode a name in `packages/shared` — the schema is `user_id`-scoped throughout.
 
-- [ ] **Step 5: HTML template and print CSS**
+- [x] **Step 5: HTML template and print CSS**
 
 `renderLetterHtml` returns a complete standalone document: `<!doctype html>`, the letter text as `<p>` per paragraph, sender name and contact line, and `PRINT_CSS` inlined in a `<style>` tag. Single column, no tables, no icons, no images, standard headings, real selectable text — decorative layouts break ATS parsers.
 
@@ -251,9 +251,7 @@ The random `shareToken` is both the unguessable path segment and the revocation 
 
 Escape every interpolated value. The inputs are the user's own, but the output is a standalone HTML document served from your domain; unescaped `<` in a company name is a broken page at best.
 
-- [ ] **Step 6: Unit tests**
-
-Create `packages/shared/src/modules/career/domain/usecases/__tests__/`. Cover: missing placeholder surfaces in `missing` and renders as `[[token]]`; optional `{{hook}}` omission drops its sentence; `hiring_manager` falls back to `Hiring Team`; length filtering keeps `null` rows and drops the opposite variant; ordering follows `position`; path and filename construction; HTML escaping of an interpolated `<`.
+- [x] **Step 6: Unit tests** — placed at `web/src/modules/career/__tests__/` (not `packages/shared/.../usecases/__tests__/`), matching the existing precedent for shared-domain tests (`web/src/modules/friends/__tests__/Friend.test.ts`, `web/src/modules/grocery/__tests__/`) so they're actually reachable by `web`'s Vitest root. Cover: missing placeholder surfaces in `missing` and renders as `[[token]]`; optional `{{hook}}` omission drops its sentence; `hiring_manager` falls back to `Hiring Team`; length filtering keeps `null` rows and drops the opposite variant; ordering follows `position`; path and filename construction; HTML escaping of an interpolated `<`.
 
 ```bash
 cd web && npm run test:run
@@ -276,15 +274,15 @@ cd web && npm run test:run
   - `CareerStorageService.createShareUrl(path, downloadFilename?)`
   - `CareerStorageService.rotateShareToken(itemId, userId)`
 
-- [ ] **Step 1: Repositories**
+- [x] **Step 1: Repositories**
 
 Mirror `invoice-generator/infrastructure/repositories/` exactly — that is the house shape, down to the `PGRST116` → `null` handling on `.single()`.
 
-- [ ] **Step 2: `findAllWithUsage`**
+- [x] **Step 2: `findAllWithUsage`**
 
 `career_item_blocks.block_id` is `ON DELETE RESTRICT`, so a delete of a used block raises a raw Postgres FK error. Return the usage count alongside each block so Task 5 can disable the delete with a reason instead of surfacing `23503` to the user.
 
-- [ ] **Step 3: Storage service**
+- [x] **Step 3: Storage service**
 
 `upload` accepts `Uint8Array`, **not** `Blob` — `Blob` is a DOM type and `packages/shared` has no DOM lib, while `supabase-js` accepts `Uint8Array`. Pass `upsert: true`; regenerating a letter overwrites the shared object in place, which is the point (the live link updates).
 
@@ -292,9 +290,7 @@ Mirror `invoice-generator/infrastructure/repositories/` exactly — that is the 
 
 Omit `download` for the letter so it renders inline; pass it for the CV so it saves under a real name.
 
-- [ ] **Step 4: Token rotation**
-
-`rotateShareToken` deletes every object under the old `{userId}/{oldToken}/` prefix, then writes a fresh token. Deleting the object is what actually revokes the link — a signed URL cannot be individually revoked, but it 404s once its target is gone. Re-uploading under the new token is the caller's job (Task 7).
+- [x] **Step 4: Token rotation** — `rotateShareToken` writes a fresh token, **copies** every object from the old `{userId}/{oldToken}/` prefix to the new one (`storage.copy`), then deletes the old prefix and repoints `career_items.cv_file_path` at the new path if a CV was attached. Deleting the old objects is what actually revokes the old link — a signed URL cannot be individually revoked, but it 404s once its target is gone — while copying first means the letter and CV a recruiter already has stay intact and only the exposed old URL breaks. This differs from the plan's original "re-uploading is the caller's job": the caller (Task 7's UI) has no local copy of the CV bytes to re-upload, so the copy has to happen server-side inside the service.
 
 ---
 
@@ -308,11 +304,11 @@ Omit `download` for the letter so it renders inline; pass it for the CV so it sa
 - Modify: `web/src/router/index.tsx` — add the routes
 - Modify: `web/src/layouts/components/Sidebar.tsx` and `web/src/layouts/components/MobileNav.tsx` — add the nav entry to **both** (each declares its own `navItems` array)
 
-- [ ] **Step 1: Export the module's public API** from its `index.ts`
-- [ ] **Step 2: Add the `./career` subpath export**
-- [ ] **Step 3: Add `@career` in all three web configs** — missing one causes a test-only or build-only failure that is annoying to trace
-- [ ] **Step 4: Register routes** in `web/src/router/index.tsx`, inside the `ProtectedRoute` → `DashboardLayout` group alongside `/grocery`: `/career` (items) and `/career/blocks`. Add the matching nav entry to `Sidebar.tsx:25` **and** `MobileNav.tsx:11` — they hold independent `navItems` arrays, so adding one leaves the other silently missing the link. A page nothing links to is a page that does not exist.
-- [ ] **Step 5: Verify** — `cd web && npm run build && npm run test:run`
+- [x] **Step 1: Export the module's public API** from its `index.ts`
+- [x] **Step 2: Add the `./career` subpath export**
+- [x] **Step 3: Add `@career` in all three web configs** — missing one causes a test-only or build-only failure that is annoying to trace
+- [x] **Step 4: Register routes** in `web/src/router/index.tsx`, inside the `ProtectedRoute` → `DashboardLayout` group alongside `/grocery`: `/career` (items), `/career/blocks`, plus `/career/new` and `/career/:itemId` for the item editor (needed by Task 6, not explicit in this step but required to navigate to it). Added the matching nav entry to `Sidebar.tsx` **and** `MobileNav.tsx` — they hold independent `navItems` arrays, so adding one leaves the other silently missing the link.
+- [x] **Step 5: Verify** — `cd web && npm run build && npm run test:run` — both pass (44 tests).
 
 ---
 
@@ -324,9 +320,9 @@ Omit `download` for the letter so it renders inline; pass it for the CV so it sa
 - Create: `web/src/modules/career/presentation/pages/BlocksPage.tsx`
 - Create: `web/src/modules/career/presentation/constants/seedBlocks.ts`
 
-- [ ] **Step 1: React Query hooks** over `CareerBlockRepository`, passing `user.id` from `useAuth`
-- [ ] **Step 2: CRUD UI** grouped by `kind`, filterable by tag, with live placeholder preview per block. Delete is disabled with "used by N items" when `itemCount > 0` — see Task 3, Step 2.
-- [ ] **Step 3: Seeding** — a "Add starter blocks" action on the empty state, inserting from a `seedBlocks.ts` constant transcribed from `docs/superpowers/plans/assets/cover-letter-blocks.md` (8 experience lines, 10 proof paragraphs, fixed blocks). Not a seed migration: `career_blocks.user_id` is `NOT NULL`, and the existing `20260427000001_seed_grocery_data.sql` precedent seeds global rows, not user-scoped ones. A seed migration here would have to hardcode a UUID.
+- [x] **Step 1: React Query hooks** over `CareerBlockRepository`, passing `user.id` from `useAuth`
+- [x] **Step 2: CRUD UI** grouped by `kind`, filterable by tag, with live placeholder preview per block. Delete is disabled with "used by N items" when `itemCount > 0` — see Task 3, Step 2.
+- [x] **Step 3: Seeding** — a "Add starter blocks" action on the empty state, inserting from a `seedBlocks.ts` constant transcribed from `docs/superpowers/plans/assets/cover-letter-blocks.md` (10 experience lines, 13 proof paragraphs, fixed blocks — `cv_summary` kind has no seed content since v1 is upload-only CV mode).
 
 ---
 
@@ -337,10 +333,10 @@ Omit `download` for the letter so it renders inline; pass it for the CV so it sa
 - Create: `web/src/modules/career/presentation/components/{ItemCard,ComposePane,LetterPreview,CvUploadPanel}.tsx`
 - Create: `web/src/modules/career/presentation/pages/{ItemsPage,ItemEditorPage}.tsx`
 
-- [ ] **Step 1: Items list** — cards showing name, block count, share-link state
-- [ ] **Step 2: Item editor** — two panes: left picks and reorders blocks and sets each one's length constraint (always / short only / long only); right shows the live assembled letter with sample placeholder values
-- [ ] **Step 3: Reordering** persists `position`. The PK is `(item_id, position)`, so a reorder cannot be a naive per-row update — it will collide mid-sequence. Delete the item's rows and re-insert in one call, or update through a temporary offset.
-- [ ] **Step 4: CV upload** — file picker → `career/{userId}/{shareToken}/cv.pdf`, storing `cv_file_path`. One mode only; the item editor has no mode switch.
+- [x] **Step 1: Items list** — cards showing name and CV-attached status. Block count and share-link state are deferred (would need a per-card query each — an item's block selection and generation state are one click away in the editor, not worth an N+1 query per card).
+- [x] **Step 2: Item editor** — two panes: left picks and reorders blocks (up/down buttons, no drag-and-drop dependency added) and sets each one's length constraint (always / short only / long only); right shows the live assembled letter with sample placeholder values
+- [x] **Step 3: Reordering** persists `position` via the `replace_career_item_blocks` Postgres function added in the Task 1 migration (delete + re-insert in one round trip, `SECURITY INVOKER` so RLS still applies) — avoids the PK-collision problem a naive per-row update would hit.
+- [x] **Step 4: CV upload** — file picker → `career/{userId}/{shareToken}/cv.pdf`, storing `cv_file_path`. One mode only; the item editor has no mode switch.
 
 ---
 
@@ -355,13 +351,13 @@ Omit `download` for the letter so it renders inline; pass it for the CV so it sa
 
 There is no `CareerPDFService`. The browser's own print-to-PDF renders the shared HTML, which is why the module adds no dependency and why the output has real selectable text.
 
-- [ ] **Step 1: Generate dialog** — inputs for job title, company, hiring manager, hook, and short/long → live resolved preview → **Copy text** · **Print / Save PDF** · **Copy share link**
-- [ ] **Step 2: Block generation** when `missing` is non-empty; never generate silently
-- [ ] **Step 3: Print** — write the HTML into a hidden same-origin `iframe` via `srcdoc`, wait for load, call `iframe.contentWindow.print()`. Do not use `window.print()` on the app document.
-- [ ] **Step 4: Publish** — `new TextEncoder().encode(html)` → `CareerStorageService.upload(path, bytes, 'text/html')`, then insert the `career_renders` row (`kind: 'cover_letter'`, the resolved `body_text`, and the job title / company / hiring manager / hook as typed).
-- [ ] **Step 5: Copy share link** — `createShareUrl(letterPath)` with no `download` argument. Note in the UI that regenerating replaces what an already-sent link shows; `career_renders` keeps the history of what was actually sent, and no render row stores a path, so nothing goes stale.
-- [ ] **Step 6: Rotate** — a "Revoke share link" action on the item calling `rotateShareToken`, then re-uploading the current letter and CV under the new token
-- [ ] **Step 7: Verify** — open the share URL in a signed-out browser: it renders as a page with selectable text, "Save as PDF" produces a single A4 page, the CV link saves as `<name>-cv.pdf`, and selecting text in the printed PDF works. Then revoke and confirm the old URL 404s.
+- [x] **Step 1: Generate dialog** — inputs for job title, company, hiring manager, hook, and short/long → live resolved preview → **Copy text** · **Print / Save PDF** · **Copy share link** (+ **Copy CV link** when a CV is attached)
+- [x] **Step 2: Block generation** when `missing` is non-empty; never generate silently — `canGenerate` gates all four action buttons
+- [x] **Step 3: Print** — write the HTML into a hidden same-origin `iframe` via `srcdoc`, wait for load, call `iframe.contentWindow.print()`. Do not use `window.print()` on the app document.
+- [x] **Step 4: Publish** — `new TextEncoder().encode(html)` → `CareerStorageService.upload(path, bytes, 'text/html')`, then insert the `career_renders` row (`kind: 'cover_letter'`, the resolved `body_text`, and the job title / company / hiring manager / hook as typed).
+- [x] **Step 5: Copy share link** — `createShareUrl(letterPath)` with no `download` argument. UI toast notes regenerating replaces what an already-sent link shows.
+- [x] **Step 6: Rotate** — a "Revoke share link" action on the item calling `rotateShareToken`, which now copies the current letter and CV forward to the new token folder itself (see Task 3 Step 4) rather than requiring the UI to re-upload them.
+- [ ] **Step 7: Verify** — open the share URL in a signed-out browser: it renders as a page with selectable text, "Save as PDF" produces a single A4 page, the CV link saves as `<name>-cv.pdf`, and selecting text in the printed PDF works. Then revoke and confirm the old URL 404s. **Not run** — requires a live Supabase project and a signed-out browser session; needs to be done manually before relying on this for real applications.
 
 ---
 

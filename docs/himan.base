@@ -1,48 +1,44 @@
 formulas:
-  age_days: '(now() - file.ctime).days.round(0)'
-
+  age_days: (now() - file.ctime).days.round(0)
 properties:
   type:
-    displayName: "Type"
+    displayName: Type
   area:
-    displayName: "Area"
+    displayName: Area
   status:
-    displayName: "Status"
+    displayName: Status
   platforms:
-    displayName: "Platforms"
+    displayName: Platforms
   formula.age_days:
-    displayName: "Days Old"
-
+    displayName: Days Old
 views:
   - type: table
-    name: "Everything"
+    name: Everything
+    groupBy:
+      property: type
+      direction: ASC
     order:
       - file.name
       - type
       - area
       - status
-    groupBy:
-      property: type
-      direction: ASC
-
   - type: table
-    name: "Modules"
+    name: Modules
     filters:
       and:
-        - 'type == "module"'
+        - type == "module"
     order:
       - file.name
       - platforms
       - status
-
   - type: table
-    name: "Open Work"
+    name: Open Work
     filters:
       and:
-        - 'status != "shipped"'
-        - 'status != "implemented"'
-        - 'type != "module"'
-        - 'type != "map"'
+        - status != "shipped"
+        - status != "implemented"
+        - type != "module"
+        - type != "map"
     order:
       - file.name
       - type

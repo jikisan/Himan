@@ -1,0 +1,50 @@
+import { describe, it, expect } from 'vitest';
+import { resolvePlaceholders } from '@himan/shared/career';
+
+describe('resolvePlaceholders', () => {
+  it('resolves known tokens', () => {
+    const { text, missing } = resolvePlaceholders(
+      'I am applying for {{job_title}} at {{company}}.',
+      { jobTitle: 'Engineer', company: 'Acme' }
+    );
+    expect(text).toBe('I am applying for Engineer at Acme.');
+    expect(missing).toEqual([]);
+  });
+
+  it('renders an unresolved token visibly and reports it as missing', () => {
+    const { text, missing } = resolvePlaceholders('{{job_title}} at {{company}}', {
+      jobTitle: 'Engineer',
+      company: '',
+    });
+    expect(text).toBe('Engineer at [[company]]');
+    expect(missing).toEqual(['company']);
+  });
+
+  it('falls back hiring_manager to "Hiring Team" when absent', () => {
+    const { text, missing } = resolvePlaceholders('Dear {{hiring_manager}},', {
+      jobTitle: 'Engineer',
+      company: 'Acme',
+    });
+    expect(text).toBe('Dear Hiring Team,');
+    expect(missing).toEqual([]);
+  });
+
+  it('drops the whole sentence containing {{hook}} when hook is absent', () => {
+    const { text, missing } = resolvePlaceholders(
+      'Opening line. {{hook}} Middle sentence. Closing line.',
+      { jobTitle: 'Engineer', company: 'Acme' }
+    );
+    expect(text).toBe('Opening line. Closing line.');
+    expect(missing).toEqual([]);
+  });
+
+  it('resolves {{hook}} inline when present', () => {
+    const { text, missing } = resolvePlaceholders('Opening. {{hook}} Closing.', {
+      jobTitle: 'Engineer',
+      company: 'Acme',
+      hook: 'I loved your launch.',
+    });
+    expect(text).toBe('Opening. I loved your launch. Closing.');
+    expect(missing).toEqual([]);
+  });
+});

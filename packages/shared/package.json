@@ -17,7 +17,8 @@
     "./invoice-generator": "./src/modules/invoice-generator/index.ts",
     "./auth": "./src/modules/auth/index.ts",
     "./grocery": "./src/modules/grocery/index.ts",
-    "./friends": "./src/modules/friends/index.ts"
+    "./friends": "./src/modules/friends/index.ts",
+    "./career": "./src/modules/career/index.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

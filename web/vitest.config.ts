@@ -22,6 +22,7 @@ export default defineConfig({
       '@subscriptions': path.resolve(__dirname, './src/modules/subscriptions'),
       '@invoice-generator': path.resolve(__dirname, './src/modules/invoice-generator'),
       '@grocery': path.resolve(__dirname, './src/modules/grocery'),
+      '@career': path.resolve(__dirname, './src/modules/career'),
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },

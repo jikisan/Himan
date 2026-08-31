@@ -4,31 +4,10 @@ export function buildShareFolder(userId: string, shareToken: string): string {
   return `${userId}/${shareToken}`;
 }
 
-// {userId}/{shareToken}/{file}. Filenames are identical across every item
-// on purpose.
-export function buildStoragePath(
-  userId: string,
-  shareToken: string,
-  file: 'letter.html' | 'cv.pdf'
-): string {
+// {userId}/{shareToken}/cv.pdf. The cover letter itself is never persisted
+// to storage — job title/company change per application, so a shared file
+// path would let an old recipient's link start showing a different
+// company's letter once the item is reused and regenerated.
+export function buildStoragePath(userId: string, shareToken: string, file: 'cv.pdf'): string {
   return `${buildShareFolder(userId, shareToken)}/${file}`;
-}
-
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-// Never hardcode a name here — the schema is user_id-scoped throughout.
-export function buildDownloadFilename(
-  fullName: string | undefined,
-  kind: 'cover_letter' | 'cv'
-): string {
-  const ext = kind === 'cv' ? 'pdf' : 'html';
-  const label = kind === 'cv' ? 'cv' : 'cover-letter';
-  const slug = fullName ? slugify(fullName) : '';
-  return slug ? `${slug}-${label}.${ext}` : `${label}.${ext}`;
 }

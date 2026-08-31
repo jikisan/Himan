@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Copy, Link2, ListChecks, Printer, ShieldOff } from 'lucide-react';
+import { ArrowLeft, Copy, ListChecks, Printer, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -59,7 +59,6 @@ export const ItemEditorPage = () => {
   const [blocksDialogOpen, setBlocksDialogOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [isUploadingCv, setIsUploadingCv] = useState(false);
-  const [isLinking, setIsLinking] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -130,25 +129,12 @@ export const ItemEditorPage = () => {
     if (!item) return;
     await rotateShareLink(item.id);
     setRevokeOpen(false);
-    toast.success('Old share link revoked. Copy a new share link to hand out the same letter.');
+    toast.success('Old CV link revoked. Copy a new CV link to hand out the same file.');
   };
 
   const handleCopyText = async () => {
     await navigator.clipboard.writeText(generate.text);
     toast.success('Cover letter text copied');
-  };
-
-  const handleCopyShareLink = async () => {
-    setIsLinking(true);
-    try {
-      const url = await generate.publish();
-      if (url) {
-        await navigator.clipboard.writeText(url);
-        toast.success('Cover letter link copied — regenerating replaces what this link shows');
-      }
-    } finally {
-      setIsLinking(false);
-    }
   };
 
   const handleCopyCvLink = async () => {
@@ -214,7 +200,7 @@ export const ItemEditorPage = () => {
           {item.shareToken && (
             <Button size="sm" variant="ghost" onClick={() => setRevokeOpen(true)}>
               <ShieldOff className="h-4 w-4 mr-1.5" />
-              Revoke link
+              Revoke CV link
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => setBlocksDialogOpen(true)}>
@@ -312,16 +298,6 @@ export const ItemEditorPage = () => {
               <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
                 <Printer className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Copy cover letter link"
-                onClick={handleCopyShareLink}
-                disabled={!generate.canPublish || generate.isPublishing || isLinking}
-              >
-                <Link2 className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
@@ -350,8 +326,8 @@ export const ItemEditorPage = () => {
       <ConfirmDialog
         open={revokeOpen}
         onOpenChange={setRevokeOpen}
-        title="Revoke share link"
-        description="The current share link will stop working immediately. The letter and CV themselves are kept — copy a new share link from this page to hand out the same content at a fresh URL."
+        title="Revoke CV link"
+        description="The current CV share link will stop working immediately. The CV itself is kept — copy a new CV link from this page to share it at a fresh URL."
         confirmText="Revoke"
         onConfirm={handleRevoke}
         variant="destructive"

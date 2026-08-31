@@ -16,8 +16,26 @@
               "icon": "lucide-git-fork",
               "title": "Graph view"
             }
+          },
+          {
+            "id": "74de40f6de7882ee",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Untitled.canvas",
+                "viewState": {
+                  "x": 0,
+                  "y": 0,
+                  "zoom": 0
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "Untitled"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -186,9 +204,9 @@
       "claude-code-mcp:Toggle Claude Terminal": false
     }
   },
-  "active": "a34cb030f408b036",
+  "active": "74de40f6de7882ee",
   "lastOpenFiles": [
-    "modules/dashboard.md",
+    "Untitled.canvas",
     "modules/subscriptions.md",
     "modules/storage.md",
     "modules/shared.md",
@@ -198,18 +216,19 @@
     "modules/invoice-generator.md",
     "modules/grocery.md",
     "modules/friends.md",
+    "modules/dashboard.md",
     "modules/cards.md",
     "modules/auth.md",
     "modules",
     "himan.base",
     "bugs.md",
     "MAP.md",
+    "BUGS.md",
     "superpowers/specs/2026-08-01-grocery-friends-design.md",
     "superpowers/plans/2026-08-01-grocery-friends.md",
     "superpowers/specs",
     "superpowers/plans",
     "superpowers",
-    "grocery-redesign-plan.md",
-    "BUGS.md"
+    "grocery-redesign-plan.md"
   ]
 }

@@ -289,9 +289,9 @@ export const ItemEditorPage = () => {
                   placeholder="Dropped entirely if left blank"
                 />
               </div>
-
-              <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
             </div>
+
+            <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
           </div>
 
           <div className="lg:sticky lg:top-4 lg:self-start">
@@ -327,7 +327,7 @@ export const ItemEditorPage = () => {
         </div>
       </ScrollArea>
 
-      <Dialog open={blocksDialogOpen} onOpenChange={setBlocksDialogOpen}>
+      <Dialog open={blocksDialogOpen} onOpenChange={(open) => (open ? setBlocksDialogOpen(true) : handleSaveSelection())}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cover letter blocks — {item.name}</DialogTitle>

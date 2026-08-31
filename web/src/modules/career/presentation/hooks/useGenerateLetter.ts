@@ -64,9 +64,7 @@ export const useGenerateLetter = (item: CareerItemType | null, blocks: Composabl
   const cvShareUrl = async (): Promise<string | null> => {
     if (!user || !item?.cvFilePath) return null;
     try {
-      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0];
-      const filename = buildDownloadFilename(fullName, 'cv');
-      return await storage.createShareUrl(item.cvFilePath, filename);
+      return await storage.createShareUrl(item.cvFilePath);
     } catch (err) {
       Logger.error('Error creating CV share link', err);
       toast.error('Failed to create CV link');
@@ -82,7 +80,8 @@ export const useGenerateLetter = (item: CareerItemType | null, blocks: Composabl
     length, setLength,
     text, missing,
     isPublishing,
-    canGenerate: missing.length === 0 && !!text.trim() && !!jobTitle.trim() && !!company.trim(),
+    canGenerate: !!text.trim() && !!jobTitle.trim() && !!company.trim(),
+    canPublish: missing.length === 0 && !!text.trim() && !!jobTitle.trim() && !!company.trim(),
     publish,
     printHtml,
     cvShareUrl,

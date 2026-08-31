@@ -318,7 +318,7 @@ export const ItemEditorPage = () => {
                 className="h-8 w-8"
                 title="Copy cover letter link"
                 onClick={handleCopyShareLink}
-                disabled={!generate.canGenerate || generate.isPublishing || isLinking}
+                disabled={!generate.canPublish || generate.isPublishing || isLinking}
               >
                 <Link2 className="h-4 w-4" />
               </Button>

@@ -6,21 +6,21 @@ status: current
 
 # Himan — Map
 
-> **Read this first.** It is the cheap orientation layer. For anything deeper, query the
-> graph instead of reading source: `graphify query "your question" --budget 1500`.
+> **Read this first.** This document provides a high-level overview. For detailed information,
+> query the graph instead of reading source code directly: `graphify query "your question" --budget 1500`.
 
 Personal productivity suite — notes, passwords, file storage, credit cards, invoice
-generator, grocery lists, subscriptions. npm workspaces monorepo, Supabase backend.
+generator, grocery lists, subscriptions, career tools. npm workspaces monorepo, Supabase backend.
 
-## Architecture in three lines
+## Architecture Overview
 
-- **Domain** (`domain/`) — pure business logic, no framework imports.
-- **Infrastructure** (`infrastructure/`) — Supabase repositories + services, imports domain only.
-- **Presentation** (`presentation/`) — React hooks + UI, platform-specific.
+- **Domain** (`domain/`) — Pure business logic with no framework dependencies
+- **Infrastructure** (`infrastructure/`) — Supabase repositories and services, imports domain layer only
+- **Presentation** (`presentation/`) — React hooks and UI components, platform-specific implementations
 
-Domain + infrastructure live in `packages/shared/`; each platform re-exports from
-`@himan/shared/<module>` in its own `infrastructure/index.ts`. Inter-module imports go
-through `index.ts` — never internal paths.
+Domain and infrastructure layers reside in `packages/shared/`. Each platform re-exports modules from
+`@himan/shared/<module>` via its own `infrastructure/index.ts`. Inter-module imports must flow
+through `index.ts` barrel files — direct internal path imports are prohibited.
 
 ## Modules
 
@@ -48,13 +48,13 @@ through `index.ts` — never internal paths.
 `getSupabase()` is the single biggest cross-community bridge (betweenness 0.152) — every
 repository calls it. Changing its signature touches nearly everything.
 
-## Gotchas
+## Important Notes
 
-- `@core` alias maps to `src/modules/shared/` — the directory is `shared`, the alias is `@core`.
-- Mobile uses only `@/*` → `./src/*`.
-- Shared package exports raw `.ts` (no build step), consumed directly by Vite and Metro.
-- Migrations live in `supabase/migrations/` at the **repo root** — not `web/supabase/`,
-  despite what [[grocery-redesign-plan]] says.
+- The `@core` alias maps to `src/modules/shared/` — the directory name is `shared`, but the import alias is `@core`
+- Mobile platform uses only `@/*` imports, which resolve to `./src/*`
+- The shared package exports raw TypeScript files without a build step, consumed directly by Vite and Metro bundlers
+- Database migrations reside in `supabase/migrations/` at the repository root — not in `web/supabase/`,
+  contrary to what [[grocery-redesign-plan]] states
 
 ## Plan status (verified against code, 2026-08-30)
 

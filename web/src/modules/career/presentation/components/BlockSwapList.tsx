@@ -25,11 +25,12 @@ interface BlockSwapListProps {
 export const BlockSwapList = ({ allBlocks, selected, onSwap, disabled }: BlockSwapListProps) => {
   const blockById = new Map(allBlocks.map((b) => [b.id, b]));
 
-  if (selected.length === 0) return null;
+  if (selected.length === 0) {
+    return <p className="text-sm text-muted-foreground">No blocks set up yet — click &quot;Edit blocks&quot; to draft the letter.</p>;
+  }
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-muted-foreground">Selected blocks</h3>
       <div className="space-y-1.5">
         {selected.map((s, index) => {
           const block = blockById.get(s.blockId);

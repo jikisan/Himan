@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Copy, ListChecks, Printer, ShieldOff } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Copy, ListChecks, Printer, Settings, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -31,7 +31,6 @@ import { CvUploadPanel } from '../components/CvUploadPanel';
 import { CareerStorageService } from '../../infrastructure';
 import { buildStoragePath, type CareerLength, type ComposableBlock } from '@himan/shared/career';
 import { Logger } from '@core/infrastructure/services';
-import { cn } from '@core/presentation/utils';
 
 // Used only inside the blocks dialog, where the actual job title/company
 // aren't known yet — the point there is to sanity-check block order, not
@@ -57,8 +56,11 @@ export const ItemEditorPage = () => {
   const [name, setName] = useState('');
   const [selection, setSelection] = useState<SelectedBlock[]>([]);
   const [blocksDialogOpen, setBlocksDialogOpen] = useState(false);
+  const [blockSwapDialogOpen, setBlockSwapDialogOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [isUploadingCv, setIsUploadingCv] = useState(false);
+  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -68,6 +70,19 @@ export const ItemEditorPage = () => {
   useEffect(() => {
     setSelection(itemBlocks.map((b) => ({ blockId: b.blockId, length: b.length })));
   }, [itemBlocks]);
+
+  useEffect(() => {
+    if (!item?.cvFilePath) {
+      setCvPreviewUrl(null);
+      return;
+    }
+    let cancelled = false;
+    new CareerStorageService()
+      .createShareUrl(item.cvFilePath)
+      .then((url) => { if (!cancelled) setCvPreviewUrl(url); })
+      .catch((err) => Logger.error('Error loading CV preview', err));
+    return () => { cancelled = true; };
+  }, [item?.cvFilePath]);
 
   const previewBlocks: ComposableBlock[] = selection.map((s, index) => {
     const block = allBlocks.find((b) => b.id === s.blockId);
@@ -212,92 +227,120 @@ export const ItemEditorPage = () => {
 
       <ScrollArea className="flex-1">
         <div className="p-4 max-w-5xl mx-auto grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
+          <div>
             <CvUploadPanel
               hasCv={!!item.cvFilePath}
+              cvPreviewUrl={cvPreviewUrl}
               onUpload={handleUploadCv}
               onRemove={handleRemoveCv}
               onCopyLink={handleCopyCvLink}
               isSaving={isUploadingCv}
             />
+          </div>
+
+          <div className="lg:sticky lg:top-4 lg:self-start space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-muted-foreground">Cover letter</h3>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
+                  <Printer className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Selected blocks" onClick={() => setBlockSwapDialogOpen(true)}>
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
             <div className="rounded-lg border border-border p-4 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="jobTitle">Job title</Label>
+                  <Label htmlFor="jobTitle">
+                    Job title
+                    {generate.missing.includes('job_title') && <span className="text-destructive"> *</span>}
+                  </Label>
                   <Input
                     id="jobTitle"
                     value={generate.jobTitle}
                     onChange={(e) => generate.setJobTitle(e.target.value)}
                     placeholder="Senior Software Engineer"
-                    className={cn(generate.missing.includes('job_title') && 'border-destructive focus-visible:ring-destructive')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
+                  <Label htmlFor="company">
+                    Company
+                    {generate.missing.includes('company') && <span className="text-destructive"> *</span>}
+                  </Label>
                   <Input
                     id="company"
                     value={generate.company}
                     onChange={(e) => generate.setCompany(e.target.value)}
                     placeholder="Acme Corp"
-                    className={cn(generate.missing.includes('company') && 'border-destructive focus-visible:ring-destructive')}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hiringManager">Recipient (optional)</Label>
-                  <Input
-                    id="hiringManager"
-                    value={generate.hiringManager}
-                    onChange={(e) => generate.setHiringManager(e.target.value)}
-                    placeholder="Falls back to “Hiring Team”"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="length">Length</Label>
-                  <Select value={generate.length} onValueChange={(v) => generate.setLength(v as CareerLength)}>
-                    <SelectTrigger id="length">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="short">Short</SelectItem>
-                      <SelectItem value="long">Long</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="hook">Hook (optional)</Label>
-                <Input
-                  id="hook"
-                  value={generate.hook}
-                  onChange={(e) => generate.setHook(e.target.value)}
-                  placeholder="Dropped entirely if left blank"
-                />
-              </div>
-            </div>
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(!advancedOpen)}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {advancedOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                Recipient, length &amp; hook
+              </button>
 
-            <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
-          </div>
+              {advancedOpen && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="hiringManager">Recipient (optional)</Label>
+                      <Input
+                        id="hiringManager"
+                        value={generate.hiringManager}
+                        onChange={(e) => generate.setHiringManager(e.target.value)}
+                        placeholder="Falls back to “Hiring Team”"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="length">Length</Label>
+                      <Select value={generate.length} onValueChange={(v) => generate.setLength(v as CareerLength)}>
+                        <SelectTrigger id="length">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="short">Short</SelectItem>
+                          <SelectItem value="long">Long</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-          <div className="lg:sticky lg:top-4 lg:self-start">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-2">Preview</h3>
-            <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-[70vh] overflow-y-auto">
-              {generate.text.trim() ? (
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">{renderHighlightedLetterText(generate.text)}</div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {selection.length === 0 ? 'No blocks set up yet — click "Edit blocks" to draft the letter.' : 'Fill in job title and company to preview the letter.'}
-                </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="hook">Hook (optional)</Label>
+                    <Input
+                      id="hook"
+                      value={generate.hook}
+                      onChange={(e) => generate.setHook(e.target.value)}
+                      placeholder="Dropped entirely if left blank"
+                    />
+                  </div>
+                </div>
               )}
             </div>
-            <div className="flex justify-end gap-1 mt-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
-                <Printer className="h-4 w-4" />
-              </Button>
+
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Preview</h3>
+              <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-[70vh] overflow-y-auto">
+                {generate.text.trim() ? (
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed">{renderHighlightedLetterText(generate.text)}</div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {selection.length === 0 ? 'No blocks set up yet — click "Edit blocks" to draft the letter.' : 'Fill in job title and company to preview the letter.'}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -320,6 +363,15 @@ export const ItemEditorPage = () => {
               {isSaving ? 'Saving...' : 'Save blocks'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={blockSwapDialogOpen} onOpenChange={setBlockSwapDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Selected blocks</DialogTitle>
+          </DialogHeader>
+          <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
         </DialogContent>
       </Dialog>
 

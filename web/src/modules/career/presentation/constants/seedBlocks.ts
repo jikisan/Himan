@@ -18,7 +18,7 @@ export const SEED_BLOCKS: SeedBlock[] = [
   {
     kind: 'opening',
     label: 'Opening',
-    body: 'I am excited to apply for the {{job_title}} position at {{company}}.',
+    body: 'I am excited to apply for the {{job_title}} position at {{company}}. {{hook}}',
     tags: [],
   },
   {

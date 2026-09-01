@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from 'react';
-import { FileCheck2, Upload, X } from 'lucide-react';
+import { FileX2, Link2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui';
 
@@ -7,13 +7,16 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface CvUploadPanelProps {
   hasCv: boolean;
+  cvPreviewUrl: string | null;
   onUpload: (file: File) => Promise<void>;
   onRemove: () => Promise<void>;
   onCopyLink: () => Promise<void>;
   isSaving: boolean;
 }
 
-export const CvUploadPanel = ({ hasCv, onUpload, onRemove, onCopyLink, isSaving }: CvUploadPanelProps) => {
+// Preview relies on the browser's native PDF renderer (iframe), which already
+// pages/scrolls through multi-page PDFs on its own — no extra viewer library needed.
+export const CvUploadPanel = ({ hasCv, cvPreviewUrl, onUpload, onRemove, onCopyLink, isSaving }: CvUploadPanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -34,31 +37,35 @@ export const CvUploadPanel = ({ hasCv, onUpload, onRemove, onCopyLink, isSaving 
   };
 
   return (
-    <div className="space-y-2">
+    <div>
       <input ref={fileInputRef} type="file" accept="application/pdf" onChange={handleFileChange} className="hidden" />
 
-      {hasCv ? (
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <FileCheck2 className="h-4 w-4" />
-            CV attached
-          </span>
-          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
-            Replace
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-muted-foreground">CV</h3>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={hasCv ? 'Replace CV' : 'Upload CV'} onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
+            <Upload className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={onCopyLink}>
-            Copy CV link
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy CV link" onClick={onCopyLink} disabled={!hasCv}>
+            <Link2 className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onRemove} disabled={isSaving}>
-            <X className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="Remove CV" onClick={onRemove} disabled={!hasCv || isSaving}>
+            <FileX2 className="h-4 w-4" />
           </Button>
         </div>
-      ) : (
-        <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
-          <Upload className="h-4 w-4 mr-1.5" />
-          Upload CV (PDF)
-        </Button>
-      )}
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/30 overflow-hidden" style={{ aspectRatio: '210 / 297' }}>
+        {cvPreviewUrl ? (
+          <iframe src={cvPreviewUrl} title="CV preview" className="w-full h-full" />
+        ) : (
+          <div className="h-full flex items-center justify-center p-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              {hasCv ? 'Loading CV preview…' : 'No CV uploaded yet.'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

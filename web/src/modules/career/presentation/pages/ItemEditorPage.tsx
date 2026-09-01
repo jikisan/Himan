@@ -89,6 +89,16 @@ export const ItemEditorPage = () => {
 
   const generate = useGenerateLetter(item, previewBlocks);
 
+  const missingFields = [
+    !generate.jobTitle.trim() && 'job title',
+    !generate.company.trim() && 'company',
+  ].filter((v): v is string => !!v);
+  const generateDisabledReason = generate.canGenerate
+    ? undefined
+    : missingFields.length > 0
+      ? `Enter ${missingFields.join(' and ')} first`
+      : 'Select cover letter blocks first';
+
   const handleCreate = async () => {
     if (!name.trim()) return;
     const created = await createItem({ name: name.trim() });
@@ -231,12 +241,16 @@ export const ItemEditorPage = () => {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-muted-foreground">Cover letter</h3>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
-                  <Printer className="h-4 w-4" />
-                </Button>
+                <span title={generateDisabledReason}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </span>
+                <span title={generateDisabledReason}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </span>
                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit blocks" onClick={() => setBlocksDialogOpen(true)}>
                   <Pencil className="h-4 w-4" />
                 </Button>

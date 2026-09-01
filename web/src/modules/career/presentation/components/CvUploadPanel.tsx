@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from 'react';
-import { Download, FileX2, Link2, Upload } from 'lucide-react';
+import { Download, FileX2, Link2, ShieldOff, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui';
 
@@ -12,12 +12,14 @@ interface CvUploadPanelProps {
   onRemove: () => Promise<void>;
   onCopyLink: () => Promise<void>;
   onDownload: () => Promise<void>;
+  hasShareLink: boolean;
+  onRevokeLink: () => void;
   isSaving: boolean;
 }
 
 // Preview relies on the browser's native PDF renderer (iframe), which already
 // pages/scrolls through multi-page PDFs on its own — no extra viewer library needed.
-export const CvUploadPanel = ({ hasCv, cvPreviewUrl, onUpload, onRemove, onCopyLink, onDownload, isSaving }: CvUploadPanelProps) => {
+export const CvUploadPanel = ({ hasCv, cvPreviewUrl, onUpload, onRemove, onCopyLink, onDownload, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +54,9 @@ export const CvUploadPanel = ({ hasCv, cvPreviewUrl, onUpload, onRemove, onCopyL
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Download CV" onClick={onDownload} disabled={!hasCv}>
             <Download className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="Revoke CV link" onClick={onRevokeLink} disabled={!hasShareLink}>
+            <ShieldOff className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Remove CV" onClick={onRemove} disabled={!hasCv || isSaving}>
             <FileX2 className="h-4 w-4" />

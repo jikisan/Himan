@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronRight, Copy, Pencil, Printer, Settings, ShieldOff } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Copy, Pencil, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -24,7 +24,6 @@ import { useItemBlocks } from '../hooks/useItemBlocks';
 import { useCareerBlocks } from '../hooks/useCareerBlocks';
 import { useGenerateLetter } from '../hooks/useGenerateLetter';
 import { ComposePane, type SelectedBlock } from '../components/ComposePane';
-import { BlockSwapList } from '../components/BlockSwapList';
 import { LetterPreview } from '../components/LetterPreview';
 import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterText';
 import { CvUploadPanel } from '../components/CvUploadPanel';
@@ -56,7 +55,6 @@ export const ItemEditorPage = () => {
   const [name, setName] = useState('');
   const [selection, setSelection] = useState<SelectedBlock[]>([]);
   const [blocksDialogOpen, setBlocksDialogOpen] = useState(false);
-  const [blockSwapDialogOpen, setBlockSwapDialogOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [isUploadingCv, setIsUploadingCv] = useState(false);
@@ -100,17 +98,6 @@ export const ItemEditorPage = () => {
   const handleSaveSelection = async () => {
     await saveItemBlocks(selection.map((s, index) => ({ blockId: s.blockId, position: index, length: s.length })));
     setBlocksDialogOpen(false);
-  };
-
-  const handleSwapBlock = async (index: number, newBlockId: string) => {
-    const next = selection.map((s, i) => (i === index ? { ...s, blockId: newBlockId } : s));
-    setSelection(next);
-    try {
-      await saveItemBlocks(next.map((s, i) => ({ blockId: s.blockId, position: i, length: s.length })));
-      toast.success('Block swapped');
-    } catch {
-      // useItemBlocks already surfaces the failure toast.
-    }
   };
 
   const handleSaveName = async () => {
@@ -222,14 +209,6 @@ export const ItemEditorPage = () => {
             className="h-9 max-w-xs font-medium"
           />
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {item.shareToken && (
-            <Button size="sm" variant="ghost" onClick={() => setRevokeOpen(true)}>
-              <ShieldOff className="h-4 w-4 mr-1.5" />
-              Revoke CV link
-            </Button>
-          )}
-        </div>
       </div>
 
       <ScrollArea className="flex-1">
@@ -242,6 +221,8 @@ export const ItemEditorPage = () => {
               onRemove={handleRemoveCv}
               onCopyLink={handleCopyCvLink}
               onDownload={handleDownloadCv}
+              hasShareLink={!!item.shareToken}
+              onRevokeLink={() => setRevokeOpen(true)}
               isSaving={isUploadingCv}
             />
           </div>
@@ -258,9 +239,6 @@ export const ItemEditorPage = () => {
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit blocks" onClick={() => setBlocksDialogOpen(true)}>
                   <Pencil className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Selected blocks" onClick={() => setBlockSwapDialogOpen(true)}>
-                  <Settings className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -374,15 +352,6 @@ export const ItemEditorPage = () => {
               {isSaving ? 'Saving...' : 'Save blocks'}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={blockSwapDialogOpen} onOpenChange={setBlockSwapDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Selected blocks</DialogTitle>
-          </DialogHeader>
-          <BlockSwapList allBlocks={allBlocks} selected={selection} onSwap={handleSwapBlock} disabled={isSaving} />
         </DialogContent>
       </Dialog>
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronRight, Copy, ListChecks, Printer, Settings, ShieldOff } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Copy, Pencil, Printer, Settings, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -160,6 +160,17 @@ export const ItemEditorPage = () => {
     }
   };
 
+  const handleDownloadCv = async () => {
+    if (!item?.cvFilePath) return;
+    try {
+      const url = await new CareerStorageService().createShareUrl(item.cvFilePath, 'cv.pdf');
+      window.open(url, '_blank');
+    } catch (err) {
+      Logger.error('Error downloading CV', err);
+      toast.error('Failed to download CV');
+    }
+  };
+
   const handlePrint = () => {
     if (!generate.canGenerate) return;
     const iframe = iframeRef.current;
@@ -218,10 +229,6 @@ export const ItemEditorPage = () => {
               Revoke CV link
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => setBlocksDialogOpen(true)}>
-            <ListChecks className="h-4 w-4 mr-1.5" />
-            Edit blocks
-          </Button>
         </div>
       </div>
 
@@ -234,6 +241,7 @@ export const ItemEditorPage = () => {
               onUpload={handleUploadCv}
               onRemove={handleRemoveCv}
               onCopyLink={handleCopyCvLink}
+              onDownload={handleDownloadCv}
               isSaving={isUploadingCv}
             />
           </div>
@@ -247,6 +255,9 @@ export const ItemEditorPage = () => {
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
                   <Printer className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit blocks" onClick={() => setBlocksDialogOpen(true)}>
+                  <Pencil className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Selected blocks" onClick={() => setBlockSwapDialogOpen(true)}>
                   <Settings className="h-4 w-4" />

@@ -39,9 +39,11 @@ export const ItemsPage = () => {
       <ScrollArea className="flex-1">
         <div className="p-4 max-w-3xl mx-auto">
           {!loading && items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center py-16 text-muted-foreground">
-              <Briefcase className="h-10 w-10 mb-3 opacity-30" />
-              <p className="text-sm mb-4">No items yet. Create one to start generating cover letters.</p>
+            <div className="flex flex-col items-center justify-center text-center py-16">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Briefcase className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">No items yet. Create one to start generating cover letters.</p>
               <Link to="/career/new" className={buttonVariants()}>
                 <Plus className="h-4 w-4 mr-1.5" />
                 New item

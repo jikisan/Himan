@@ -219,6 +219,15 @@ export const ItemEditorPage = () => {
             className="h-9 max-w-xs font-medium"
           />
         </div>
+        <span
+          className={
+            generate.canGenerate
+              ? 'flex-shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 rounded-full px-2.5 py-1'
+              : 'flex-shrink-0 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-full px-2.5 py-1'
+          }
+        >
+          {generate.canGenerate ? 'Ready to generate' : generateDisabledReason}
+        </span>
       </div>
 
       <ScrollArea className="flex-1">
@@ -240,18 +249,19 @@ export const ItemEditorPage = () => {
           <div className="lg:sticky lg:top-4 lg:self-start space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-muted-foreground">Cover letter</h3>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
                 <span title={generateDisabledReason}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </span>
                 <span title={generateDisabledReason}>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Print / Save PDF" onClick={handlePrint} disabled={!generate.canGenerate}>
                     <Printer className="h-4 w-4" />
                   </Button>
                 </span>
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit blocks" onClick={() => setBlocksDialogOpen(true)}>
+                <div className="w-px h-4 bg-border mx-0.5" />
+                <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit blocks" onClick={() => setBlocksDialogOpen(true)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
               </div>

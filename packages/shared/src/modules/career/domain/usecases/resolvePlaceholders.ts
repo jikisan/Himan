@@ -1,4 +1,9 @@
+import { differenceInYears } from 'date-fns';
 import type { PlaceholderCtx, ResolveResult } from '../types/index.js';
+
+// Anchor for {{years_experience}}: update this once when it changes (a new
+// first day, not a yearly chore) and every block using the token stays current.
+const CAREER_START_DATE = new Date(2022, 4, 1); // May 2022
 
 function valuesFor(ctx: PlaceholderCtx): Record<string, string | undefined> {
   return {
@@ -6,6 +11,7 @@ function valuesFor(ctx: PlaceholderCtx): Record<string, string | undefined> {
     company: ctx.company,
     hiring_manager: ctx.hiringManager?.trim() || 'Hiring Team',
     hook: ctx.hook,
+    years_experience: String(differenceInYears(new Date(), CAREER_START_DATE)),
   };
 }
 

@@ -72,7 +72,9 @@ export const BlockList = ({ blocks, onEdit, onDelete }: BlockListProps) => {
 
       {[...grouped.entries()].map(([kind, kindBlocks]) => (
         <div key={kind}>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2">{KIND_LABELS[kind]}</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+            {KIND_LABELS[kind]} <span className="font-normal text-muted-foreground/60">· {kindBlocks.length}</span>
+          </h3>
           <div className="space-y-2">
             {kindBlocks.map((block) => {
               const preview = resolvePlaceholders(block.body, SAMPLE_CTX);

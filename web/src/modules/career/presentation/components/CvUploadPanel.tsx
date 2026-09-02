@@ -45,44 +45,58 @@ export const CvUploadPanel = ({ hasCv, cvPreviewUrl, onUpload, onRemove, onCopyL
 
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-muted-foreground">CV</h3>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
           <span title={isSaving ? 'Uploading…' : undefined}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" title={hasCv ? 'Replace CV' : 'Upload CV'} onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title={hasCv ? 'Replace CV' : 'Upload CV'} onClick={() => fileInputRef.current?.click()} disabled={isSaving}>
               <Upload className="h-4 w-4" />
             </Button>
           </span>
           <span title={!hasCv ? 'Upload a CV first' : undefined}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="Copy CV link" onClick={onCopyLink} disabled={!hasCv}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Copy CV link" onClick={onCopyLink} disabled={!hasCv}>
               <Link2 className="h-4 w-4" />
             </Button>
           </span>
           <span title={!hasCv ? 'Upload a CV first' : undefined}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="Download CV" onClick={onDownload} disabled={!hasCv}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Download CV" onClick={onDownload} disabled={!hasCv}>
               <Download className="h-4 w-4" />
             </Button>
           </span>
           <span title={!hasShareLink ? 'No CV link to revoke yet' : undefined}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="Revoke CV link" onClick={onRevokeLink} disabled={!hasShareLink}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Revoke CV link" onClick={onRevokeLink} disabled={!hasShareLink}>
               <ShieldOff className="h-4 w-4" />
             </Button>
           </span>
+          <div className="w-px h-4 bg-border mx-0.5" />
           <span title={!hasCv ? 'Upload a CV first' : isSaving ? 'Uploading…' : undefined}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="Remove CV" onClick={onRemove} disabled={!hasCv || isSaving}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Remove CV" onClick={onRemove} disabled={!hasCv || isSaving}>
               <FileX2 className="h-4 w-4" />
             </Button>
           </span>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-muted/30 overflow-hidden" style={{ aspectRatio: '210 / 297' }}>
+      <div
+        className={
+          cvPreviewUrl
+            ? 'rounded-lg border border-border bg-muted/30 overflow-hidden'
+            : 'rounded-lg border border-dashed border-border bg-muted/20 overflow-hidden'
+        }
+        style={{ aspectRatio: '210 / 297' }}
+      >
         {cvPreviewUrl ? (
           <iframe src={cvPreviewUrl} title="CV preview" className="w-full h-full" />
         ) : (
-          <div className="h-full flex items-center justify-center p-4 text-center">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSaving || hasCv}
+            className="h-full w-full flex flex-col items-center justify-center gap-2 p-4 text-center disabled:cursor-default"
+          >
+            <Upload className="h-5 w-5 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">
-              {hasCv ? 'Loading CV preview…' : 'No CV uploaded yet.'}
+              {hasCv ? 'Loading CV preview…' : 'Click to upload a CV'}
             </p>
-          </div>
+          </button>
         )}
       </div>
     </div>

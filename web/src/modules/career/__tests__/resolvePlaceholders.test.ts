@@ -47,4 +47,13 @@ describe('resolvePlaceholders', () => {
     expect(text).toBe('Opening. I loved your launch. Closing.');
     expect(missing).toEqual([]);
   });
+
+  it('resolves {{years_experience}} from the fixed career start date, never missing', () => {
+    const { text, missing } = resolvePlaceholders('{{years_experience}} years of experience', {
+      jobTitle: 'Engineer',
+      company: 'Acme',
+    });
+    expect(text).toMatch(/^\d+ years of experience$/);
+    expect(missing).toEqual([]);
+  });
 });

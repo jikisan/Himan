@@ -43,9 +43,11 @@ export const BlocksPage = () => {
       <ScrollArea className="flex-1">
         <div className="p-4 max-w-3xl mx-auto">
           {!loading && blocks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center py-16 text-muted-foreground">
-              <Sparkles className="h-10 w-10 mb-3 opacity-30" />
-              <p className="text-sm mb-4">No blocks yet.</p>
+            <div className="flex flex-col items-center justify-center text-center py-16">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">No blocks yet.</p>
               <Button variant="outline" onClick={handleSeed} disabled={isSeeding}>
                 {isSeeding ? 'Adding...' : 'Add starter blocks'}
               </Button>

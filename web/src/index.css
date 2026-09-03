@@ -62,7 +62,7 @@
 
   /* Muted & Neutral */
   --muted: hsl(215, 30%, 85%);
-  --muted-foreground: hsl(220, 12%, 28%);
+  --muted-foreground: hsl(220, 12%, 46%);
 
   --accent: hsl(216, 60%, 96%); /* Subtle light blue */
   --accent-foreground: hsl(220, 15%, 25%);

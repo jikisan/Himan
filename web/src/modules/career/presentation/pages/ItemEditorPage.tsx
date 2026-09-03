@@ -189,7 +189,7 @@ export const ItemEditorPage = () => {
         </div>
         <div className="p-4 max-w-md space-y-3">
           <Input
-            placeholder="e.g. Android Developer"
+            placeholder="Android Developer"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}

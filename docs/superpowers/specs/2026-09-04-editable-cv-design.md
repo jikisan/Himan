@@ -54,8 +54,10 @@ has no table.
 - **Share link**: include a signed-URL CV share link (like the letter). Adds
   `cv_share_token` to `profiles`.
 - **Seed**: an empty-state action pre-fills the user's profile with the actual
-  content transcribed from the sample PDF (per-user rows via repositories, not a
-  migration — mirrors `SEED_BLOCKS`).
+  content sourced from the live portfolio site
+  (<https://jikisan.github.io/portfolio/>), per-user rows via repositories, not a
+  migration — mirrors `SEED_BLOCKS`. Education and phone are backfilled from the
+  PDF because the portfolio omits them.
 - **Platform**: web only (mirrors `career` and the profile spec).
 - **v1 = one canonical CV** rendered from the profile. Per-application tailored
   CVs (select/reorder a subset per job) are **deferred**.
@@ -256,28 +258,28 @@ beyond the "Profile" link the base spec already adds.
 ### Seed action — `seedProfile.ts`
 
 An empty-state "Import starter CV" button (shown when the profile has no name and
-no section rows) writes the transcribed sample content via the repositories:
+no section rows) writes the seed content via the repositories:
 `ProfileRepository.upsert` for identity+summary, then `create` per row for each
-section. Not a migration (per-user data; mirrors `SEED_BLOCKS`). The transcribed
-constant lives at
-`web/src/modules/profile/presentation/constants/seedProfile.ts`, populated from
-`docs/June_Kyle_Santerna_CV.pdf`:
+section. Not a migration (per-user data; mirrors `SEED_BLOCKS`).
 
-- **Identity**: June Kyle Santerna · Cebu City, Cebu, Philippines 6000 ·
-  (+63) 915-427-8296 · santernakyle@gmail.com · links: linkedin.com/in/jkyle,
-  github.com/jikisan · website jikisan.github.io/portfolio/.
-- **Summary**: the Professional Summary paragraph.
-- **Experience** (4): OnlineJobs.PH, TVStartup Inc, Timex Group,
-  Fiverr/Freelance — each with title, location, dates, bullets.
-- **Education** (1): University of Cebu – Banilad, BSIT, Jun 2018–Jun 2022,
-  GPA 1.7, achievements ["Dean's Lister"].
-- **Skills**: grouped — Mobile, Architecture, Web, Backend & Cloud, Testing &
-  Automation, Tools, Project Management, Publishing (each entry a `profile_skills`
-  row with its `category`).
-- **Projects** (3): Flohmarkt, MemberZone, Taily — description + tech.
-- **Certificates** (4): ISTQB Certified Tester, State of the Art Android App
-  Development in Kotlin, Android Mobile Application Development, Jira Fundamentals
-  Badge — issuer, issue date, credential id.
+The seed content is **already extracted** into
+`docs/superpowers/specs/assets/2026-09-04-cv-seed-data.json` — verbatim from the
+portfolio's own data files (`portfolio_config.json`, `experience_data.json`,
+`projects_data.json`), already mapped to this module's field shape (camelCase,
+ISO dates, `links` object, flat `tech[]`, skills carrying `category`). Education
+and phone are backfilled from the PDF (the portfolio omits both). The
+implementation transcribes that JSON into
+`web/src/modules/profile/presentation/constants/seedProfile.ts` as typed
+`Create*Dto` arrays.
+
+Content summary: identity + summary; **4** experiences (OnlineJobs.PH, TVStartup,
+Timex, Fiverr/Freelance); **1** education (University of Cebu – Banilad, BSIT, GPA
+1.7, Dean's Lister); **26** skills across categories Languages & Frameworks /
+Backend & Cloud / Tools; **11** projects (name, description, url, flat `tech[]`);
+**4** certificates. Two transcription notes carried in the asset's `_source`
+field: portfolio project descriptions are ALL-CAPS and must be sentence-cased;
+the freelance role's `company` was `null` in the portfolio and is set to
+"Fiverr/Freelance" (the schema's `company` is `NOT NULL`).
 
 Because `profile_skills` has `UNIQUE (user_id, name)`, the seed inserts skills
 once; re-running the seed is guarded by the "no rows" empty-state condition.

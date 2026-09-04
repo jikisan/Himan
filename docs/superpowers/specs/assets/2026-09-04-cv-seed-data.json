@@ -1,0 +1,217 @@
+{
+  "_source": "https://jikisan.github.io/portfolio/ (data/portfolio_config.json, experience_data.json, projects_data.json). education + phone backfilled from docs/June_Kyle_Santerna_CV.pdf, which the portfolio omits. Project descriptions were ALL-CAPS in the source; sentence-case them when seeding.",
+  "profile": {
+    "fullName": "June Kyle Santerna",
+    "headline": "Full Stack Software Developer",
+    "bio": "I am a dedicated Full Stack Software Developer with hands-on experience crafting intuitive and robust applications and programs. With a passion for innovation and a keen eye for detail, I thrive on transforming ideas into impactful digital solutions.",
+    "location": "Cebu City, Cebu, Philippines, 6000",
+    "email": "santernakyle@gmail.com",
+    "phone": "(+63) 915-427-8296",
+    "website": "https://jikisan.github.io/portfolio/",
+    "links": {
+      "github": "https://github.com/jikisan",
+      "linkedin": "https://www.linkedin.com/in/jkyle/"
+    }
+  },
+  "experiences": [
+    {
+      "company": "OnlineJobs.PH",
+      "title": "Web and Mobile Developer",
+      "location": "Cebu City, Cebu, Philippines",
+      "startDate": "2025-07-01",
+      "endDate": null,
+      "isCurrent": true,
+      "bullets": [
+        "Lead the development of Web and Mobile applications with a focus on performance, stability, and user experience.",
+        "Implemented core app features using Kotlin, React, and React Native with modern architecture components.",
+        "Integrated backend APIs to support real-time data updates and dynamic content using React.",
+        "Optimized application performance, reducing crashes and improving responsiveness across devices.",
+        "Collaborated with cross-functional teams to deliver features aligned with product requirements."
+      ]
+    },
+    {
+      "company": "TVStartup Inc",
+      "title": "Mobile and TV App Developer",
+      "location": "Cebu City, Cebu, Philippines",
+      "startDate": "2025-02-01",
+      "endDate": "2025-05-01",
+      "isCurrent": false,
+      "bullets": [
+        "Built and maintained Android, Apple TV, and Roku apps with consistent UX across platforms.",
+        "Published 30+ channels on Google Play and Roku, boosting visibility and engagement.",
+        "Delivered advanced tech support, improving issue resolution and response time.",
+        "Migrated Android app to Jetpack Compose (Kotlin Multiplatform), improving UI scalability and dev speed."
+      ]
+    },
+    {
+      "company": "Timex Group",
+      "title": "Android Developer",
+      "location": "Cebu City, Cebu, Philippines",
+      "startDate": "2023-05-01",
+      "endDate": "2025-02-01",
+      "isCurrent": false,
+      "bullets": [
+        "Created Android watch simulation, cutting marketing costs by 90%.",
+        "Built a custom web chart library, improving UX by 20%.",
+        "Led code reviews that cut app crashes by 50% and improved stability.",
+        "Automated web app tests with Selenium, reducing effort and time by 60%.",
+        "Improved app load time by 40% through performance tuning and code optimization."
+      ]
+    },
+    {
+      "company": "Fiverr/Freelance",
+      "title": "Freelance Software Developer",
+      "location": "Cebu City, Cebu, Philippines",
+      "startDate": "2022-05-01",
+      "endDate": "2023-05-01",
+      "isCurrent": false,
+      "bullets": [
+        "Built an e-commerce app for a small business, increasing customer acquisition by 40%.",
+        "Completed a complex project ahead of schedule and under budget.",
+        "Developed a Windows app for vital sign graphing and CDSS, reducing nurse workload by 80%.",
+        "Created an e-commerce Android app for an HVAC business, raising technician income by 20%."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "school": "University of Cebu - Banilad",
+      "degree": "Bachelor of Science",
+      "field": "Information Technology",
+      "location": "Cebu City, Cebu, Philippines",
+      "startDate": "2018-06-01",
+      "endDate": "2022-06-01",
+      "gpa": "1.7",
+      "achievements": ["Dean's Lister"]
+    }
+  ],
+  "skills": [
+    { "name": "Java", "category": "Languages & Frameworks" },
+    { "name": "Kotlin", "category": "Languages & Frameworks" },
+    { "name": "Jetpack Compose", "category": "Languages & Frameworks" },
+    { "name": "Kotlin Multiplatform", "category": "Languages & Frameworks" },
+    { "name": "React Native", "category": "Languages & Frameworks" },
+    { "name": "React", "category": "Languages & Frameworks" },
+    { "name": "Swift", "category": "Languages & Frameworks" },
+    { "name": "SwiftUI", "category": "Languages & Frameworks" },
+    { "name": "JavaScript", "category": "Languages & Frameworks" },
+    { "name": "HTML", "category": "Languages & Frameworks" },
+    { "name": "CSS", "category": "Languages & Frameworks" },
+    { "name": "REST API", "category": "Backend & Cloud" },
+    { "name": "Firebase", "category": "Backend & Cloud" },
+    { "name": "Supabase", "category": "Backend & Cloud" },
+    { "name": "App Publishing", "category": "Backend & Cloud" },
+    { "name": "Android Studio", "category": "Tools" },
+    { "name": "Xcode", "category": "Tools" },
+    { "name": "Github", "category": "Tools" },
+    { "name": "Jira", "category": "Tools" },
+    { "name": "Figma", "category": "Tools" },
+    { "name": "Claude", "category": "Tools" },
+    { "name": "ChatGPT", "category": "Tools" },
+    { "name": "Cursor", "category": "Tools" },
+    { "name": "Lovable", "category": "Tools" },
+    { "name": "Google Stitch", "category": "Tools" }
+  ],
+  "projects": [
+    {
+      "name": "Flohmarkt",
+      "description": "A cross-platform flea-market & event discovery platform for web and native mobile, with map-based search, organizer event management, seller profiles, role-based admin dashboards, and full EN/DE localization.",
+      "url": "https://flohmarkt.guru/",
+      "tech": ["React", "React Native", "Expo Router", "Vite", "Tailwind CSS", "NativeWind", "TanStack Query", "React Hook Form + Zod", "Zustand", "Leaflet / react-native-maps", "i18next (EN/DE)", "Reanimated / Framer Motion", "FastAPI", "JWT Auth (access + refresh)", "Role-Based Access Control", "TypeScript Monorepo (shared package)", "Vitest + Jest / Testing Library"]
+    },
+    {
+      "name": "MemberZone",
+      "description": "A native mobile membership club management app with golf, spa, facility, and table booking flows, multi-club support, in-app messaging, and member profile management.",
+      "url": null,
+      "tech": ["React Native", "Expo SDK 51", "React Navigation v6", "Redux Toolkit", "TanStack Query", "Axios", "i18next", "lucide-react-native", "React Native SVG (QR codes)", "Bearer Token + API Key Auth", "TypeScript", "Custom Expo Config Plugins", "Jest"]
+    },
+    {
+      "name": "Taily",
+      "description": "A complete pet care management app for Android and iOS with health tracking, AI document scanning, and co-parenting via QR codes.",
+      "url": "https://play.google.com/store/apps/details?id=org.jikisan.taily",
+      "tech": ["CameraX", "Deep Linking", "Jetpack Compose", "Supabase (Auth, Database, Storage)", "Supabase RLS Policies", "Ktor Client", "Google Firebase (Push Notifications)", "AI Document Extraction", "Kotlin Multiplatform", "Koin (Dependency Injection)", "MVVM Architecture", "Repository Pattern", "Coroutines", "Expect/Actual Pattern"]
+    },
+    {
+      "name": "Compose Multiplatform E-Commerce",
+      "description": "A modern e-commerce Android and iOS application built using Compose Multiplatform.",
+      "url": null,
+      "tech": ["Compose Multiplatform", "Jetpack Compose", "Material Design 3", "Navigation Component (for Compose)", "Ktor Client", "Kotlin Multiplatform", "Kotlin Flow", "StateFlow", "Coroutines", "MVVM Architecture", "Clean Architecture Principles", "Sealed Classes", "Repository Pattern", "Gradle Kotlin DSL", "Kotlinx Serialization"]
+    },
+    {
+      "name": "VSTECH",
+      "description": "An automated vital-sign graphing & CDSS integration Windows application.",
+      "url": null,
+      "tech": ["JavaFX", "SQLite", "JDBC", "Java", "Apache POI"]
+    },
+    {
+      "name": "PH Heroes",
+      "description": "A mobile app honoring the heroes of the Philippines, providing detailed profiles and insights into their remarkable lives.",
+      "url": null,
+      "tech": ["Jetpack Compose", "Palette API", "Fetch API using Retrofit", "Backend server with Ktor", "Room local database", "Kotlin", "Dagger-Hilt", "Clean Architecture", "MVVM", "Koin"]
+    },
+    {
+      "name": "BusYan",
+      "description": "A mobile application tailored for commuters, facilitating seat reservations on nearby jeepneys for enhanced commuting convenience.",
+      "url": null,
+      "tech": ["Firebase (Auth & Database)", "Google Places API", "Google Maps API", "REST API", "Retrofit", "Java"]
+    },
+    {
+      "name": "Fish2Locals",
+      "description": "A mobile e-commerce application to facilitate between fish buyers and sellers.",
+      "url": null,
+      "tech": ["Firebase (Auth & Database)", "Google Places API", "Google Maps API", "Geocoding", "Java"]
+    },
+    {
+      "name": "ServiceHub",
+      "description": "A mobile e-commerce application designed for the HVAC industry to facilitate the easy booking of services.",
+      "url": null,
+      "tech": ["Firebase (Auth & Database)", "Google Places API", "Google Maps API", "Java"]
+    },
+    {
+      "name": "Revic",
+      "description": "A professional networking mobile platform for DJ's and musicians.",
+      "url": null,
+      "tech": ["Firebase (Auth & Database)", "Google Places API", "Google Maps API", "Java"]
+    },
+    {
+      "name": "JAJA",
+      "description": "A social media mobile platform for audio enthusiasts.",
+      "url": null,
+      "tech": ["RecordView API", "Firebase (Auth & Database)", "Java"]
+    }
+  ],
+  "certificates": [
+    {
+      "name": "ISTQB Certified Tester",
+      "issuer": "ISTQB® - International Software Testing Qualifications Board",
+      "issueDate": "2024-04-01",
+      "expiryDate": null,
+      "credentialId": "24-CTFL-243467-12",
+      "credentialUrl": "https://zertdb.isqi.org/en/certification/verification/t/sV%21%24y0aF%24L%213290LrmdJ"
+    },
+    {
+      "name": "State of the Art Android App Development in Kotlin",
+      "issuer": "Udemy",
+      "issueDate": "2023-12-01",
+      "expiryDate": null,
+      "credentialId": "UC-a049da2b-d733-470f-87f8-4ef580fb4c52",
+      "credentialUrl": "https://www.udemy.com/certificate/UC-a049da2b-d733-470f-87f8-4ef580fb4c52/"
+    },
+    {
+      "name": "Android Mobile Application Development (Advanced Training)",
+      "issuer": "FIT Academy",
+      "issueDate": "2023-11-01",
+      "expiryDate": null,
+      "credentialId": "FIT-0420231202217187",
+      "credentialUrl": "https://certificate.fitacademy.ph/validate/index.php?cer_id=dbfc8da4cc71576a9049d1be1ee4ad406af40115bb672984e7b35865dca03c53"
+    },
+    {
+      "name": "Jira Fundamentals Badge",
+      "issuer": "ThriveDX",
+      "issueDate": "2023-01-01",
+      "expiryDate": null,
+      "credentialId": "243060987",
+      "credentialUrl": "https://university.atlassian.com/student/award/7XJ4J33KhdLSJAmeQHhFDx8E"
+    }
+  ]
+}

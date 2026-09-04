@@ -21,6 +21,7 @@ export default defineConfig({
       '@invoice-generator': path.resolve(__dirname, './src/modules/invoice-generator'),
       '@grocery': path.resolve(__dirname, './src/modules/grocery'),
       '@career': path.resolve(__dirname, './src/modules/career'),
+      '@profile': path.resolve(__dirname, './src/modules/profile'),
       '@app': path.resolve(__dirname, './src/app'),
       '@modules': path.resolve(__dirname, './src/modules'),
     },

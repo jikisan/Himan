@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Settings } from 'lucide-react';
+import { User, UserCircle, Settings } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -92,6 +92,16 @@ export const Navbar = () => {
               >
                 <User size={16} />
                 Profile
+              </button>
+              <button
+                onClick={() => {
+                  navigate('/account');
+                  setIsDropdownOpen(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center gap-2"
+              >
+                <UserCircle size={16} />
+                Account
               </button>
               <button
                 onClick={() => {

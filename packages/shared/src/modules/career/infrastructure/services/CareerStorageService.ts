@@ -84,9 +84,11 @@ export class CareerStorageService {
 
         // career_items.cv_file_path is an explicit path string, not derived
         // from shareToken at read time — it has to be repointed at the new
-        // folder or it dangles at the now-deleted old one.
+        // folder or it dangles at the now-deleted old one. Preserve whatever
+        // basename it already used (cv.pdf or a generated cv.html).
         if (item.cvFilePath) {
-          await items.update(itemId, userId, { cvFilePath: `${newFolder}/cv.pdf` });
+          const basename = item.cvFilePath.slice(item.cvFilePath.lastIndexOf('/') + 1);
+          await items.update(itemId, userId, { cvFilePath: `${newFolder}/${basename}` });
         }
       }
 

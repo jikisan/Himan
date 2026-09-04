@@ -9,12 +9,16 @@ date: 2026-09-04
 
 ## Summary
 
-Add an editable, structured CV/résumé that reproduces the layout of the sample
+Add a structured CV/résumé that reproduces the layout of the sample
 (`docs/June_Kyle_Santerna_CV.pdf`): a centered identity header, professional
 summary, work experience with bullets, education, category-grouped skills,
-projects, and certificates. The user edits structured section entries, previews
-a print-ready résumé, prints it to PDF (browser print, like the cover letter),
-and can hand out a signed share link.
+projects, and certificates. The user edits the structured data on `/profile`,
+then in the **CV section** of the `career` module clicks **Generate from profile**
+to render a print-ready résumé and upload it as the item's CV. From
+there the existing career CV pipeline takes over: preview, download, copy a
+signed share link, revoke. The generated CV *replaces* the manual PDF-file
+upload the CV panel does today — same panel, same storage/share plumbing, new
+source.
 
 ### How we got here
 
@@ -28,12 +32,16 @@ paragraphs. Two clarifications changed the substrate:
 
 A structured résumé with first-class section types **is** structured data, not
 freeform text blobs. Overloading `career_blocks.body TEXT` with company / title /
-dates / bullets would fight that schema. The `profile` module — already migrated
-(`20260903000000_create_profiles.sql`) and spec'd
-(`2026-09-04-profile-module-design.md`) — is exactly the right substrate: one
-structured table per résumé section. This CV is therefore **a structured
-renderer over the profile module**, reusing the cover letter's proven
-print/share/storage pipeline. "Blocks" become typed section entries.
+dates / bullets would fight that schema. The `profile` module — already built
+(`20260903000000_create_profiles.sql`, domain + infrastructure + web
+presentation, `/profile` page, seed) — is exactly the right substrate: one
+structured table per résumé section. This CV is therefore a **structured
+renderer** over the profile module, surfaced inside the `career` module's CV
+section. The renderer (`renderCvHtml`) reads profile data; the upload,
+preview, signed-URL share and revoke reuse the **career item's existing
+pipeline** (`shareToken`, `cvFilePath`, `CareerStorageService`) unchanged. The
+CV panel's manual "pick a PDF from disk" is swapped for "Generate from
+profile".
 
 The sample's sections map onto the migrated schema, with **one gap**: Education
 has no table.
@@ -50,37 +58,44 @@ has no table.
 
 ## Scope (confirmed)
 
+- **Placement**: the CV editor/generator lives in the **`career` module's CV
+  section** (the existing `CvUploadPanel` on `ItemEditorPage`), not on
+  `/profile`. `/profile` remains where the structured data is *edited*.
 - **Education**: add a `profile_education` table + full layer.
-- **Share link**: include a signed-URL CV share link (like the letter). Adds
-  `cv_share_token` to `profiles`.
-- **Seed**: an empty-state action pre-fills the user's profile with the actual
-  content sourced from the live portfolio site
-  (<https://jikisan.github.io/portfolio/>), per-user rows via repositories, not a
-  migration — mirrors `SEED_BLOCKS`. Education and phone are backfilled from the
-  PDF because the portfolio omits them.
-- **Platform**: web only (mirrors `career` and the profile spec).
-- **v1 = one canonical CV** rendered from the profile. Per-application tailored
-  CVs (select/reorder a subset per job) are **deferred**.
+- **Generate → upload → share**: a **Generate from profile** action renders the
+  résumé HTML (`renderCvHtml`) and uploads it as the career item's CV. Preview,
+  download, copy signed link and revoke all reuse the **career item's existing**
+  `shareToken` / `cvFilePath` / `CareerStorageService` flow — **no new share
+  token, no `cv_share_token` column**.
+- **Seed** (already implemented, `20260904000000_seed_profile_data.sql` +
+  `feat: seed profile data`): profile content sourced from the live portfolio
+  (<https://jikisan.github.io/portfolio/>); education and phone backfilled from
+  the PDF.
+- **Platform**: web only.
+- **v1 = one canonical CV** rendered from the profile, attached per career item.
+  Per-application tailored CVs (select/reorder a subset per job) are **deferred**.
 
 This spec **supersedes the coexistence/`render_kind` idea** from earlier
 discussion — the CV does not use `career_item_blocks` at all.
 
 ## Relationship to the profile-module spec
 
-The base profile module (`2026-09-04-profile-module-design.md`) is a prerequisite
-and is built as written — domain + infrastructure in `packages/shared/`,
-presentation in `web/`, `@profile` alias, `/profile` route. This spec **extends**
-it with four additions: (1) the `profile_education` section, (2) the CV renderer,
-(3) the print + share actions, (4) the seed data. Everything the base spec
-already covers (identity form, experience/skills/project/certificate sections,
-hooks, `sortByPosition`, wiring) is assumed and not repeated here.
+The base profile module is already built — domain + infrastructure in
+`packages/shared/`, presentation in `web/`, `@profile` alias, `/profile` route,
+identity form, experience/skills/project/certificate sections, hooks,
+`sortByPosition`, seed. This spec **extends** it with: (1) the `profile_education`
+section, (2) the CV renderer (`renderCvHtml`), and wires them into the
+**`career` module's CV section** for generate → upload → preview/download/share.
+The share plumbing itself already exists in `career` (`CvUploadPanel`,
+`CareerStorageService`, per-item `shareToken`/`cvFilePath`, `rotateShareLink`)
+and is reused, not rebuilt.
 
 ---
 
-## 1. Migration — `profile_education` + CV share token
+## 1. Migration — `profile_education`
 
-New migration `supabase/migrations/20260904000000_add_profile_education_and_cv_share.sql`
-(timestamp adjusted at write time to sort after the profiles migration):
+New migration `supabase/migrations/20260905000000_create_profile_education.sql`
+(timestamp sorts after the existing profiles + seed migrations):
 
 ```sql
 CREATE TABLE profile_education (
@@ -106,19 +121,18 @@ CREATE TRIGGER profile_education_updated_at BEFORE UPDATE ON profile_education
 ALTER TABLE profile_education ENABLE ROW LEVEL SECURITY;
 CREATE POLICY profile_education_owner ON profile_education
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- CV share: a rotatable token naming the storage folder that holds the
--- rendered CV HTML. NULL until the user first creates a share link.
-ALTER TABLE profiles ADD COLUMN cv_share_token TEXT UNIQUE;
 ```
 
 `gpa` is TEXT because grading scales differ (the sample uses the Philippine 1.0–5.0
 scale where 1.7 is high). `achievements TEXT[]` matches the sample's bulleted list.
 
-The CV HTML is stored in the **existing `career` storage bucket** (already
-private, already allows `text/html`, already has owner-only folder RLS keyed on
-`(storage.foldername(name))[1] = auth.uid()`). No new bucket. Path:
-`{userId}/{cv_share_token}/cv.html`.
+**No `cv_share_token` column, no `profiles` change.** The generated CV is stored
+and shared through the **career item that owns it**: the CV HTML lands in the
+existing `career` bucket under the item's folder `{userId}/{item.shareToken}/`,
+and `career_items.cv_file_path` points at it — exactly where a manually-uploaded
+`cv.pdf` goes today. The only file-name change is `cv.pdf` → `cv.html` (the
+career bucket already allows `text/html` and owner-only folder RLS keyed on
+`(storage.foldername(name))[1] = auth.uid()`).
 
 ## 2. Shared package — `packages/shared/src/modules/profile/`
 
@@ -130,8 +144,8 @@ On top of the base profile module:
   endDate, gpa, achievements, position, createdAt, updatedAt`.
 - `CreateEducationDto` (`userId` + editable fields, `position` optional),
   `UpdateEducationDto` (partial editable fields).
-- Add `cvShareToken: string | null` to `ProfileType`; it is **not** part of
-  `ProfileUpsertDto` (managed by the share action, not the identity form).
+- No change to `ProfileType` — the CV share token lives on the career item, not
+  the profile.
 
 ### domain/usecases — the CV renderer (the core new logic)
 
@@ -186,108 +200,98 @@ Same shape as the other child repositories in the base spec (`findAll`,
 `create`, `update`, `delete`, `reorder`; append-to-end default position;
 try/catch + `getLogger` + `mapToEntity`).
 
-`ProfileRepository` gains:
-- `setCvShareToken(userId, token): Promise<void>` — writes `cv_share_token`.
-- token generation reuses the career approach: `crypto.randomUUID()` with
-  dashes stripped (no new dependency).
+No `ProfileRepository` change — no token to write.
 
-`mapToEntity` for `ProfileType` maps `cv_share_token` → `cvShareToken`.
+### infrastructure/services — reuse career storage as-is
 
-### infrastructure/services — CV storage + share
+There is **no new service**. The career item already owns the share token,
+storage folder and rotation:
 
-Rather than duplicate `CareerStorageService`, **reuse it** — its `upload`,
-`createShareUrl`, and bucket are already generic over path. The profile CV share
-flow (in the web hook, §3) is:
+- Upload: `CareerStorageService.upload('{userId}/{item.shareToken}/cv.html',
+  bytes, 'text/html')`, then `CareerItemRepository.update(itemId, { cvFilePath:
+  path })`.
+- Preview / download / copy-link: the existing `createShareUrl(cvFilePath)`.
+- Revoke: the existing `rotateShareLink` — it already regenerates the token,
+  moves the folder, and repoints `cvFilePath`.
 
-1. Ensure `profile.cvShareToken` (generate + `setCvShareToken` if null).
-2. `renderCvHtml(data)` → bytes.
-3. `CareerStorageService.upload('{userId}/{token}/cv.html', bytes, 'text/html')`.
-4. `CareerStorageService.createShareUrl(path)` → signed URL (inline render).
-
-Rotation (revoke): generate a new token, `setCvShareToken`, re-upload under the
-new folder, delete the old folder object. This is simpler than
-`rotateShareToken` (single known file `cv.html`, no `cv_file_path` to repoint),
-so add a small `rotateCvShareToken(userId, oldToken)` helper in the profile web
-infrastructure rather than overloading the career one.
+**One small career-side change:** `buildStoragePath` and `CareerStorageService`
+rotation currently hard-code `cv.pdf`. Widen the file name to
+`'cv.pdf' | 'cv.html'`, and make rotation repoint whatever basename the current
+`cvFilePath` uses (preserve the extension) instead of assuming `cv.pdf`. This is
+the only edit inside `packages/shared/career`.
 
 ### index.ts / package.json
 
 Export `renderCvHtml`, `EducationType`, education DTOs, `EducationRepository`
-from the profile barrels. The `"./profile"` export entry is already added by the
-base spec.
+from the profile barrels. The `"./profile"` export entry already exists.
 
-## 3. Web — `web/src/modules/profile/`
+## 3. Web
 
-On top of the base profile presentation:
+Two web surfaces change: `/profile` gains the Education section (data editing);
+the `career` CV panel gains generate-from-profile (the CV itself).
 
-### Education section
+### 3a. Profile — Education section (`web/src/modules/profile/`)
 
 `useEducation.ts` hook + `EducationSection` / `EducationCard` / `EducationEditor`
 components, identical in shape to the Experience section (list + add, read/edit
 toggle, up/down reorder, delete). Editor fields: school, degree, field, location,
-start/end date, `is_current`-style "present" via empty end date, gpa,
-achievements (one-per-line textarea → `string[]`).
+start/end date, "present" via empty end date, gpa, achievements (one-per-line
+textarea → `string[]`). Rendered on the existing `ProfilePage`. This is the only
+`/profile` change — no CV bar, no `useCv`, no share UI on `/profile`.
 
-### CV preview + actions hook — `useCv.ts`
+The seed (already shipped) and all other profile sections are unchanged.
 
-Aggregates the six datasets (profile + five sections) already loaded by their
-hooks, and exposes:
+### 3b. Career — Generate CV from profile (`web/src/modules/career/`)
 
-- `printHtml()` → `renderCvHtml(data)` (for the print iframe).
-- `share()` → runs the upload+sign flow (§2), returns the signed URL, copies it
-  to the clipboard, toasts.
-- `revokeShare()` → rotation flow; toasts.
-- `hasContent` — at least an identity name + one section row, to gate the actions.
+The CV lives where it already does: `CvUploadPanel` on `ItemEditorPage`. Today
+the panel's primary action picks a PDF from disk (`handleUploadCv`). Replace that
+source with **Generate from profile**; everything else on the panel (preview
+iframe, copy link, download, revoke) stays.
 
-### CV bar on `ProfilePage`
+**Data.** `ItemEditorPage` reads the six profile datasets via the profile hooks
+it doesn't own yet — `useProfile`, `useExperiences`, `useEducation`, `useSkills`,
+`useProjects`, `useCertificates` (all already exist except `useEducation` from
+§3a). A small `useCvData()` wrapper in career presentation aggregates them into
+the `CvData` shape and exposes `hasContent` (identity name + ≥1 section row).
+*ponytail: cross-module hook import, not a new store — the hooks already
+own the fetching.*
 
-`ProfilePage` (from the base spec) gains a sticky action bar:
+**Generate handler** (replaces `handleUploadCv`), reusing the existing storage
+plumbing verbatim:
 
-- **Print / Save PDF** — the hidden same-origin iframe pattern copied verbatim
-  from `ItemEditorPage.handlePrint` (`iframe.srcdoc = printHtml()` then
-  `contentWindow.print()`). The app document itself is never printed.
-- **Copy CV link** — calls `share()`.
-- **Revoke link** — `ConfirmDialog` → `revokeShare()` (destructive variant),
-  same copy pattern as the career revoke dialog.
-- A live structured **preview** (render `renderCvHtml` into an iframe or a styled
-  container) so the user sees the résumé as they edit.
+```ts
+const html = renderCvHtml(cvData);            // profile usecase, pure
+const bytes = new TextEncoder().encode(html);
+const path = buildStoragePath(user.id, item.shareToken, 'cv.html');
+await storage.upload(path, bytes, 'text/html');
+await updateItem(item.id, { cvFilePath: path });
+```
 
-No new route — this lives on the existing `/profile` page. No navbar change
-beyond the "Profile" link the base spec already adds.
+After that, `item.cvFilePath` is set and the existing `useEffect` that calls
+`createShareUrl(cvFilePath)` populates the preview iframe (HTML renders inline).
+`handleCopyCvLink`, `handleDownloadCv`, and `handleRevoke` are unchanged — they
+already operate on `cvFilePath` / `shareToken`.
 
-### Seed action — `seedProfile.ts`
+**Panel UI** — in `CvUploadPanel`, swap the "Upload"/click-to-upload affordance
+for a **Generate from profile** button. When the profile has no content, the
+button is disabled with a hint linking to `/profile` ("Add your profile details
+first"). Regenerating overwrites `cv.html` in place (same path), so the existing
+share link keeps working and simply serves the refreshed CV. Download filename
+becomes `cv.html` (was `cv.pdf`).
 
-An empty-state "Import starter CV" button (shown when the profile has no name and
-no section rows) writes the seed content via the repositories:
-`ProfileRepository.upsert` for identity+summary, then `create` per row for each
-section. Not a migration (per-user data; mirrors `SEED_BLOCKS`).
-
-The seed content is **already extracted** into
-`docs/superpowers/specs/assets/2026-09-04-cv-seed-data.json` — verbatim from the
-portfolio's own data files (`portfolio_config.json`, `experience_data.json`,
-`projects_data.json`), already mapped to this module's field shape (camelCase,
-ISO dates, `links` object, flat `tech[]`, skills carrying `category`). Education
-and phone are backfilled from the PDF (the portfolio omits both). The
-implementation transcribes that JSON into
-`web/src/modules/profile/presentation/constants/seedProfile.ts` as typed
-`Create*Dto` arrays.
-
-Content summary: identity + summary; **4** experiences (OnlineJobs.PH, TVStartup,
-Timex, Fiverr/Freelance); **1** education (University of Cebu – Banilad, BSIT, GPA
-1.7, Dean's Lister); **26** skills across categories Languages & Frameworks /
-Backend & Cloud / Tools; **11** projects (name, description, url, flat `tech[]`);
-**4** certificates. Two transcription notes carried in the asset's `_source`
-field: portfolio project descriptions are ALL-CAPS and must be sentence-cased;
-the freelance role's `company` was `null` in the portfolio and is set to
-"Fiverr/Freelance" (the schema's `company` is `NOT NULL`).
-
-Because `profile_skills` has `UNIQUE (user_id, name)`, the seed inserts skills
-once; re-running the seed is guarded by the "no rows" empty-state condition.
+**Optional Print/Save PDF.** For a true PDF the user can still use the browser's
+print-to-PDF via the same hidden-iframe pattern the cover letter already uses
+(`iframe.srcdoc = renderCvHtml(cvData)` → `contentWindow.print()`). Reuses
+`iframeRef`; add a Printer button to the CV panel. *ponytail: no PDF library —
+browser print is the existing, dependency-free path; skip until a self-serve PDF
+download is actually asked for.*
 
 ### Wiring
 
-`@profile` alias + `/profile` route + nav link are all in the base spec. This
-spec adds no further wiring.
+`@profile` alias + `/profile` route + nav link already exist. Career already
+routes `/career/:itemId`. The only new cross-module dependency is career
+presentation importing profile hooks + `renderCvHtml` through the profile
+barrels — no new alias, no new route.
 
 ## Error handling
 
@@ -317,4 +321,6 @@ Consistent with `career` (CRUD repos untested; only pure logic is tested):
 - Drag-and-drop reordering (up/down buttons suffice).
 - Mobile presentation.
 - PDF generated server-side / templated designs beyond the single ATS-safe layout.
-- Editing `cv_share_token` from the identity form (managed by the share action).
+- Self-serve PDF download of the generated CV (browser print-to-PDF covers it;
+  the shared/downloaded file is `cv.html`).
+- Keeping the manual "upload a PDF from disk" path — replaced by generate.

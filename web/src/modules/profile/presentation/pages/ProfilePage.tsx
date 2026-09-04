@@ -2,6 +2,7 @@ import { ScrollArea } from '@/components/ui';
 import {
   ProfileHeaderForm,
   ExperienceSection,
+  EducationSection,
   SkillSection,
   ProjectSection,
   CertificateSection,
@@ -17,6 +18,7 @@ export const ProfilePage = () => {
         <div className="p-4 max-w-3xl mx-auto space-y-6">
           <ProfileHeaderForm />
           <ExperienceSection />
+          <EducationSection />
           <SkillSection />
           <ProjectSection />
           <CertificateSection />

@@ -28,14 +28,47 @@ export interface CareerBlockWithUsageType extends CareerBlockType {
   itemCount: number;
 }
 
+// Stored per-item CV block selection. Custom refs point at a
+// career_cv_blocks row by id; profile refs point at a profile row (or skill
+// category) by id/value — resolved against live profile + custom-block data
+// at render time, never denormalized into the ref itself.
+export type CvBlockRef =
+  | { type: 'header' | 'summary' }
+  | { type: 'experience' | 'education' | 'project' | 'certificate'; id: string }
+  | { type: 'skill'; category: string }
+  | { type: 'custom'; id: string };
+
 export interface CareerItemType {
   id: string;
   userId: string;
   name: string;
   cvFilePath: string | null;
+  cvLayout: CvBlockRef[] | null;
   shareToken: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CareerCvBlockType {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateCareerCvBlockDto {
+  userId: string;
+  title: string;
+  body?: string;
+  position?: number;
+}
+
+export interface UpdateCareerCvBlockDto {
+  title?: string;
+  body?: string;
 }
 
 export interface CareerItemBlockType {
@@ -89,6 +122,7 @@ export interface CreateCareerItemDto {
 export interface UpdateCareerItemDto {
   name?: string;
   cvFilePath?: string | null;
+  cvLayout?: CvBlockRef[] | null;
 }
 
 export interface SetItemBlocksDto {

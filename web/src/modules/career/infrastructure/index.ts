@@ -1,5 +1,6 @@
 export {
   CareerBlockRepository,
+  CareerCvBlockRepository,
   CareerItemRepository,
   CareerItemBlockRepository,
   CareerRenderRepository,

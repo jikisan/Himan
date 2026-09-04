@@ -1,14 +1,6 @@
 import { PRINT_CSS } from './styles.js';
 import type { LetterHtmlData } from '../types/index.js';
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { escapeHtml } from '../../../../services/index.js';
 
 // Standalone document: what a recruiter opens via the share link and what
 // the browser prints are the same bytes, so the two cannot drift. bodyText

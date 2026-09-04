@@ -1,6 +1,7 @@
 export {
   ProfileRepository,
   ExperienceRepository,
+  EducationRepository,
   SkillRepository,
   ProjectRepository,
   CertificateRepository,

@@ -22,13 +22,18 @@ import { useAuth } from '@auth/presentation/hooks';
 import { useCareerItems } from '../hooks/useCareerItems';
 import { useItemBlocks } from '../hooks/useItemBlocks';
 import { useCareerBlocks } from '../hooks/useCareerBlocks';
+import { useCvBlocks } from '../hooks/useCvBlocks';
 import { useGenerateLetter } from '../hooks/useGenerateLetter';
+import { useCvData } from '../hooks/useCvData';
 import { ComposePane, type SelectedBlock } from '../components/ComposePane';
+import { CvComposePane } from '../components/CvComposePane';
 import { LetterPreview } from '../components/LetterPreview';
 import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterText';
 import { CvUploadPanel } from '../components/CvUploadPanel';
+import { generateCvPdfBlob } from '../utils/generateCvPdf';
 import { CareerStorageService } from '../../infrastructure';
-import { buildStoragePath, type CareerLength, type ComposableBlock } from '@himan/shared/career';
+import { buildStoragePath, type CareerLength, type ComposableBlock, type CvBlockRef } from '@himan/shared/career';
+import { renderCvHtml, type RenderCvBlock } from '@himan/shared/profile';
 import { Logger } from '@core/infrastructure/services';
 
 // Used only inside the blocks dialog, where the actual job title/company
@@ -48,6 +53,8 @@ export const ItemEditorPage = () => {
   const { items, createItem, updateItem, rotateShareLink } = useCareerItems();
   const { blocks: allBlocks } = useCareerBlocks();
   const { itemBlocks, saveItemBlocks, isSaving } = useItemBlocks(itemId);
+  const { cvData, profileBlocks, defaultLayout, hasContent: hasProfileContent } = useCvData();
+  const { blocks: cvBlocks } = useCvBlocks();
 
   const item = items.find((i) => i.id === itemId) ?? null;
   const isNew = !itemId;
@@ -55,11 +62,13 @@ export const ItemEditorPage = () => {
   const [name, setName] = useState('');
   const [selection, setSelection] = useState<SelectedBlock[]>([]);
   const [blocksDialogOpen, setBlocksDialogOpen] = useState(false);
+  const [cvLayoutDialogOpen, setCvLayoutDialogOpen] = useState(false);
+  const [cvLayoutDraft, setCvLayoutDraft] = useState<CvBlockRef[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [revokeOpen, setRevokeOpen] = useState(false);
-  const [isUploadingCv, setIsUploadingCv] = useState(false);
-  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
+  const [isGeneratingCv, setIsGeneratingCv] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const cvIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (item) setName(item.name);
@@ -69,18 +78,24 @@ export const ItemEditorPage = () => {
     setSelection(itemBlocks.map((b) => ({ blockId: b.blockId, length: b.length })));
   }, [itemBlocks]);
 
-  useEffect(() => {
-    if (!item?.cvFilePath) {
-      setCvPreviewUrl(null);
-      return;
-    }
-    let cancelled = false;
-    new CareerStorageService()
-      .createShareUrl(item.cvFilePath)
-      .then((url) => { if (!cancelled) setCvPreviewUrl(url); })
-      .catch((err) => Logger.error('Error loading CV preview', err));
-    return () => { cancelled = true; };
-  }, [item?.cvFilePath]);
+  // Resolves stored refs against live data: 'custom' refs carry only an id,
+  // so their title/body come from the current CV block library — editing a
+  // custom block once updates every item that includes it on next generate.
+  const resolveCvLayout = (refs: CvBlockRef[]): RenderCvBlock[] =>
+    refs.flatMap((ref): RenderCvBlock[] => {
+      if (ref.type === 'custom') {
+        const block = cvBlocks.find((b) => b.id === ref.id);
+        return block ? [{ type: 'custom', title: block.title, body: block.body }] : [];
+      }
+      return [ref];
+    });
+
+  const itemCvLayout = item?.cvLayout ? resolveCvLayout(item.cvLayout) : null;
+  const cvLayoutPreviewHtml = cvData ? renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft)) : '';
+  // Preview and print share one render so they can never drift. Shown only
+  // once a layout is saved (cvFilePath set); the stored cv.html the share
+  // link serves is produced from the same inputs at save time.
+  const cvHtml = cvData && item?.cvFilePath ? renderCvHtml(cvData, itemCvLayout) : null;
 
   const previewBlocks: ComposableBlock[] = selection.map((s, index) => {
     const block = allBlocks.find((b) => b.id === s.blockId);
@@ -113,23 +128,6 @@ export const ItemEditorPage = () => {
   const handleSaveName = async () => {
     if (!item || !name.trim() || name === item.name) return;
     await updateItem(item.id, { name: name.trim() });
-  };
-
-  const handleUploadCv = async (file: File) => {
-    if (!item || !user) return;
-    setIsUploadingCv(true);
-    try {
-      const storage = new CareerStorageService();
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const path = buildStoragePath(user.id, item.shareToken, 'cv.pdf');
-      await storage.upload(path, bytes, 'application/pdf');
-      await updateItem(item.id, { cvFilePath: path });
-    } catch (err) {
-      Logger.error('Error uploading CV', err);
-      toast.error('Failed to upload CV');
-    } finally {
-      setIsUploadingCv(false);
-    }
   };
 
   const handleRemoveCv = async () => {
@@ -165,6 +163,44 @@ export const ItemEditorPage = () => {
     } catch (err) {
       Logger.error('Error downloading CV', err);
       toast.error('Failed to download CV');
+    }
+  };
+
+  const handlePrintCv = () => {
+    if (!cvHtml) return;
+    const iframe = cvIframeRef.current;
+    if (!iframe) return;
+    iframe.onload = () => {
+      iframe.contentWindow?.print();
+    };
+    iframe.srcdoc = cvHtml;
+  };
+
+  const handleOpenCvLayout = () => {
+    setCvLayoutDraft(item?.cvLayout ?? defaultLayout);
+    setCvLayoutDialogOpen(true);
+  };
+
+  // Saving the layout also bakes it into cv.html in storage — the share
+  // link/download/print all serve that stored file, so there is no separate
+  // "generate" step.
+  const handleSaveCvLayout = async () => {
+    if (!item || !user || !cvData) return;
+    setIsGeneratingCv(true);
+    try {
+      await updateItem(item.id, { cvLayout: cvLayoutDraft });
+      const html = renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft));
+      const blob = await generateCvPdfBlob(html);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const path = buildStoragePath(user.id, item.shareToken, 'cv.pdf');
+      await new CareerStorageService().upload(path, bytes, 'application/pdf');
+      await updateItem(item.id, { cvFilePath: path });
+      setCvLayoutDialogOpen(false);
+    } catch (err) {
+      Logger.error('Error saving CV layout', err);
+      toast.error('Failed to save CV');
+    } finally {
+      setIsGeneratingCv(false);
     }
   };
 
@@ -235,14 +271,16 @@ export const ItemEditorPage = () => {
           <div>
             <CvUploadPanel
               hasCv={!!item.cvFilePath}
-              cvPreviewUrl={cvPreviewUrl}
-              onUpload={handleUploadCv}
+              cvPreviewHtml={cvHtml}
+              hasProfileContent={hasProfileContent}
               onRemove={handleRemoveCv}
               onCopyLink={handleCopyCvLink}
               onDownload={handleDownloadCv}
+              onPrint={handlePrintCv}
+              onEditLayout={handleOpenCvLayout}
               hasShareLink={!!item.shareToken}
               onRevokeLink={() => setRevokeOpen(true)}
-              isSaving={isUploadingCv}
+              isSaving={isGeneratingCv}
             />
           </div>
 
@@ -379,6 +417,31 @@ export const ItemEditorPage = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={cvLayoutDialogOpen} onOpenChange={setCvLayoutDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="flex flex-row items-center justify-between gap-3">
+            <DialogTitle>CV layout — {item.name}</DialogTitle>
+            <Button onClick={handleSaveCvLayout} disabled={isGeneratingCv || !hasProfileContent}>
+              {isGeneratingCv ? 'Saving…' : 'Save & generate CV'}
+            </Button>
+          </DialogHeader>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <CvComposePane
+              profileBlocks={profileBlocks}
+              customBlocks={cvBlocks}
+              selected={cvLayoutDraft}
+              onChange={setCvLayoutDraft}
+            />
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Preview</h3>
+              <div className="rounded-lg border border-border bg-muted/30 overflow-hidden" style={{ aspectRatio: '210 / 297' }}>
+                <iframe srcDoc={cvLayoutPreviewHtml} title="CV layout preview" sandbox="allow-same-origin" className="w-full h-full" />
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={revokeOpen}
         onOpenChange={setRevokeOpen}
@@ -389,8 +452,9 @@ export const ItemEditorPage = () => {
         variant="destructive"
       />
 
-      {/* Hidden same-origin iframe: the app document itself is never printed. */}
+      {/* Hidden same-origin iframes: the app document itself is never printed. */}
       <iframe ref={iframeRef} title="print-letter" className="hidden" />
+      <iframe ref={cvIframeRef} title="print-cv" className="hidden" />
     </div>
   );
 };

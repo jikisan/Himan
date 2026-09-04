@@ -68,6 +68,22 @@ export interface CertificateType {
   updatedAt: Date;
 }
 
+export interface EducationType {
+  id: string;
+  userId: string;
+  school: string;
+  degree: string | null;
+  field: string | null;
+  location: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  gpa: string | null;
+  achievements: string[];
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ProfileUpsertDto {
   userId: string;
   fullName?: string | null;
@@ -102,6 +118,30 @@ export interface UpdateExperienceDto {
   isCurrent?: boolean;
   summary?: string | null;
   bullets?: string[];
+}
+
+export interface CreateEducationDto {
+  userId: string;
+  school: string;
+  degree?: string | null;
+  field?: string | null;
+  location?: string | null;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  gpa?: string | null;
+  achievements?: string[];
+  position?: number;
+}
+
+export interface UpdateEducationDto {
+  school?: string;
+  degree?: string | null;
+  field?: string | null;
+  location?: string | null;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  gpa?: string | null;
+  achievements?: string[];
 }
 
 export interface CreateSkillDto {

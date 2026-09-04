@@ -1,6 +1,6 @@
 import { getSupabase } from '../../../../config/index.js';
 import { getLogger } from '../../../../services/index.js';
-import type { CareerItemType, CreateCareerItemDto, UpdateCareerItemDto } from '../../domain/types/index.js';
+import type { CareerItemType, CreateCareerItemDto, UpdateCareerItemDto, CvBlockRef } from '../../domain/types/index.js';
 
 // crypto.randomUUID() isn't typed without the DOM lib on every platform
 // this package targets; getRandomValues is. 16 bytes matches the entropy
@@ -73,6 +73,7 @@ export class CareerItemRepository {
         .update({
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.cvFilePath !== undefined && { cv_file_path: dto.cvFilePath }),
+          ...(dto.cvLayout !== undefined && { cv_layout: dto.cvLayout }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -135,6 +136,7 @@ export class CareerItemRepository {
       userId: data.user_id as string,
       name: data.name as string,
       cvFilePath: (data.cv_file_path as string) ?? null,
+      cvLayout: (data.cv_layout as CvBlockRef[]) ?? null,
       shareToken: data.share_token as string,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),

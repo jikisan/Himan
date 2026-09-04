@@ -32,6 +32,7 @@
       "@invoice-generator/*": ["src/modules/invoice-generator/*"],
       "@grocery/*": ["src/modules/grocery/*"],
       "@career/*": ["src/modules/career/*"],
+      "@profile/*": ["src/modules/profile/*"],
       "@app/*": ["src/app/*"],
       "@modules/*": ["src/modules/*"]
     },

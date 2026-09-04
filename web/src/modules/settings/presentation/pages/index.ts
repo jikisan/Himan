@@ -1,2 +1,2 @@
-export { ProfilePage } from './ProfilePage';
+export { AccountPage } from './AccountPage';
 export { SettingsPage } from './SettingsPage';

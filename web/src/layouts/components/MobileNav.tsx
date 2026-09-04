@@ -1,4 +1,4 @@
-import { X, Home, FileText, User, Settings, Briefcase } from 'lucide-react';
+import { X, Home, FileText, User, UserCircle, Settings, Briefcase } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@core/presentation/utils';
 
@@ -13,6 +13,7 @@ export const MobileNav = ({ isOpen, onClose }: MobileNavProps) => {
     { path: '/notes', label: 'Notes', icon: FileText },
     { path: '/career', label: 'Career', icon: Briefcase },
     { path: '/profile', label: 'Profile', icon: User },
+    { path: '/account', label: 'Account', icon: UserCircle },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 

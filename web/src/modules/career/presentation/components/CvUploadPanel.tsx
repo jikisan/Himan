@@ -1,6 +1,7 @@
-import { Download, FileX2, Link2, ListOrdered, Printer, ShieldOff } from 'lucide-react';
+import { Download, FileX2, Link2, ListOrdered, ShieldOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
+import { CvPreviewFrame } from './CvPreviewFrame';
 
 interface CvUploadPanelProps {
   hasCv: boolean;
@@ -9,7 +10,6 @@ interface CvUploadPanelProps {
   onRemove: () => Promise<void>;
   onCopyLink: () => Promise<void>;
   onDownload: () => Promise<void>;
-  onPrint: () => void;
   onEditLayout: () => void;
   hasShareLink: boolean;
   onRevokeLink: () => void;
@@ -20,7 +20,7 @@ interface CvUploadPanelProps {
 // HTML résumé. The CV file itself is produced by saving a layout ("Edit CV
 // layout"), which bakes cv.html into storage — there is no separate generate
 // step here.
-export const CvUploadPanel = ({ hasCv, cvPreviewHtml, hasProfileContent, onRemove, onCopyLink, onDownload, onPrint, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => {
+export const CvUploadPanel = ({ hasCv, cvPreviewHtml, hasProfileContent, onRemove, onCopyLink, onDownload, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -40,11 +40,6 @@ export const CvUploadPanel = ({ hasCv, cvPreviewHtml, hasProfileContent, onRemov
           <span title={!hasCv ? 'Save a CV layout first' : undefined}>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Download CV" onClick={onDownload} disabled={!hasCv}>
               <Download className="h-4 w-4" />
-            </Button>
-          </span>
-          <span title={!hasCv ? 'Save a CV layout first' : undefined}>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Print / Save PDF" onClick={onPrint} disabled={!hasCv}>
-              <Printer className="h-4 w-4" />
             </Button>
           </span>
           <span title={!hasShareLink ? 'No CV link to revoke yet' : undefined}>
@@ -70,7 +65,7 @@ export const CvUploadPanel = ({ hasCv, cvPreviewHtml, hasProfileContent, onRemov
         style={{ aspectRatio: '210 / 297' }}
       >
         {cvPreviewHtml ? (
-          <iframe srcDoc={cvPreviewHtml} title="CV preview" sandbox="allow-same-origin" className="w-full h-full" />
+          <CvPreviewFrame html={cvPreviewHtml} title="CV preview" />
         ) : (
           <button
             type="button"

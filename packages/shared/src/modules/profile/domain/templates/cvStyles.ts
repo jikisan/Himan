@@ -1,48 +1,40 @@
-// Single column, real selectable text, no tables/icons — same ATS-safe
-// discipline as the cover letter's PRINT_CSS, extended with the headings,
-// rules and right-aligned date rows a résumé needs.
+// Single column, real selectable text, no tables/icons — ATS-safe. Layout
+// mirrors the portfolio résumé generator (Helvetica, centered header,
+// uppercase section headings with a full-width rule, bold title + right date).
+// Rendered at a fixed 794px (A4 @96dpi) so the on-screen preview and the
+// rasterized PDF wrap identically — the preview shows exactly the output.
 export const CV_PRINT_CSS = `
-@page { size: A4; margin: 16mm; }
+@page { size: A4; margin: 0; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 html { background: #ffffff; }
 body {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 10.5pt;
-  line-height: 1.5;
-  color: #1a1a1a;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.4;
+  color: #000000;
   background: #ffffff;
-  max-width: 720px;
+  width: 794px;
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 57px;
 }
-h1 { font-size: 20pt; text-align: center; margin: 0 0 4px; }
-.contact-line { text-align: center; font-size: 9.5pt; color: #444; margin: 0 0 24px; }
+h1 { font-size: 22pt; font-weight: bold; text-align: center; margin: 0 0 6px; }
+.contact-line { text-align: center; font-size: 9pt; color: #000; margin: 0 0 2px; }
+.contact-line:last-of-type { margin-bottom: 18px; }
 h2 {
-  font-size: 11pt;
+  font-size: 12pt;
+  font-weight: bold;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 0.5px solid #000;
   padding-bottom: 2px;
-  margin: 20px 0 8px;
+  margin: 16px 0 8px;
 }
 .entry { margin: 0 0 10px; }
 .entry-row { display: flex; justify-content: space-between; gap: 12px; }
 .entry-title { font-weight: bold; }
-.entry-dates { white-space: nowrap; color: #444; }
-.entry-subtitle { font-style: italic; color: #333; }
+.entry-dates { white-space: nowrap; font-weight: bold; }
+.entry-subtitle { font-style: italic; }
+p { margin: 4px 0; }
 ul { margin: 4px 0 0; padding-left: 18px; }
 li { margin: 0 0 2px; }
-button.no-print {
-  display: block;
-  margin: 0 0 24px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-@media print {
-  button.no-print { display: none; }
-  body { padding: 0; max-width: none; }
-}
 `;

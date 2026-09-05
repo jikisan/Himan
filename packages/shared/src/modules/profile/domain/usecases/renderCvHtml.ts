@@ -50,13 +50,17 @@ function section(heading: string, bodyHtml: string): string {
   return bodyHtml ? `<h2>${escapeHtml(heading)}</h2>${bodyHtml}` : '';
 }
 
+function contactLine(parts: (string | null | undefined)[]): string {
+  const clean = parts.filter((v): v is string => !!v && v.trim().length > 0).map(escapeHtml);
+  return clean.length ? `<p class="contact-line">${clean.join(' | ')}</p>` : '';
+}
+
 function renderHeader(profile: ProfileType): string {
   const name = profile.fullName ? escapeHtml(profile.fullName) : '';
-  const contactParts = [profile.location, profile.phone, profile.email, profile.website, ...Object.values(profile.links)]
-    .filter((v): v is string => !!v && v.trim().length > 0)
-    .map(escapeHtml);
-  const contactLine = contactParts.length ? `<p class="contact-line">${contactParts.join(' | ')}</p>` : '';
-  return `<h1>${name}</h1>${contactLine}`;
+  // Location on its own line, then everything else — mirrors the reference résumé.
+  const locationLine = contactLine([profile.location]);
+  const contactRest = contactLine([profile.phone, profile.email, profile.website, ...Object.values(profile.links)]);
+  return `<h1>${name}</h1>${locationLine}${contactRest}`;
 }
 
 function renderSummary(bio: string | null): string {
@@ -256,7 +260,6 @@ export function renderCvHtml(data: CvData, layout?: RenderCvBlock[] | null): str
 <style>${CV_PRINT_CSS}</style>
 </head>
 <body>
-<button class="no-print" onclick="window.print()">Save as PDF</button>
 ${body}
 </body>
 </html>`;

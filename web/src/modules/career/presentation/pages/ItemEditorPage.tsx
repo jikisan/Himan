@@ -30,6 +30,7 @@ import { CvComposePane } from '../components/CvComposePane';
 import { LetterPreview } from '../components/LetterPreview';
 import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterText';
 import { CvUploadPanel } from '../components/CvUploadPanel';
+import { CvPreviewFrame } from '../components/CvPreviewFrame';
 import { generateCvPdfBlob } from '../utils/generateCvPdf';
 import { CareerStorageService } from '../../infrastructure';
 import { buildStoragePath, type CareerLength, type ComposableBlock, type CvBlockRef } from '@himan/shared/career';
@@ -68,7 +69,6 @@ export const ItemEditorPage = () => {
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [isGeneratingCv, setIsGeneratingCv] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const cvIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (item) setName(item.name);
@@ -155,25 +155,22 @@ export const ItemEditorPage = () => {
     }
   };
 
+  // {fullName}_CV_{item}.pdf, e.g. June_Kyle_Santerna_CV_Android.pdf.
+  const cvDownloadName = () => {
+    const slug = (s: string) => s.trim().replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+    const parts = [slug(cvData?.profile.fullName ?? ''), 'CV', slug(item?.name ?? '')];
+    return `${parts.filter(Boolean).join('_')}.pdf`;
+  };
+
   const handleDownloadCv = async () => {
     if (!item?.cvFilePath) return;
     try {
-      const url = await new CareerStorageService().createShareUrl(item.cvFilePath, 'cv.pdf');
+      const url = await new CareerStorageService().createShareUrl(item.cvFilePath, cvDownloadName());
       window.open(url, '_blank');
     } catch (err) {
       Logger.error('Error downloading CV', err);
       toast.error('Failed to download CV');
     }
-  };
-
-  const handlePrintCv = () => {
-    if (!cvHtml) return;
-    const iframe = cvIframeRef.current;
-    if (!iframe) return;
-    iframe.onload = () => {
-      iframe.contentWindow?.print();
-    };
-    iframe.srcdoc = cvHtml;
   };
 
   const handleOpenCvLayout = () => {
@@ -276,7 +273,6 @@ export const ItemEditorPage = () => {
               onRemove={handleRemoveCv}
               onCopyLink={handleCopyCvLink}
               onDownload={handleDownloadCv}
-              onPrint={handlePrintCv}
               onEditLayout={handleOpenCvLayout}
               hasShareLink={!!item.shareToken}
               onRevokeLink={() => setRevokeOpen(true)}
@@ -434,8 +430,8 @@ export const ItemEditorPage = () => {
             />
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground mb-2">Preview</h3>
-              <div className="rounded-lg border border-border bg-muted/30 overflow-hidden" style={{ aspectRatio: '210 / 297' }}>
-                <iframe srcDoc={cvLayoutPreviewHtml} title="CV layout preview" sandbox="allow-same-origin" className="w-full h-full" />
+              <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+                <CvPreviewFrame html={cvLayoutPreviewHtml} title="CV layout preview" />
               </div>
             </div>
           </div>
@@ -452,9 +448,8 @@ export const ItemEditorPage = () => {
         variant="destructive"
       />
 
-      {/* Hidden same-origin iframes: the app document itself is never printed. */}
+      {/* Hidden same-origin iframe: the app document itself is never printed. */}
       <iframe ref={iframeRef} title="print-letter" className="hidden" />
-      <iframe ref={cvIframeRef} title="print-cv" className="hidden" />
     </div>
   );
 };

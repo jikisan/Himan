@@ -18,8 +18,15 @@ export const CvBlockList = ({ blocks, onEdit, onDelete }: CvBlockListProps) => {
       {blocks.map((block) => (
         <div key={block.id} className="rounded-lg border border-border p-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium text-sm">{block.title}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm">{block.title}</p>
+              <span className="text-[10px] uppercase tracking-wide rounded bg-muted px-1.5 py-0.5 text-muted-foreground">{block.kind}</span>
+              {block.label && <span className="text-xs text-muted-foreground">{block.label}</span>}
+            </div>
             {block.body && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{block.body}</p>}
+            {block.tags.length > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1">{block.tags.map((t) => `#${t}`).join(' ')}</p>
+            )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(block)}>

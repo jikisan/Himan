@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Sparkles, UserCog } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { STANDARD_CV_TOKENS } from '@himan/shared/profile';
 import { Button, ScrollArea } from '@/components/ui';
 import { useCareerBlocks } from '../hooks/useCareerBlocks';
 import { useCvBlocks } from '../hooks/useCvBlocks';
+import { useCvData } from '../hooks/useCvData';
 import { BlockEditor } from '../components/BlockEditor';
 import { BlockList } from '../components/BlockList';
 import { CvBlockEditor } from '../components/CvBlockEditor';
@@ -24,6 +26,9 @@ export const BlocksPage = () => {
   const { blocks: cvBlocks, loading: cvLoading, createBlock: createCvBlock, updateBlock: updateCvBlock, deleteBlock: deleteCvBlock } = useCvBlocks();
   const [cvEditorOpen, setCvEditorOpen] = useState(false);
   const [editingCvBlock, setEditingCvBlock] = useState<CareerCvBlockType | null>(null);
+
+  const { cvData, profileBlocks } = useCvData();
+  const cvTokens = Array.from(new Set([...STANDARD_CV_TOKENS, ...Object.keys(cvData?.profile.links ?? {})]));
 
   const handleSeed = async () => {
     setIsSeeding(true);
@@ -95,17 +100,46 @@ export const BlocksPage = () => {
                 onDelete={deleteBlock}
               />
             )
-          ) : !cvLoading && cvBlocks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-16">
-              No CV blocks yet. Custom blocks (e.g. an Objective) show up alongside your
-              profile sections when building a CV layout on a career item.
-            </p>
           ) : (
-            <CvBlockList
-              blocks={cvBlocks}
-              onEdit={(block) => { setEditingCvBlock(block); setCvEditorOpen(true); }}
-              onDelete={deleteCvBlock}
-            />
+            <div className="space-y-6">
+              {!cvLoading && cvBlocks.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No custom CV blocks yet. Custom blocks (e.g. an Objective) show up alongside your
+                  profile sections when building a CV layout on a career item.
+                </p>
+              ) : (
+                <CvBlockList
+                  blocks={cvBlocks}
+                  onEdit={(block) => { setEditingCvBlock(block); setCvEditorOpen(true); }}
+                  onDelete={deleteCvBlock}
+                />
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground">From your profile</h2>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/profile">
+                      <UserCog className="h-4 w-4 mr-1.5" />
+                      Edit in profile
+                    </Link>
+                  </Button>
+                </div>
+                {profileBlocks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nothing in your profile yet. Add experience, education, and skills to build these blocks.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {profileBlocks.map((option, index) => (
+                      <div key={`${option.label}-${index}`} className="rounded-lg border border-border border-dashed p-2.5">
+                        <p className="text-sm truncate">{option.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </ScrollArea>
@@ -127,6 +161,7 @@ export const BlocksPage = () => {
         open={cvEditorOpen}
         onOpenChange={setCvEditorOpen}
         block={editingCvBlock}
+        tokens={cvTokens}
         onSave={async (dto) => {
           if (editingCvBlock) {
             await updateCvBlock(editingCvBlock.id, dto);

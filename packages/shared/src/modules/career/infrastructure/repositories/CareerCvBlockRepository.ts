@@ -28,8 +28,11 @@ export class CareerCvBlockRepository {
         .from('career_cv_blocks')
         .insert({
           user_id: dto.userId,
+          kind: dto.kind ?? 'custom',
+          label: dto.label ?? '',
           title: dto.title,
           body: dto.body ?? '',
+          tags: dto.tags ?? [],
           position,
         })
         .select()
@@ -49,8 +52,11 @@ export class CareerCvBlockRepository {
       const { data, error } = await getSupabase()
         .from('career_cv_blocks')
         .update({
+          ...(dto.kind !== undefined && { kind: dto.kind }),
+          ...(dto.label !== undefined && { label: dto.label }),
           ...(dto.title !== undefined && { title: dto.title }),
           ...(dto.body !== undefined && { body: dto.body }),
+          ...(dto.tags !== undefined && { tags: dto.tags }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -113,8 +119,11 @@ export class CareerCvBlockRepository {
     return {
       id: data.id as string,
       userId: data.user_id as string,
+      kind: (data.kind as CareerCvBlockType['kind']) ?? 'custom',
+      label: (data.label as string) ?? '',
       title: data.title as string,
       body: data.body as string,
+      tags: (data.tags as string[]) ?? [],
       position: data.position as number,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),

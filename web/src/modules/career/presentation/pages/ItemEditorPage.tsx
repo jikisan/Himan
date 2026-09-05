@@ -148,11 +148,11 @@ export const ItemEditorPage = () => {
   };
 
   const handleCopyCvLink = async () => {
-    const url = await generate.cvShareUrl();
-    if (url) {
-      await navigator.clipboard.writeText(url);
-      toast.success('CV link copied');
-    }
+    if (!item?.cvFilePath) return;
+    // Short link resolved server-side by functions/cv/[token].ts — no signed
+    // URL baked into the copied text, so it stays short and rotation revokes it.
+    await navigator.clipboard.writeText(`${window.location.origin}/cv/${item.shareToken}`);
+    toast.success('CV link copied');
   };
 
   // {fullName}_CV_{item}.pdf, e.g. June_Kyle_Santerna_CV_Android.pdf.

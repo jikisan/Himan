@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { escapeHtml } from '../../../../services/index.js';
 import { CV_PRINT_CSS } from '../templates/cvStyles.js';
 import { sortByPosition } from './sortByPosition.js';
+import { profileTokens, resolveProfileTokens } from './profileTokens.js';
 import type {
   ProfileType,
   ExperienceType,
@@ -141,8 +142,8 @@ function renderCertificates(certificates: CertificateType[]): string {
   return section('Certificates', sortByPosition(certificates).map(renderCertificateRow).join(''));
 }
 
-function renderCustomBlock(title: string, body: string): string {
-  const paragraphs = body
+function renderCustomBlock(title: string, body: string, tokens: Record<string, string>): string {
+  const paragraphs = resolveProfileTokens(body, tokens)
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean)
@@ -164,6 +165,7 @@ const ROW_SECTION_HEADING: Record<'experience' | 'education' | 'project' | 'cert
 // single "Experience"/"Education"/etc. heading, matching the default mode).
 // Refs whose row no longer exists are silently skipped.
 function renderWithLayout(data: CvData, layout: RenderCvBlock[]): string {
+  const tokens = profileTokens(data.profile);
   const parts: string[] = [];
   let currentHeading: string | null = null;
   let currentRows: string[] = [];
@@ -196,7 +198,7 @@ function renderWithLayout(data: CvData, layout: RenderCvBlock[]): string {
         break;
       case 'custom':
         flush();
-        parts.push(renderCustomBlock(block.title, block.body));
+        parts.push(renderCustomBlock(block.title, block.body, tokens));
         break;
       case 'experience': {
         const exp = data.experiences.find((e) => e.id === block.id);

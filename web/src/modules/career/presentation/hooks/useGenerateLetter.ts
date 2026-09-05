@@ -1,7 +1,4 @@
-import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { useAuth } from '@auth/presentation/hooks';
-import { CareerStorageService } from '../../infrastructure';
+import { useState } from 'react';
 import {
   composeLetter,
   renderLetterHtml,
@@ -9,12 +6,8 @@ import {
   type CareerLength,
   type ComposableBlock,
 } from '@himan/shared/career';
-import { Logger } from '@core/infrastructure/services';
 
-export const useGenerateLetter = (item: CareerItemType | null, blocks: ComposableBlock[]) => {
-  const { user } = useAuth();
-  const storage = useMemo(() => new CareerStorageService(), []);
-
+export const useGenerateLetter = (_item: CareerItemType | null, blocks: ComposableBlock[]) => {
   const [jobTitle, setJobTitle] = useState('');
   const [company, setCompany] = useState('');
   const [hiringManager, setHiringManager] = useState('');
@@ -27,17 +20,6 @@ export const useGenerateLetter = (item: CareerItemType | null, blocks: Composabl
   const printHtml = (): string =>
     renderLetterHtml({ bodyText: text, documentTitle: `${jobTitle} — ${company}` });
 
-  const cvShareUrl = async (): Promise<string | null> => {
-    if (!user || !item?.cvFilePath) return null;
-    try {
-      return await storage.createShareUrl(item.cvFilePath);
-    } catch (err) {
-      Logger.error('Error creating CV share link', err);
-      toast.error('Failed to create CV link');
-      return null;
-    }
-  };
-
   return {
     jobTitle, setJobTitle,
     company, setCompany,
@@ -47,6 +29,5 @@ export const useGenerateLetter = (item: CareerItemType | null, blocks: Composabl
     text, missing,
     canGenerate: !!text.trim() && !!jobTitle.trim() && !!company.trim(),
     printHtml,
-    cvShareUrl,
   };
 };

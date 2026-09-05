@@ -238,5 +238,22 @@ describe('renderCvHtml', () => {
       expect(html).toContain('Frontend');
       expect(html).not.toContain('Backend');
     });
+
+    it('resolves profile tokens in a custom block body', () => {
+      const data = { ...emptyData, profile: { ...baseProfile, links: { github: 'https://github.com/jane' } } };
+      const html = renderCvHtml(data, [
+        { type: 'custom', title: 'Links', body: 'Code: {{github}} · Reach: {{email}}' },
+      ]);
+      expect(html).toContain('https://github.com/jane');
+      expect(html).toContain('jane@example.com');
+    });
+
+    it('drops an unset token rather than printing its key', () => {
+      const html = renderCvHtml(emptyData, [
+        { type: 'custom', title: 'Links', body: 'Find me: {{linkedin}}' },
+      ]);
+      expect(html).not.toContain('linkedin');
+      expect(html).not.toContain('{{');
+    });
   });
 });

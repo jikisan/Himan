@@ -1,0 +1,4 @@
+ALTER TABLE career_cv_blocks
+  ADD COLUMN kind  TEXT   NOT NULL DEFAULT 'custom',
+  ADD COLUMN label TEXT   NOT NULL DEFAULT '',
+  ADD COLUMN tags  TEXT[] NOT NULL DEFAULT '{}';

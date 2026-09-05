@@ -49,11 +49,23 @@ export interface CareerItemType {
   updatedAt: Date;
 }
 
+export type CvBlockKind =
+  | 'summary'
+  | 'experience'
+  | 'skills'
+  | 'project'
+  | 'education'
+  | 'certification'
+  | 'custom';
+
 export interface CareerCvBlockType {
   id: string;
   userId: string;
+  kind: CvBlockKind;
+  label: string;
   title: string;
   body: string;
+  tags: string[];
   position: number;
   createdAt: Date;
   updatedAt: Date;
@@ -61,14 +73,20 @@ export interface CareerCvBlockType {
 
 export interface CreateCareerCvBlockDto {
   userId: string;
+  kind?: CvBlockKind;
+  label?: string;
   title: string;
   body?: string;
+  tags?: string[];
   position?: number;
 }
 
 export interface UpdateCareerCvBlockDto {
+  kind?: CvBlockKind;
+  label?: string;
   title?: string;
   body?: string;
+  tags?: string[];
 }
 
 export interface CareerItemBlockType {

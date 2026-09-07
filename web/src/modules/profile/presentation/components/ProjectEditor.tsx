@@ -7,6 +7,7 @@ export interface ProjectFormValues {
   description: string;
   url: string;
   tech: string[];
+  platform: string[];
   startDate: string;
   endDate: string;
 }
@@ -16,6 +17,7 @@ const toFormValues = (project?: ProjectType): ProjectFormValues => ({
   description: project?.description ?? '',
   url: project?.url ?? '',
   tech: project?.tech ?? [],
+  platform: project?.platform ?? [],
   startDate: project?.startDate ? project.startDate.toISOString().slice(0, 10) : '',
   endDate: project?.endDate ? project.endDate.toISOString().slice(0, 10) : '',
 });
@@ -58,6 +60,15 @@ export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEd
             onChange={(e) => set('tech', e.target.value.split(','))}
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="proj-platform">Platform (comma-separated, e.g. Android, iOS, Web)</Label>
+        <Input
+          id="proj-platform"
+          value={values.platform.join(', ')}
+          onChange={(e) => set('platform', e.target.value.split(','))}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

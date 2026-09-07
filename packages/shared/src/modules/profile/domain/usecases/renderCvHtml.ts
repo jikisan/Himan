@@ -123,10 +123,15 @@ function renderSkills(skills: SkillType[]): string {
 }
 
 function renderProjectRow(project: ProjectType): string {
-  const header = `<div class="entry-title">${escapeHtml(project.name)}</div>`;
+  const platform = project.platform.length ? escapeHtml(project.platform.join('/')) : '';
+  const header = platform
+    ? `<div class="entry-row"><span class="entry-title">${escapeHtml(project.name)}</span><span class="entry-platform">${platform}</span></div>`
+    : `<div class="entry-title">${escapeHtml(project.name)}</div>`;
   const urlLine = project.url ? `<div class="entry-subtitle">${escapeHtml(project.url)}</div>` : '';
   const description = project.description ? `<p>${escapeHtml(project.description)}</p>` : '';
-  const tech = project.tech.length ? `<p>${escapeHtml(project.tech.join(', '))}</p>` : '';
+  const tech = project.tech.length
+    ? `<p class="entry-tech"><span class="entry-tech-label">Tech Stack: </span>${escapeHtml(project.tech.join(', '))}</p>`
+    : '';
   return `<div class="entry">${header}${urlLine}${description}${tech}</div>`;
 }
 

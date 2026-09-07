@@ -47,6 +47,7 @@ export interface ProjectType {
   description: string | null;
   url: string | null;
   tech: string[];
+  platform: string[];
   startDate: Date | null;
   endDate: Date | null;
   position: number;
@@ -164,6 +165,7 @@ export interface CreateProjectDto {
   description?: string | null;
   url?: string | null;
   tech?: string[];
+  platform?: string[];
   startDate?: Date | null;
   endDate?: Date | null;
   position?: number;
@@ -174,6 +176,7 @@ export interface UpdateProjectDto {
   description?: string | null;
   url?: string | null;
   tech?: string[];
+  platform?: string[];
   startDate?: Date | null;
   endDate?: Date | null;
 }

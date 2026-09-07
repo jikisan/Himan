@@ -42,6 +42,9 @@ export const ProjectCard = ({ project, onSave, onDelete, onMoveUp, onMoveDown, i
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             )}
+            {project.platform.length > 0 && (
+              <span className="text-xs font-medium text-muted-foreground ml-auto">{project.platform.join('/')}</span>
+            )}
           </div>
           {dateRange && <p className="text-xs text-muted-foreground mt-0.5">{dateRange}</p>}
           {project.description && <p className="text-sm mt-2">{project.description}</p>}

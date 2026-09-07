@@ -33,7 +33,10 @@ h2 {
 .entry-row { display: flex; justify-content: space-between; gap: 12px; }
 .entry-title { font-weight: bold; }
 .entry-dates { white-space: nowrap; font-weight: bold; }
+.entry-platform { white-space: nowrap; color: #666; }
 .entry-subtitle { font-style: italic; }
+.entry-tech { margin: 4px 0 0; padding-left: 14px; }
+.entry-tech-label { font-weight: bold; }
 p { margin: 4px 0; }
 ul { margin: 4px 0 0; padding-left: 18px; }
 li { margin: 0 0 2px; }

@@ -10,6 +10,7 @@ const toDto = (values: ProjectFormValues) => ({
   description: values.description.trim() || null,
   url: values.url.trim() || null,
   tech: values.tech.map((t) => t.trim()).filter(Boolean),
+  platform: values.platform.map((p) => p.trim()).filter(Boolean),
   startDate: values.startDate ? new Date(values.startDate) : null,
   endDate: values.endDate ? new Date(values.endDate) : null,
 });

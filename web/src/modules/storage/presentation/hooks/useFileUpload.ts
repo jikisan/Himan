@@ -14,6 +14,7 @@ export const useFileUpload = () => {
   const { canUploadFile } = useSubscription();
 
   const uploadFile = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- keyed on user.id, not the user object, since Supabase issues a new object reference on every token refresh
     async (
       file: File
     ): Promise<{
@@ -154,7 +155,7 @@ export const useFileUpload = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [user, canUploadFile]
+    [user?.id, canUploadFile]
   );
 
   const clearProgress = useCallback((fileId: string) => {

@@ -52,6 +52,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
   const subscriptionRepo = useMemo(() => new SubscriptionRepository(), []);
   const usageRepo = useMemo(() => new UsageLimitsRepository(), []);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- keyed on user.id, not the user object, since Supabase issues a new object reference on every token refresh
   const loadSubscription = useCallback(async () => {
     if (!user?.id) {
       setSubscription(null);
@@ -78,12 +79,13 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     } finally {
       setLoading(false);
     }
-  }, [user, subscriptionRepo, usageRepo]);
+  }, [user?.id, subscriptionRepo, usageRepo]);
 
   const refreshSubscription = useCallback(async () => {
     await loadSubscription();
   }, [loadSubscription]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- keyed on user.id, not the user object, since Supabase issues a new object reference on every token refresh
   const refreshUsage = useCallback(async () => {
     if (!user?.id) return;
 
@@ -93,7 +95,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     } catch (err) {
       Logger.error('Error refreshing usage', err);
     }
-  }, [user, usageRepo]);
+  }, [user?.id, usageRepo]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount

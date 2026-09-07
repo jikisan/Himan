@@ -35,6 +35,7 @@ h2 {
 .entry-dates { white-space: nowrap; font-weight: bold; }
 .entry-platform { white-space: nowrap; color: #666; }
 .entry-subtitle { font-style: italic; }
+.entry-company { color: #666; }
 .entry-tech { margin: 4px 0 0; padding-left: 14px; }
 .entry-tech-label { font-weight: bold; }
 p { margin: 4px 0; }

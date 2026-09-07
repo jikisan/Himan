@@ -69,14 +69,14 @@ function renderSummary(bio: string | null): string {
 }
 
 function renderExperienceRow(exp: ExperienceType): string {
-  const title = [exp.title, exp.company].filter(Boolean).join(', ');
   const dates = dateRange(exp.startDate, exp.endDate, exp.isCurrent);
+  const company = exp.company ? `<div class="entry-company">${escapeHtml(exp.company)}</div>` : '';
   const subtitle = exp.location ? `<div class="entry-subtitle">${escapeHtml(exp.location)}</div>` : '';
   const summary = exp.summary ? `<p>${escapeHtml(exp.summary)}</p>` : '';
   const bullets = exp.bullets.length
     ? `<ul>${exp.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`
     : '';
-  return `<div class="entry"><div class="entry-row"><span class="entry-title">${escapeHtml(title)}</span><span class="entry-dates">${escapeHtml(dates)}</span></div>${subtitle}${summary}${bullets}</div>`;
+  return `<div class="entry"><div class="entry-row"><span class="entry-title">${escapeHtml(exp.title)}</span><span class="entry-dates">${escapeHtml(dates)}</span></div>${company}${subtitle}${summary}${bullets}</div>`;
 }
 
 function renderExperience(experiences: ExperienceType[]): string {

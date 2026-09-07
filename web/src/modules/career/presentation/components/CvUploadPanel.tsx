@@ -1,11 +1,10 @@
 import { Download, FileX2, Link2, ListOrdered, ShieldOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
-import { CvPreviewFrame } from './CvPreviewFrame';
 
 interface CvUploadPanelProps {
   hasCv: boolean;
-  cvPreviewHtml: string | null;
+  cvPreviewUrl: string | null;
   hasProfileContent: boolean;
   onRemove: () => Promise<void>;
   onCopyLink: () => Promise<void>;
@@ -16,11 +15,12 @@ interface CvUploadPanelProps {
   isSaving: boolean;
 }
 
-// Preview relies on the browser's native renderer (iframe) for the generated
-// HTML résumé. The CV file itself is produced by saving a layout ("Edit CV
-// layout"), which bakes cv.html into storage — there is no separate generate
+// Preview embeds the actual stored cv.pdf via a signed URL — what's shown
+// here is exactly the file a recruiter would get, not a live re-render of
+// current profile data. The CV file is produced by saving a layout ("Edit CV
+// layout"), which bakes cv.pdf into storage — there is no separate generate
 // step here.
-export const CvUploadPanel = ({ hasCv, cvPreviewHtml, hasProfileContent, onRemove, onCopyLink, onDownload, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => {
+export const CvUploadPanel = ({ hasCv, cvPreviewUrl, hasProfileContent, onRemove, onCopyLink, onDownload, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -58,14 +58,14 @@ export const CvUploadPanel = ({ hasCv, cvPreviewHtml, hasProfileContent, onRemov
 
       <div
         className={
-          cvPreviewHtml
+          cvPreviewUrl
             ? 'rounded-lg border border-border bg-muted/30 overflow-hidden'
             : 'rounded-lg border border-dashed border-border bg-muted/20 overflow-hidden'
         }
         style={{ aspectRatio: '210 / 297' }}
       >
-        {cvPreviewHtml ? (
-          <CvPreviewFrame html={cvPreviewHtml} title="CV preview" />
+        {cvPreviewUrl ? (
+          <iframe src={cvPreviewUrl} title="CV preview" className="h-full w-full border-0" />
         ) : (
           <button
             type="button"

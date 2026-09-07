@@ -90,12 +90,28 @@ export const ItemEditorPage = () => {
       return [ref];
     });
 
-  const itemCvLayout = item?.cvLayout ? resolveCvLayout(item.cvLayout) : null;
   const cvLayoutPreviewHtml = cvData ? renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft)) : '';
-  // Preview and print share one render so they can never drift. Shown only
-  // once a layout is saved (cvFilePath set); the stored cv.html the share
-  // link serves is produced from the same inputs at save time.
-  const cvHtml = cvData && item?.cvFilePath ? renderCvHtml(cvData, itemCvLayout) : null;
+  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
+
+  // The main panel shows the actual stored cv.pdf (signed URL), not a fresh
+  // re-render — so it never drifts from what a recruiter actually receives.
+  // Only the layout-editing dialog re-renders live from the draft selection.
+  useEffect(() => {
+    if (!item?.cvFilePath) {
+      setCvPreviewUrl(null);
+      return;
+    }
+    let cancelled = false;
+    new CareerStorageService()
+      .createShareUrl(item.cvFilePath)
+      .then((url) => {
+        if (!cancelled) setCvPreviewUrl(url);
+      })
+      .catch((err) => Logger.error('Error loading CV preview', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.cvFilePath]);
 
   const previewBlocks: ComposableBlock[] = selection.map((s, index) => {
     const block = allBlocks.find((b) => b.id === s.blockId);
@@ -218,7 +234,7 @@ export const ItemEditorPage = () => {
           <Link to="/career" className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-accent transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-lg font-semibold">New item</h1>
+          <h1 className="text-lg font-semibold">New Career</h1>
         </div>
         <div className="p-4 max-w-md space-y-3">
           <Input
@@ -268,7 +284,7 @@ export const ItemEditorPage = () => {
           <div>
             <CvUploadPanel
               hasCv={!!item.cvFilePath}
-              cvPreviewHtml={cvHtml}
+              cvPreviewUrl={cvPreviewUrl}
               hasProfileContent={hasProfileContent}
               onRemove={handleRemoveCv}
               onCopyLink={handleCopyCvLink}

@@ -31,7 +31,7 @@ export const ItemsPage = () => {
           </Link>
           <Link to="/career/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="h-4 w-4 mr-1.5" />
-            New item
+            New Career
           </Link>
         </div>
       </div>
@@ -46,7 +46,7 @@ export const ItemsPage = () => {
               <p className="text-sm text-muted-foreground mb-4">No items yet. Create one to start generating cover letters.</p>
               <Link to="/career/new" className={buttonVariants()}>
                 <Plus className="h-4 w-4 mr-1.5" />
-                New item
+                New Career
               </Link>
             </div>
           ) : (

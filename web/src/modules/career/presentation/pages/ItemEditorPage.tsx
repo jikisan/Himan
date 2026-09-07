@@ -71,10 +71,12 @@ export const ItemEditorPage = () => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form when a different item loads
     if (item) setName(item.name);
   }, [item]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync selection when item blocks load
     setSelection(itemBlocks.map((b) => ({ blockId: b.blockId, length: b.length })));
   }, [itemBlocks]);
 
@@ -98,6 +100,7 @@ export const ItemEditorPage = () => {
   // Only the layout-editing dialog re-renders live from the draft selection.
   useEffect(() => {
     if (!item?.cvFilePath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear preview when the CV file is removed
       setCvPreviewUrl(null);
       return;
     }

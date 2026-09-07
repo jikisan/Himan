@@ -54,6 +54,7 @@ export const PasswordDialog = ({
 
   useEffect(() => {
     if (password) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when editing a different password
       setFormData({
         title: password.title,
         username: password.username || '',

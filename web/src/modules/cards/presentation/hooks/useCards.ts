@@ -29,6 +29,7 @@ export const useCards = (filters?: CreditCardFilters) => {
   // Stabilize filters for query key
   const stableFilters = useMemo(
     () => filters,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on primitives, not `filters` itself
     [filters?.categoryId, filters?.searchQuery, filters?.isFavorite, filters?.cardType, filters?.cardIssuer, filters?.expiringSoon]
   );
 

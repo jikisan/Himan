@@ -29,11 +29,13 @@ export const useNotes = (filters?: NoteFilters) => {
   }, [userId]);
 
   // Stabilize filters to prevent unnecessary re-renders
+  const tagsKey = JSON.stringify(filters?.tags);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on primitives, not `filters` itself
   const stableFilters = useMemo(() => filters, [
     filters?.folderId,
     filters?.searchQuery,
     filters?.isPinned,
-    JSON.stringify(filters?.tags),
+    tagsKey,
   ]);
 
   const loadNotes = useCallback(async () => {
@@ -73,6 +75,7 @@ export const useNotes = (filters?: NoteFilters) => {
   }, [userId, repository, stableFilters]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount
     loadNotes();
   }, [loadNotes]);
 

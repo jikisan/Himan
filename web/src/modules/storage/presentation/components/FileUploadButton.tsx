@@ -22,12 +22,12 @@ interface FileUploadButtonProps {
   }) => Promise<FileEntity | null>;
 }
 
-export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButtonProps) => {
+export const FileUploadButton = ({ onUploadComplete }: FileUploadButtonProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const { uploadFile, uploadProgress } = useFileUpload();
 
-  const handleFileSelect = async (files: FileList | null) => {
+  const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     setShowProgressDialog(true);
@@ -54,13 +54,13 @@ export const FileUploadButton = ({ folderId, onUploadComplete }: FileUploadButto
     setTimeout(() => {
       setShowProgressDialog(false);
     }, 1000);
-  };
+  }, [uploadFile, onUploadComplete]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     handleFileSelect(e.dataTransfer.files);
-  }, [folderId]);
+  }, [handleFileSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

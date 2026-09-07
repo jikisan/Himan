@@ -97,6 +97,7 @@ export const CardDialog = ({
 
   useEffect(() => {
     if (card) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when editing a different card
       setFormData({
         cardName: card.cardName,
         cardNumber: card.cardNumber,

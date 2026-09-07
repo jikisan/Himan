@@ -74,50 +74,6 @@ export const FileCard = ({ file, onEdit, onDelete, onPreview }: FileCardProps) =
     }
   };
 
-  const getFileIcon = () => {
-    // Images
-    if (file.isImage) return Image;
-
-    // Videos
-    if (file.isVideo) return Video;
-
-    // Audio
-    if (file.mimeType.startsWith('audio/')) return Music;
-
-    // Archives (zip, rar, etc.)
-    if (file.mimeType.includes('zip') || file.mimeType.includes('compressed')) {
-      return Archive;
-    }
-
-    // Spreadsheets (Excel, CSV)
-    if (
-      file.mimeType.includes('spreadsheet') ||
-      file.mimeType === 'text/csv' ||
-      file.extension === 'xlsx' ||
-      file.extension === 'xls' ||
-      file.extension === 'csv'
-    ) {
-      return FileSpreadsheet;
-    }
-
-    // Presentations (PowerPoint)
-    if (
-      file.mimeType.includes('presentation') ||
-      file.extension === 'pptx' ||
-      file.extension === 'ppt'
-    ) {
-      return Presentation;
-    }
-
-    // Documents (PDF, Word, Text)
-    if (file.isDocument) return FileText;
-
-    // Default
-    return FileIcon;
-  };
-
-  const Icon = getFileIcon();
-
   const getIconColor = () => {
     if (file.isImage) return 'text-green-500';
     if (file.isVideo) return 'text-purple-500';
@@ -132,6 +88,50 @@ export const FileCard = ({ file, onEdit, onDelete, onPreview }: FileCardProps) =
     if (file.isPDF) return 'text-red-600';
     if (file.isDocument) return 'text-blue-500';
     return 'text-muted-foreground';
+  };
+
+  const renderFileIcon = () => {
+    const iconClassName = `w-12 h-12 ${getIconColor()}`;
+
+    // Images
+    if (file.isImage) return <Image className={iconClassName} />;
+
+    // Videos
+    if (file.isVideo) return <Video className={iconClassName} />;
+
+    // Audio
+    if (file.mimeType.startsWith('audio/')) return <Music className={iconClassName} />;
+
+    // Archives (zip, rar, etc.)
+    if (file.mimeType.includes('zip') || file.mimeType.includes('compressed')) {
+      return <Archive className={iconClassName} />;
+    }
+
+    // Spreadsheets (Excel, CSV)
+    if (
+      file.mimeType.includes('spreadsheet') ||
+      file.mimeType === 'text/csv' ||
+      file.extension === 'xlsx' ||
+      file.extension === 'xls' ||
+      file.extension === 'csv'
+    ) {
+      return <FileSpreadsheet className={iconClassName} />;
+    }
+
+    // Presentations (PowerPoint)
+    if (
+      file.mimeType.includes('presentation') ||
+      file.extension === 'pptx' ||
+      file.extension === 'ppt'
+    ) {
+      return <Presentation className={iconClassName} />;
+    }
+
+    // Documents (PDF, Word, Text)
+    if (file.isDocument) return <FileText className={iconClassName} />;
+
+    // Default
+    return <FileIcon className={iconClassName} />;
   };
 
   const handleCardClick = () => {
@@ -163,7 +163,7 @@ export const FileCard = ({ file, onEdit, onDelete, onPreview }: FileCardProps) =
             className="w-full h-full object-cover"
           />
         ) : (
-          <Icon className={`w-12 h-12 ${getIconColor()}`} />
+          renderFileIcon()
         )}
       </div>
 

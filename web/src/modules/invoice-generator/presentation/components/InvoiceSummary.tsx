@@ -118,6 +118,7 @@ export const InvoiceSummary = ({ data, onChange }: InvoiceSummaryProps) => {
 };
 
 // Export calculation helpers for use in preview
+// eslint-disable-next-line react-refresh/only-export-components
 export const calculateInvoiceTotals = (data: InvoiceData) => {
   const validItems = data.lineItems.filter(isValidLineItem);
   const subtotal = validItems.reduce(

@@ -43,6 +43,7 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
 
   useEffect(() => {
     if (file) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when editing a different file
       setName(file.name);
       setFolderId(file.folderId);
       setDescription(file.description || '');
@@ -86,14 +87,12 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
 
   if (!file) return null;
 
-  const getFileIcon = () => {
-    if (file.isImage) return Image;
-    if (file.isVideo) return Video;
-    if (file.isDocument) return FileText;
-    return FileIcon;
+  const renderFileIcon = () => {
+    if (file.isImage) return <Image className="w-24 h-24 text-muted-foreground" />;
+    if (file.isVideo) return <Video className="w-24 h-24 text-muted-foreground" />;
+    if (file.isDocument) return <FileText className="w-24 h-24 text-muted-foreground" />;
+    return <FileIcon className="w-24 h-24 text-muted-foreground" />;
   };
-
-  const Icon = getFileIcon();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,7 +112,7 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
                 className="max-w-full max-h-64 object-contain rounded"
               />
             ) : (
-              <Icon className="w-24 h-24 text-muted-foreground" />
+              renderFileIcon()
             )}
           </div>
 

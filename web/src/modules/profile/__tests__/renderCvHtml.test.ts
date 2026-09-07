@@ -139,6 +139,7 @@ describe('renderCvHtml', () => {
           description: 'A thing.',
           url: 'https://example.com',
           tech: ['TypeScript'],
+          platform: [],
           startDate: null,
           endDate: null,
           position: 0,

@@ -35,6 +35,7 @@ interface SubscriptionContextType {
   refreshUsage: () => Promise<void>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 interface SubscriptionProviderProps {
@@ -77,7 +78,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     } finally {
       setLoading(false);
     }
-  }, [user?.id, subscriptionRepo, usageRepo]);
+  }, [user, subscriptionRepo, usageRepo]);
 
   const refreshSubscription = useCallback(async () => {
     await loadSubscription();
@@ -92,9 +93,10 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     } catch (err) {
       Logger.error('Error refreshing usage', err);
     }
-  }, [user?.id, usageRepo]);
+  }, [user, usageRepo]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount
     loadSubscription();
   }, [loadSubscription]);
 

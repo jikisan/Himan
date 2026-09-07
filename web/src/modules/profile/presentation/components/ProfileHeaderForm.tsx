@@ -28,6 +28,7 @@ export const ProfileHeaderForm = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form when profile loads or changes
     setFullName(profile?.fullName ?? '');
     setHeadline(profile?.headline ?? '');
     setBio(profile?.bio ?? '');

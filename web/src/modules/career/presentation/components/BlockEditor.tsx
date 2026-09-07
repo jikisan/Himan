@@ -49,6 +49,7 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when dialog opens for a different block
     setKind(block?.kind ?? 'experience_line');
     setLabel(block?.label ?? '');
     setBody(block?.body ?? '');

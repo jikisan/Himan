@@ -47,6 +47,7 @@ export const useCategories = () => {
   }, [userId, repository]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount
     loadCategories();
   }, [loadCategories]);
 

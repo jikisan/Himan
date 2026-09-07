@@ -36,6 +36,7 @@ export const FolderSettingsDialog = ({
 
   useEffect(() => {
     if (folder && open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when dialog opens for a different folder
       setPrefix(folder.invoiceNumberPrefix ?? '');
       setFormat(folder.invoiceNumberFormat);
       setSequence(folder.nextSequenceNumber);

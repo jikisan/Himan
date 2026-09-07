@@ -33,6 +33,7 @@ export const AddItemInput = ({
   }, [query, products]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset highlighted match when results change
     setSelectedIndex(0);
   }, [matches]);
 

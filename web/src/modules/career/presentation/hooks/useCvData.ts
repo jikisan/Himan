@@ -17,8 +17,10 @@ export interface CvBlockOption {
 function uniqueSkillCategories(skills: CvData['skills']): string[] {
   const seen: string[] = [];
   for (const skill of skills) {
-    const category = skill.category?.trim() || 'Other';
-    if (!seen.includes(category)) seen.push(category);
+    const categories = skill.categories.length ? skill.categories : ['Other'];
+    for (const category of categories) {
+      if (!seen.includes(category)) seen.push(category);
+    }
   }
   return seen.sort((a, b) => (a === 'Other' ? 1 : 0) - (b === 'Other' ? 1 : 0));
 }

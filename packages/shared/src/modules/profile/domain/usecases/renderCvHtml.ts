@@ -98,21 +98,24 @@ function renderEducation(education: EducationType[]): string {
   return section('Education', sortByPosition(education).map(renderEducationRow).join(''));
 }
 
-function skillCategory(skill: SkillType): string {
-  return skill.category?.trim() || 'Other';
+function skillCategories(skill: SkillType): string[] {
+  return skill.categories.length ? skill.categories : ['Other'];
 }
 
 function renderSkillGroupRow(category: string, items: SkillType[]): string {
   return `<p>${escapeHtml(category)}: ${items.map((s) => escapeHtml(s.name)).join(', ')}</p>`;
 }
 
+// A skill can carry multiple categories, so it appears in every group it
+// belongs to (e.g. Kotlin lists under both "Mobile" and "Android").
 function renderSkills(skills: SkillType[]): string {
   const sorted = sortByPosition(skills);
   const groups = new Map<string, SkillType[]>();
   for (const skill of sorted) {
-    const key = skillCategory(skill);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(skill);
+    for (const key of skillCategories(skill)) {
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(skill);
+    }
   }
   const entries = [...groups.entries()].sort((a, b) => (a[0] === 'Other' ? 1 : 0) - (b[0] === 'Other' ? 1 : 0));
   const rows = entries.map(([category, items]) => renderSkillGroupRow(category, items)).join('');
@@ -221,7 +224,7 @@ function renderWithLayout(data: CvData, layout: RenderCvBlock[]): string {
         break;
       }
       case 'skill': {
-        const items = sortByPosition(data.skills.filter((s) => skillCategory(s) === block.category));
+        const items = sortByPosition(data.skills.filter((s) => skillCategories(s).includes(block.category)));
         if (items.length > 0) pushRow(ROW_SECTION_HEADING.skill, renderSkillGroupRow(block.category, items));
         break;
       }

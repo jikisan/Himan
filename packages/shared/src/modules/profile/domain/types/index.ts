@@ -33,7 +33,7 @@ export interface SkillType {
   id: string;
   userId: string;
   name: string;
-  category: string | null;
+  categories: string[];
   level: string | null;
   position: number;
   createdAt: Date;
@@ -147,14 +147,14 @@ export interface UpdateEducationDto {
 export interface CreateSkillDto {
   userId: string;
   name: string;
-  category?: string | null;
+  categories?: string[];
   level?: string | null;
   position?: number;
 }
 
 export interface UpdateSkillDto {
   name?: string;
-  category?: string | null;
+  categories?: string[];
   level?: string | null;
 }
 

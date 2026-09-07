@@ -57,7 +57,7 @@ function makeSkill(overrides: Partial<SkillType> = {}): SkillType {
     id: 's1',
     userId: 'u1',
     name: 'TypeScript',
-    category: null,
+    categories: [],
     level: null,
     position: 0,
     createdAt: new Date('2026-01-01'),
@@ -90,8 +90,8 @@ describe('renderCvHtml', () => {
     const html = renderCvHtml({
       ...emptyData,
       skills: [
-        makeSkill({ id: 's1', name: 'React', category: 'Frontend' }),
-        makeSkill({ id: 's2', name: 'Postgres', category: null }),
+        makeSkill({ id: 's1', name: 'React', categories: ['Frontend'] }),
+        makeSkill({ id: 's2', name: 'Postgres', categories: [] }),
       ],
     });
     expect(html).toContain('Frontend');
@@ -187,7 +187,7 @@ describe('renderCvHtml', () => {
       createdAt: new Date('2026-01-01'),
       updatedAt: new Date('2026-01-01'),
     };
-    const skillFrontend = makeSkill({ id: 's1', name: 'React', category: 'Frontend' });
+    const skillFrontend = makeSkill({ id: 's1', name: 'React', categories: ['Frontend'] });
     const dataWithRows = { ...emptyData, experiences: [exp1, exp2], education: [edu1], skills: [skillFrontend] };
 
     it('renders blocks in the given order', () => {
@@ -232,7 +232,7 @@ describe('renderCvHtml', () => {
 
     it('renders only the requested skill category', () => {
       const html = renderCvHtml(
-        { ...dataWithRows, skills: [skillFrontend, makeSkill({ id: 's2', name: 'Postgres', category: 'Backend' })] },
+        { ...dataWithRows, skills: [skillFrontend, makeSkill({ id: 's2', name: 'Postgres', categories: ['Backend'] })] },
         [{ type: 'skill', category: 'Frontend' }],
       );
       expect(html).toContain('Frontend');

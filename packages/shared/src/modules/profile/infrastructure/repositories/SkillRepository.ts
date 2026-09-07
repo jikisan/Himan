@@ -29,7 +29,7 @@ export class SkillRepository {
         .insert({
           user_id: dto.userId,
           name: dto.name,
-          category: dto.category ?? null,
+          categories: dto.categories ?? [],
           level: dto.level ?? null,
           position,
         })
@@ -55,7 +55,7 @@ export class SkillRepository {
         .from('profile_skills')
         .update({
           ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.category !== undefined && { category: dto.category }),
+          ...(dto.categories !== undefined && { categories: dto.categories }),
           ...(dto.level !== undefined && { level: dto.level }),
           updated_at: new Date().toISOString(),
         })
@@ -120,7 +120,7 @@ export class SkillRepository {
       id: data.id as string,
       userId: data.user_id as string,
       name: data.name as string,
-      category: (data.category as string) ?? null,
+      categories: (data.categories as string[]) ?? [],
       level: (data.level as string) ?? null,
       position: data.position as number,
       createdAt: new Date(data.created_at as string),

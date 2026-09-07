@@ -47,21 +47,21 @@ export const PriceInputModal = ({
         className="flex-1 bg-black/50 justify-center items-center px-5"
         onPress={() => onOpenChange(false)}
       >
-        <Pressable className="bg-white dark:bg-gray-900 rounded-3xl p-5 w-full max-w-sm shadow-xl">
+        <Pressable className="bg-paper dark:bg-paper-dark rounded-3xl p-5 w-full max-w-sm shadow-xl">
           {/* Item info card */}
-          <View className="bg-gray-50 dark:bg-gray-800/60 rounded-2xl px-4 py-3 mb-5">
-            <Text className="text-base font-semibold text-gray-900 dark:text-white" numberOfLines={1}>
+          <View className="bg-surface dark:bg-surface-dark/60 rounded-2xl px-4 py-3 mb-5">
+            <Text className="text-base font-semibold text-ink dark:text-ink-dark" numberOfLines={1}>
               {itemName}
             </Text>
             <View className="flex-row items-center mt-1 gap-2">
               <View className="flex-row items-center gap-1">
-                <Feather name="package" size={12} color="#9ca3af" />
-                <Text className="text-xs text-gray-500 dark:text-gray-400">
+                <Feather name="package" size={12} color="#9b9797" />
+                <Text className="text-xs text-ink-soft dark:text-ink-softdark">
                   {quantity}{unit ? ` ${unit}` : ''}
                 </Text>
               </View>
               {notes ? (
-                <Text className="text-xs text-gray-400 dark:text-gray-500 italic flex-1" numberOfLines={1}>
+                <Text className="text-xs text-ink-faint dark:text-ink-faintdark italic flex-1" numberOfLines={1}>
                   {notes}
                 </Text>
               ) : null}
@@ -70,15 +70,15 @@ export const PriceInputModal = ({
 
           {/* Price input */}
           <View className="mb-5">
-            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 ml-1">
+            <Text className="text-sm font-medium text-ink dark:text-ink-dark mb-2 ml-1">
               Price
             </Text>
-            <View className="flex-row items-center border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 overflow-hidden">
+            <View className="flex-row items-center border border-rule dark:border-rule-dark rounded-xl bg-surface dark:bg-surface-dark overflow-hidden">
               <View className="pl-4 pr-1 py-3"/>
               <TextInput
-                className="flex-1 text-lg text-gray-900 dark:text-white py-3 pr-4"
+                className="flex-1 text-lg text-ink dark:text-ink-dark py-3 pr-4"
                 placeholder={previousPrice != null ? previousPrice.toFixed(2) : '0.00'}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor="#9b9797"
                 keyboardType="decimal-pad"
                 value={priceText}
                 onChangeText={setPriceText}
@@ -86,7 +86,7 @@ export const PriceInputModal = ({
               />
             </View>
             {previousPrice != null && (
-              <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 ml-1">
+              <Text className="text-xs text-ink-faint dark:text-ink-faintdark mt-1.5 ml-1">
                 Last price: ${previousPrice.toFixed(2)}
               </Text>
             )}
@@ -95,7 +95,7 @@ export const PriceInputModal = ({
           {/* Actions */}
           <Pressable
             onPress={handleConfirm}
-            className="bg-indigo-600 rounded-xl items-center justify-center active:bg-indigo-700 active:scale-[0.98]"
+            className="bg-accent dark:bg-accent-dark rounded-xl items-center justify-center active:opacity-90 active:scale-[0.98]"
             style={{ height: 48 }}
           >
             <View className="flex-row items-center gap-2">
@@ -108,10 +108,10 @@ export const PriceInputModal = ({
 
           <Pressable
             onPress={handleSkip}
-            className="mt-3 rounded-xl items-center justify-center active:bg-gray-100 dark:active:bg-gray-800 active:scale-[0.98]"
+            className="mt-3 rounded-xl items-center justify-center active:opacity-80 active:scale-[0.98]"
             style={{ height: 44 }}
           >
-            <Text className="text-gray-500 dark:text-gray-400 font-medium text-sm">
+            <Text className="text-ink-soft dark:text-ink-softdark font-medium text-sm">
               Skip price
             </Text>
           </Pressable>

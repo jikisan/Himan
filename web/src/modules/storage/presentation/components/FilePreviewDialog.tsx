@@ -47,6 +47,7 @@ export const FilePreviewDialog = ({
     if (open && file) {
       loadMediaUrl();
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear preview when dialog closes
       setMediaUrl(null);
     }
   }, [file, open]);

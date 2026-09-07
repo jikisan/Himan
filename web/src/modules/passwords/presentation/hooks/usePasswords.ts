@@ -25,6 +25,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
   // Stabilize filters to prevent unnecessary re-renders
   const stableFilters = useMemo(
     () => filters,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on primitives, not `filters` itself
     [filters?.categoryId, filters?.searchQuery, filters?.isFavorite]
   );
 
@@ -58,6 +59,7 @@ export const usePasswords = (filters?: PasswordFilters) => {
   }, [userId, repository, stableFilters]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch-on-mount
     loadPasswords();
   }, [loadPasswords]);
 

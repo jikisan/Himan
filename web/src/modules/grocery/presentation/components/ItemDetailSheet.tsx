@@ -86,6 +86,7 @@ export const ItemDetailSheet = ({
 
   useEffect(() => {
     if (isAddMode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when entering add mode
       setName('');
       setCategory('');
       setCustomCategory('');

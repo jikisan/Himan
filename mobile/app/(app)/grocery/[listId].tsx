@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform, Text, Pressable } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform, Text } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/modules/auth/presentation/contexts/AuthContext';
 import {
   useGroceryLists,
@@ -17,10 +16,13 @@ import {
   ItemDetailSheet,
   ShareListModal,
   GroceryListDetailHeader,
-  GroceryListTabSwitcher,
-  GroceryListToGetContent,
-  GroceryListCheckedContent,
+  GroceryListCollapseToggle,
+  GroceryListEmptyState,
+  AddItemInput,
+  CategoryGroup,
+  SuggestionChips,
 } from '@/modules/grocery/presentation/components';
+import { PaperSurface } from '@/modules/grocery/presentation/components/notebook';
 import type { GroceryItemType } from '@himan/shared/grocery';
 
 export default function GroceryListDetailScreen() {
@@ -30,21 +32,18 @@ export default function GroceryListDetailScreen() {
   const listId = params.listId as string;
   const userId = user?.id ?? '';
 
-  // State
-  const [activeTab, setActiveTab] = useState<'to-get' | 'checked'>('to-get');
   const [editingItem, setEditingItem] = useState<GroceryItemType | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [pendingItemName, setPendingItemName] = useState('');
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [collapseStamp, setCollapseStamp] = useState<{ level: 0 | 1 | 2; n: number }>({ level: 2, n: 1 });
   const [collapseLevel, setCollapseLevel] = useState<0 | 1 | 2>(2);
 
-  // Data hooks
   const { lists } = useGroceryLists();
   const {
     items,
     uncheckedItems,
     checkedItems,
-    groupedItems,
     addItem,
     updateItem,
     checkItem,
@@ -65,19 +64,34 @@ export default function GroceryListDetailScreen() {
     [suggestions]
   );
 
+  // One straight list: group ALL items by category, unchecked first then checked
+  // (crossed-off items stay in place, struck + greyed — no separate tab).
+  const groupedAll = useMemo(() => {
+    const groups = new Map<string, GroceryItemType[]>();
+    for (const item of [...uncheckedItems, ...checkedItems]) {
+      const key = item.category || 'Other';
+      const group = groups.get(key) ?? [];
+      group.push(item);
+      groups.set(key, group);
+    }
+    return groups;
+  }, [uncheckedItems, checkedItems]);
+
   const handleEditItem = useCallback((item: GroceryItemType) => {
     setEditingItem(item);
     setIsAddingItem(false);
   }, []);
 
-  const handleAddItem = useCallback(() => {
-    setIsAddingItem(true);
-    setEditingItem(null);
-  }, []);
-
   const handleCloseSheet = useCallback(() => {
     setEditingItem(null);
     setIsAddingItem(false);
+    setPendingItemName('');
+  }, []);
+
+  const handleRequestAddDetails = useCallback((name: string) => {
+    setEditingItem(null);
+    setPendingItemName(name);
+    setIsAddingItem(true);
   }, []);
 
   const handleSelectSuggestion = useCallback(
@@ -92,6 +106,16 @@ export default function GroceryListDetailScreen() {
     setCollapseLevel(nextLevel);
     setCollapseStamp((prev) => ({ level: nextLevel, n: (prev?.n ?? 0) + 1 }));
   }, [collapseLevel]);
+
+  const allSelected = items.length > 0 && uncheckedItems.length === 0;
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      checkedItems.forEach((item) => uncheckItem(item.id));
+    } else {
+      uncheckedItems.forEach((item) => checkItem(item.id));
+    }
+  }, [allSelected, checkedItems, uncheckedItems, checkItem, uncheckItem]);
 
   const handleSaveItem = useCallback(
     async (id: string, dto: any) => {
@@ -109,70 +133,71 @@ export default function GroceryListDetailScreen() {
 
   if (!selectedList) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-gray-500 dark:text-gray-400">List not found</Text>
-        </View>
-      </SafeAreaView>
+      <PaperSurface>
+        <SafeAreaView className="flex-1 items-center justify-center">
+          <Text className="text-[15px] font-serif text-ink-soft dark:text-ink-softdark">List not found</Text>
+        </SafeAreaView>
+      </PaperSurface>
     );
   }
 
+  const hasItems = items.length > 0;
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900 relative">
-      <GroceryListDetailHeader
-        listName={selectedList.name}
-        memberCount={members.length}
-        onShare={() => setShareDialogOpen(true)}
-      />
+    <PaperSurface>
+      <SafeAreaView className="flex-1" edges={['top']}>
+        <GroceryListDetailHeader
+          listName={selectedList.name}
+          memberCount={members.length}
+          itemCount={items.length}
+          onShare={() => setShareDialogOpen(true)}
+        />
 
-      <GroceryListTabSwitcher
-        activeTab={activeTab}
-        uncheckedCount={uncheckedItems.length}
-        checkedCount={checkedItems.length}
-        onTabChange={setActiveTab}
-      />
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        <ScrollView className="flex-1">
-          {/* to-get tab — always mounted to preserve collapse state */}
-          <View style={{ display: activeTab === 'to-get' ? 'flex' : 'none' }}>
-            <GroceryListToGetContent
-              groupedItems={groupedItems}
-              uncheckedItems={uncheckedItems}
-              checkedItems={checkedItems}
-              suggestions={suggestionNames}
-              isSessionActive={!!activeSession}
-              collapseLevel={collapseLevel}
-              collapseStamp={collapseStamp}
-              onToggleCollapse={handleToggleCollapse}
-              onSelectSuggestion={handleSelectSuggestion}
-              onCheck={checkItem}
-              onUncheck={uncheckItem}
-              onEditItem={handleEditItem}
-              onDeleteItem={deleteItem}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+          <View className="px-5 pt-3">
+            <AddItemInput
+              listId={listId}
+              products={products}
+              onAddItem={handleAddNewItem}
+              onRequestAddDetails={handleRequestAddDetails}
             />
           </View>
-          {/* checked tab — always mounted to preserve state */}
-          <View style={{ display: activeTab === 'checked' ? 'flex' : 'none' }}>
-            <GroceryListCheckedContent
-              checkedItems={checkedItems}
-              isSessionActive={!!activeSession}
-              onCheck={checkItem}
-              onUncheck={uncheckItem}
-              onEditItem={handleEditItem}
-              onDeleteItem={deleteItem}
-            />
-          </View>
-          <View className="h-20"/>
-          <View className="h-4" />
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+          <GroceryListCollapseToggle
+            collapseLevel={collapseLevel}
+            onToggle={handleToggleCollapse}
+            visible={groupedAll.size > 0}
+            allSelected={allSelected}
+            onToggleSelectAll={handleToggleSelectAll}
+          />
+
+          <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+
+            {Array.from(groupedAll.entries()).map(([category, catItems]) => (
+              <CategoryGroup
+                key={category}
+                category={category}
+                items={catItems}
+                isSessionActive={!!activeSession}
+                collapseStamp={collapseStamp}
+                onCheck={checkItem}
+                onUncheck={uncheckItem}
+                onEditItem={handleEditItem}
+                onDeleteItem={deleteItem}
+              />
+            ))}
+
+            {!hasItems && <GroceryListEmptyState type="no-items" />}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       <ItemDetailSheet
         open={!!editingItem || isAddingItem}
         onOpenChange={(open) => !open && handleCloseSheet()}
         item={editingItem}
         mode={isAddingItem ? 'add' : 'edit'}
+        initialName={pendingItemName}
         listId={listId}
         onSave={handleSaveItem}
         onAdd={handleAddNewItem}
@@ -190,15 +215,6 @@ export default function GroceryListDetailScreen() {
         onCancelInvitation={cancelInvitation}
         onRemoveMember={removeMember}
       />
-
-      <View style={{ position: 'absolute', bottom: 24 + insets.bottom, right: 16 }}>
-        <Pressable
-          onPress={handleAddItem}
-          className="w-14 h-14 bg-indigo-500 rounded-full items-center justify-center shadow-lg"
-        >
-          <Feather name="plus" size={28} color="#ffffff" />
-        </Pressable>
-      </View>
-    </SafeAreaView>
+    </PaperSurface>
   );
 }

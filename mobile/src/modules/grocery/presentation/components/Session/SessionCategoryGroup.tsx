@@ -37,17 +37,17 @@ export const SessionCategoryGroup = ({
     <View>
       <Pressable
         onPress={() => setIsCollapsed(!isCollapsed)}
-        className="flex flex-row items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+        className="flex flex-row items-center gap-2 px-3 py-2.5 bg-surface dark:bg-surface-dark dark:bg-surface-dark rounded-xl"
       >
         {isCollapsed ? (
-          <Feather name="chevron-right" size={14} color="#6b7280" />
+          <Feather name="chevron-right" size={14} color="#7d7979" />
         ) : (
-          <Feather name="chevron-down" size={14} color="#6b7280" />
+          <Feather name="chevron-down" size={14} color="#7d7979" />
         )}
-        <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex-1">
+        <Text className="text-xs font-semibold text-ink-soft dark:text-ink-softdark uppercase tracking-widest flex-1">
           {category}
         </Text>
-        <Text className="text-xs text-gray-400 dark:text-gray-500">{items.length}</Text>
+        <Text className="text-xs text-ink-faint dark:text-ink-faintdark">{items.length}</Text>
       </Pressable>
 
       {!isCollapsed && (

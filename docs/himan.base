@@ -1,0 +1,47 @@
+formulas:
+  age_days: (now() - file.ctime).days.round(0)
+properties:
+  type:
+    displayName: Type
+  area:
+    displayName: Area
+  status:
+    displayName: Status
+  platforms:
+    displayName: Platforms
+  formula.age_days:
+    displayName: Days Old
+views:
+  - type: table
+    name: Everything
+    groupBy:
+      property: type
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - area
+      - status
+  - type: table
+    name: Modules
+    filters:
+      and:
+        - type == "module"
+    order:
+      - file.name
+      - platforms
+      - status
+  - type: table
+    name: Open Work
+    filters:
+      and:
+        - status != "shipped"
+        - status != "implemented"
+        - type != "module"
+        - type != "map"
+    order:
+      - file.name
+      - type
+      - area
+      - status
+      - formula.age_days

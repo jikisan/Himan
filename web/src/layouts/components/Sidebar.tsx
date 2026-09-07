@@ -4,12 +4,14 @@ import {
   Home,
   FileText,
   User,
+  UserCircle,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
   Receipt,
-  ShoppingCart
+  ShoppingCart,
+  Briefcase
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 
@@ -27,7 +29,9 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
     { path: '/notes', label: 'Notes', icon: FileText },
     { path: '/grocery', label: 'Grocery', icon: ShoppingCart },
     { path: '/invoice-generator', label: 'Invoices', icon: Receipt },
+    { path: '/career', label: 'Career', icon: Briefcase },
     { path: '/profile', label: 'Profile', icon: User },
+    { path: '/account', label: 'Account', icon: UserCircle },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 

@@ -154,7 +154,7 @@ export const useFileUpload = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [user?.id, canUploadFile]
+    [user, canUploadFile]
   );
 
   const clearProgress = useCallback((fileId: string) => {

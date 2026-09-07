@@ -2,12 +2,20 @@ import { useState } from 'react';
 import { View, Text, Pressable, TextInput, Modal, ScrollView, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryInvitationType } from '@himan/shared/grocery';
+import { FriendPicker } from './FriendPicker';
 
 interface ShareListModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   listName: string;
-  members: Array<{ id: string; userId: string; role: string; joinedAt: Date }>;
+  members: Array<{
+    id: string;
+    userId: string;
+    email: string;
+    displayName: string;
+    role: string;
+    joinedAt: Date;
+  }>;
   invitations: GroceryInvitationType[];
   currentUserId: string;
   onInvite: (email: string) => Promise<unknown>;
@@ -57,38 +65,56 @@ export const ShareListModal = ({
     <Modal
       visible={open}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={() => onOpenChange(false)}
     >
       <Pressable
-        className="flex-1 bg-black/40 justify-end"
+        className="flex-1 bg-black/40 justify-center items-center px-6"
         onPress={() => onOpenChange(false)}
       >
-        <Pressable className="bg-white dark:bg-gray-900 rounded-t-2xl p-6 max-h-[80%]">
-          <ScrollView keyboardShouldPersistTaps="handled">
-            <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <Pressable className="bg-paper dark:bg-paper-dark rounded-2xl p-6 w-full max-h-[80%]">
+          <View className="flex-row items-center justify-between mb-4 border-b-2 border-ink dark:border-ink-dark pb-2">
+            <Text className="text-2xl font-serifsemi text-ink dark:text-ink-dark flex-1 pr-3" numberOfLines={1}>
               Share "{listName}"
             </Text>
+            <Pressable
+              onPress={() => onOpenChange(false)}
+              hitSlop={10}
+              className="w-8 h-8 rounded-full items-center justify-center bg-surface dark:bg-surface-dark active:opacity-60"
+            >
+              <Feather name="x" size={18} color="#7d7979" />
+            </Pressable>
+          </View>
+
+          <ScrollView keyboardShouldPersistTaps="handled">
+
+            {isOwner && (
+              <FriendPicker
+                excludeUserIds={members.map((m) => m.userId)}
+                onPick={(friendEmail) => onInvite(friendEmail)}
+                disabled={isInviting}
+              />
+            )}
 
             {isOwner && (
               <View className="flex flex-row gap-2 mb-4">
                 <TextInput
                   placeholder="Enter email address..."
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor="#9b9797"
                   value={email}
                   onChangeText={setEmail}
                   onSubmitEditing={handleInvite}
-                  className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800"
+                  className="flex-1 border border-rule dark:border-rule-dark rounded-sm p-3 font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
                 />
                 <Pressable
                   onPress={handleInvite}
                   disabled={isInviting || !email.trim()}
                   className={`flex flex-row items-center gap-1 px-4 rounded-lg ${
-                    isInviting || !email.trim() ? 'bg-gray-300 dark:bg-gray-700' : 'bg-indigo-500'
+                    isInviting || !email.trim() ? 'bg-surface dark:bg-surface-dark' : 'bg-accent dark:bg-accent-dark'
                   }`}
                 >
                   <Feather name="user-plus" size={16} color="#ffffff" />
-                  <Text className="text-white font-medium">Invite</Text>
+                  <Text className="text-white font-serifsemi">Invite</Text>
                 </Pressable>
               </View>
             )}
@@ -96,7 +122,7 @@ export const ShareListModal = ({
             <View className="space-y-4">
               {/* Members */}
               <View>
-                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Members</Text>
+                <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark mb-2">Members</Text>
                 <View className="space-y-2">
                   {members.map((member) => (
                     <View
@@ -104,16 +130,16 @@ export const ShareListModal = ({
                       className="flex flex-row items-center justify-between py-1.5"
                     >
                       <View className="flex flex-row items-center gap-2">
-                        <View className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                          <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                            {member.userId === currentUserId ? 'You' : '?'}
+                        <View className="h-7 w-7 rounded-full bg-sticky dark:bg-sticky-dark flex items-center justify-center">
+                          <Text className="text-xs font-serifsemi text-accent-text dark:text-accent-textdark">
+                            {member.userId === currentUserId ? 'You' : member.displayName.charAt(0).toUpperCase()}
                           </Text>
                         </View>
                         <View>
-                          <Text className="text-sm text-gray-900 dark:text-white">
-                            {member.userId === currentUserId ? 'You' : member.userId.slice(0, 8)}
+                          <Text className="text-[15px] font-serif text-ink dark:text-ink-dark">
+                            {member.userId === currentUserId ? 'You' : member.displayName}
                           </Text>
-                          <Text className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                          <Text className="text-[13px] font-serif text-ink-soft dark:text-ink-softdark capitalize">
                             {member.role}
                           </Text>
                         </View>
@@ -136,7 +162,7 @@ export const ShareListModal = ({
                           }}
                           className="px-3 py-1"
                         >
-                          <Text className="text-xs text-red-500">Remove</Text>
+                          <Text className="text-[13px] font-serif text-margin">Remove</Text>
                         </Pressable>
                       )}
                     </View>
@@ -147,7 +173,7 @@ export const ShareListModal = ({
               {/* Pending invitations */}
               {pendingInvitations.length > 0 && (
                 <View>
-                  <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark mb-2">
                     Pending invitations
                   </Text>
                   <View className="space-y-2">
@@ -157,18 +183,18 @@ export const ShareListModal = ({
                         className="flex flex-row items-center justify-between py-1.5"
                       >
                         <View className="flex flex-row items-center gap-2">
-                          <Feather name="mail" size={16} color="#6b7280" />
-                          <Text className="text-sm text-gray-900 dark:text-white">
+                          <Feather name="mail" size={16} color="#7d7979" />
+                          <Text className="text-[15px] font-serif text-ink dark:text-ink-dark">
                             {invitation.invitedEmail}
                           </Text>
-                          <Text className="text-xs text-gray-500 dark:text-gray-400">Pending</Text>
+                          <Text className="text-[13px] font-serif text-ink-soft dark:text-ink-softdark">Pending</Text>
                         </View>
                         {isOwner && (
                           <Pressable
                             onPress={() => onCancelInvitation(invitation.id)}
                             className="p-1"
                           >
-                            <Feather name="x" size={14} color="#6b7280" />
+                            <Feather name="x" size={14} color="#7d7979" />
                           </Pressable>
                         )}
                       </View>

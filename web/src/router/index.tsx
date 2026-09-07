@@ -8,7 +8,7 @@ import { RootLayout, AuthLayout, DashboardLayout } from '@/layouts';
 // Pages
 import { LoginPage, SignUpPage } from '@auth/presentation/pages';
 import { DashboardPage } from '@dashboard/presentation/pages';
-import { ProfilePage, SettingsPage } from '@settings/presentation/pages';
+import { AccountPage, SettingsPage } from '@settings/presentation/pages';
 import { NotesPage } from '@notes/presentation/pages/NotesPage';
 import { PasswordsPage } from '@passwords/presentation/pages';
 import { CardsPage } from '@cards/presentation/pages';
@@ -16,6 +16,8 @@ import { StoragePage } from '@storage/presentation/pages';
 import { NotFoundPage } from '@core/presentation/pages';
 import { InvoiceGeneratorPage } from '@invoice-generator/presentation/pages';
 import { GroceryPage } from '@grocery/presentation/pages';
+import { ItemsPage as CareerItemsPage, ItemEditorPage as CareerItemEditorPage, BlocksPage as CareerBlocksPage } from '@career/presentation/pages';
+import { ProfilePage } from '@profile/presentation/pages';
 
 export const Router = () => {
   return (
@@ -38,10 +40,15 @@ export const Router = () => {
             <Route path="/passwords" element={<PasswordsPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/storage" element={<StoragePage />} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/invoice-generator" element={<InvoiceGeneratorPage />} />
             <Route path="/grocery" element={<GroceryPage />} />
+            <Route path="/career" element={<CareerItemsPage />} />
+            <Route path="/career/blocks" element={<CareerBlocksPage />} />
+            <Route path="/career/new" element={<CareerItemEditorPage />} />
+            <Route path="/career/:itemId" element={<CareerItemEditorPage />} />
           </Route>
         </Route>
 

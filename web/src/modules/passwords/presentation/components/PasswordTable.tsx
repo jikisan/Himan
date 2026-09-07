@@ -74,7 +74,7 @@ export const PasswordTable = ({
     }
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
+  const renderSortIcon = (field: SortField) => {
     if (sortField !== field) return null;
     return sortDirection === 'asc' ? (
       <ChevronUp className="h-3 w-3 inline ml-1" />
@@ -93,25 +93,25 @@ export const PasswordTable = ({
               className="text-left p-3 text-sm font-medium cursor-pointer hover:bg-accent"
               onClick={() => handleSort('title')}
             >
-              Title <SortIcon field="title" />
+              Title {renderSortIcon('title')}
             </th>
             <th
               className="text-left p-3 text-sm font-medium cursor-pointer hover:bg-accent"
               onClick={() => handleSort('username')}
             >
-              Username <SortIcon field="username" />
+              Username {renderSortIcon('username')}
             </th>
             <th
               className="text-left p-3 text-sm font-medium cursor-pointer hover:bg-accent"
               onClick={() => handleSort('url')}
             >
-              Website <SortIcon field="url" />
+              Website {renderSortIcon('url')}
             </th>
             <th
               className="text-left p-3 text-sm font-medium cursor-pointer hover:bg-accent"
               onClick={() => handleSort('updatedAt')}
             >
-              Last Updated <SortIcon field="updatedAt" />
+              Last Updated {renderSortIcon('updatedAt')}
             </th>
             <th className="text-right p-3 text-sm font-medium w-32">Actions</th>
           </tr>

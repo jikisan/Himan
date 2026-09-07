@@ -2,6 +2,7 @@
 // This package exports framework-agnostic code reusable across web and mobile.
 
 export { initSupabase, getSupabase } from './config/index.js';
+export type { SupabaseConfig, TypedSupabaseClient, Database, Json } from './config/index.js';
 export { initLogger, getLogger } from './services/index.js';
 
 // Module re-exports

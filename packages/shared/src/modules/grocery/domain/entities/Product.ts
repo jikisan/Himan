@@ -5,6 +5,12 @@ export class Product implements ProductType {
   userId: string;
   name: string;
   category: string | null;
+  brand: string | null;
+  barcode: string | null;
+  packageSize: string | null;
+  imagePath: string | null;
+  notes: string | null;
+  isFavorite: boolean;
   defaultQuantity: number;
   defaultUnit: string | null;
   lifespanDays: number | null;
@@ -18,6 +24,12 @@ export class Product implements ProductType {
     this.userId = data.userId;
     this.name = data.name;
     this.category = data.category;
+    this.brand = data.brand;
+    this.barcode = data.barcode;
+    this.packageSize = data.packageSize;
+    this.imagePath = data.imagePath;
+    this.notes = data.notes;
+    this.isFavorite = data.isFavorite;
     this.defaultQuantity = data.defaultQuantity;
     this.defaultUnit = data.defaultUnit;
     this.lifespanDays = data.lifespanDays;

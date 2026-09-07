@@ -28,14 +28,14 @@ export function CreateListInput({
           onChangeText={onChangeText}
           onSubmitEditing={onSubmit}
           autoFocus
-          className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+          className="flex-1 border border-rule dark:border-rule-dark rounded-lg p-3 text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
         />
-        <Pressable onPress={onSubmit} className="bg-indigo-500 rounded-lg px-4 justify-center">
+        <Pressable onPress={onSubmit} className="bg-accent dark:bg-accent-dark rounded-lg px-4 justify-center">
           <Feather name="check" size={20} color="#ffffff" />
         </Pressable>
         <Pressable
           onPress={onCancelCreating}
-          className="bg-gray-300 dark:bg-gray-700 rounded-lg px-4 justify-center"
+          className="bg-surface dark:bg-surface-dark rounded-lg px-4 justify-center"
         >
           <Feather name="x" size={20} color="#ffffff" />
         </Pressable>
@@ -46,12 +46,12 @@ export function CreateListInput({
   return (
     <Pressable
       onPress={onStartCreating}
-      className="flex flex-row items-center gap-2.5 p-3.5 bg-indigo-50 dark:bg-indigo-950/25 rounded-xl border border-indigo-200 dark:border-indigo-800/60 active:bg-indigo-100 dark:active:bg-indigo-950/40"
+      className="flex flex-row items-center gap-2.5 p-3.5 bg-sticky dark:bg-sticky-dark rounded-xl border border-rule dark:border-rule-dark active:opacity-80"
     >
-      <View className="w-6 h-6 rounded-full bg-indigo-500 items-center justify-center">
+      <View className="w-6 h-6 rounded-full bg-accent dark:bg-accent-dark items-center justify-center">
         <Feather name="plus" size={14} color="#ffffff" />
       </View>
-      <Text className="text-sm font-medium text-indigo-600 dark:text-indigo-400">New list</Text>
+      <Text className="text-sm font-medium text-accent-text dark:text-accent-textdark">New list</Text>
     </Pressable>
   );
 }

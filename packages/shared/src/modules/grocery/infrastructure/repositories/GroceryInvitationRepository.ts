@@ -129,20 +129,29 @@ export class GroceryInvitationRepository {
     }
   }
 
-  async getMembers(listId: string): Promise<Array<{ id: string; userId: string; role: string; joinedAt: Date }>> {
-    const { data, error } = await getSupabase()
-      .from('grocery_list_members')
-      .select('*')
-      .eq('list_id', listId)
-      .order('joined_at', { ascending: true });
+  async getMembers(listId: string): Promise<
+    Array<{
+      id: string;
+      userId: string;
+      email: string;
+      displayName: string;
+      role: string;
+      joinedAt: Date;
+    }>
+  > {
+    const { data, error } = await getSupabase().rpc('get_grocery_list_members', {
+      p_list_id: listId,
+    });
 
     if (error) {
       throw new Error(`Failed to fetch members: ${error.message}`);
     }
 
-    return (data || []).map((row) => ({
+    return ((data || []) as Record<string, unknown>[]).map((row) => ({
       id: row.id as string,
       userId: row.user_id as string,
+      email: row.email as string,
+      displayName: row.display_name as string,
       role: row.role as string,
       joinedAt: new Date(row.joined_at as string),
     }));

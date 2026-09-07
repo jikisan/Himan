@@ -40,3 +40,9 @@ export * from './Session/types';
 export * from './Invitation/InvitationBanner';
 export * from './Invitation/InvitationsSection';
 export * from './Invitation/ShareListModal';
+
+// home - Grocery home screen (shelves, active errand banner, start-errand modal)
+export * from './home';
+
+// templates - Templates (lists) screen
+export * from './templates';

@@ -37,6 +37,7 @@ const NumericCell = ({ value, onChange, integer, className }: NumericCellProps) 
     const parsed = raw === "" || raw === "-" ? 0 : integer ? parseInt(raw, 10) : parseFloat(raw);
     const normalized = Number.isNaN(parsed) ? 0 : parsed;
     if (normalized !== value) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resync display text when external value diverges from parsed input
       setRaw(value === 0 ? "" : String(value));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

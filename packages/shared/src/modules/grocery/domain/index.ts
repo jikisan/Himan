@@ -1,9 +1,12 @@
-export { GroceryList, GroceryItem, GrocerySession, Product } from './entities/index.js';
+export { GroceryList, GroceryItem, GrocerySession, Product, Store, ProductStore } from './entities/index.js';
 export type {
   GroceryListType,
   GroceryItemType,
   GrocerySessionType,
   ProductType,
+  StoreType,
+  ProductStoreType,
+  UserPreferencesType,
   GroceryInvitationType,
   GroceryListMemberType,
   SessionPresence,
@@ -20,8 +23,15 @@ export type {
   AddSessionItemDto,
   CreateProductDto,
   UpdateProductDto,
+  CreateStoreDto,
+  UpdateStoreDto,
+  UpsertProductStoreDto,
+  UpdateUserPreferencesDto,
   GroceryItemFilters,
   ProductFilters,
   ItemSuggestion,
 } from './types/index.js';
 export { SuggestItems } from './usecases/index.js';
+export * from './sync/index.js';
+export { SUGGESTED_CATEGORIES } from './constants.js';
+export type { SuggestedCategory } from './constants.js';

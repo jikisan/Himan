@@ -32,7 +32,6 @@ MD_files/
 # ==========================================
 # Build Artifacts
 # ==========================================
-graphify-out/
 *.apk
 mobile/*.apk
 
@@ -60,3 +59,4 @@ packages/shared/tsconfig.tsbuildinfo
 # ==========================================
 # Keep package-lock.json committed so EAS uses npm instead of Yarn.
 # package-lock.json
+/mobile/.expo

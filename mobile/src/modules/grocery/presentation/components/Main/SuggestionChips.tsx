@@ -22,9 +22,9 @@ export const SuggestionChips = ({
         <Pressable
           key={suggestion}
           onPress={() => onSelectSuggestion(suggestion)}
-          className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full"
+          className="px-3 py-1.5 bg-sticky dark:bg-sticky-dark rounded-sm"
         >
-          <Text className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">
+          <Text className="text-[14px] font-serif text-accent-text dark:text-accent-textdark">
             {suggestion}
           </Text>
         </Pressable>

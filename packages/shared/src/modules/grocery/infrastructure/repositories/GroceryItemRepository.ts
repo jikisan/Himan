@@ -60,6 +60,7 @@ export class GroceryItemRepository {
     const { data, error } = await getSupabase()
       .from('grocery_items')
       .insert({
+        ...(dto.id ? { id: dto.id } : {}),
         list_id: dto.listId,
         name: dto.name,
         category: dto.category,

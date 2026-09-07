@@ -17,11 +17,19 @@ export class ProductCatalogRepository {
 
     if (filters?.searchQuery) {
       const sanitized = filters.searchQuery.replace(/[%_\\]/g, '\\$&');
-      query = query.ilike('name', `%${sanitized}%`);
+      query = query.or(`name.ilike.%${sanitized}%,brand.ilike.%${sanitized}%`);
     }
 
     if (filters?.category) {
       query = query.eq('category', filters.category);
+    }
+
+    if (filters?.favorite) {
+      query = query.eq('is_favorite', true);
+    }
+
+    if (filters?.barcode) {
+      query = query.eq('barcode', filters.barcode);
     }
 
     const { data, error } = await query;
@@ -56,6 +64,12 @@ export class ProductCatalogRepository {
       // Update with any new values
       const updateData: Record<string, unknown> = {};
       if (dto.category !== undefined) updateData.category = dto.category;
+      if (dto.brand !== undefined) updateData.brand = dto.brand;
+      if (dto.barcode !== undefined) updateData.barcode = dto.barcode;
+      if (dto.packageSize !== undefined) updateData.package_size = dto.packageSize;
+      if (dto.imagePath !== undefined) updateData.image_path = dto.imagePath;
+      if (dto.notes !== undefined) updateData.notes = dto.notes;
+      if (dto.isFavorite !== undefined) updateData.is_favorite = dto.isFavorite;
       if (dto.defaultQuantity !== undefined) updateData.default_quantity = dto.defaultQuantity;
       if (dto.defaultUnit !== undefined) updateData.default_unit = dto.defaultUnit;
       if (dto.lifespanDays !== undefined) updateData.lifespan_days = dto.lifespanDays;
@@ -82,9 +96,16 @@ export class ProductCatalogRepository {
     const { data, error } = await getSupabase()
       .from('product_catalog')
       .insert({
+        ...(dto.id ? { id: dto.id } : {}),
         user_id: userId,
         name: dto.name,
         category: dto.category,
+        brand: dto.brand,
+        barcode: dto.barcode,
+        package_size: dto.packageSize,
+        image_path: dto.imagePath,
+        notes: dto.notes,
+        is_favorite: dto.isFavorite ?? false,
         default_quantity: dto.defaultQuantity ?? 1,
         default_unit: dto.defaultUnit,
         lifespan_days: dto.lifespanDays,
@@ -99,11 +120,47 @@ export class ProductCatalogRepository {
     return this.mapToEntity(data);
   }
 
+  async findByBarcode(userId: string, barcode: string): Promise<ProductType | null> {
+    const { data, error } = await getSupabase()
+      .from('product_catalog')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('barcode', barcode)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to find product by barcode: ${error.message}`);
+    }
+
+    return data ? this.mapToEntity(data) : null;
+  }
+
+  async toggleFavorite(id: string, isFavorite: boolean): Promise<ProductType> {
+    const { data, error } = await getSupabase()
+      .from('product_catalog')
+      .update({ is_favorite: isFavorite })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to toggle favorite: ${error.message}`);
+    }
+
+    return this.mapToEntity(data);
+  }
+
   async update(id: string, dto: UpdateProductDto): Promise<ProductType> {
     const updateData: Record<string, unknown> = {};
 
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.category !== undefined) updateData.category = dto.category;
+    if (dto.brand !== undefined) updateData.brand = dto.brand;
+    if (dto.barcode !== undefined) updateData.barcode = dto.barcode;
+    if (dto.packageSize !== undefined) updateData.package_size = dto.packageSize;
+    if (dto.imagePath !== undefined) updateData.image_path = dto.imagePath;
+    if (dto.notes !== undefined) updateData.notes = dto.notes;
+    if (dto.isFavorite !== undefined) updateData.is_favorite = dto.isFavorite;
     if (dto.defaultQuantity !== undefined) updateData.default_quantity = dto.defaultQuantity;
     if (dto.defaultUnit !== undefined) updateData.default_unit = dto.defaultUnit;
     if (dto.lifespanDays !== undefined) updateData.lifespan_days = dto.lifespanDays;
@@ -156,6 +213,12 @@ export class ProductCatalogRepository {
       userId: data.user_id as string,
       name: data.name as string,
       category: data.category as string | null,
+      brand: (data.brand as string | null) ?? null,
+      barcode: (data.barcode as string | null) ?? null,
+      packageSize: (data.package_size as string | null) ?? null,
+      imagePath: (data.image_path as string | null) ?? null,
+      notes: (data.notes as string | null) ?? null,
+      isFavorite: (data.is_favorite as boolean) ?? false,
       defaultQuantity: Number(data.default_quantity),
       defaultUnit: data.default_unit as string | null,
       lifespanDays: data.lifespan_days as number | null,

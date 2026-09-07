@@ -15,33 +15,33 @@ export const InvitationBanner = ({
   onDecline,
 }: InvitationBannerProps) => {
   return (
-    <View className="mx-3 mt-2 p-4 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+    <View className="mx-3 mt-2 p-4 bg-sticky dark:bg-sticky-dark border border-rule dark:border-rule-dark rounded-xl">
       <View className="flex flex-row items-start gap-2">
-        <Feather name="mail" size={18} color="#6366f1" />
+        <Feather name="mail" size={18} color="#0088b0" />
         <View className="flex-1">
-          <Text className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+          <Text className="text-sm font-medium text-ink dark:text-ink-dark mb-1">
             Invitation to {listName}
           </Text>
-          <Text className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+          <Text className="text-xs text-ink-soft dark:text-ink-softdark mb-3">
             {inviterEmail} invited you to collaborate
           </Text>
           <View className="flex flex-row gap-2">
             <Pressable
               onPress={onAccept}
-              className="flex-1 bg-indigo-500 rounded-lg py-2 items-center"
+              className="flex-1 bg-accent dark:bg-accent-dark rounded-lg py-2 items-center"
             >
               <Text className="text-white text-sm font-medium">Accept</Text>
             </Pressable>
             <Pressable
               onPress={onDecline}
-              className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-lg py-2 items-center"
+              className="flex-1 bg-surface dark:bg-surface-dark rounded-lg py-2 items-center"
             >
-              <Text className="text-gray-900 dark:text-white text-sm font-medium">Decline</Text>
+              <Text className="text-ink dark:text-ink-dark text-sm font-medium">Decline</Text>
             </Pressable>
           </View>
         </View>
         <Pressable onPress={onDecline} className="p-1">
-          <Feather name="x" size={16} color="#6b7280" />
+          <Feather name="x" size={16} color="#7d7979" />
         </Pressable>
       </View>
     </View>

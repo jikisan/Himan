@@ -93,7 +93,7 @@ export const useEditor = ({
         if (safeFrom >= 0 && safeTo >= 0 && safeFrom <= docSize && safeTo <= docSize) {
           editor.commands.setTextSelection({ from: safeFrom, to: safeTo });
         }
-      } catch (error) {
+      } catch {
         // If cursor restoration fails, just move cursor to end
         editor.commands.focus('end');
       }

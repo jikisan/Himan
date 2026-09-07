@@ -13,12 +13,12 @@ export function GroceryListEmptyState({ type, message, subMessage }: GroceryList
   if (type === 'no-items') {
     return (
       <View className="flex flex-col items-center justify-center py-16">
-        <Feather name="shopping-bag" size={40} color="#9ca3af" opacity={0.2} />
-        <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-3">
+        <Feather name="shopping-bag" size={40} color="#9b9797" opacity={0.4} />
+        <Text className="text-[15px] font-serif text-ink-soft dark:text-ink-softdark mt-3">
           {message ?? 'No items yet'}
         </Text>
-        <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          {subMessage ?? 'Add items to get started'}
+        <Text className="text-[14px] font-serifitalic text-ink-faint dark:text-ink-faintdark mt-1">
+          {subMessage ?? 'Add an item to get started'}
         </Text>
       </View>
     );
@@ -27,12 +27,9 @@ export function GroceryListEmptyState({ type, message, subMessage }: GroceryList
   if (type === 'all-checked') {
     return (
       <View className="flex flex-col items-center justify-center py-16">
-        <Feather name="check-circle" size={40} color="#9ca3af" opacity={0.2} />
-        <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-3">
-          {message ?? 'All items checked'}
-        </Text>
-        <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          {subMessage ?? 'Switch to Checked tab to review'}
+        <Feather name="check-circle" size={40} color="#9b9797" opacity={0.4} />
+        <Text className="text-[15px] font-serif text-ink-soft dark:text-ink-softdark mt-3">
+          {message ?? 'All crossed off'}
         </Text>
       </View>
     );
@@ -41,9 +38,9 @@ export function GroceryListEmptyState({ type, message, subMessage }: GroceryList
   // nothing-checked
   return (
     <View className="flex flex-col items-center justify-center py-16">
-      <Feather name="shopping-bag" size={40} color="#9ca3af" opacity={0.2} />
-      <Text className="text-sm text-gray-500 dark:text-gray-400 mt-3">
-        {message ?? 'Nothing checked yet'}
+      <Feather name="shopping-bag" size={40} color="#9b9797" opacity={0.4} />
+      <Text className="text-[15px] font-serif text-ink-soft dark:text-ink-softdark mt-3">
+        {message ?? 'Nothing crossed off yet'}
       </Text>
     </View>
   );

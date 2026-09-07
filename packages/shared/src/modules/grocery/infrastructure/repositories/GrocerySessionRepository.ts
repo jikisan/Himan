@@ -94,8 +94,11 @@ export class GrocerySessionRepository {
     const { data: session, error: sessionError } = await supabase
       .from('grocery_sessions')
       .insert({
+        ...(dto.id ? { id: dto.id } : {}),
         started_by: userId,
+        name: dto.name ?? null,
         store_name: dto.storeName,
+        store_id: dto.storeId ?? null,
         status: 'active',
       })
       .select()
@@ -134,6 +137,8 @@ export class GrocerySessionRepository {
     const sessionItems = (items || []).map((item) => ({
       session_id: session.id,
       grocery_item_id: item.id,
+      product_id: item.product_id ?? null,
+      store_id: dto.storeId ?? null,
       list_name: listNameMap.get(item.list_id as string) ?? 'Unknown',
       name: item.name,
       category: item.category,
@@ -186,7 +191,41 @@ export class GrocerySessionRepository {
       throw new Error(`Failed to complete session: ${error.message}`);
     }
 
-    return this.mapToEntity(data);
+    const session = this.mapToEntity(data);
+    await this.applyPriceFeedback(session);
+    return session;
+  }
+
+  /**
+   * On completion, record the last price paid / aisle per catalog-linked
+   * item into product_stores. Temporary items (no productId) never touch
+   * the catalog. Store context comes from the item, falling back to the
+   * session store. Best-effort: failures do not block completion.
+   */
+  private async applyPriceFeedback(session: GrocerySessionType): Promise<void> {
+    const rows = new Map<string, Record<string, unknown>>();
+
+    for (const item of session.items) {
+      if (!item.isPurchased || !item.productId) continue;
+      const storeId = item.storeId ?? session.storeId;
+      if (!storeId) continue;
+
+      const key = `${item.productId}:${storeId}`;
+      const row: Record<string, unknown> = {
+        product_id: item.productId,
+        store_id: storeId,
+      };
+      if (item.pricePaid != null) row.price = item.pricePaid;
+      if (item.aisle != null) row.aisle = item.aisle;
+      rows.set(key, row); // last purchased item of the pair wins
+    }
+
+    if (rows.size === 0) return;
+
+    // Non-fatal — completion already succeeded; swallow errors.
+    await getSupabase()
+      .from('product_stores')
+      .upsert(Array.from(rows.values()), { onConflict: 'product_id,store_id' });
   }
 
   async cancel(id: string): Promise<void> {
@@ -206,10 +245,24 @@ export class GrocerySessionRepository {
   ): Promise<SessionItemType> {
     const updateData: Record<string, unknown> = {};
 
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.category !== undefined) updateData.category = dto.category;
+    if (dto.quantity !== undefined) updateData.quantity = dto.quantity;
+    if (dto.unit !== undefined) updateData.unit = dto.unit;
+    if (dto.notes !== undefined) updateData.notes = dto.notes;
     if (dto.isPurchased !== undefined) updateData.is_purchased = dto.isPurchased;
-    if (dto.purchasedAt !== undefined)
-      updateData.purchased_at = dto.purchasedAt?.toISOString() ?? null;
+    if (dto.purchasedAt !== undefined) {
+      updateData.purchased_at =
+        dto.purchasedAt instanceof Date
+          ? dto.purchasedAt.toISOString()
+          : (dto.purchasedAt ?? null);
+    }
     if (dto.price !== undefined) updateData.price = dto.price;
+    if (dto.pricePaid !== undefined) updateData.price_paid = dto.pricePaid;
+    if (dto.quantityPurchased !== undefined)
+      updateData.quantity_purchased = dto.quantityPurchased;
+    if (dto.aisle !== undefined) updateData.aisle = dto.aisle;
+    if (dto.storeId !== undefined) updateData.store_id = dto.storeId;
 
     const { data, error } = await getSupabase()
       .from('grocery_session_items')
@@ -259,8 +312,12 @@ export class GrocerySessionRepository {
     const { data, error } = await getSupabase()
       .from('grocery_session_items')
       .insert({
+        ...(dto.id ? { id: dto.id } : {}),
         session_id: dto.sessionId,
         grocery_item_id: null,
+        product_id: dto.productId ?? null,
+        store_id: dto.storeId ?? null,
+        aisle: dto.aisle ?? null,
         list_name: dto.listName ?? 'Added Items',
         name: dto.name.trim(),
         category: dto.category ?? null,
@@ -305,8 +362,10 @@ export class GrocerySessionRepository {
   private mapSessionRow(data: Record<string, unknown>): Omit<GrocerySessionType, 'items' | 'members'> {
     return {
       id: data.id as string,
+      name: (data.name as string | null) ?? null,
       startedBy: data.started_by as string,
       storeName: data.store_name as string | null,
+      storeId: (data.store_id as string | null) ?? null,
       status: data.status as 'active' | 'completed',
       startedAt: new Date(data.started_at as string),
       completedAt: data.completed_at
@@ -330,6 +389,7 @@ export class GrocerySessionRepository {
       id: data.id as string,
       sessionId: data.session_id as string,
       groceryItemId: data.grocery_item_id as string | null,
+      productId: (data.product_id as string | null) ?? null,
       listName: data.list_name as string,
       name: data.name as string,
       category: (data.category as string | null) ?? null,
@@ -341,6 +401,11 @@ export class GrocerySessionRepository {
         ? new Date(data.purchased_at as string)
         : null,
       price: data.price != null ? Number(data.price) : null,
+      pricePaid: data.price_paid != null ? Number(data.price_paid) : null,
+      quantityPurchased:
+        data.quantity_purchased != null ? Number(data.quantity_purchased) : null,
+      aisle: (data.aisle as string | null) ?? null,
+      storeId: (data.store_id as string | null) ?? null,
     };
   }
 }

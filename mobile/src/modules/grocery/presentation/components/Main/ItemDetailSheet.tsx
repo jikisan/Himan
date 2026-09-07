@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable, TextInput, Modal, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import type { GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto } from '@himan/shared/grocery';
+import {GroceryItemType, UpdateGroceryItemDto, CreateGroceryItemDto, SUGGESTED_CATEGORIES} from '@himan/shared/grocery';
 
 const GROCERY_CATEGORIES = [
   'Produce',
@@ -66,6 +66,7 @@ interface ItemDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   item: GroceryItemType | null;
   mode?: ItemDetailMode;
+  initialName?: string;
   onSave: (id: string, dto: UpdateGroceryItemDto) => void;
   onAdd?: (dto: CreateGroceryItemDto) => void;
   onDelete: (id: string) => void;
@@ -77,6 +78,7 @@ export const ItemDetailSheet = ({
   onOpenChange,
   item,
   mode = 'edit',
+  initialName = '',
   onSave,
   onAdd,
   onDelete,
@@ -99,7 +101,7 @@ export const ItemDetailSheet = ({
 
   useEffect(() => {
     if (isAddMode) {
-      setName('');
+      setName(initialName);
       setCategory('');
       setCustomCategory('');
       setIsOtherCategory(false);
@@ -135,7 +137,7 @@ export const ItemDetailSheet = ({
       }
       setNotes(item.notes ?? '');
     }
-  }, [item, isAddMode, open]);
+  }, [item, isAddMode, open, initialName]);
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -201,28 +203,28 @@ export const ItemDetailSheet = ({
           className="flex-1 bg-black/40"
           onPress={() => onOpenChange(false)}
         />
-        <Pressable className="bg-white dark:bg-gray-900 rounded-t-3xl max-h-[85%] shadow-2xl">
+        <Pressable className="bg-paper dark:bg-paper-dark rounded-t-3xl max-h-[85%]">
           <ScrollView keyboardShouldPersistTaps="handled" className="p-6" contentContainerStyle={{ paddingBottom: insets.bottom }}>
             {/* Drag Handle */}
             <View className="items-center mb-4">
-              <View className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-700" />
+              <View className="w-10 h-1 rounded-full bg-ink-faint/40 dark:bg-ink-faintdark/40" />
             </View>
 
             {/* Header */}
             <View className="flex flex-row items-center justify-between mb-6">
               <View className="flex flex-row items-center gap-3">
-                <View className="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 items-center justify-center">
-                  <Feather name={isAddMode ? 'plus' : 'edit-2'} size={20} color="#6366f1" />
+                <View className="w-10 h-10 rounded-xl bg-sticky dark:bg-sticky-dark items-center justify-center">
+                  <Feather name={isAddMode ? 'plus' : 'edit-2'} size={20} color="#0088b0" />
                 </View>
-                <Text className="text-xl font-bold text-gray-900 dark:text-white">
+                <Text className="text-2xl font-serifsemi text-ink dark:text-ink-dark">
                   {isAddMode ? 'Add Item' : 'Edit Item'}
                 </Text>
               </View>
               <Pressable
                 onPress={() => onOpenChange(false)}
-                className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 items-center justify-center active:bg-gray-200 dark:active:bg-gray-700"
+                className="w-9 h-9 rounded-full bg-surface dark:bg-surface-dark items-center justify-center active:opacity-70"
               >
-                <Feather name="x" size={18} color="#6b7280" />
+                <Feather name="x" size={18} color="#7d7979" />
               </Pressable>
             </View>
 
@@ -231,43 +233,43 @@ export const ItemDetailSheet = ({
               {/* Name - Full width */}
               <View>
                 <View className="flex flex-row items-center gap-2 mb-2">
-                  <Feather name="tag" size={14} color="#6366f1" />
-                  <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Item Name</Text>
+                  <Feather name="tag" size={14} color="#0088b0" />
+                  <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark">Item Name</Text>
                 </View>
                 <TextInput
                   value={name}
                   onChangeText={setName}
                   onSubmitEditing={handleSave}
                   placeholder="Enter item name"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor="#9b9797"
                   autoFocus
-                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500"
+                  className="border border-rule dark:border-rule-dark rounded-sm p-3.5 text-base font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
                 />
               </View>
 
               {/* Category */}
               <View>
                 <View className="flex flex-row items-center gap-2 mb-2">
-                  <Feather name="folder" size={14} color="#6366f1" />
-                  <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Category</Text>
+                  <Feather name="folder" size={14} color="#0088b0" />
+                  <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark">Category</Text>
                 </View>
                 <Pressable
                   onPress={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 bg-gray-50 dark:bg-gray-800/50 flex flex-row items-center justify-between"
+                  className="border border-rule dark:border-rule-dark rounded-sm p-3.5 bg-surface dark:bg-surface-dark flex flex-row items-center justify-between"
                 >
                   <Text className={`text-base ${
                     category
-                      ? 'text-gray-900 dark:text-white'
-                      : 'text-gray-400'
+                      ? 'text-ink dark:text-ink-dark'
+                      : 'text-ink-faint dark:text-ink-faintdark'
                   }`}>
                     {isOtherCategory ? 'Other' : category || 'Select a category'}
                   </Text>
-                  <Feather name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#9ca3af" />
+                  <Feather name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#9b9797" />
                 </Pressable>
                 {categoryDropdownOpen && (
-                  <View className="border-2 border-gray-200 dark:border-gray-700 rounded-xl mt-1 bg-white dark:bg-gray-800 overflow-hidden">
+                  <View className="border border-rule dark:border-rule-dark rounded-sm mt-1 bg-paper dark:bg-paper-dark overflow-hidden">
                     <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
-                      {GROCERY_CATEGORIES.map((cat) => (
+                      {SUGGESTED_CATEGORIES.map((cat) => (
                         <Pressable
                           key={cat}
                           onPress={() => {
@@ -276,14 +278,14 @@ export const ItemDetailSheet = ({
                             setCustomCategory('');
                             setCategoryDropdownOpen(false);
                           }}
-                          className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
-                            category === cat ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                          className={`px-4 py-3 border-b border-rule dark:border-rule-dark ${
+                            category === cat ? 'bg-sticky dark:bg-sticky-dark' : 'active:bg-surface dark:active:bg-surface-dark'
                           }`}
                         >
                           <Text className={`text-base ${
                             category === cat
-                              ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
-                              : 'text-gray-900 dark:text-white'
+                              ? 'text-accent-text dark:text-accent-textdark font-serifsemi'
+                              : 'text-ink dark:text-ink-dark'
                           }`}>
                             {cat}
                           </Text>
@@ -296,13 +298,13 @@ export const ItemDetailSheet = ({
                           setCategoryDropdownOpen(false);
                         }}
                         className={`px-4 py-3 ${
-                          isOtherCategory ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                          isOtherCategory ? 'bg-sticky dark:bg-sticky-dark' : 'active:bg-surface dark:active:bg-surface-dark'
                         }`}
                       >
-                        <Text className={`text-base ${
+                        <Text className={`text-base font-serif ${
                           isOtherCategory
-                            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
-                            : 'text-gray-900 dark:text-white'
+                            ? 'text-accent-text dark:text-accent-textdark font-serifsemi'
+                            : 'text-ink dark:text-ink-dark'
                         }`}>
                           Other
                         </Text>
@@ -315,8 +317,8 @@ export const ItemDetailSheet = ({
                     value={customCategory}
                     onChangeText={setCustomCategory}
                     placeholder="Enter custom category"
-                    placeholderTextColor="#9ca3af"
-                    className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500 mt-2"
+                    placeholderTextColor="#9b9797"
+                    className="border border-rule dark:border-rule-dark rounded-sm p-3.5 text-base font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark mt-2"
                   />
                 )}
               </View>
@@ -325,8 +327,8 @@ export const ItemDetailSheet = ({
               <View className="flex flex-row gap-3">
                 <View className="flex-[0.4]">
                   <View className="flex flex-row items-center gap-2 mb-2">
-                    <Feather name="hash" size={14} color="#6366f1" />
-                    <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Qty</Text>
+                    <Feather name="hash" size={14} color="#0088b0" />
+                    <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark">Qty</Text>
                   </View>
                   <TextInput
                     value={quantity}
@@ -335,31 +337,31 @@ export const ItemDetailSheet = ({
                       setQuantity(filtered);
                     }}
                     keyboardType="decimal-pad"
-                    className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500 text-center"
+                    className="border border-rule dark:border-rule-dark rounded-sm p-3.5 text-base font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark text-center"
                   />
                 </View>
                 <View className="flex-1">
                   <View className="flex flex-row items-center gap-2 mb-2">
-                    <Feather name="box" size={14} color="#6366f1" />
-                    <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Unit</Text>
+                    <Feather name="box" size={14} color="#0088b0" />
+                    <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark">Unit</Text>
                   </View>
                   <Pressable
                     onPress={() => setUnitDropdownOpen(!unitDropdownOpen)}
-                    className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 bg-gray-50 dark:bg-gray-800/50 flex flex-row items-center justify-between"
+                    className="border border-rule dark:border-rule-dark rounded-sm p-3.5 bg-surface dark:bg-surface-dark flex flex-row items-center justify-between"
                   >
                     <Text className={`text-base ${
                       unit
-                        ? 'text-gray-900 dark:text-white'
-                        : 'text-gray-400'
+                        ? 'text-ink dark:text-ink-dark'
+                        : 'text-ink-faint dark:text-ink-faintdark'
                     }`}>
                       {isOtherUnit ? 'Other' : unit || 'Select'}
                     </Text>
-                    <Feather name={unitDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#9ca3af" />
+                    <Feather name={unitDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#9b9797" />
                   </Pressable>
                 </View>
               </View>
               {unitDropdownOpen && (
-                <View className="border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden">
+                <View className="border border-rule dark:border-rule-dark rounded-sm bg-paper dark:bg-paper-dark overflow-hidden">
                   <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
                     {GROCERY_UNITS.map((u) => (
                       <Pressable
@@ -370,14 +372,14 @@ export const ItemDetailSheet = ({
                           setCustomUnit('');
                           setUnitDropdownOpen(false);
                         }}
-                        className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
-                          unit === u ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                        className={`px-4 py-3 border-b border-rule dark:border-rule-dark ${
+                          unit === u ? 'bg-sticky dark:bg-sticky-dark' : 'active:bg-surface dark:active:bg-surface-dark'
                         }`}
                       >
                         <Text className={`text-base ${
                           unit === u
-                            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
-                            : 'text-gray-900 dark:text-white'
+                            ? 'text-accent-text dark:text-accent-textdark font-serifsemi'
+                            : 'text-ink dark:text-ink-dark'
                         }`}>
                           {u}
                         </Text>
@@ -390,13 +392,13 @@ export const ItemDetailSheet = ({
                         setUnitDropdownOpen(false);
                       }}
                       className={`px-4 py-3 ${
-                        isOtherUnit ? 'bg-indigo-500/10' : 'active:bg-gray-100 dark:active:bg-gray-700'
+                        isOtherUnit ? 'bg-sticky dark:bg-sticky-dark' : 'active:bg-surface dark:active:bg-surface-dark'
                       }`}
                     >
                       <Text className={`text-base ${
                         isOtherUnit
-                          ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
-                          : 'text-gray-900 dark:text-white'
+                          ? 'text-accent-text dark:text-accent-textdark font-serifsemi'
+                          : 'text-ink dark:text-ink-dark'
                       }`}>
                         Other
                       </Text>
@@ -409,26 +411,26 @@ export const ItemDetailSheet = ({
                   value={customUnit}
                   onChangeText={setCustomUnit}
                   placeholder="Enter custom unit"
-                  placeholderTextColor="#9ca3af"
-                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500"
+                  placeholderTextColor="#9b9797"
+                  className="border border-rule dark:border-rule-dark rounded-sm p-3.5 text-base font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
                 />
               )}
 
               {/* Notes */}
               <View>
                 <View className="flex flex-row items-center gap-2 mb-2">
-                  <Feather name="file-text" size={14} color="#6366f1" />
-                  <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">Notes</Text>
-                  <Text className="text-xs text-gray-400 dark:text-gray-500">(Optional)</Text>
+                  <Feather name="file-text" size={14} color="#0088b0" />
+                  <Text className="text-[14px] font-serifsemi text-ink dark:text-ink-dark">Notes</Text>
+                  <Text className="text-[13px] font-serif text-ink-faint dark:text-ink-faintdark">(Optional)</Text>
                 </View>
                 <TextInput
                   value={notes}
                   onChangeText={setNotes}
                   placeholder="e.g., organic, low fat, preferred brand"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor="#9b9797"
                   multiline
                   numberOfLines={3}
-                  className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3.5 text-base text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 focus:border-indigo-500 min-h-[80px]"
+                  className="border border-rule dark:border-rule-dark rounded-sm p-3.5 text-base font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark min-h-[80px]"
                   textAlignVertical="top"
                 />
               </View>
@@ -439,7 +441,7 @@ export const ItemDetailSheet = ({
                   onPress={handleSave}
                   disabled={!name.trim()}
                   className={`flex-1 flex flex-row items-center justify-center gap-2 py-3.5 rounded-xl ${
-                    name.trim() ? 'bg-indigo-500 active:bg-indigo-600' : 'bg-gray-300 dark:bg-gray-700'
+                    name.trim() ? 'bg-accent dark:bg-accent-dark active:opacity-90' : 'bg-surface dark:bg-surface-dark'
                   }`}
                 >
                   <Feather name="check" size={18} color="#ffffff" />
@@ -450,9 +452,9 @@ export const ItemDetailSheet = ({
                 {!isAddMode && (
                   <Pressable
                     onPress={handleDelete}
-                    className="flex flex-row items-center justify-center gap-2 bg-red-500 active:bg-red-600 rounded-xl py-3.5 px-5"
+                    className="flex flex-row items-center justify-center gap-2 rounded-sm py-3.5 px-5 border border-margin"
                   >
-                    <Feather name="trash-2" size={18} color="#ffffff" />
+                    <Feather name="trash-2" size={18} color="#aa0b56" />
                   </Pressable>
                 )}
               </View>

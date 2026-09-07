@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useColorScheme } from 'nativewind';
 import type { GroceryItemType } from '@himan/shared/grocery';
 import type { CollapseStamp } from '../Session/SessionCategoryGroup';
 import { GroceryItemRow } from './GroceryItemRow';
@@ -27,6 +28,7 @@ export const CategoryGroup = ({
   onDeleteItem,
 }: CategoryGroupProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { colorScheme } = useColorScheme();
   const prevStampRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -37,25 +39,27 @@ export const CategoryGroup = ({
     }
   }, [collapseStamp]);
 
+  const tag = category.toLowerCase().replace(/\s+/g, '');
+
   return (
     <View>
       <Pressable
         onPress={() => setIsCollapsed(!isCollapsed)}
-        className="flex flex-row items-center gap-2 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl"
+        className="flex flex-row items-center gap-2 px-5 pt-5 pb-1.5"
       >
-        {isCollapsed ? (
-          <Feather name="chevron-right" size={14} color="#6b7280" />
-        ) : (
-          <Feather name="chevron-down" size={14} color="#6b7280" />
-        )}
-        <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest flex-1">
-          {category}
+        <Text className="text-[15px] font-serif text-accent-text dark:text-accent-textdark flex-1">
+          {tag}
         </Text>
-        <Text className="text-xs text-gray-400 dark:text-gray-500">{items.length}</Text>
+        <Text className="text-[14px] font-serif text-ink-faint dark:text-ink-faintdark">{items.length}</Text>
+        <Feather
+          name={isCollapsed ? 'chevron-right' : 'chevron-down'}
+          size={16}
+          color={colorScheme === 'dark' ? '#736e69' : '#9b9797'}
+        />
       </Pressable>
 
       {!isCollapsed && (
-        <View className="mt-0.5 space-y-0.5">
+        <View>
           {items.map((item) => (
             <GroceryItemRow
               key={item.id}

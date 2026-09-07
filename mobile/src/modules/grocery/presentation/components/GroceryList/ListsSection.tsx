@@ -65,13 +65,13 @@ export function ListsSection({
       <View className="px-3 mt-10">
         {/* Section header */}
         <View className="flex-row items-center justify-between mb-3 px-1">
-          <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+          <Text className="text-xs font-semibold text-ink-faint dark:text-ink-faintdark uppercase tracking-widest">
             Lists
           </Text>
           {!isCreating && (
             <Pressable
               onPress={onStartCreating}
-              className="w-6 h-6 rounded-full bg-indigo-500 items-center justify-center active:bg-indigo-600"
+              className="w-6 h-6 rounded-full bg-accent dark:bg-accent-dark items-center justify-center active:opacity-90"
               hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
             >
               <Feather name="plus" size={13} color="#ffffff" />
@@ -89,17 +89,17 @@ export function ListsSection({
               onChangeText={onChangeListName}
               onSubmitEditing={onSubmitList}
               autoFocus
-              className="flex-1 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+              className="flex-1 border border-rule dark:border-rule-dark rounded-xl px-3 py-2.5 text-sm text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
             />
             <Pressable
               onPress={onSubmitList}
-              className="bg-indigo-500 rounded-xl px-3.5 justify-center active:bg-indigo-600"
+              className="bg-accent dark:bg-accent-dark rounded-xl px-3.5 justify-center active:opacity-90"
             >
               <Feather name="check" size={16} color="#ffffff" />
             </Pressable>
             <Pressable
               onPress={onCancelCreating}
-              className="bg-gray-200 dark:bg-gray-700 rounded-xl px-3.5 justify-center active:opacity-70"
+              className="bg-surface dark:bg-surface-dark rounded-xl px-3.5 justify-center active:opacity-70"
             >
               <Feather name="x" size={16} color="#6b7280" />
             </Pressable>
@@ -136,11 +136,11 @@ export function ListsSection({
               size={14}
               color="#9ca3af"
             />
-            <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+            <Text className="text-xs font-semibold text-ink-faint dark:text-ink-faintdark uppercase tracking-wide">
               Archived
             </Text>
-            <View className="bg-gray-200 dark:bg-gray-700 rounded-full px-1.5 py-0.5">
-              <Text className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+            <View className="bg-surface dark:bg-surface-dark rounded-full px-1.5 py-0.5">
+              <Text className="text-[10px] font-semibold text-ink-soft dark:text-ink-softdark">
                 {archivedLists.length}
               </Text>
             </View>

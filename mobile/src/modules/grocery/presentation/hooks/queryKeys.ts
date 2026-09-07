@@ -10,5 +10,11 @@ export const groceryKeys = {
   suggestions: (listId: string) => [...groceryKeys.all, 'suggestions', listId] as const,
   invitations: () => [...groceryKeys.all, 'invitations'] as const,
   recentStores: () => [...groceryKeys.all, 'recentStores'] as const,
-  members: (listId: string) => [...groceryKeys.all, 'members', listId] as const,
+  members: (listId: string) => [...groceryKeys.all, 'members', 'v2', listId] as const,
+  friends: () => [...groceryKeys.all, 'friends'] as const,
+  friendRequests: () => [...groceryKeys.all, 'friendRequests'] as const,
+  history: () => [...groceryKeys.all, 'history'] as const,
+  stores: () => [...groceryKeys.all, 'stores'] as const,
+  productStores: (productId: string) => [...groceryKeys.all, 'productStores', productId] as const,
+  preferences: () => [...groceryKeys.all, 'preferences'] as const,
 };

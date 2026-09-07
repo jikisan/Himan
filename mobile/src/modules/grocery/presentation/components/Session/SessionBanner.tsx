@@ -21,13 +21,13 @@ export const SessionBanner = ({
   return (
 
       <View className="mx-3 flex flex-row items-center gap-1.5">
-        <View className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <View className="flex-1 bg-surface dark:bg-surface-dark rounded-full h-2">
           <View
-              className="bg-green-500 rounded-full h-2"
+              className="bg-accent dark:bg-accent-dark rounded-full h-2"
               style={{ width: `${progress * 100}%` }}
           />
         </View>
-        <Text className="text-xs text-gray-500 dark:text-gray-400">
+        <Text className="text-xs text-ink-soft dark:text-ink-softdark">
           {completedCount} of {totalCount}
         </Text>
       </View>

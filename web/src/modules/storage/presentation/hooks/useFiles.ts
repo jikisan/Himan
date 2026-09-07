@@ -25,6 +25,7 @@ export const useFiles = (filters?: FileFilters) => {
   // Stable filters for query key
   const stableFilters = useMemo(
     () => filters,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on primitives, not `filters` itself
     [filters?.folderId, filters?.searchQuery]
   );
 

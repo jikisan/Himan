@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FlatList, View, Pressable } from 'react-native';
+import { SectionList, View, Text, Pressable } from 'react-native';
 import { useToast } from '@/modules/shared/components/useToast';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,6 +17,9 @@ import {
 import type { CreditCardType, CardCategoryType } from '@himan/shared/cards';
 
 type SelectedCategoryId = 'all' | 'favorites' | string | null;
+
+const CARD_TYPE_ORDER = ['Credit', 'Debit', 'Prepaid'];
+const UNSPECIFIED_TYPE = 'Other';
 
 type CategoryModalState =
   | null
@@ -56,6 +59,22 @@ const [selectedCard, setSelectedCard] = useState<CreditCardType | null>(null);
     }
     return filtered;
   }, [allCards, selectedCategoryId, searchQuery]);
+
+  const sections = useMemo(() => {
+    const groups = new Map<string, CreditCardType[]>();
+    for (const card of cards) {
+      const type = card.cardType || UNSPECIFIED_TYPE;
+      const group = groups.get(type);
+      if (group) group.push(card);
+      else groups.set(type, [card]);
+    }
+    for (const group of groups.values()) {
+      group.sort((a, b) => a.cardName.localeCompare(b.cardName));
+    }
+    return [...CARD_TYPE_ORDER, UNSPECIFIED_TYPE]
+      .filter((type) => groups.has(type))
+      .map((type) => ({ title: type, data: groups.get(type)! }));
+  }, [cards]);
 
   const handleToggleSearch = () => {
     setIsSearchOpen((prev) => !prev);
@@ -104,8 +123,8 @@ const [selectedCard, setSelectedCard] = useState<CreditCardType | null>(null);
         onAddCategory={() => setCategoryModal({ mode: 'add' })}
       />
 
-      <FlatList
-        data={cards}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <CardListItem
@@ -115,8 +134,14 @@ const [selectedCard, setSelectedCard] = useState<CreditCardType | null>(null);
             onCopied={(label) => showToast(label, 'success')}
           />
         )}
+        renderSectionHeader={({ section }) => (
+          <Text className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            {section.title} ({section.data.length})
+          </Text>
+        )}
+        stickySectionHeadersEnabled={false}
         contentContainerStyle={
-          cards.length === 0 ? { flex: 1 } : { paddingTop: 8, paddingBottom: 100 }
+          sections.length === 0 ? { flex: 1 } : { paddingTop: 8, paddingBottom: 100 }
         }
         ListEmptyComponent={
           !loading ? (

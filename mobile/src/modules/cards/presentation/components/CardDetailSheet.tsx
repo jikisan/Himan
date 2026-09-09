@@ -5,6 +5,8 @@ import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { CreditCard } from '@himan/shared/cards';
 import type { CreditCardType, CardCategoryType } from '@himan/shared/cards';
+import { CardBrandBadge, BRANDS_WITH_LOGO } from './CardBrandBadge';
+import { ordinal } from '@himan/shared/utils';
 
 interface CardDetailSheetProps {
   card: CreditCardType | null;
@@ -152,9 +154,26 @@ export const CardDetailSheet = ({
               value={`${String(card.expiryMonth).padStart(2, '0')}/${card.expiryYear}`}
             />
 
+            {/* Payment due day */}
+            {card.dueDay ? (
+              <DetailRow label="Payment Due" value={`${ordinal(card.dueDay)} of every month`} />
+            ) : null}
+
             {/* Optional fields */}
             {card.bankName && <DetailRow label="Bank" value={card.bankName} />}
-            {card.cardIssuer && <DetailRow label="Issuer" value={card.cardIssuer} />}
+            {card.cardIssuer && (
+              <View className="gap-1">
+                <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Issuer
+                </Text>
+                <View className="flex-row items-center gap-2">
+                  {BRANDS_WITH_LOGO.includes(card.cardIssuer) && (
+                    <CardBrandBadge brand={card.cardIssuer} />
+                  )}
+                  <Text className="text-sm text-gray-900 dark:text-white">{card.cardIssuer}</Text>
+                </View>
+              </View>
+            )}
             {card.cardType && <DetailRow label="Type" value={card.cardType} />}
             {category && <DetailRow label="Category" value={category.name} />}
             {card.notes && (

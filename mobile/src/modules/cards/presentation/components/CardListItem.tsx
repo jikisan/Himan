@@ -3,6 +3,8 @@ import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { CreditCard } from '@himan/shared/cards';
 import type { CreditCardType } from '@himan/shared/cards';
+import { CardBrandBadge } from './CardBrandBadge';
+import { ordinal } from '@himan/shared/utils';
 
 interface CardListItemProps {
   card: CreditCardType;
@@ -71,13 +73,24 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
               </View>
             )}
           </View>
-          <Text className="text-sm font-mono text-gray-500 dark:text-gray-400">
-            •••• •••• •••• {last4}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-sm font-mono text-gray-500 dark:text-gray-400">
+              •••• •••• •••• {last4}
+            </Text>
+            <CardBrandBadge brand={brand} />
+          </View>
           {subtitle ? (
             <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>
               {subtitle}
             </Text>
+          ) : null}
+          {card.dueDay ? (
+            <View className="flex-row items-center gap-1 mt-0.5">
+              <Feather name="calendar" size={12} color="#9ca3af" />
+              <Text className="text-xs text-gray-400 dark:text-gray-500">
+                Due {ordinal(card.dueDay)} of every month
+              </Text>
+            </View>
           ) : null}
         </View>
 

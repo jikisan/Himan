@@ -21,6 +21,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 20 }, (_, i) => CURRENT_YEAR + i);
 const CARD_ISSUERS = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Other'];
 const CARD_TYPES = ['Credit', 'Debit', 'Prepaid'];
+const DUE_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const luhnCheck = (cardNumber: string): boolean => {
   const digits = cardNumber.replace(/\D/g, '');
@@ -56,6 +57,7 @@ interface FormData {
   categoryId: string | null;
   notes: string;
   isFavorite: boolean;
+  dueDay: number | null;
 }
 
 const defaultForm = (): FormData => ({
@@ -70,6 +72,7 @@ const defaultForm = (): FormData => ({
   categoryId: null,
   notes: '',
   isFavorite: false,
+  dueDay: null,
 });
 
 export default function CardFormScreen() {
@@ -104,6 +107,7 @@ export default function CardFormScreen() {
         categoryId: existingCard.categoryId,
         notes: existingCard.notes || '',
         isFavorite: existingCard.isFavorite,
+        dueDay: existingCard.dueDay,
       });
     }
   }, [isEdit, existingCard?.id]);
@@ -155,6 +159,7 @@ export default function CardFormScreen() {
       categoryId: form.categoryId,
       notes: form.notes.trim() || null,
       isFavorite: form.isFavorite,
+      dueDay: form.dueDay,
     };
     try {
       if (isEdit && cardId) {
@@ -380,6 +385,53 @@ export default function CardFormScreen() {
                 </Pressable>
               ))}
             </View>
+          </View>
+
+          {/* Payment Due Day */}
+          <View>
+            <Text className={labelClass}>Payment Due Day</Text>
+            <Text className="text-xs text-gray-400 dark:text-gray-500 mb-2">
+              Day of the month this bill is due, e.g. 29
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2">
+                <Pressable
+                  onPress={() => set('dueDay', null)}
+                  className={`px-3 py-2 rounded-lg border ${
+                    form.dueDay === null
+                      ? 'bg-indigo-500 border-indigo-500'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-medium ${
+                      form.dueDay === null ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    None
+                  </Text>
+                </Pressable>
+                {DUE_DAYS.map((d) => (
+                  <Pressable
+                    key={d}
+                    onPress={() => set('dueDay', d)}
+                    className={`px-3 py-2 rounded-lg border ${
+                      form.dueDay === d
+                        ? 'bg-indigo-500 border-indigo-500'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-medium ${
+                        form.dueDay === d ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {d}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
           </View>
 
           {/* Category */}

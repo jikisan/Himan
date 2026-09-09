@@ -7,6 +7,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./utils": "./src/utils/index.ts",
     "./config": "./src/config/index.ts",
     "./services": "./src/services/index.ts",
     "./subscriptions": "./src/modules/subscriptions/index.ts",

@@ -34,7 +34,6 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
   };
 
   const subtitle = [
-    brand !== 'Unknown' ? brand : null,
     card.bankName || null,
     expiryStr,
   ]
@@ -48,16 +47,12 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
         onPress={() => onPress(card)}
         className="flex-row items-center px-4 pt-4 pb-3 gap-3 active:opacity-75"
       >
-        {/* Icon */}
-        <View className="w-11 h-11 rounded-xl bg-indigo-500/10 items-center justify-center shrink-0">
-          <Feather name="credit-card" size={20} color="#6366f1" />
-        </View>
 
         {/* Info */}
         <View className="flex-1 min-w-0 gap-0.5">
           <View className="flex-row items-center gap-2">
             <Text
-              className="text-sm font-semibold text-gray-900 dark:text-white flex-shrink"
+              className="text-lg font-semibold text-gray-900 dark:text-white flex-shrink"
               numberOfLines={1}
             >
               {card.cardName}

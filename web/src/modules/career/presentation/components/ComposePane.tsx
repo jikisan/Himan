@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Plus, X } from 'lucide-react';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 import type { CareerBlockKind, CareerBlockType, CareerLength } from '@himan/shared/career';
+import { useDragReorder } from '../hooks/useDragReorder';
 
 const KIND_LABELS: Record<CareerBlockKind, string> = {
   greeting: 'Greeting',
@@ -30,13 +31,7 @@ export const ComposePane = ({ allBlocks, selected, onChange }: ComposePaneProps)
   const selectedIds = new Set(selected.map((s) => s.blockId));
   const available = allBlocks.filter((block) => !selectedIds.has(block.id));
 
-  const move = (index: number, direction: -1 | 1) => {
-    const next = [...selected];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    onChange(next);
-  };
+  const { dragIndex, dragHandleProps, dropTargetProps } = useDragReorder(selected, onChange);
 
   const remove = (index: number) => {
     onChange(selected.filter((_, i) => i !== index));
@@ -67,14 +62,13 @@ export const ComposePane = ({ allBlocks, selected, onChange }: ComposePaneProps)
               if (!block) return null;
               const alternatives = allBlocks.filter((b) => b.kind === block.kind);
               return (
-                <div key={`${s.blockId}-${index}`} className="rounded-lg border border-border p-2.5 flex items-start gap-2">
-                  <div className="flex flex-col">
-                    <Button size="icon" variant="ghost" className="h-5 w-5" disabled={index === 0} onClick={() => move(index, -1)}>
-                      <ArrowUp className="h-3 w-3" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-5 w-5" disabled={index === selected.length - 1} onClick={() => move(index, 1)}>
-                      <ArrowDown className="h-3 w-3" />
-                    </Button>
+                <div
+                  key={`${s.blockId}-${index}`}
+                  {...dropTargetProps(index)}
+                  className={`rounded-lg border border-border p-2.5 flex items-start gap-2 ${dragIndex === index ? 'opacity-40' : ''}`}
+                >
+                  <div {...dragHandleProps(index)} className="cursor-grab active:cursor-grabbing text-muted-foreground touch-none pt-1.5">
+                    <GripVertical className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="text-[10px] text-muted-foreground">{KIND_LABELS[block.kind]}</p>

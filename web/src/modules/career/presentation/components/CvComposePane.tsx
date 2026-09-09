@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui';
 import type { CvBlockRef, CareerCvBlockType } from '@himan/shared/career';
 import type { CvBlockOption } from '../hooks/useCvData';
+import { useDragReorder } from '../hooks/useDragReorder';
 
 function refKey(ref: CvBlockRef): string {
   switch (ref.type) {
@@ -34,13 +35,7 @@ export const CvComposePane = ({ profileBlocks, customBlocks, selected, onChange 
   const selectedKeys = new Set(selected.map(refKey));
   const available = pool.filter((option) => !selectedKeys.has(refKey(option.ref)));
 
-  const move = (index: number, direction: -1 | 1) => {
-    const next = [...selected];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    onChange(next);
-  };
+  const { dragIndex, dragHandleProps, dropTargetProps } = useDragReorder(selected, onChange);
 
   const remove = (index: number) => onChange(selected.filter((_, i) => i !== index));
   const add = (ref: CvBlockRef) => onChange([...selected, ref]);
@@ -56,14 +51,13 @@ export const CvComposePane = ({ profileBlocks, customBlocks, selected, onChange 
             {selected.map((ref, index) => {
               const option = poolByKey.get(refKey(ref));
               return (
-                <div key={`${refKey(ref)}-${index}`} className="rounded-lg border border-border p-2.5 flex items-center gap-2">
-                  <div className="flex flex-col">
-                    <Button size="icon" variant="ghost" className="h-5 w-5" disabled={index === 0} onClick={() => move(index, -1)}>
-                      <ArrowUp className="h-3 w-3" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-5 w-5" disabled={index === selected.length - 1} onClick={() => move(index, 1)}>
-                      <ArrowDown className="h-3 w-3" />
-                    </Button>
+                <div
+                  key={`${refKey(ref)}-${index}`}
+                  {...dropTargetProps(index)}
+                  className={`rounded-lg border border-border p-2.5 flex items-center gap-2 ${dragIndex === index ? 'opacity-40' : ''}`}
+                >
+                  <div {...dragHandleProps(index)} className="cursor-grab active:cursor-grabbing text-muted-foreground touch-none">
+                    <GripVertical className="h-4 w-4" />
                   </div>
                   <p className="text-sm min-w-0 flex-1 truncate">{option?.label ?? '(missing block)'}</p>
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(index)}>

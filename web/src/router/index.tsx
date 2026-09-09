@@ -6,7 +6,7 @@ import { PublicRoute } from './PublicRoute';
 import { RootLayout, AuthLayout, DashboardLayout } from '@/layouts';
 
 // Pages
-import { LoginPage, SignUpPage } from '@auth/presentation/pages';
+import { LoginPage } from '@auth/presentation/pages';
 import { DashboardPage } from '@dashboard/presentation/pages';
 import { AccountPage, SettingsPage } from '@settings/presentation/pages';
 import { NotesPage } from '@notes/presentation/pages/NotesPage';
@@ -28,7 +28,6 @@ export const Router = () => {
         <Route element={<PublicRoute />}>
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
           </Route>
         </Route>
 

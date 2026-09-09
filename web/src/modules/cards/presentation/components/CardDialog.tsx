@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { CreditCardType, CardCategoryType } from '../../domain';
-import { CARD_ISSUERS, CARD_TYPES } from './cardOptions';
+import { CARD_TYPES } from './cardOptions';
 
 interface CardDialogProps {
   open: boolean;
@@ -86,7 +86,6 @@ export const CardDialog = ({
     expiryMonth: new Date().getMonth() + 1,
     expiryYear: CURRENT_YEAR,
     bankName: '',
-    cardIssuer: '',
     cardType: '',
     categoryId: null as string | null,
     notes: '',
@@ -106,7 +105,6 @@ export const CardDialog = ({
         expiryMonth: card.expiryMonth,
         expiryYear: card.expiryYear,
         bankName: card.bankName || '',
-        cardIssuer: card.cardIssuer || '',
         cardType: card.cardType || '',
         categoryId: card.categoryId,
         notes: card.notes || '',
@@ -120,7 +118,6 @@ export const CardDialog = ({
         expiryMonth: new Date().getMonth() + 1,
         expiryYear: CURRENT_YEAR,
         bankName: '',
-        cardIssuer: '',
         cardType: '',
         categoryId: null,
         notes: '',
@@ -183,7 +180,6 @@ export const CardDialog = ({
       expiryMonth: formData.expiryMonth,
       expiryYear: formData.expiryYear,
       bankName: formData.bankName.trim() || null,
-      cardIssuer: formData.cardIssuer || null,
       cardType: formData.cardType || null,
       categoryId: formData.categoryId,
       notes: formData.notes.trim() || null,
@@ -330,28 +326,8 @@ export const CardDialog = ({
             />
           </div>
 
-          {/* Card Issuer and Type */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cardIssuer">Card Issuer</Label>
-              <Select
-                value={formData.cardIssuer || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, cardIssuer: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger id="cardIssuer">
-                  <SelectValue placeholder="Select issuer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {CARD_ISSUERS.map((issuer) => (
-                    <SelectItem key={issuer} value={issuer}>
-                      {issuer}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+          {/* Card Type */}
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cardType">Card Type</Label>
               <Select

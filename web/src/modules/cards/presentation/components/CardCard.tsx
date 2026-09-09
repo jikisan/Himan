@@ -127,10 +127,12 @@ export const CardCard = ({
         <div>
           <label className="text-xs text-muted-foreground opacity-50">Card Number</label>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm font-mono flex-1 whitespace-nowrap overflow-hidden">
-              {showCardNumber ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim() : cardEntity.getMaskedNumber()}
-            </span>
             <CardBrandLogo brand={cardEntity.getCardBrand()} className="h-5 w-auto flex-shrink-0" />
+            <span className="text-sm font-mono flex-1 whitespace-nowrap overflow-hidden">
+              {showCardNumber
+                ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim()
+                : `•••• ${card.cardNumber.replace(/\D/g, '').slice(-4)}`}
+            </span>
             <Button
               size="icon"
               variant="ghost"
@@ -313,15 +315,15 @@ export const CardCard = ({
                   </div>
                 )}
 
-                {/* Card Issuer */}
-                {card.cardIssuer && (
+                {/* Issuer (auto-detected from card number) */}
+                {cardEntity.getCardBrand() !== 'Unknown' && (
                   <div>
                     <label className="text-xs text-muted-foreground opacity-50">Issuer</label>
                     <div className="flex items-center gap-2 mt-1">
-                      {BRANDS_WITH_LOGO.includes(card.cardIssuer) && (
-                        <CardBrandLogo brand={card.cardIssuer} className="h-6 w-auto" />
+                      {BRANDS_WITH_LOGO.includes(cardEntity.getCardBrand()) && (
+                        <CardBrandLogo brand={cardEntity.getCardBrand()} className="h-6 w-auto" />
                       )}
-                      <span className="text-sm">{card.cardIssuer}</span>
+                      <span className="text-sm">{cardEntity.getCardBrand()}</span>
                     </div>
                   </div>
                 )}

@@ -69,10 +69,10 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
             )}
           </View>
           <View className="flex-row items-center gap-2">
-            <Text className="text-sm font-mono text-gray-500 dark:text-gray-400">
-              •••• •••• •••• {last4}
-            </Text>
             <CardBrandBadge brand={brand} />
+            <Text className="text-sm font-mono text-gray-500 dark:text-gray-400">
+              •••• {last4}
+            </Text>
           </View>
           {subtitle ? (
             <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>

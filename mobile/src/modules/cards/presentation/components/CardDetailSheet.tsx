@@ -161,16 +161,14 @@ export const CardDetailSheet = ({
 
             {/* Optional fields */}
             {card.bankName && <DetailRow label="Bank" value={card.bankName} />}
-            {card.cardIssuer && (
+            {brand !== 'Unknown' && (
               <View className="gap-1">
                 <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Issuer
                 </Text>
                 <View className="flex-row items-center gap-2">
-                  {BRANDS_WITH_LOGO.includes(card.cardIssuer) && (
-                    <CardBrandBadge brand={card.cardIssuer} />
-                  )}
-                  <Text className="text-sm text-gray-900 dark:text-white">{card.cardIssuer}</Text>
+                  {BRANDS_WITH_LOGO.includes(brand) && <CardBrandBadge brand={brand} />}
+                  <Text className="text-sm text-gray-900 dark:text-white">{brand}</Text>
                 </View>
               </View>
             )}

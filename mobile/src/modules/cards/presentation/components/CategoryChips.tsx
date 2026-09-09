@@ -24,7 +24,7 @@ export const CategoryChips = ({
       horizontal
       showsHorizontalScrollIndicator={false}
       style={{ flexGrow: 0 }}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom:10, gap: 8 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 8, alignItems: 'center' }}
     >
       <Chip
         label="All"
@@ -48,7 +48,8 @@ export const CategoryChips = ({
       ))}
       <Pressable
         onPress={onAddCategory}
-        className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-dashed border-gray-300 dark:border-gray-600"
+        style={{ minHeight: 34 }}
+        className="flex-row items-center gap-1 px-3.5 py-2 rounded-full border border-dashed border-gray-300 dark:border-gray-600"
       >
         <Feather name="plus" size={13} color="#9ca3af" />
         <Text className="text-xs font-medium text-gray-400 dark:text-gray-500">Add</Text>
@@ -69,7 +70,8 @@ const Chip = ({ label, icon, selected, onPress, onLongPress }: ChipProps) => (
   <Pressable
     onPress={onPress}
     onLongPress={onLongPress}
-    className={`flex-row items-center gap-1.5 px-3 py-1 rounded-full border ${
+    style={{ minHeight: 34 }}
+    className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-full border ${
       selected
         ? 'bg-indigo-500 border-indigo-500'
         : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'

@@ -19,12 +19,52 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-// Badge component not available, using span with styling instead
 import { Logger } from '@core/infrastructure/services';
 import { ordinal } from '@himan/shared/utils';
 import { CardBrandLogo } from './CardBrandLogo';
 
 const BRANDS_WITH_LOGO = ['Visa', 'Mastercard', 'American Express', 'Discover'];
+
+// Brand-tinted card faces — the row *is* the card. Faces stay dark in both themes;
+// physical cards don't switch to light mode, and it keeps identity constant.
+const BRAND_GRADIENT: Record<string, string> = {
+  Visa: 'linear-gradient(135deg,#1a1f5c,#25309a,#3f51d4)',
+  Mastercard: 'linear-gradient(135deg,#201d1b,#3a2a1e,#4a3221)',
+  'American Express': 'linear-gradient(135deg,#0369a1,#0a8fd0,#22b3e6)',
+  Discover: 'linear-gradient(135deg,#26262b,#3c3c44,#5c4a34)',
+};
+const DEFAULT_GRADIENT = 'linear-gradient(135deg,#3730a3,#4f46e5,#6366f1)';
+const EXPIRED_GRADIENT = 'linear-gradient(135deg,#3a3a40,#494950,#585860)';
+
+// Network mark drawn light for the dark face.
+const BrandMark = ({ brand, issuer }: { brand: string; issuer: string | null }) => {
+  switch (brand) {
+    case 'Visa':
+      return <span className="text-lg font-extrabold italic tracking-tight text-white">VISA</span>;
+    case 'Mastercard':
+      return (
+        <span className="flex items-center">
+          <span className="w-6 h-6 rounded-full" style={{ backgroundColor: '#EB001B' }} />
+          <span className="w-6 h-6 rounded-full -ml-3" style={{ backgroundColor: '#F79E1B', opacity: 0.9 }} />
+        </span>
+      );
+    case 'American Express':
+      return <span className="text-sm font-bold tracking-[3px] text-white">AMEX</span>;
+    case 'Discover':
+      return (
+        <span className="flex items-center gap-1">
+          <span className="text-sm font-bold tracking-wide text-white">DISC</span>
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#FF6000' }} />
+        </span>
+      );
+    default:
+      return issuer ? (
+        <span className="text-xs font-semibold uppercase tracking-widest text-white/70 truncate max-w-[8rem]">
+          {issuer}
+        </span>
+      ) : <span />;
+  }
+};
 
 interface CardCardProps {
   card: CreditCardType;
@@ -40,7 +80,6 @@ export const CardCard = ({
   onToggleFavorite,
 }: CardCardProps) => {
   const [showCardNumber, setShowCardNumber] = useState(false);
-  const [showCvv, setShowCvv] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalShowCardNumber, setModalShowCardNumber] = useState(false);
   const [modalShowCvv, setModalShowCvv] = useState(false);
@@ -49,9 +88,7 @@ export const CardCard = ({
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copied to clipboard`, {
-        duration: 2000,
-      });
+      toast.success(`${label} copied to clipboard`, { duration: 2000 });
     } catch (err) {
       Logger.error('Failed to copy to clipboard', err);
       toast.error('Failed to copy to clipboard');
@@ -59,168 +96,150 @@ export const CardCard = ({
   };
 
   const isExpired = cardEntity.isExpired();
-  const isExpiringSoon = cardEntity.isExpiringSoon(3);
+  const isExpiringSoon = !isExpired && cardEntity.isExpiringSoon(3);
+  const brand = cardEntity.getCardBrand();
+  const last4 = card.cardNumber.replace(/\D/g, '').slice(-4);
+  const expiryStr = `${String(card.expiryMonth).padStart(2, '0')}/${String(card.expiryYear).slice(-2)}`;
+  const gradient = isExpired ? EXPIRED_GRADIENT : BRAND_GRADIENT[brand] ?? DEFAULT_GRADIENT;
 
   return (
-    <div className="bg-card rounded-lg p-4 shadow-md hover:shadow-xl transition-shadow border border-border relative">
-      {/* Header with favorite and menu */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onToggleFavorite}
-            className="h-7 w-7 flex-shrink-0"
+    <div
+      className="relative rounded-2xl overflow-hidden text-white shadow-lg hover:shadow-xl transition-shadow"
+      style={{ background: gradient }}
+    >
+      {/* Soft top-right glare */}
+      <div className="pointer-events-none absolute -top-14 -right-10 w-52 h-52 rounded-full bg-white/10" />
+
+      {/* Face */}
+      <div className="relative px-5 pt-4 pb-3">
+        {/* Chip + status + favorite + menu */}
+        <div className="flex items-start justify-between">
+          {/* Chip */}
+          <div
+            className="w-11 h-8 rounded-md relative"
+            style={{ background: 'linear-gradient(135deg,#f6e6a8,#d9b64c,#b8912f)' }}
           >
-            <Star
-              className={`h-4 w-4 ${
-                card.isFavorite
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'text-muted-foreground'
-              }`}
-            />
-          </Button>
-          <h3 className="font-semibold text-base truncate flex-1">{card.cardName}</h3>
+            <div className="absolute inset-0 m-auto w-6 h-5 rounded-sm border border-black/20" />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {isExpired && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-red-500 text-white">
+                <AlertCircle className="h-3 w-3" />
+                Expired
+              </span>
+            )}
+            {isExpiringSoon && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-400 text-gray-900">
+                <AlertCircle className="h-3 w-3" />
+                Expiring
+              </span>
+            )}
+            <button
+              onClick={onToggleFavorite}
+              aria-label={card.isFavorite ? 'Unfavorite' : 'Favorite'}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <Star className={`h-5 w-5 ${card.isFavorite ? 'fill-amber-400 text-amber-400' : 'text-white/55'}`} />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Card actions"
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/80"
+                >
+                  <MoreVertical className="h-5 w-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="bg-popover text-popover-foreground"
+
+        {/* Masked number */}
+        <div className="mt-5 flex items-center gap-2">
+          <span className="text-xl font-mono tracking-[2px] text-white">
+            {showCardNumber
+              ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim()
+              : `••••  ••••  ••••  ${last4}`}
+          </span>
+          <button
+            onClick={() => setShowCardNumber((v) => !v)}
+            aria-label={showCardNumber ? 'Hide card number' : 'Show card number'}
+            className="p-1 rounded-md hover:bg-white/10 text-white/70 transition-colors"
           >
-            <DropdownMenuItem onClick={onEdit}>
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            {showCardNumber ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {/* Holder / bank + expiry */}
+        <div className="mt-4 flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[9px] font-semibold uppercase tracking-widest text-white/50">Card</div>
+            <div className="text-base font-semibold text-white truncate">{card.cardName}</div>
+            {card.bankName && <div className="text-xs text-white/60 truncate">{card.bankName}</div>}
+            {card.dueDay && (
+              <div className="mt-1 flex items-center gap-1 text-[11px] text-white/60">
+                <CalendarClock className="h-3 w-3" />
+                Due {ordinal(card.dueDay)}
+              </div>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-[9px] font-semibold uppercase tracking-widest text-white/50">Expires</div>
+            <div className="text-sm font-mono tracking-wide text-white">{expiryStr}</div>
+          </div>
+        </div>
       </div>
 
-      {/* Status badges */}
-      <div className="flex gap-2 mb-3 flex-wrap">
-        {isExpired && (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-destructive text-destructive-foreground">
-            <AlertCircle className="h-3 w-3" />
-            Expired
-          </span>
-        )}
-        {!isExpired && isExpiringSoon && (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-orange-500 text-white">
-            <AlertCircle className="h-3 w-3" />
-            Expiring Soon
-          </span>
-        )}
-      </div>
-
-      {/* Card details */}
-      <div className="space-y-3">
-        {/* Card Number */}
-        <div>
-          <label className="text-xs text-muted-foreground opacity-50">Card Number</label>
-          <div className="flex items-center gap-2 mt-1">
-            <CardBrandLogo brand={cardEntity.getCardBrand()} className="h-5 w-auto flex-shrink-0" />
-            <span className="text-sm font-mono flex-1 whitespace-nowrap overflow-hidden">
-              {showCardNumber
-                ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim()
-                : `•••• ${card.cardNumber.replace(/\D/g, '').slice(-4)}`}
-            </span>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setShowCardNumber(!showCardNumber)}
-              className="h-7 w-7 flex-shrink-0"
-              aria-label={showCardNumber ? 'Hide card number' : 'Show card number'}
-            >
-              {showCardNumber ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => copyToClipboard(card.cardNumber.replace(/\D/g, ''), 'Card number')}
-              className="h-7 w-7 flex-shrink-0"
-              aria-label="Copy card number"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-
-        {/* CVV */}
-        <div>
-          <label className="text-xs text-muted-foreground opacity-50">CVV</label>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm font-mono flex-1">
-              {showCvv ? card.cvv : '•••'}
-            </span>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setShowCvv(!showCvv)}
-              className="h-7 w-7 flex-shrink-0"
-              aria-label={showCvv ? 'Hide CVV' : 'Show CVV'}
-            >
-              {showCvv ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => copyToClipboard(card.cvv, 'CVV')}
-              className="h-7 w-7 flex-shrink-0"
-              aria-label="Copy CVV"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Due Day */}
-        {card.dueDay && (
-          <div>
-            <label className="text-xs text-muted-foreground opacity-50">Payment Due</label>
-            <div className="flex items-center gap-2 mt-1">
-              <CalendarClock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <span className="text-sm">{ordinal(card.dueDay)} of every month</span>
-            </div>
-          </div>
-        )}
-
-        {/* View Details Button */}
-        <div className="pt-2">
+      {/* Action bar — brand mark anchors identity, copy is the primary job */}
+      <div className="flex items-center justify-between border-t border-white/15 pl-5 pr-2 py-1">
+        <BrandMark brand={brand} issuer={card.cardIssuer} />
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => copyToClipboard(card.cardNumber.replace(/\D/g, ''), 'Card number')}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Number
+          </button>
+          <button
+            onClick={() => copyToClipboard(card.cvv, 'CVV')}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            CVV
+          </button>
           <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-center text-xs text-muted-foreground hover:text-foreground"
+              <button
+                aria-label="View details"
+                className="flex items-center rounded-lg px-2 py-2 text-white/80 hover:bg-white/10 transition-colors"
               >
-                <Maximize2 className="h-3 w-3 mr-1" />
-                View Details
-              </Button>
+                <Maximize2 className="h-4 w-4" />
+              </button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] bg-popover text-popover-foreground">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Star
                     className={`h-5 w-5 ${
-                      card.isFavorite
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'text-muted-foreground'
+                      card.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'
                     }`}
                   />
                   {card.cardName}
                 </DialogTitle>
-                <DialogDescription>
-                  View all details for this credit card
-                </DialogDescription>
+                <DialogDescription>View all details for this credit card</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 mt-4">
@@ -232,7 +251,7 @@ export const CardCard = ({
                       Expired
                     </span>
                   )}
-                  {!isExpired && isExpiringSoon && (
+                  {isExpiringSoon && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-orange-500 text-white">
                       <AlertCircle className="h-3 w-3" />
                       Expiring Soon
@@ -316,14 +335,14 @@ export const CardCard = ({
                 )}
 
                 {/* Issuer (auto-detected from card number) */}
-                {cardEntity.getCardBrand() !== 'Unknown' && (
+                {brand !== 'Unknown' && (
                   <div>
                     <label className="text-xs text-muted-foreground opacity-50">Issuer</label>
                     <div className="flex items-center gap-2 mt-1">
-                      {BRANDS_WITH_LOGO.includes(cardEntity.getCardBrand()) && (
-                        <CardBrandLogo brand={cardEntity.getCardBrand()} className="h-6 w-auto" />
+                      {BRANDS_WITH_LOGO.includes(brand) && (
+                        <CardBrandLogo brand={brand} className="h-6 w-auto" />
                       )}
-                      <span className="text-sm">{cardEntity.getCardBrand()}</span>
+                      <span className="text-sm">{brand}</span>
                     </div>
                   </div>
                 )}

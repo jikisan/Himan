@@ -31,9 +31,9 @@ function paginate(body: HTMLElement): void {
 
 const PDF_OPTIONS: Options = {
   method: 'build',
-  resolution: Resolution.HIGH,
+  resolution: Resolution.MEDIUM,
   page: { margin: Margin.NONE, format: 'A4', orientation: 'portrait' },
-  canvas: { mimeType: 'image/jpeg', qualityRatio: 0.98 },
+  canvas: { mimeType: 'image/jpeg', qualityRatio: 0.85 },
   overrides: {
     pdf: { compress: true },
     canvas: { useCORS: true, backgroundColor: '#ffffff' },

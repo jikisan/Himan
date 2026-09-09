@@ -27,7 +27,10 @@ export const useProjects = () => {
 
   const createMutation = useMutation({
     mutationFn: (dto: Omit<CreateProjectDto, 'userId'>) => repository.create({ ...dto, userId: userId! }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Project added');
+    },
     onError: (err) => {
       Logger.error('Error creating project', err);
       toast.error('Failed to create project');
@@ -36,7 +39,10 @@ export const useProjects = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateProjectDto }) => repository.update(id, userId!, dto),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Project saved');
+    },
     onError: (err) => {
       Logger.error('Error updating project', err);
       toast.error('Failed to save project');
@@ -45,7 +51,10 @@ export const useProjects = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => repository.delete(id, userId!),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Project removed');
+    },
     onError: (err) => {
       Logger.error('Error deleting project', err);
       toast.error('Failed to delete project');

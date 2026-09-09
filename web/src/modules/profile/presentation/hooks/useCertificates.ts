@@ -27,7 +27,10 @@ export const useCertificates = () => {
 
   const createMutation = useMutation({
     mutationFn: (dto: Omit<CreateCertificateDto, 'userId'>) => repository.create({ ...dto, userId: userId! }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Certificate added');
+    },
     onError: (err) => {
       Logger.error('Error creating certificate', err);
       toast.error('Failed to create certificate');
@@ -36,7 +39,10 @@ export const useCertificates = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateCertificateDto }) => repository.update(id, userId!, dto),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Certificate saved');
+    },
     onError: (err) => {
       Logger.error('Error updating certificate', err);
       toast.error('Failed to save certificate');
@@ -45,7 +51,10 @@ export const useCertificates = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => repository.delete(id, userId!),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Certificate removed');
+    },
     onError: (err) => {
       Logger.error('Error deleting certificate', err);
       toast.error('Failed to delete certificate');

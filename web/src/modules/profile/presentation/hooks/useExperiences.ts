@@ -27,7 +27,10 @@ export const useExperiences = () => {
 
   const createMutation = useMutation({
     mutationFn: (dto: Omit<CreateExperienceDto, 'userId'>) => repository.create({ ...dto, userId: userId! }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Experience added');
+    },
     onError: (err) => {
       Logger.error('Error creating experience', err);
       toast.error('Failed to create experience');
@@ -36,7 +39,10 @@ export const useExperiences = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateExperienceDto }) => repository.update(id, userId!, dto),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Experience saved');
+    },
     onError: (err) => {
       Logger.error('Error updating experience', err);
       toast.error('Failed to save experience');
@@ -45,7 +51,10 @@ export const useExperiences = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => repository.delete(id, userId!),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Experience removed');
+    },
     onError: (err) => {
       Logger.error('Error deleting experience', err);
       toast.error('Failed to delete experience');

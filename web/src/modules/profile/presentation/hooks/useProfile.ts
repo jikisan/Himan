@@ -25,7 +25,10 @@ export const useProfile = () => {
 
   const saveMutation = useMutation({
     mutationFn: (dto: Omit<ProfileUpsertDto, 'userId'>) => repository.upsert({ ...dto, userId: userId! }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKeys.all }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: profileKeys.all });
+      toast.success('Profile saved');
+    },
     onError: (err) => {
       Logger.error('Error saving profile', err);
       toast.error('Failed to save profile');

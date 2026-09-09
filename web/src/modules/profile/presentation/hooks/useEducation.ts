@@ -27,7 +27,10 @@ export const useEducation = () => {
 
   const createMutation = useMutation({
     mutationFn: (dto: Omit<CreateEducationDto, 'userId'>) => repository.create({ ...dto, userId: userId! }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Education added');
+    },
     onError: (err) => {
       Logger.error('Error creating education', err);
       toast.error('Failed to create education');
@@ -36,7 +39,10 @@ export const useEducation = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateEducationDto }) => repository.update(id, userId!, dto),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Education saved');
+    },
     onError: (err) => {
       Logger.error('Error updating education', err);
       toast.error('Failed to save education');
@@ -45,7 +51,10 @@ export const useEducation = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => repository.delete(id, userId!),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Education removed');
+    },
     onError: (err) => {
       Logger.error('Error deleting education', err);
       toast.error('Failed to delete education');

@@ -32,7 +32,7 @@ export const ProjectCard = ({ project, onSave, onDelete, onMoveUp, onMoveDown, i
   ].filter(Boolean).join(' – ');
 
   return (
-    <div className="rounded-lg border border-border p-4">
+    <div id={`project-${project.id}`} className="scroll-mt-4 rounded-lg border border-border p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

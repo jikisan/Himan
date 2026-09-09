@@ -27,7 +27,10 @@ export const useSkills = () => {
 
   const createMutation = useMutation({
     mutationFn: (dto: Omit<CreateSkillDto, 'userId'>) => repository.create({ ...dto, userId: userId! }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Skill added');
+    },
     onError: (err) => {
       Logger.error('Error creating skill', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create skill');
@@ -36,7 +39,10 @@ export const useSkills = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateSkillDto }) => repository.update(id, userId!, dto),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Skill saved');
+    },
     onError: (err) => {
       Logger.error('Error updating skill', err);
       toast.error(err instanceof Error ? err.message : 'Failed to save skill');
@@ -45,7 +51,10 @@ export const useSkills = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => repository.delete(id, userId!),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success('Skill removed');
+    },
     onError: (err) => {
       Logger.error('Error deleting skill', err);
       toast.error('Failed to delete skill');

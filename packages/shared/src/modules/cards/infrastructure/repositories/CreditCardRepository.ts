@@ -113,6 +113,7 @@ export class CreditCardRepository {
         user_id: dto.userId,
         is_favorite: dto.isFavorite ?? false,
         notes: dto.notes,
+        due_day: dto.dueDay ?? null,
       })
       .select()
       .single();
@@ -136,6 +137,7 @@ export class CreditCardRepository {
     if (dto.categoryId !== undefined) updateData.category_id = dto.categoryId;
     if (dto.isFavorite !== undefined) updateData.is_favorite = dto.isFavorite;
     if (dto.notes !== undefined) updateData.notes = dto.notes;
+    if (dto.dueDay !== undefined) updateData.due_day = dto.dueDay;
 
     // Encrypt new card number if provided
     if (dto.cardNumber !== undefined && userId) {
@@ -225,6 +227,7 @@ export class CreditCardRepository {
       userId: data.user_id as string,
       isFavorite: data.is_favorite as boolean,
       notes: data.notes as string | null,
+      dueDay: data.due_day as number | null,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
     };

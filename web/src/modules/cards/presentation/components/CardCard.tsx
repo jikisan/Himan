@@ -22,6 +22,18 @@ import {
 // Badge component not available, using span with styling instead
 import { Logger } from '@core/infrastructure/services';
 
+// 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4..20 -> "th", etc.
+const ordinal = (n: number): string => {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+};
+
 interface CardCardProps {
   card: CreditCardType;
   onEdit: () => void;
@@ -310,6 +322,14 @@ export const CardCard = ({
                   <div>
                     <label className="text-xs text-muted-foreground opacity-50">Card Type</label>
                     <span className="text-sm block mt-1">{card.cardType}</span>
+                  </div>
+                )}
+
+                {/* Due Day */}
+                {card.dueDay && (
+                  <div>
+                    <label className="text-xs text-muted-foreground opacity-50">Payment Due Day</label>
+                    <span className="text-sm block mt-1">{ordinal(card.dueDay)} of every month</span>
                   </div>
                 )}
 

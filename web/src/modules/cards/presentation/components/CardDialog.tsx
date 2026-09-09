@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { CreditCardType, CardCategoryType } from '../../domain';
+import { CARD_ISSUERS, CARD_TYPES } from './cardOptions';
 
 interface CardDialogProps {
   open: boolean;
@@ -37,15 +38,14 @@ interface CardDialogProps {
     cardType?: string | null;
     categoryId?: string | null;
     notes?: string | null;
+    dueDay?: number | null;
   }) => Promise<void>;
 }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 20 }, (_, i) => CURRENT_YEAR + i);
-
-const CARD_ISSUERS = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Other'];
-const CARD_TYPES = ['Credit', 'Debit', 'Prepaid'];
+const DUE_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 // Luhn algorithm for card validation
 const luhnCheck = (cardNumber: string): boolean => {
@@ -90,6 +90,7 @@ export const CardDialog = ({
     cardType: '',
     categoryId: null as string | null,
     notes: '',
+    dueDay: null as number | null,
   });
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
@@ -109,6 +110,7 @@ export const CardDialog = ({
         cardType: card.cardType || '',
         categoryId: card.categoryId,
         notes: card.notes || '',
+        dueDay: card.dueDay,
       });
     } else {
       setFormData({
@@ -122,6 +124,7 @@ export const CardDialog = ({
         cardType: '',
         categoryId: null,
         notes: '',
+        dueDay: null,
       });
     }
     setShowCardNumber(false);
@@ -184,6 +187,7 @@ export const CardDialog = ({
       cardType: formData.cardType || null,
       categoryId: formData.categoryId,
       notes: formData.notes.trim() || null,
+      dueDay: formData.dueDay,
     });
     onOpenChange(false);
   };
@@ -390,6 +394,32 @@ export const CardDialog = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Due Day */}
+          <div className="space-y-2">
+            <Label htmlFor="dueDay">Payment Due Day</Label>
+            <Select
+              value={formData.dueDay?.toString() || 'none'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, dueDay: value === 'none' ? null : parseInt(value) })
+              }
+            >
+              <SelectTrigger id="dueDay">
+                <SelectValue placeholder="Select day of month" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {DUE_DAYS.map((day) => (
+                  <SelectItem key={day} value={day.toString()}>
+                    {day}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Day of the month this bill is due, e.g. 29
+            </p>
           </div>
 
           {/* Notes */}

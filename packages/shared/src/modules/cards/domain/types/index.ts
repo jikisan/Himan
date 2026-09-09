@@ -13,6 +13,7 @@ export interface CreditCardType {
   userId: string;
   isFavorite: boolean;
   notes: string | null;
+  dueDay: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +31,7 @@ export interface CreateCreditCardDto {
   userId: string;
   isFavorite?: boolean;
   notes?: string | null;
+  dueDay?: number | null;
 }
 
 export interface UpdateCreditCardDto {
@@ -44,6 +46,7 @@ export interface UpdateCreditCardDto {
   categoryId?: string | null;
   isFavorite?: boolean;
   notes?: string | null;
+  dueDay?: number | null;
 }
 
 export interface CreditCardFilters {

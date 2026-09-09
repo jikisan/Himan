@@ -49,7 +49,7 @@ export const CardGrid = ({
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             {type} ({groups.get(type)!.length})
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             {groups.get(type)!.map((card) => (
               <CardCard
                 key={card.id}

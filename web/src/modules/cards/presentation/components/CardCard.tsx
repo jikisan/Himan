@@ -21,6 +21,9 @@ import {
 } from '@/components/ui/dialog';
 // Badge component not available, using span with styling instead
 import { Logger } from '@core/infrastructure/services';
+import { CardBrandLogo } from './CardBrandLogo';
+
+const BRANDS_WITH_LOGO = ['Visa', 'Mastercard', 'American Express', 'Discover'];
 
 // 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4..20 -> "th", etc.
 const ordinal = (n: number): string => {
@@ -138,6 +141,7 @@ export const CardCard = ({
             <span className="text-sm font-mono flex-1 whitespace-nowrap overflow-hidden">
               {showCardNumber ? card.cardNumber.replace(/(.{4})/g, '$1 ').trim() : cardEntity.getMaskedNumber()}
             </span>
+            <CardBrandLogo brand={cardEntity.getCardBrand()} className="h-5 w-auto flex-shrink-0" />
             <Button
               size="icon"
               variant="ghost"
@@ -324,7 +328,12 @@ export const CardCard = ({
                 {card.cardIssuer && (
                   <div>
                     <label className="text-xs text-muted-foreground opacity-50">Issuer</label>
-                    <span className="text-sm block mt-1">{card.cardIssuer}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      {BRANDS_WITH_LOGO.includes(card.cardIssuer) && (
+                        <CardBrandLogo brand={card.cardIssuer} className="h-6 w-auto" />
+                      )}
+                      <span className="text-sm">{card.cardIssuer}</span>
+                    </div>
                   </div>
                 )}
 

@@ -1,4 +1,4 @@
-import { Download, FileX2, Link2, ListOrdered, ShieldOff } from 'lucide-react';
+import {Download, FileX2, Link2, ListOrdered, Pencil, ShieldOff} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui';
 
@@ -28,7 +28,7 @@ export const CvUploadPanel = ({ hasCv, cvPreviewUrl, hasProfileContent, onRemove
         <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
           <span title={!hasProfileContent ? 'Add your profile details first' : 'Edit CV layout'}>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit CV layout" onClick={onEditLayout} disabled={!hasProfileContent}>
-              <ListOrdered className="h-4 w-4" />
+              <Pencil className="h-4 w-4" />
             </Button>
           </span>
           <div className="w-px h-4 bg-border mx-0.5" />

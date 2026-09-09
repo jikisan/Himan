@@ -18,10 +18,25 @@ const toDto = (values: ProjectFormValues) => ({
 export const ProjectSection = () => {
   const { data, loading, create, update, remove, reorder } = useProjects();
   const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleAdd = async (values: ProjectFormValues) => {
-    await create(toDto(values));
-    setAdding(false);
+    setSavingId('new');
+    try {
+      await create(toDto(values));
+      setAdding(false);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleUpdate = async (id: string, values: ProjectFormValues) => {
+    setSavingId(id);
+    try {
+      await update(id, toDto(values));
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleMove = (index: number, direction: -1 | 1) => {
@@ -42,7 +57,7 @@ export const ProjectSection = () => {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        {adding && <ProjectEditor onSave={handleAdd} onCancel={() => setAdding(false)} />}
+        {adding && <ProjectEditor onSave={handleAdd} onCancel={() => setAdding(false)} isSaving={savingId === 'new'} />}
         {!loading && data.length === 0 && !adding && (
           <p className="text-sm text-muted-foreground">No projects added yet.</p>
         )}
@@ -50,10 +65,11 @@ export const ProjectSection = () => {
           <ProjectCard
             key={project.id}
             project={project}
-            onSave={(values) => update(project.id, toDto(values))}
+            onSave={(values) => handleUpdate(project.id, values)}
             onDelete={() => remove(project.id)}
             onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
             onMoveDown={index < data.length - 1 ? () => handleMove(index, 1) : undefined}
+            isSaving={savingId === project.id}
           />
         ))}
       </CardContent>

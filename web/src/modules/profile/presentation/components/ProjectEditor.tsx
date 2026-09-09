@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Textarea } from '@/components/ui';
 import type { ProjectType } from '@himan/shared/profile';
 
@@ -85,6 +86,7 @@ export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEd
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSave(values)} disabled={isSaving || !values.name.trim()}>
+          {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>

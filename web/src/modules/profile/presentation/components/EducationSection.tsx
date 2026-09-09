@@ -19,10 +19,25 @@ const toDto = (values: EducationFormValues) => ({
 export const EducationSection = () => {
   const { data, loading, create, update, remove, reorder } = useEducation();
   const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleAdd = async (values: EducationFormValues) => {
-    await create(toDto(values));
-    setAdding(false);
+    setSavingId('new');
+    try {
+      await create(toDto(values));
+      setAdding(false);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleUpdate = async (id: string, values: EducationFormValues) => {
+    setSavingId(id);
+    try {
+      await update(id, toDto(values));
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleMove = (index: number, direction: -1 | 1) => {
@@ -43,7 +58,7 @@ export const EducationSection = () => {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        {adding && <EducationEditor onSave={handleAdd} onCancel={() => setAdding(false)} />}
+        {adding && <EducationEditor onSave={handleAdd} onCancel={() => setAdding(false)} isSaving={savingId === 'new'} />}
         {!loading && data.length === 0 && !adding && (
           <p className="text-sm text-muted-foreground">No education added yet.</p>
         )}
@@ -51,10 +66,11 @@ export const EducationSection = () => {
           <EducationCard
             key={education.id}
             education={education}
-            onSave={(values) => update(education.id, toDto(values))}
+            onSave={(values) => handleUpdate(education.id, values)}
             onDelete={() => remove(education.id)}
             onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
             onMoveDown={index < data.length - 1 ? () => handleMove(index, 1) : undefined}
+            isSaving={savingId === education.id}
           />
         ))}
       </CardContent>

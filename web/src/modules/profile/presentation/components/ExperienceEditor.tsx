@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Switch, Textarea } from '@/components/ui';
 import type { ExperienceType } from '@himan/shared/profile';
 
@@ -89,6 +90,7 @@ export const ExperienceEditor = ({ experience, onSave, onCancel, isSaving }: Exp
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSave(values)} disabled={isSaving || !values.company.trim() || !values.title.trim()}>
+          {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>

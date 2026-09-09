@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { useSkills } from '../hooks/useSkills';
 import type { SkillType } from '@himan/shared/profile';
@@ -55,7 +55,7 @@ export const SkillSection = () => {
           <Input placeholder="Categories (comma-separated)" value={category} onChange={(e) => setCategory(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAdd()} />
           <Input placeholder="Level (optional)" value={level} onChange={(e) => setLevel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAdd()} />
           <Button onClick={handleAdd} disabled={isSaving || !name.trim()}>
-            <Plus className="h-4 w-4" />
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </Button>
         </div>
 

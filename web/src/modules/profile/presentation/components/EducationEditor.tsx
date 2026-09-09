@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Textarea } from '@/components/ui';
 import type { EducationType } from '@himan/shared/profile';
 
@@ -89,6 +90,7 @@ export const EducationEditor = ({ education, onSave, onCancel, isSaving }: Educa
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={() => onSave(values)} disabled={isSaving || !values.school.trim()}>
+          {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>

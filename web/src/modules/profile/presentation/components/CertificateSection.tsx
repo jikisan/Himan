@@ -17,10 +17,25 @@ const toDto = (values: CertificateFormValues) => ({
 export const CertificateSection = () => {
   const { data, loading, create, update, remove, reorder } = useCertificates();
   const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleAdd = async (values: CertificateFormValues) => {
-    await create(toDto(values));
-    setAdding(false);
+    setSavingId('new');
+    try {
+      await create(toDto(values));
+      setAdding(false);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleUpdate = async (id: string, values: CertificateFormValues) => {
+    setSavingId(id);
+    try {
+      await update(id, toDto(values));
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleMove = (index: number, direction: -1 | 1) => {
@@ -41,7 +56,7 @@ export const CertificateSection = () => {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        {adding && <CertificateEditor onSave={handleAdd} onCancel={() => setAdding(false)} />}
+        {adding && <CertificateEditor onSave={handleAdd} onCancel={() => setAdding(false)} isSaving={savingId === 'new'} />}
         {!loading && data.length === 0 && !adding && (
           <p className="text-sm text-muted-foreground">No certificates added yet.</p>
         )}
@@ -49,10 +64,11 @@ export const CertificateSection = () => {
           <CertificateCard
             key={certificate.id}
             certificate={certificate}
-            onSave={(values) => update(certificate.id, toDto(values))}
+            onSave={(values) => handleUpdate(certificate.id, values)}
             onDelete={() => remove(certificate.id)}
             onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
             onMoveDown={index < data.length - 1 ? () => handleMove(index, 1) : undefined}
+            isSaving={savingId === certificate.id}
           />
         ))}
       </CardContent>

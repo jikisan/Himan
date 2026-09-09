@@ -19,10 +19,25 @@ const toDto = (values: ExperienceFormValues) => ({
 export const ExperienceSection = () => {
   const { data, loading, create, update, remove, reorder } = useExperiences();
   const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleAdd = async (values: ExperienceFormValues) => {
-    await create(toDto(values));
-    setAdding(false);
+    setSavingId('new');
+    try {
+      await create(toDto(values));
+      setAdding(false);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleUpdate = async (id: string, values: ExperienceFormValues) => {
+    setSavingId(id);
+    try {
+      await update(id, toDto(values));
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const handleMove = (index: number, direction: -1 | 1) => {
@@ -43,7 +58,7 @@ export const ExperienceSection = () => {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        {adding && <ExperienceEditor onSave={handleAdd} onCancel={() => setAdding(false)} />}
+        {adding && <ExperienceEditor onSave={handleAdd} onCancel={() => setAdding(false)} isSaving={savingId === 'new'} />}
         {!loading && data.length === 0 && !adding && (
           <p className="text-sm text-muted-foreground">No experience added yet.</p>
         )}
@@ -51,10 +66,11 @@ export const ExperienceSection = () => {
           <ExperienceCard
             key={experience.id}
             experience={experience}
-            onSave={(values) => update(experience.id, toDto(values))}
+            onSave={(values) => handleUpdate(experience.id, values)}
             onDelete={() => remove(experience.id)}
             onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
             onMoveDown={index < data.length - 1 ? () => handleMove(index, 1) : undefined}
+            isSaving={savingId === experience.id}
           />
         ))}
       </CardContent>

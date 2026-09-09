@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useLogin } from '@auth/presentation/hooks';
 import { Button } from '@/components/ui';
 
@@ -117,13 +116,8 @@ export const LoginPage = () => {
         <span className="font-medium">Sign in with Google</span>
       </Button>
 
-      <div className="mt-6 text-center">
-        <Link
-          to="/signup"
-          className="text-sm text-primary hover:text-primary/80"
-        >
-          Don't have an account? Sign up
-        </Link>
+      <div className="mt-6 text-center text-sm text-muted-foreground">
+        Don't have an account? Contact your admin to get registered.
       </div>
     </div>
   );

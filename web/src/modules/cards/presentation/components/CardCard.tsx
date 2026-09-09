@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, MoreVertical, Edit2, Trash2, Star, Eye, EyeOff, CreditCard as CreditCardIcon, AlertCircle, Maximize2 } from 'lucide-react';
+import { Copy, MoreVertical, Edit2, Trash2, Star, Eye, EyeOff, CreditCard as CreditCardIcon, AlertCircle, Maximize2, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard as CreditCardEntity } from '../../domain/entities/CreditCard';
 import type { CreditCardType } from '../../domain';
@@ -186,6 +186,17 @@ export const CardCard = ({
             </Button>
           </div>
         </div>
+
+        {/* Due Day */}
+        {card.dueDay && (
+          <div>
+            <label className="text-xs text-muted-foreground opacity-50">Payment Due</label>
+            <div className="flex items-center gap-2 mt-1">
+              <CalendarClock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm">{ordinal(card.dueDay)} of every month</span>
+            </div>
+          </div>
+        )}
 
         {/* View Details Button */}
         <div className="pt-2">

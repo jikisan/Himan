@@ -42,10 +42,14 @@ Open items, all in mobile grocery **session/errand mode** — see [[grocery]].
 - [x] in cv blocks, show also the blocks generated from profile, and maybe add a button to go to profile to edit them
       — Block Library CV tab lists profile-sourced blocks (dashed) with an "Edit in profile" button.
 - [x] make the cv url shorter — "Copy CV link" now copies `{origin}/cv/{shareToken}`;
-      a Cloudflare Pages Function (`web/functions/cv/[token].ts`) looks the token up
+      a Cloudflare Pages Function (`functions/cv/[token].ts`) looks the token up
       with the service-role key and 302s to a fresh 1h signed URL. Rotating the token
-      404s the old link (revocation). **Deploy: set `SUPABASE_URL` +
-      `SUPABASE_SERVICE_ROLE_KEY` env vars on the Cloudflare Pages project.**
+      404s the old link (revocation). **Deploy: set `SUPABASE_SERVICE_ROLE_KEY` on the
+      Cloudflare Pages project** (the URL reuses the existing `VITE_SUPABASE_URL`).
+- [x] cv link 404s in production — root cause: the function sat at `web/functions/`,
+      but the Pages project's root directory is `/`, and Cloudflare only discovers
+      `functions/` there, so it was never deployed and `/cv/*` fell through to the
+      SPA fallback. Moved to the repo root; `npm run dev:functions` serves it locally.
 - [x] fix the edit in profile button in cv blocks, the icon is on top of text
       — root cause: `Button` ignored `asChild`, so the `<Link>` nested inside a
       `<button>` and never got the button's `inline-flex`. `Button` now renders a

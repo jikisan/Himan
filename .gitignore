@@ -60,3 +60,7 @@ packages/shared/tsconfig.tsbuildinfo
 # Keep package-lock.json committed so EAS uses npm instead of Yarn.
 # package-lock.json
 /mobile/.expo
+
+# Cloudflare Pages Functions (functions/)
+.dev.vars
+.wrangler

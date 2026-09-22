@@ -8,3 +8,4 @@ export type { SelectedBlock } from './ComposePane';
 export { CvComposePane } from './CvComposePane';
 export { LetterPreview } from './LetterPreview';
 export { CvUploadPanel } from './CvUploadPanel';
+export { AtsPanel } from './AtsPanel';

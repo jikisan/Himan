@@ -172,8 +172,8 @@ const ROW_SECTION_HEADING: Record<'experience' | 'education' | 'project' | 'cert
 // same section share one heading (so row-level blocks still print under a
 // single "Experience"/"Education"/etc. heading, matching the default mode).
 // Refs whose row no longer exists are silently skipped.
-function renderWithLayout(data: CvData, layout: RenderCvBlock[]): string {
-  const tokens = profileTokens(data.profile);
+function renderWithLayout(data: CvData, layout: RenderCvBlock[], careerTitle?: string | null): string {
+  const tokens = profileTokens(data.profile, data.experiences, careerTitle);
   const parts: string[] = [];
   let currentHeading: string | null = null;
   let currentRows: string[] = [];
@@ -257,9 +257,9 @@ function renderDefault(data: CvData): string {
 // With no layout, renders every section in the profile's default order. With
 // a layout, renders exactly the given blocks in the given order — the
 // per-item selection that makes two items' CVs actually differ.
-export function renderCvHtml(data: CvData, layout?: RenderCvBlock[] | null): string {
+export function renderCvHtml(data: CvData, layout?: RenderCvBlock[] | null, careerTitle?: string | null): string {
   const title = escapeHtml(data.profile.fullName ? `${data.profile.fullName} — CV` : 'CV');
-  const body = layout ? renderWithLayout(data, layout) : renderDefault(data);
+  const body = layout ? renderWithLayout(data, layout, careerTitle) : renderDefault(data);
 
   return `<!doctype html>
 <html lang="en">

@@ -1,0 +1,11 @@
+# Env for the Cloudflare Pages Function in functions/ (the /cv/<token> short link).
+# Copy to .dev.vars (gitignored), fill in the key, then: cd web && npm run dev:functions
+#
+# Wrangler runs from this repo root, so .dev.vars belongs here — not in web/.
+# In production these come from the Pages project's Variables and Secrets, where
+# the URL already exists as VITE_SUPABASE_URL and only the key had to be added.
+SUPABASE_URL=https://qgnojsiqplkqyduldxvw.supabase.co
+
+# Supabase dashboard -> Settings -> API Keys -> service_role (secret, "Reveal").
+# NOT the anon key. Bypasses RLS — never commit it, never give it a VITE_ prefix.
+SUPABASE_SERVICE_ROLE_KEY=

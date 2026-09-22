@@ -30,6 +30,7 @@ import { CvComposePane } from '../components/CvComposePane';
 import { LetterPreview } from '../components/LetterPreview';
 import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterText';
 import { CvUploadPanel } from '../components/CvUploadPanel';
+import { AtsPanel } from '../components/AtsPanel';
 import { CvPreviewFrame } from '../components/CvPreviewFrame';
 import { generateCvPdfBlob } from '../utils/generateCvPdf';
 import { CareerStorageService } from '../../infrastructure';
@@ -92,7 +93,11 @@ export const ItemEditorPage = () => {
       return [ref];
     });
 
-  const cvLayoutPreviewHtml = cvData ? renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft)) : '';
+  const cvLayoutPreviewHtml = cvData ? renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft), item?.name) : '';
+
+  // Scored against the saved layout — the CV a recruiter actually receives —
+  // not the unsaved draft sitting in the layout dialog.
+  const savedCvHtml = cvData ? renderCvHtml(cvData, resolveCvLayout(item?.cvLayout ?? defaultLayout), item?.name) : '';
   const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
 
   // The main panel shows the actual stored cv.pdf (signed URL), not a fresh
@@ -205,7 +210,7 @@ export const ItemEditorPage = () => {
     setIsGeneratingCv(true);
     try {
       await updateItem(item.id, { cvLayout: cvLayoutDraft });
-      const html = renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft));
+      const html = renderCvHtml(cvData, resolveCvLayout(cvLayoutDraft), item.name);
       const blob = await generateCvPdfBlob(html);
       const bytes = new Uint8Array(await blob.arrayBuffer());
       const path = buildStoragePath(user.id, item.shareToken, 'cv.pdf');
@@ -284,7 +289,7 @@ export const ItemEditorPage = () => {
 
       <ScrollArea className="flex-1">
         <div className="p-4 max-w-5xl mx-auto grid gap-6 lg:grid-cols-2">
-          <div>
+          <div className="space-y-4">
             <CvUploadPanel
               hasCv={!!item.cvFilePath}
               cvPreviewUrl={cvPreviewUrl}
@@ -297,6 +302,7 @@ export const ItemEditorPage = () => {
               onRevokeLink={() => setRevokeOpen(true)}
               isSaving={isGeneratingCv}
             />
+            <AtsPanel cvHtml={savedCvHtml} />
           </div>
 
           <div className="lg:sticky lg:top-4 lg:self-start space-y-4">

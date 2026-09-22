@@ -1,12 +1,18 @@
-// Short CV link: himan.app/cv/<shareToken> -> 302 to a fresh signed URL.
+// Short CV link: /cv/<shareToken> -> 302 to a fresh signed URL.
 // Runs as a Cloudflare Pages Function (takes precedence over the SPA fallback
-// in public/_redirects for this exact path). Uses the service-role key so it
+// in web/public/_redirects for this exact path). Lives at the repo root, not
+// under web/, because the Pages project's root directory is `/` and Cloudflare
+// only discovers `functions/` there. Uses the service-role key so it
 // can look up the item across users; the 122-bit share_token is the secret.
 // Rotating the token deletes the old row's match here -> old link 404s, which
 // is the revocation.
 interface Env {
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
+  // The Pages project already defines VITE_SUPABASE_URL for the client build,
+  // and dashboard vars are handed to Functions at runtime too — so reuse it and
+  // only the service-role secret has to be added. SUPABASE_URL wins if set.
+  SUPABASE_URL?: string;
+  VITE_SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
 const BUCKET = 'career';
@@ -16,11 +22,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ params, env }) => {
   const token = String(params.token ?? '');
   if (!/^[a-f0-9]{32}$/i.test(token)) return new Response('Not found', { status: 404 });
 
-  const base = env.SUPABASE_URL;
-  const headers = {
-    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-  };
+  const base = env.SUPABASE_URL ?? env.VITE_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  // Misconfigured deploy must not surface as a 500 with a stack trace.
+  if (!base || !key) return new Response('Not found', { status: 404 });
+
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
   const lookup = await fetch(
     `${base}/rest/v1/career_items?share_token=eq.${token}&select=cv_file_path&limit=1`,

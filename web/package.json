@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:functions": "npm run build && cd .. && wrangler pages dev web/dist --compatibility-date=2026-09-01",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -12,8 +13,8 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "deploy": "npm run build && wrangler pages deploy dist",
-    "deploy:preview": "npm run build && wrangler pages deploy dist --branch=preview"
+    "deploy": "npm run build && cd .. && wrangler pages deploy web/dist",
+    "deploy:preview": "npm run build && cd .. && wrangler pages deploy web/dist --branch=preview"
   },
   "dependencies": {
     "@himan/shared": "*",

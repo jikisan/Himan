@@ -1,14 +1,22 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLogin } from '@auth/presentation/hooks';
 import { Button } from '@/components/ui';
+import { getCallbackError } from './getCallbackError';
 
 export const LoginPage = () => {
+  const location = useLocation();
+  const [callbackError, setCallbackError] = useState(() => {
+    const callback = location.state?.from ?? location;
+    return getCallbackError(callback.search, callback.hash ?? '');
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { loading, error, loginWithEmail, loginWithGoogle } = useLogin();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCallbackError(null);
     try {
       await loginWithEmail(email, password);
     } catch {
@@ -17,6 +25,7 @@ export const LoginPage = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    setCallbackError(null);
     try {
       await loginWithGoogle();
     } catch {
@@ -30,9 +39,9 @@ export const LoginPage = () => {
         Sign in to your account
       </h2>
 
-      {error && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
-          {error}
+      {(error || callbackError) && (
+        <div role="alert" className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
+          {error || callbackError}
         </div>
       )}
 
@@ -117,7 +126,7 @@ export const LoginPage = () => {
       </Button>
 
       <div className="mt-6 text-center text-sm text-muted-foreground">
-        Don't have an account? Contact your admin to get registered.
+        Don't have an account? Contact your admin for an invitation.
       </div>
     </div>
   );

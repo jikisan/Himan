@@ -57,3 +57,20 @@ describe('resolvePlaceholders', () => {
     expect(missing).toEqual([]);
   });
 });
+
+describe('resolvePlaceholders portfolio_url', () => {
+  it('fills the portfolio link when the item has one', () => {
+    const { text, missing } = resolvePlaceholders('See {{portfolio_url}}', {
+      jobTitle: 'Dev',
+      company: 'Acme',
+      portfolioUrl: 'https://himan.app/p/abc',
+    });
+    expect(text).toBe('See https://himan.app/p/abc');
+    expect(missing).toEqual([]);
+  });
+
+  it('flags the token when the portfolio is off', () => {
+    const { missing } = resolvePlaceholders('See {{portfolio_url}}', { jobTitle: 'Dev', company: 'Acme' });
+    expect(missing).toContain('portfolio_url');
+  });
+});

@@ -74,6 +74,8 @@ export class CareerItemRepository {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.cvFilePath !== undefined && { cv_file_path: dto.cvFilePath }),
           ...(dto.cvLayout !== undefined && { cv_layout: dto.cvLayout }),
+          ...(dto.portfolioEnabled !== undefined && { portfolio_enabled: dto.portfolioEnabled }),
+          ...(dto.portfolioShowEmail !== undefined && { portfolio_show_email: dto.portfolioShowEmail }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -138,6 +140,8 @@ export class CareerItemRepository {
       cvFilePath: (data.cv_file_path as string) ?? null,
       cvLayout: (data.cv_layout as CvBlockRef[]) ?? null,
       shareToken: data.share_token as string,
+      portfolioEnabled: (data.portfolio_enabled as boolean) ?? false,
+      portfolioShowEmail: (data.portfolio_show_email as boolean) ?? false,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
     };

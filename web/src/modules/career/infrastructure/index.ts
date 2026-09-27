@@ -4,5 +4,6 @@ export {
   CareerItemRepository,
   CareerItemBlockRepository,
   CareerRenderRepository,
+  CareerPortfolioRepository,
   CareerStorageService,
 } from '@himan/shared/career';

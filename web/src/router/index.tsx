@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicRoute } from './PublicRoute';
@@ -19,9 +20,23 @@ import { GroceryPage } from '@grocery/presentation/pages';
 import { ItemsPage as CareerItemsPage, ItemEditorPage as CareerItemEditorPage, BlocksPage as CareerBlocksPage } from '@career/presentation/pages';
 import { ProfilePage } from '@profile/presentation/pages';
 
+// Public and lazy: recruiters open this cold, so it must not pull in the
+// app shell, auth guards, or editor code.
+const PortfolioPage = lazy(() => import('@career/presentation/portfolio/PortfolioPage'));
+
 export const Router = () => {
   return (
     <Routes>
+      {/* Public portfolio — outside every guard, reachable logged in or out */}
+      <Route
+        path="/p/:token"
+        element={
+          <Suspense fallback={<div className="min-h-dvh bg-[#031942]" />}>
+            <PortfolioPage />
+          </Suspense>
+        }
+      />
+
       {/* Root Layout - wraps everything */}
       <Route element={<RootLayout />}>
         {/* Public Routes with Auth Layout */}

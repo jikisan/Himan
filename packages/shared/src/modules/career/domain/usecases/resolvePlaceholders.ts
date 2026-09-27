@@ -11,6 +11,7 @@ function valuesFor(ctx: PlaceholderCtx): Record<string, string | undefined> {
     company: ctx.company,
     hiring_manager: ctx.hiringManager?.trim() || 'Hiring Team',
     hook: ctx.hook,
+    portfolio_url: ctx.portfolioUrl,
     years_experience: String(differenceInYears(new Date(), CAREER_START_DATE)),
   };
 }

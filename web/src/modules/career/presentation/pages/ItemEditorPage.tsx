@@ -31,6 +31,7 @@ import { LetterPreview } from '../components/LetterPreview';
 import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterText';
 import { CvUploadPanel } from '../components/CvUploadPanel';
 import { AtsPanel } from '../components/AtsPanel';
+import { PortfolioSharePanel } from '../components/PortfolioSharePanel';
 import { CvPreviewFrame } from '../components/CvPreviewFrame';
 import { generateCvPdfBlob } from '../utils/generateCvPdf';
 import { CareerStorageService } from '../../infrastructure';
@@ -163,7 +164,7 @@ export const ItemEditorPage = () => {
     if (!item) return;
     await rotateShareLink(item.id);
     setRevokeOpen(false);
-    toast.success('Old CV link revoked. Copy a new CV link to hand out the same file.');
+    toast.success('Old CV and portfolio links revoked. Copy new links to hand them out again.');
   };
 
   const handleCopyText = async () => {
@@ -301,6 +302,12 @@ export const ItemEditorPage = () => {
               hasShareLink={!!item.shareToken}
               onRevokeLink={() => setRevokeOpen(true)}
               isSaving={isGeneratingCv}
+            />
+            <PortfolioSharePanel
+              shareToken={item.shareToken}
+              enabled={item.portfolioEnabled}
+              showEmail={item.portfolioShowEmail}
+              onChange={(dto) => updateItem(item.id, dto)}
             />
             <AtsPanel cvHtml={savedCvHtml} />
           </div>
@@ -467,7 +474,7 @@ export const ItemEditorPage = () => {
         open={revokeOpen}
         onOpenChange={setRevokeOpen}
         title="Revoke CV link"
-        description="The current CV share link will stop working immediately. The CV itself is kept — copy a new CV link from this page to share it at a fresh URL."
+        description="The current CV and portfolio links will stop working immediately. The CV itself is kept — copy new links from this page to share them at fresh URLs."
         confirmText="Revoke"
         onConfirm={handleRevoke}
         variant="destructive"

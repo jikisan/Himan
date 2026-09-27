@@ -50,6 +50,12 @@ export interface ProjectType {
   platform: string[];
   startDate: Date | null;
   endDate: Date | null;
+  // Portfolio proof fields — shown only on the public portfolio page.
+  outcome: string | null;
+  proofMetric: string | null;
+  proofLabel: string | null;
+  category: string | null;
+  featured: boolean;
   position: number;
   createdAt: Date;
   updatedAt: Date;
@@ -168,6 +174,11 @@ export interface CreateProjectDto {
   platform?: string[];
   startDate?: Date | null;
   endDate?: Date | null;
+  outcome?: string | null;
+  proofMetric?: string | null;
+  proofLabel?: string | null;
+  category?: string | null;
+  featured?: boolean;
   position?: number;
 }
 
@@ -179,6 +190,11 @@ export interface UpdateProjectDto {
   platform?: string[];
   startDate?: Date | null;
   endDate?: Date | null;
+  outcome?: string | null;
+  proofMetric?: string | null;
+  proofLabel?: string | null;
+  category?: string | null;
+  featured?: boolean;
 }
 
 export interface CreateCertificateDto {

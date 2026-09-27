@@ -118,7 +118,7 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
               id="body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Use {{job_title}}, {{company}}, {{hiring_manager}}, {{hook}}"
+              placeholder="Use {{job_title}}, {{company}}, {{hiring_manager}}, {{hook}}, {{portfolio_url}}"
               rows={6}
             />
           </div>

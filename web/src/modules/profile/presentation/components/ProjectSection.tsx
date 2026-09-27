@@ -13,6 +13,11 @@ const toDto = (values: ProjectFormValues) => ({
   platform: values.platform.map((p) => p.trim()).filter(Boolean),
   startDate: values.startDate ? new Date(values.startDate) : null,
   endDate: values.endDate ? new Date(values.endDate) : null,
+  outcome: values.outcome.trim() || null,
+  proofMetric: values.proofMetric.trim() || null,
+  proofLabel: values.proofLabel.trim() || null,
+  category: values.category.trim() || null,
+  featured: values.featured,
 });
 
 export const ProjectSection = () => {

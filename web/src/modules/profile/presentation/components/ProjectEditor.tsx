@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Button, DatePicker, Input, Label, Textarea } from '@/components/ui';
+import { Button, DatePicker, Input, Label, Switch, Textarea } from '@/components/ui';
 import type { ProjectType } from '@himan/shared/profile';
 
 export interface ProjectFormValues {
@@ -11,6 +11,11 @@ export interface ProjectFormValues {
   platform: string[];
   startDate: string;
   endDate: string;
+  outcome: string;
+  proofMetric: string;
+  proofLabel: string;
+  category: string;
+  featured: boolean;
 }
 
 const toFormValues = (project?: ProjectType): ProjectFormValues => ({
@@ -21,6 +26,11 @@ const toFormValues = (project?: ProjectType): ProjectFormValues => ({
   platform: project?.platform ?? [],
   startDate: project?.startDate ? project.startDate.toISOString().slice(0, 10) : '',
   endDate: project?.endDate ? project.endDate.toISOString().slice(0, 10) : '',
+  outcome: project?.outcome ?? '',
+  proofMetric: project?.proofMetric ?? '',
+  proofLabel: project?.proofLabel ?? '',
+  category: project?.category ?? '',
+  featured: project?.featured ?? false,
 });
 
 interface ProjectEditorProps {
@@ -82,6 +92,37 @@ export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEd
           <DatePicker value={values.endDate} onChange={(v) => set('endDate', v)} />
         </div>
       </div>
+
+      <fieldset className="space-y-4 rounded-md border border-dashed border-border p-4">
+        <legend className="px-1 text-xs font-medium text-muted-foreground">Portfolio proof (public portfolio only)</legend>
+        <div className="space-y-2">
+          <Label htmlFor="proj-outcome">Outcome</Label>
+          <Input
+            id="proj-outcome"
+            value={values.outcome}
+            onChange={(e) => set('outcome', e.target.value)}
+            placeholder="Built to cut booking back-and-forth for club members."
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="proj-metric">Proof metric</Label>
+            <Input id="proj-metric" value={values.proofMetric} onChange={(e) => set('proofMetric', e.target.value)} placeholder="#1, 40%, 10k+" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="proj-metric-label">Metric label</Label>
+            <Input id="proj-metric-label" value={values.proofLabel} onChange={(e) => set('proofLabel', e.target.value)} placeholder="Play Store · Lifestyle" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="proj-category">Category</Label>
+            <Input id="proj-category" value={values.category} onChange={(e) => set('category', e.target.value)} placeholder="Mobile App / Membership" />
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="proj-featured">Feature as the headline proof</Label>
+          <Switch id="proj-featured" checked={values.featured} onCheckedChange={(v) => set('featured', v)} />
+        </div>
+      </fieldset>
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>

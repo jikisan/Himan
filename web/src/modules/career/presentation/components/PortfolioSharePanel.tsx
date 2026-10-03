@@ -15,6 +15,8 @@ interface PortfolioSharePanelProps {
   handle: string | null;
   enabled: boolean;
   showEmail: boolean;
+  showCv: boolean;
+  hasCv: boolean;
   portraitPath: string | null;
   onChange: (dto: UpdateCareerItemDto) => Promise<unknown>;
 }
@@ -82,12 +84,19 @@ const PortfolioLinkForm = ({ slug, handle, onChange }: Pick<PortfolioSharePanelP
 };
 
 // The portfolio follows the projects, experience and skills in this CV layout.
-export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEmail, portraitPath, onChange }: PortfolioSharePanelProps) => {
+export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEmail, showCv, hasCv, portraitPath, onChange }: PortfolioSharePanelProps) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [savingPhoto, setSavingPhoto] = useState(false);
   const url = `${window.location.origin}${portfolioPath({ shareToken, portfolioSlug: slug }, handle)}`;
   const portraitUrl = portraitPath ? ProjectMediaService.publicUrl(portraitPath) : null;
+  // Stored on the profile, so one photo serves every career's portfolio.
+  const savePortrait = async (path: string | null) => {
+    await profiles.upsert({ userId: user!.id, portfolioPortraitPath: path });
+    await queryClient.invalidateQueries({ queryKey: profileKeys.all });
+  };
+
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -100,7 +109,7 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
     let uploaded: string | undefined;
     try {
       uploaded = await media.upload(user.id, new Uint8Array(await file.arrayBuffer()), file.type);
-      await onChange({ portfolioPortraitPath: uploaded });
+      await savePortrait(uploaded);
       if (portraitPath) await media.remove([portraitPath]);
       toast.success('Portfolio photo saved');
     } catch {
@@ -115,7 +124,7 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
     if (!portraitPath || savingPhoto) return;
     setSavingPhoto(true);
     try {
-      await onChange({ portfolioPortraitPath: null });
+      await savePortrait(null);
       await media.remove([portraitPath]);
       toast.success('Portfolio photo removed');
     } catch {
@@ -161,7 +170,7 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
           )}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">Hero photo</p>
-            <p className="text-xs text-muted-foreground">{savingPhoto ? 'Saving…' : 'PNG, JPEG or WebP, up to 5 MB'}</p>
+            <p className="text-xs text-muted-foreground">{savingPhoto ? 'Saving…' : 'Shown on all your portfolios'}</p>
           </div>
           <input ref={input} type="file" accept={ProjectMediaService.acceptedTypes.join(',')} aria-label="Upload hero photo" className="sr-only" tabIndex={-1} disabled={savingPhoto || !user} onChange={handleUpload} />
           <Button variant="outline" className="h-9 px-3" disabled={savingPhoto || !user} onClick={() => input.current?.click()}>
@@ -174,9 +183,16 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
         <div className="flex items-center justify-between gap-4">
           <div>
             <Label htmlFor="portfolio-email" className="cursor-pointer">Show my email</Label>
-            <p className="mt-1 text-xs text-muted-foreground">Your phone number always stays private.</p>
+            <p className="mt-1 text-xs text-muted-foreground">The page never shows your phone number.</p>
           </div>
           <Switch id="portfolio-email" checked={showEmail} onCheckedChange={(checked) => onChange({ portfolioShowEmail: checked })} />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="portfolio-cv" className="cursor-pointer">Offer CV download</Label>
+            <p className="mt-1 text-xs text-muted-foreground">{hasCv ? 'The PDF includes your phone number.' : 'Build a CV in the CV tab first.'}</p>
+          </div>
+          <Switch id="portfolio-cv" checked={hasCv && showCv} disabled={!hasCv} onCheckedChange={(checked) => onChange({ portfolioShowCv: checked })} />
         </div>
       </div>
 

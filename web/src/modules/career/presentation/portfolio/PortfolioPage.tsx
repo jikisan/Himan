@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
-import { deviceOf, pickHeroProject, sanitizePortfolio, type PortfolioData } from '@himan/shared/career';
+import { Download } from 'lucide-react';
+import { cvFileName, deviceOf, pickHeroProject, sanitizePortfolio, type PortfolioData } from '@himan/shared/career';
 import { ProjectMediaService } from '@himan/shared/profile';
-import { CareerPortfolioRepository } from '../../infrastructure';
+import { CareerPortfolioRepository, CareerStorageService } from '../../infrastructure';
 import { PortfolioSplash } from './PortfolioSplash';
 import { PortfolioHero } from './PortfolioHero';
 import { PortfolioBackToTop, PortfolioNavigation, type PortfolioSection } from './PortfolioNavigation';
@@ -15,6 +16,37 @@ import { ExperienceList, SkillsGrid, ContactFooter } from './CareerSections';
 import './portfolio.css';
 
 const repo = new CareerPortfolioRepository();
+
+// Signed on click, short-lived: the storage policy only allows it while the
+// owner offers the CV, so a copied link can't outlive turning it off by much.
+const CV_LINK_SECONDS = 60;
+
+const DownloadCv = ({ data }: { data: PortfolioData & { cvPath: string } }) => {
+  const [failed, setFailed] = useState(false);
+  const download = async () => {
+    try {
+      setFailed(false);
+      window.location.href = await new CareerStorageService().createShareUrl(
+        data.cvPath,
+        cvFileName(data.profile.fullName, data.itemName),
+        CV_LINK_SECONDS,
+      );
+    } catch {
+      setFailed(true);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={download}
+      className="pf-label inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-[var(--pf-sky)] px-5 text-[var(--pf-ink)] transition-colors hover:bg-white lg:order-last"
+    >
+      <Download className="size-4" aria-hidden />
+      <span role="status">{failed ? 'Try again' : 'Download CV'}</span>
+    </button>
+  );
+};
 
 // Once per tab per link, and never under reduced motion — a recruiter
 // re-opening the tab should land straight on the work.
@@ -175,7 +207,10 @@ const PortfolioPage = () => {
 
         <header className="sticky top-0 z-40 border-b border-[var(--pf-line)] bg-[var(--pf-ink)]/90 backdrop-blur-md">
           <div className="mx-auto flex min-h-14 max-w-6xl flex-col justify-center gap-1 px-4 py-3 sm:min-h-[4.5rem] sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-0">
-            <span className="pf-label min-w-0 truncate text-white lg:max-w-56 lg:shrink-0">{data.profile.fullName}</span>
+            <div className="flex min-w-0 items-center justify-between gap-3 lg:contents">
+              <span className="pf-label min-w-0 truncate text-white lg:max-w-56 lg:shrink-0">{data.profile.fullName}</span>
+              {data.cvPath && <DownloadCv data={{ ...data, cvPath: data.cvPath }} />}
+            </div>
             <PortfolioNavigation sections={sections} />
           </div>
         </header>

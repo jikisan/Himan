@@ -31,13 +31,13 @@ export class CareerStorageService {
 
   // Omit downloadFilename to render inline (the letter); pass it to force
   // a save-as name (the CV).
-  async createShareUrl(path: string, downloadFilename?: string): Promise<string> {
+  async createShareUrl(path: string, downloadFilename?: string, expiresIn = SHARE_URL_EXPIRY_SECONDS): Promise<string> {
     try {
       const { data, error } = await getSupabase()
         .storage.from(BUCKET)
         .createSignedUrl(
           path,
-          SHARE_URL_EXPIRY_SECONDS,
+          expiresIn,
           downloadFilename ? { download: downloadFilename } : undefined
         );
 

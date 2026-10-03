@@ -26,7 +26,7 @@ const render = (ui: ReactElement) =>
 
 type PanelProps = ComponentProps<typeof PortfolioSharePanel>;
 const Panel = (props: Partial<PanelProps> & Pick<PanelProps, 'onChange'>) => (
-  <PortfolioSharePanel shareToken="token" slug="android-developer" handle="junekyle" enabled showEmail={false} portraitPath={null} {...props} />
+  <PortfolioSharePanel shareToken="token" slug="android-developer" handle="junekyle" enabled showEmail={false} showCv hasCv portraitPath={null} {...props} />
 );
 
 beforeEach(() => {
@@ -42,19 +42,19 @@ function uploadPhoto() {
 
 describe('portfolio photo settings', () => {
   it('saves the uploaded path before deleting the old portrait', async () => {
-    const save = vi.fn().mockImplementation(async () => {
+    profiles.upsert.mockImplementation(async () => {
       expect(media.remove).not.toHaveBeenCalled();
     });
-    render(<Panel portraitPath="owner/old.png" onChange={save} />);
+    render(<Panel portraitPath="owner/old.png" onChange={vi.fn()} />);
     uploadPhoto();
     await waitFor(() => expect(media.remove).toHaveBeenCalledWith(['owner/old.png']));
-    expect(save).toHaveBeenCalledWith({ portfolioPortraitPath: 'owner/new.png' });
+    expect(profiles.upsert).toHaveBeenCalledWith({ userId: 'owner', portfolioPortraitPath: 'owner/new.png' });
     expect(media.upload).toHaveBeenCalledWith('owner', expect.any(Uint8Array), 'image/png');
   });
 
   it('keeps the old portrait when saving fails and removes the new orphan', async () => {
-    const save = vi.fn().mockRejectedValue(new Error('save failed'));
-    render(<Panel portraitPath="owner/old.png" onChange={save} />);
+    profiles.upsert.mockRejectedValue(new Error('save failed'));
+    render(<Panel portraitPath="owner/old.png" onChange={vi.fn()} />);
     uploadPhoto();
     await waitFor(() => expect(media.remove).toHaveBeenCalledWith(['owner/new.png']));
     expect(media.remove).not.toHaveBeenCalledWith(['owner/old.png']);
@@ -70,11 +70,11 @@ describe('portfolio photo settings', () => {
   });
 
   it('removes the photo only after saving succeeds', async () => {
-    const save = vi.fn().mockResolvedValue(undefined);
-    render(<Panel portraitPath="owner/old.png" onChange={save} />);
+    profiles.upsert.mockResolvedValue(undefined);
+    render(<Panel portraitPath="owner/old.png" onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
     await waitFor(() => expect(media.remove).toHaveBeenCalledWith(['owner/old.png']));
-    expect(save).toHaveBeenCalledWith({ portfolioPortraitPath: null });
+    expect(profiles.upsert).toHaveBeenCalledWith({ userId: 'owner', portfolioPortraitPath: null });
   });
 });
 
@@ -115,5 +115,16 @@ describe('portfolio link settings', () => {
     editLink('jk', 'android-developer');
     expect(profiles.upsert).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it('toggles the CV download, and only once a CV exists', () => {
+    const save = vi.fn();
+    const { unmount } = render(<Panel onChange={save} />);
+    fireEvent.click(screen.getByRole('switch', { name: 'Offer CV download' }));
+    expect(save).toHaveBeenCalledWith({ portfolioShowCv: false });
+    unmount();
+
+    render(<Panel onChange={save} hasCv={false} />);
+    expect(screen.getByRole('switch', { name: 'Offer CV download' })).toBeDisabled();
   });
 });

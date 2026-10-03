@@ -13,6 +13,7 @@ import {
   sanitizePortfolio,
   deviceOf,
   scrollStep,
+  cvFileName,
   type PortfolioData,
   type PortfolioProject,
 } from '@himan/shared/career';
@@ -22,6 +23,8 @@ const project = (over: Partial<PortfolioProject>): PortfolioProject => ({
   name: 'P',
   description: null,
   url: null,
+  androidUrl: null,
+  iosUrl: null,
   tech: [],
   platform: [],
   startDate: null,
@@ -124,6 +127,7 @@ describe('sanitizePortfolio', () => {
     itemName: 'Role',
     summary: null,
     portraitPath: null,
+    cvPath: null,
     profile: {
       fullName: 'A B',
       headline: null,
@@ -133,7 +137,10 @@ describe('sanitizePortfolio', () => {
       links: { github: 'https://github.com/jikisan', evil: 'javascript:alert(2)' },
       email: null,
     },
-    projects: [project({ id: 'ok', url: 'https://ok.dev' }), project({ id: 'bad', url: 'javascript:alert(3)' })],
+    projects: [
+      project({ id: 'ok', url: 'https://ok.dev', androidUrl: 'https://play.google.com/store/apps/details?id=a' }),
+      project({ id: 'bad', url: 'javascript:alert(3)', iosUrl: 'javascript:alert(4)' }),
+    ],
     experiences: [],
     skills: [],
   };
@@ -143,6 +150,8 @@ describe('sanitizePortfolio', () => {
     expect(clean.profile.website).toBeNull();
     expect(clean.profile.links).toEqual({ github: 'https://github.com/jikisan' });
     expect(clean.projects.map((p) => p.url)).toEqual(['https://ok.dev/', null]);
+    expect(clean.projects.map((p) => p.androidUrl)).toEqual(['https://play.google.com/store/apps/details?id=a', null]);
+    expect(clean.projects.map((p) => p.iosUrl)).toEqual([null, null]);
   });
 
   it('leaves the input untouched', () => {
@@ -196,5 +205,12 @@ describe('portfolioPath', () => {
 
   it('falls back to the token link without a handle', () => {
     expect(portfolioPath({ shareToken: 't0k', portfolioSlug: 'android-developer' }, null)).toBe('/p/t0k');
+  });
+});
+
+describe('cvFileName', () => {
+  it('names the PDF after the person and the career', () => {
+    expect(cvFileName('June Kyle Santerna', 'Android Developer')).toBe('June_Kyle_Santerna_CV_Android_Developer.pdf');
+    expect(cvFileName(null, 'iOS / Swift')).toBe('CV_iOS_Swift.pdf');
   });
 });

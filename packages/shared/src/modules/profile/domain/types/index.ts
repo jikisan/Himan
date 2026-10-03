@@ -11,6 +11,8 @@ export interface ProfileType {
   links: Record<string, string>;
   // Public portfolio URL prefix: /p/{handle}/{slug}.
   handle: string | null;
+  // Hero photo in the portfolio-media bucket, shared by every portfolio.
+  portfolioPortraitPath: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +50,8 @@ export interface ProjectType {
   name: string;
   description: string | null;
   url: string | null;
+  androidUrl: string | null;
+  iosUrl: string | null;
   tech: string[];
   platform: string[];
   startDate: Date | null;
@@ -106,6 +110,7 @@ export interface ProfileUpsertDto {
   website?: string | null;
   links?: Record<string, string>;
   handle?: string | null;
+  portfolioPortraitPath?: string | null;
 }
 
 export interface CreateExperienceDto {
@@ -175,6 +180,8 @@ export interface CreateProjectDto {
   name: string;
   description?: string | null;
   url?: string | null;
+  androidUrl?: string | null;
+  iosUrl?: string | null;
   tech?: string[];
   platform?: string[];
   startDate?: Date | null;
@@ -192,6 +199,8 @@ export interface UpdateProjectDto {
   name?: string;
   description?: string | null;
   url?: string | null;
+  androidUrl?: string | null;
+  iosUrl?: string | null;
   tech?: string[];
   platform?: string[];
   startDate?: Date | null;

@@ -89,7 +89,7 @@ export function sanitizePortfolio(data: PortfolioData): PortfolioData {
         }),
       ),
     },
-    projects: data.projects.map((p) => ({ ...p, url: safeUrl(p.url) })),
+    projects: data.projects.map((p) => ({ ...p, url: safeUrl(p.url), androidUrl: safeUrl(p.androidUrl), iosUrl: safeUrl(p.iosUrl) })),
   };
 }
 
@@ -107,6 +107,12 @@ export const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 // Readable /p/{handle}/{slug} once both exist, else the token link.
 export function portfolioPath(item: { shareToken: string; portfolioSlug: string | null }, handle: string | null): string {
   return handle && item.portfolioSlug ? `/p/${handle}/${item.portfolioSlug}` : `/p/${item.shareToken}`;
+}
+
+// {fullName}_CV_{item}.pdf, e.g. June_Kyle_Santerna_CV_Android.pdf.
+export function cvFileName(fullName: string | null | undefined, itemName: string | null | undefined): string {
+  const part = (s: string) => s.trim().replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+  return `${[part(fullName ?? ''), 'CV', part(itemName ?? '')].filter(Boolean).join('_')}.pdf`;
 }
 
 export function deviceOf(project: Pick<PortfolioProject, 'platform'>): 'phone' | 'browser' {

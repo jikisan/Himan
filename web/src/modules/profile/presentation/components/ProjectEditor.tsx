@@ -8,8 +8,11 @@ export interface ProjectFormValues {
   name: string;
   description: string;
   url: string;
-  tech: string[];
-  platform: string[];
+  androidUrl: string;
+  iosUrl: string;
+  // Raw comma-separated text; split on save so typing isn't reformatted.
+  tech: string;
+  platform: string;
   startDate: string;
   endDate: string;
   outcome: string;
@@ -24,8 +27,10 @@ const toFormValues = (project?: ProjectType): ProjectFormValues => ({
   name: project?.name ?? '',
   description: project?.description ?? '',
   url: project?.url ?? '',
-  tech: project?.tech ?? [],
-  platform: project?.platform ?? [],
+  androidUrl: project?.androidUrl ?? '',
+  iosUrl: project?.iosUrl ?? '',
+  tech: project?.tech.join(', ') ?? '',
+  platform: project?.platform.join(', ') ?? '',
   startDate: project?.startDate ? project.startDate.toISOString().slice(0, 10) : '',
   endDate: project?.endDate ? project.endDate.toISOString().slice(0, 10) : '',
   outcome: project?.outcome ?? '',
@@ -61,27 +66,36 @@ export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEd
         <Textarea id="proj-description" value={values.description} onChange={(e) => set('description', e.target.value)} rows={3} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor="proj-url">URL</Label>
-          <Input id="proj-url" value={values.url} onChange={(e) => set('url', e.target.value)} placeholder="https://" />
+          <Input id="proj-url" type="url" value={values.url} onChange={(e) => set('url', e.target.value)} placeholder="https://" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="proj-tech">Tech (comma-separated)</Label>
-          <Input
-            id="proj-tech"
-            value={values.tech.join(', ')}
-            onChange={(e) => set('tech', e.target.value.split(','))}
-          />
+          <Label htmlFor="proj-android">Android</Label>
+          <Input id="proj-android" type="url" value={values.androidUrl} onChange={(e) => set('androidUrl', e.target.value)} placeholder="https://play.google.com/…" />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="proj-ios">iOS</Label>
+          <Input id="proj-ios" type="url" value={values.iosUrl} onChange={(e) => set('iosUrl', e.target.value)} placeholder="https://apps.apple.com/…" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="proj-tech">Tech (comma-separated)</Label>
+        <Input
+          id="proj-tech"
+          value={values.tech}
+          onChange={(e) => set('tech', e.target.value)}
+        />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="proj-platform">Platform (comma-separated, e.g. Android, iOS, Web)</Label>
         <Input
           id="proj-platform"
-          value={values.platform.join(', ')}
-          onChange={(e) => set('platform', e.target.value.split(','))}
+          value={values.platform}
+          onChange={(e) => set('platform', e.target.value)}
         />
       </div>
 

@@ -4,6 +4,7 @@ import { ArrowUpRight, Trophy } from 'lucide-react';
 import { deviceOf, parseMetric, type PortfolioProject } from '@himan/shared/career';
 import { SectionHeading } from './SectionHeading';
 import { DeviceFrame } from './DeviceFrame';
+import { StoreLinks } from './StoreLinks';
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const MAX_SHOTS = 4;
@@ -55,6 +56,7 @@ const ProofStory = ({ project }: { project: PortfolioProject }) => {
       {project.description && <p className="max-w-[55ch] text-lg text-[var(--pf-muted)]">{project.description}</p>}
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--pf-line)] pt-6">
         <p className="pf-label text-white/80">{attribution}</p>
+        <StoreLinks project={project} />
         {project.url && (
           <a
             href={project.url}

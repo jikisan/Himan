@@ -21,6 +21,7 @@ const baseProfile: ProfileType = {
   website: 'https://jane.dev',
   links: {},
   handle: null,
+  portfolioPortraitPath: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };
@@ -139,6 +140,8 @@ describe('renderCvHtml', () => {
           name: 'Side Project',
           description: 'A thing.',
           url: 'https://example.com',
+          androidUrl: null,
+          iosUrl: null,
           tech: ['TypeScript'],
           platform: [],
           outcome: null,

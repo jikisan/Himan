@@ -20,6 +20,7 @@ const baseProfile: ProfileType = {
   phone: '+63 900 000 0000',
   website: 'https://jane.dev',
   links: {},
+  handle: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };

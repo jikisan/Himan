@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, BriefcaseBusiness, Check, ChevronDown, ChevronRight, Copy, FileText, Mail, Pencil, Printer, ScanText, UserRound } from 'lucide-react';
+import { ArrowLeft, Blocks, BriefcaseBusiness, Check, ChevronDown, ChevronRight, Copy, FileText, Globe, Mail, MoreHorizontal, Pencil, Printer, ScanText, ShieldOff, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Button,
@@ -9,6 +9,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Input,
   Label,
   ScrollArea,
@@ -33,10 +38,11 @@ import { renderHighlightedLetterText } from '../utils/renderHighlightedLetterTex
 import { CvUploadPanel } from '../components/CvUploadPanel';
 import { AtsPanel } from '../components/AtsPanel';
 import { PortfolioSharePanel } from '../components/PortfolioSharePanel';
+import { PortfolioPreview } from '../components/PortfolioPreview';
 import { CvPreviewFrame } from '../components/CvPreviewFrame';
 import { generateCvPdfBlob } from '../utils/generateCvPdf';
 import { CareerStorageService } from '../../infrastructure';
-import { buildStoragePath, type CareerLength, type ComposableBlock, type CvBlockRef } from '@himan/shared/career';
+import { buildStoragePath, portfolioPath, type CareerLength, type ComposableBlock, type CvBlockRef } from '@himan/shared/career';
 import { renderCvHtml, type RenderCvBlock } from '@himan/shared/profile';
 import { Logger } from '@core/infrastructure/services';
 
@@ -129,7 +135,7 @@ export const ItemEditorPage = () => {
     return { blockId: s.blockId, position: index, length: s.length, body: block?.body ?? '' };
   });
 
-  const generate = useGenerateLetter(item, previewBlocks);
+  const generate = useGenerateLetter(item, previewBlocks, cvData?.profile.handle ?? null);
 
   const missingFields = [
     !generate.jobTitle.trim() && 'job title',
@@ -265,173 +271,194 @@ export const ItemEditorPage = () => {
 
   if (!item) return null;
 
+  const tabs = [
+    { value: 'cv', label: 'CV', Icon: FileText, live: !!item.cvFilePath },
+    { value: 'letter', label: 'Cover letter', Icon: Mail, live: false },
+    { value: 'portfolio', label: 'Portfolio', Icon: Globe, live: item.portfolioEnabled },
+    { value: 'ats', label: 'ATS check', Icon: ScanText, live: false },
+  ];
+  const portfolioUrl = portfolioPath(item, cvData?.profile.handle ?? null);
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background [&_button]:hover:scale-100">
-      <header className="shrink-0 border-b border-border bg-card px-4 py-4 sm:px-8">
-        <div className="mx-auto flex max-w-7xl items-center gap-4">
-          <Link to="/career" aria-label="Back to career" className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Tabs value={activeDocument} onValueChange={setActiveDocument} className="flex h-full min-h-0 flex-col gap-0 bg-background [&_button]:hover:scale-100">
+      <header className="shrink-0 border-b border-border bg-card px-4 pt-4 sm:px-8">
+        <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <Link to="/career" aria-label="Back to career" className="-ml-2.5 flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <ArrowLeft className="size-4" />
           </Link>
-          <div className="min-w-0 flex-1">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">Career / Application workspace</p>
+          <div className="group relative min-w-0 flex-1">
             <h1 className="sr-only">{item.name}</h1>
-              <Input
-                aria-label="Career name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={handleSaveName}
-                className="h-9 max-w-lg rounded-md border-transparent bg-transparent px-0 text-xl! font-semibold tracking-tight shadow-none hover:border-input hover:px-2 focus-visible:px-2"
-              />
+            <Input
+              aria-label="Career name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={handleSaveName}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              className="h-10 w-full max-w-lg truncate rounded-md border-transparent bg-transparent px-2 text-xl! font-semibold tracking-tight shadow-none hover:border-input focus-visible:border-input"
+            />
           </div>
-          <Link to="/career/blocks" className="hidden min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex">
-            <Pencil className="size-4" /> Block library
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-10 shrink-0" aria-label="More options"><MoreHorizontal className="size-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild className="min-h-10 gap-2"><Link to="/career/blocks"><Blocks className="size-4" /> Letter block library</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild className="min-h-10 gap-2"><Link to="/profile"><UserRound className="size-4" /> Edit profile</Link></DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setRevokeOpen(true)} disabled={!item.shareToken} className="min-h-10 gap-2"><ShieldOff className="size-4" /> Revoke share links</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+        <TabsList aria-label="Application documents" className="mx-auto mt-3 flex h-auto w-full max-w-6xl justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 [scrollbar-width:none]">
+          {tabs.map(({ value, label, Icon, live }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="relative h-11 flex-none gap-2 rounded-none border-0 bg-transparent px-2.5 sm:px-3 text-muted-foreground shadow-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:bg-primary"
+            >
+              <Icon className="hidden size-4 sm:block" />
+              {label}
+              {live && <span className="size-1.5 rounded-full bg-emerald-500" aria-label="Live" />}
+            </TabsTrigger>
+          ))}
+        </TabsList>
       </header>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
-          <Tabs value={activeDocument} onValueChange={setActiveDocument} orientation="vertical" className="grid items-start gap-6 lg:grid-cols-[11rem_19rem_minmax(0,1fr)]">
-              <TabsList aria-label="Application documents" className="order-first flex w-full flex-col items-stretch gap-1 rounded-xl border border-border bg-card p-2 shadow-sm">
-                {[
-                  { value: 'cv', label: 'CV', Icon: FileText },
-                  { value: 'letter', label: 'Cover letter', Icon: Mail },
-                  { value: 'ats', label: 'ATS check', Icon: ScanText },
-                ].map(({ value, label, Icon }) => (
-                  <TabsTrigger key={value} value={value} className="group min-h-11 justify-start gap-3 rounded-lg px-3 text-muted-foreground hover:bg-accent hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none">
-                    <Icon className="size-4 shrink-0" />
-                    <span className="flex-1 text-left">{label}</span>
-                    <ChevronRight aria-hidden="true" className="size-4 opacity-0 group-data-[state=active]:opacity-100" />
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-            <aside aria-label="Application settings" className="contents lg:block lg:min-w-0 lg:space-y-5">
-              {activeDocument === 'letter' && <section className="order-first lg:order-none overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <BriefcaseBusiness className="size-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold">Letter details</h3>
-                    <p className="text-xs text-muted-foreground">Personalize your cover letter</p>
-                  </div>
-                </div>
-                <div className="space-y-4 p-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="jobTitle">Job title <span className="text-muted-foreground">*</span></Label>
-                    <Input id="jobTitle" required value={generate.jobTitle} onChange={(e) => generate.setJobTitle(e.target.value)} placeholder="Senior Software Engineer" className="h-11 bg-background/50" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company <span className="text-muted-foreground">*</span></Label>
-                    <Input id="company" required value={generate.company} onChange={(e) => generate.setCompany(e.target.value)} placeholder="Acme Corp" className="h-11 bg-background/50" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedOpen(!advancedOpen)}
-                    aria-expanded={advancedOpen}
-                    aria-controls="letter-options"
-                    className="flex min-h-11 w-full items-center justify-between rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Recipient, length &amp; hook
-                    {advancedOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                  </button>
-                  {advancedOpen && (
-                    <div id="letter-options" className="space-y-4 border-t border-border pt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="hiringManager">Recipient (optional)</Label>
-                        <Input id="hiringManager" value={generate.hiringManager} onChange={(e) => generate.setHiringManager(e.target.value)} placeholder="Hiring Team" className="h-11" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="length">Letter length</Label>
-                        <Select value={generate.length} onValueChange={(v) => generate.setLength(v as CareerLength)}>
-                          <SelectTrigger id="length" className="h-11"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="short">Short</SelectItem>
-                            <SelectItem value="long">Long</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="hook">Opening hook (optional)</Label>
-                        <Input id="hook" value={generate.hook} onChange={(e) => generate.setHook(e.target.value)} placeholder="Why this opportunity?" className="h-11" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="border-t border-border bg-background/50 px-5 py-3 text-xs text-muted-foreground">
-                  These details update your letter preview only.
-                </div>
-              </section>}
-
-              <PortfolioSharePanel
-                shareToken={item.shareToken}
-                enabled={item.portfolioEnabled}
-                showEmail={item.portfolioShowEmail}
-                portraitPath={item.portfolioPortraitPath}
-                onChange={(dto) => updateItem(item.id, dto)}
+        <div className="px-4 py-6 sm:px-8 sm:py-8">
+        <div className="mx-auto max-w-6xl">
+          <TabsContent value="cv" className="mt-0">
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <CvUploadPanel
+                hasCv={!!item.cvFilePath}
+                cvPreviewUrl={cvPreviewUrl}
+                hasProfileContent={hasProfileContent}
+                onRemove={handleRemoveCv}
+                onCopyLink={handleCopyCvLink}
+                onDownload={handleDownloadCv}
+                onEditLayout={handleOpenCvLayout}
+                hasShareLink={!!item.shareToken}
+                onRevokeLink={() => setRevokeOpen(true)}
+                isSaving={isGeneratingCv}
               />
+            </div>
+          </TabsContent>
 
-              <Link to="/profile" className="order-last flex min-h-11 items-center gap-3 rounded-lg px-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <UserRound className="size-4 shrink-0" />
-                <span>CV &amp; portfolio content comes from your profile.<span className="mt-1 block font-medium text-primary">Manage profile <span aria-hidden>↗</span></span></span>
-              </Link>
-            </aside>
+          <TabsContent value="letter" className="mt-0">
+            <div className="grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
+            <section aria-label="Letter details" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <BriefcaseBusiness className="size-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold">Letter details</h2>
+                  <p className="text-xs text-muted-foreground">Personalize your cover letter</p>
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <div className="space-y-2">
+                  <Label htmlFor="jobTitle">Job title <span className="text-muted-foreground">*</span></Label>
+                  <Input id="jobTitle" required value={generate.jobTitle} onChange={(e) => generate.setJobTitle(e.target.value)} placeholder="Senior Software Engineer" className="h-11 bg-background/50" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company">Company <span className="text-muted-foreground">*</span></Label>
+                  <Input id="company" required value={generate.company} onChange={(e) => generate.setCompany(e.target.value)} placeholder="Acme Corp" className="h-11 bg-background/50" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen(!advancedOpen)}
+                  aria-expanded={advancedOpen}
+                  aria-controls="letter-options"
+                  className="flex min-h-11 w-full items-center justify-between rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Recipient, length &amp; hook
+                  {advancedOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                </button>
+                {advancedOpen && (
+                  <div id="letter-options" className="space-y-4 border-t border-border pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="hiringManager">Recipient (optional)</Label>
+                      <Input id="hiringManager" value={generate.hiringManager} onChange={(e) => generate.setHiringManager(e.target.value)} placeholder="Hiring Team" className="h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="length">Letter length</Label>
+                      <Select value={generate.length} onValueChange={(v) => generate.setLength(v as CareerLength)}>
+                        <SelectTrigger id="length" className="h-11"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="short">Short</SelectItem>
+                          <SelectItem value="long">Long</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hook">Opening hook (optional)</Label>
+                      <Input id="hook" value={generate.hook} onChange={(e) => generate.setHook(e.target.value)} placeholder="Why this opportunity?" className="h-11" />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-border bg-background/50 px-5 py-3 text-xs text-muted-foreground">
+                These details update your letter preview only.
+              </div>
+            </section>
 
-            <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <TabsContent value="cv" className="mt-0">
-                <CvUploadPanel
-                  hasCv={!!item.cvFilePath}
-                  cvPreviewUrl={cvPreviewUrl}
-                  hasProfileContent={hasProfileContent}
-                  onRemove={handleRemoveCv}
-                  onCopyLink={handleCopyCvLink}
-                  onDownload={handleDownloadCv}
-                  onEditLayout={handleOpenCvLayout}
-                  hasShareLink={!!item.shareToken}
-                  onRevokeLink={() => setRevokeOpen(true)}
-                  isSaving={isGeneratingCv}
-                />
-              </TabsContent>
-
-              <TabsContent value="letter" className="mt-0">
+              <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:px-6">
-                  <div>
-                    <h3 className="text-sm font-semibold">Cover letter</h3>
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-semibold">Cover letter</h2>
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
                       {generate.canGenerate && <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />}
-                      {generate.canGenerate ? 'Ready to copy or export' : generateDisabledReason}
+                      {generate.canGenerate ? 'Ready to send' : generateDisabledReason}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <Button variant="ghost" className="h-11 px-3" onClick={() => setBlocksDialogOpen(true)}><Pencil className="size-4" /> Edit blocks</Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" className="h-10 px-3" onClick={() => setBlocksDialogOpen(true)}><Pencil className="size-4" /> <span className="hidden sm:inline">Edit blocks</span></Button>
                     <span title={generateDisabledReason}>
-                      <Button variant="outline" size="icon" className="size-11" aria-label="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}><Copy className="size-4" /></Button>
+                      <Button variant="outline" className="h-10 px-3" aria-label="Print or save cover letter as PDF" onClick={handlePrint} disabled={!generate.canGenerate}><Printer className="size-4" /> <span className="hidden sm:inline">PDF</span></Button>
                     </span>
                     <span title={generateDisabledReason}>
-                      <Button variant="outline" size="icon" className="size-11" aria-label="Print or save cover letter as PDF" onClick={handlePrint} disabled={!generate.canGenerate}><Printer className="size-4" /></Button>
+                      <Button className="h-10 px-4" aria-label="Copy cover letter" onClick={handleCopyText} disabled={!generate.canGenerate}><Copy className="size-4" /> Copy</Button>
                     </span>
                   </div>
                 </div>
                 <div className="bg-background/60 p-4 sm:p-6">
                   {generate.text.trim() ? (
-                    <div className="min-h-[32rem] rounded-sm border border-border bg-card px-6 py-10 text-sm leading-7 whitespace-pre-wrap shadow-sm sm:px-10 sm:py-12">{renderHighlightedLetterText(generate.text)}</div>
+                    <div className="mx-auto min-h-[32rem] max-w-3xl rounded-sm border border-border bg-card px-6 py-10 text-sm leading-7 whitespace-pre-wrap shadow-sm sm:px-12 sm:py-14">{renderHighlightedLetterText(generate.text)}</div>
                   ) : (
                     <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 text-center">
                       <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border border-border bg-card text-primary"><Mail className="size-6" /></div>
-                      <h4 className="text-base font-semibold">Your next introduction starts here.</h4>
+                      <h3 className="text-base font-semibold">Your next introduction starts here.</h3>
                       <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">{selection.length === 0 ? 'Choose your letter blocks, then add a job title and company to see your draft.' : 'Add a job title and company in Letter details to personalize your draft.'}</p>
-                      {selection.length === 0 && <Button variant="outline" className="mt-5 h-11" onClick={() => setBlocksDialogOpen(true)}><Pencil className="size-4" /> Choose blocks</Button>}
+                      {selection.length === 0 && <Button className="mt-5 h-10" onClick={() => setBlocksDialogOpen(true)}><Pencil className="size-4" /> Choose blocks</Button>}
                     </div>
                   )}
                 </div>
-              </TabsContent>
-
-              <TabsContent value="ats" forceMount className="mt-0 p-5 data-[state=inactive]:hidden sm:p-6">
-                <AtsPanel cvHtml={savedCvHtml} />
-              </TabsContent>
+              </div>
             </div>
-          </Tabs>
+          </TabsContent>
+
+          <TabsContent value="portfolio" className="mt-0">
+            <div className="grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+              <PortfolioSharePanel
+                shareToken={item.shareToken}
+                slug={item.portfolioSlug}
+                handle={cvData?.profile.handle ?? null}
+                enabled={item.portfolioEnabled}
+                showEmail={item.portfolioShowEmail}
+                portraitPath={item.portfolioPortraitPath}
+                onChange={(dto) => updateItem(item.id, dto)}
+              />
+              <PortfolioPreview url={item.portfolioEnabled ? portfolioUrl : null} version={item.updatedAt.getTime()} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ats" forceMount className="mt-0 data-[state=inactive]:hidden">
+            <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+              <AtsPanel cvHtml={savedCvHtml} />
+            </div>
+          </TabsContent>
+        </div>
         </div>
       </ScrollArea>
 
@@ -492,6 +519,6 @@ export const ItemEditorPage = () => {
 
       {/* Hidden same-origin iframe: the app document itself is never printed. */}
       <iframe ref={iframeRef} title="print-letter" className="hidden" />
-    </div>
+    </Tabs>
   );
 };

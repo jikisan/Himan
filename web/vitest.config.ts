@@ -14,7 +14,7 @@ export default defineConfig({
         client: {
           enabled: true,
           include: [
-            'react-router-dom', 'motion/react', 'lucide-react', 'sonner',
+            'react-router-dom', 'motion/react', 'lucide-react', 'sonner', '@tanstack/react-query',
             '@radix-ui/react-scroll-area', '@radix-ui/react-tabs', '@radix-ui/react-dialog',
             '@radix-ui/react-select', '@radix-ui/react-slot',
             '@radix-ui/react-dropdown-menu', '@radix-ui/react-alert-dialog',

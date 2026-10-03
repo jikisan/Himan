@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   pickHeroProject,
+  slugify,
+  SLUG_PATTERN,
+  portfolioPath,
   splitWordmark,
   hostOf,
   parseMetric,
@@ -171,5 +174,27 @@ describe('scrollStep', () => {
     expect(scrollStep(1, 4)).toBe(3);
     expect(scrollStep(-0.2, 4)).toBe(0);
     expect(scrollStep(0.5, 0)).toBe(0);
+  });
+});
+
+describe('slugify', () => {
+  it('lowercases and hyphenates, trimming stray hyphens', () => {
+    expect(slugify('  QA / Test Automation Engineer! ')).toBe('qa-test-automation-engineer');
+  });
+
+  it('caps at 40 characters without a trailing hyphen', () => {
+    const slug = slugify('a'.repeat(39) + ' b');
+    expect(slug).toBe('a'.repeat(39));
+    expect(SLUG_PATTERN.test(slug)).toBe(true);
+  });
+});
+
+describe('portfolioPath', () => {
+  it('uses the readable link once handle and slug exist', () => {
+    expect(portfolioPath({ shareToken: 't0k', portfolioSlug: 'android-developer' }, 'junekyle')).toBe('/p/junekyle/android-developer');
+  });
+
+  it('falls back to the token link without a handle', () => {
+    expect(portfolioPath({ shareToken: 't0k', portfolioSlug: 'android-developer' }, null)).toBe('/p/t0k');
   });
 });

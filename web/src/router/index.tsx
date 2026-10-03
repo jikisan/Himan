@@ -28,14 +28,17 @@ export const Router = () => {
   return (
     <Routes>
       {/* Public portfolio — outside every guard, reachable logged in or out */}
-      <Route
-        path="/p/:token"
-        element={
-          <Suspense fallback={<div className="min-h-dvh bg-[#031942]" />}>
-            <PortfolioPage />
-          </Suspense>
-        }
-      />
+      {['/p/:token', '/p/:handle/:slug'].map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <Suspense fallback={<div className="min-h-dvh bg-[#031942]" />}>
+              <PortfolioPage />
+            </Suspense>
+          }
+        />
+      ))}
 
       {/* Root Layout - wraps everything */}
       <Route element={<RootLayout />}>

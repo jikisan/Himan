@@ -4,3 +4,4 @@ export { useEducation } from './useEducation';
 export { useSkills } from './useSkills';
 export { useProjects } from './useProjects';
 export { useCertificates } from './useCertificates';
+export { profileKeys } from './useProfile';

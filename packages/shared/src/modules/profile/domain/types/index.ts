@@ -9,6 +9,8 @@ export interface ProfileType {
   phone: string | null;
   website: string | null;
   links: Record<string, string>;
+  // Public portfolio URL prefix: /p/{handle}/{slug}.
+  handle: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +105,7 @@ export interface ProfileUpsertDto {
   phone?: string | null;
   website?: string | null;
   links?: Record<string, string>;
+  handle?: string | null;
 }
 
 export interface CreateExperienceDto {

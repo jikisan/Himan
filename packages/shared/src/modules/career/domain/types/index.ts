@@ -48,6 +48,7 @@ export interface CareerItemType {
   portfolioEnabled: boolean;
   portfolioShowEmail: boolean;
   portfolioPortraitPath: string | null;
+  portfolioSlug: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -147,6 +148,7 @@ export interface UpdateCareerItemDto {
   portfolioEnabled?: boolean;
   portfolioShowEmail?: boolean;
   portfolioPortraitPath?: string | null;
+  portfolioSlug?: string | null;
 }
 
 export interface SetItemBlocksDto {

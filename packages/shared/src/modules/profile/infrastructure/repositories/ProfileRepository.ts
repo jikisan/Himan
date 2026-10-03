@@ -36,6 +36,7 @@ export class ProfileRepository {
             phone: dto.phone,
             website: dto.website,
             links: dto.links,
+            handle: dto.handle,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id' },
@@ -64,6 +65,7 @@ export class ProfileRepository {
       phone: (data.phone as string) ?? null,
       website: (data.website as string) ?? null,
       links: (data.links as Record<string, string>) ?? {},
+      handle: (data.handle as string) ?? null,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
     };

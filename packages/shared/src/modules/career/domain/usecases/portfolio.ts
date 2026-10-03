@@ -96,6 +96,19 @@ export function sanitizePortfolio(data: PortfolioData): PortfolioData {
 
 // Which frame a build's screenshots sit in: phones for native-only apps,
 // a browser window for anything on the web (sites, dashboards, automations).
+// Same rules as the portfolio_slugify SQL function and the slug/handle
+// CHECK constraints, so the editor can validate before saving.
+export function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40).replace(/^-+|-+$/g, '');
+}
+
+export const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+// Readable /p/{handle}/{slug} once both exist, else the token link.
+export function portfolioPath(item: { shareToken: string; portfolioSlug: string | null }, handle: string | null): string {
+  return handle && item.portfolioSlug ? `/p/${handle}/${item.portfolioSlug}` : `/p/${item.shareToken}`;
+}
+
 export function deviceOf(project: Pick<PortfolioProject, 'platform'>): 'phone' | 'browser' {
   const platforms = project.platform.map((p) => p.toLowerCase());
   const native = platforms.some((p) => p === 'android' || p === 'ios');

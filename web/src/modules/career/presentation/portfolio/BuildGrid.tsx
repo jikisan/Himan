@@ -29,12 +29,27 @@ const BuildCard = ({ project, index }: { project: PortfolioProject; index: numbe
     >
       {project.images[0] && (
         <div className="-mx-2 -mt-2 aspect-[16/10] overflow-hidden rounded-2xl bg-[var(--pf-ink)]">
-          <img
-            src={project.images[0]}
-            alt={`${project.name} screenshot`}
-            loading="lazy"
-            className={`h-full w-full transition-transform duration-500 group-hover:scale-[1.03] ${deviceOf(project) === 'phone' ? 'object-contain py-3' : 'object-cover object-top'}`}
-          />
+          {deviceOf(project) === 'phone' ? (
+            // Phone shots are tall: show up to three side by side so they fill the frame.
+            <div className="flex h-full items-end justify-center gap-3 px-4 pt-5 transition-transform duration-500 group-hover:-translate-y-1">
+              {project.images.slice(0, 3).map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt={i === 0 ? `${project.name} screenshot` : ''}
+                  loading="lazy"
+                  className="h-[105%] w-auto min-w-0 rounded-t-xl border border-b-0 border-white/10 object-cover object-top"
+                />
+              ))}
+            </div>
+          ) : (
+            <img
+              src={project.images[0]}
+              alt={`${project.name} screenshot`}
+              loading="lazy"
+              className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          )}
         </div>
       )}
 
@@ -94,7 +109,7 @@ export const BuildGrid = ({ projects }: { projects: PortfolioProject[] }) => (
       accent="actually built."
       aside={`${projects.length} ${projects.length === 1 ? 'build' : 'builds'} picked for this role.`}
     />
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className={`grid gap-5 sm:grid-cols-2 ${projects.length % 3 === 0 || projects.length > 4 ? 'lg:grid-cols-3' : ''}`}>
       {projects.map((project, index) => (
         <BuildCard key={project.id} project={project} index={index} />
       ))}

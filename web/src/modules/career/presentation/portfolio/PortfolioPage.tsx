@@ -21,6 +21,8 @@ const repo = new CareerPortfolioRepository();
 const splashKey = (token: string) => `himan-pf-seen:${token}`;
 
 function shouldShowSplash(token: string): boolean {
+  // Framed inside the editor's preview: skip straight to the page.
+  if (window.self !== window.top) return false;
   try {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     return sessionStorage.getItem(splashKey(token)) !== 'seen';
@@ -74,7 +76,9 @@ const Unavailable = ({ title, body, onRetry }: { title: string; body: string; on
 );
 
 const PortfolioPage = () => {
-  const { token = '' } = useParams<{ token: string }>();
+  const { token: shareToken, handle, slug } = useParams<{ token: string; handle: string; slug: string }>();
+  // One key per link shape; it scopes the cache and the seen-splash flag.
+  const token = shareToken ?? (handle && slug ? `${handle}/${slug}` : '');
   const [splash] = useState(() => shouldShowSplash(token));
 
   const handleLift = useCallback(() => {
@@ -89,7 +93,7 @@ const PortfolioPage = () => {
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['career-portfolio', token],
     queryFn: async () => {
-      const raw = await repo.getByToken(token);
+      const raw = handle && slug ? await repo.getBySlug(handle, slug) : await repo.getByToken(token);
       if (!raw) return null;
       const clean = sanitizePortfolio(raw);
       // Stored paths → public URLs in the portfolio-media bucket.
@@ -170,7 +174,7 @@ const PortfolioPage = () => {
         </a>
 
         <header className="sticky top-0 z-40 border-b border-[var(--pf-line)] bg-[var(--pf-ink)]/90 backdrop-blur-md">
-          <div className="mx-auto flex min-h-[4.5rem] max-w-6xl flex-col justify-center gap-1 px-4 py-3 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-0">
+          <div className="mx-auto flex min-h-14 max-w-6xl flex-col justify-center gap-1 px-4 py-3 sm:min-h-[4.5rem] sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-0">
             <span className="pf-label min-w-0 truncate text-white lg:max-w-56 lg:shrink-0">{data.profile.fullName}</span>
             <PortfolioNavigation sections={sections} />
           </div>

@@ -57,22 +57,30 @@ export const PortfolioSplash = ({ name, tagline, ready, intro, onLift, portraitU
 
           <div className="relative flex w-full max-w-3xl flex-col items-center text-center" aria-hidden>
             <p className="pf-label mb-10 text-[var(--pf-sky-hi)]">A person behind the pixels</p>
-            {(!ready || portraitUrl) && <div className="relative mb-10 size-40 sm:size-48">
-              <div className="absolute -inset-4 rounded-full border border-[var(--pf-line)]" />
-              <div className={`absolute -inset-4 rounded-full border border-transparent border-t-[var(--pf-sky)] ${ready ? '' : 'pf-loader-orbit'}`} />
-              <div className="absolute -inset-7 rounded-full border border-dashed border-[var(--pf-line)]" />
-              <div className="h-full w-full overflow-hidden rounded-full border border-[var(--pf-line-strong)] bg-[var(--pf-ink-soft)]">
-                {portraitUrl && <img
-                  src={portraitUrl}
-                  alt=""
-                  width={1254}
-                  height={1254}
-                  loading="eager"
-                  fetchPriority="high"
-                  className="h-full w-full object-cover"
-                />}
+            {/* The portrait ring only appears with a real photo; otherwise a
+                thin bar loops while loading and fills once ready. */}
+            {portraitUrl ? (
+              <div className="relative mb-10 size-40 sm:size-48">
+                <div className="absolute -inset-4 rounded-full border border-[var(--pf-line)]" />
+                <div className="absolute -inset-4 rounded-full border border-transparent border-t-[var(--pf-sky)]" />
+                <div className="absolute -inset-7 rounded-full border border-dashed border-[var(--pf-line)]" />
+                <div className="h-full w-full overflow-hidden rounded-full border border-[var(--pf-line-strong)] bg-[var(--pf-ink-soft)]">
+                  <img
+                    src={portraitUrl}
+                    alt=""
+                    width={1254}
+                    height={1254}
+                    loading="eager"
+                    fetchPriority="high"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
               </div>
-            </div>}
+            ) : (
+              <div data-testid="splash-progress" className="mb-10 h-0.5 w-48 overflow-hidden rounded-full bg-[var(--pf-line)]">
+                <div className={`h-full rounded-full bg-[var(--pf-sky)] ${ready ? 'w-full transition-[width] duration-500' : 'pf-progress w-1/3'}`} />
+              </div>
+            )}
             <p className="pf-display text-[clamp(2.25rem,7vw,4.5rem)]">
               <span className="block text-white">{first}</span>
               {last && <span className="mt-1 block text-[var(--pf-sky)]">{last}</span>}

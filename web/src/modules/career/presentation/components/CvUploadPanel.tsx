@@ -19,37 +19,44 @@ interface CvUploadPanelProps {
 export const CvUploadPanel = ({ hasCv, cvPreviewUrl, hasProfileContent, onRemove, onCopyLink, onDownload, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => (
   <section>
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:px-6">
-      <div>
-        <h3 className="text-sm font-semibold">Curriculum vitae</h3>
-        <p className="mt-1 text-xs text-muted-foreground">{isSaving ? 'Saving your CV…' : hasCv ? 'Preview of your saved PDF' : 'Built from your profile, tailored by you'}</p>
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">Curriculum vitae</h2>
+        <p className="mt-1 text-xs text-muted-foreground" role="status">{isSaving ? 'Saving your CV…' : hasCv ? 'This is the PDF recruiters receive' : 'Built from your profile, tailored by you'}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-1">
-        <span title={!hasProfileContent ? 'Add your profile details first' : undefined}>
-          <Button variant="outline" className="h-11 px-3" onClick={onEditLayout} disabled={!hasProfileContent || isSaving}>
-            <Pencil className="size-4" /> {hasCv ? 'Edit layout' : 'Build CV'}
-          </Button>
-        </span>
-        <span title={!hasCv ? 'Save a CV layout first' : undefined}>
-          <Button variant="ghost" size="icon" className="size-11" aria-label="Copy CV link" onClick={onCopyLink} disabled={!hasCv || isSaving}><Link2 className="size-4" /></Button>
-        </span>
-        <span title={!hasCv ? 'Save a CV layout first' : undefined}>
-          <Button variant="ghost" size="icon" className="size-11" aria-label="Download CV" onClick={onDownload} disabled={!hasCv || isSaving}><Download className="size-4" /></Button>
-        </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-11" aria-label="More CV actions"><MoreHorizontal className="size-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onRevokeLink} disabled={!hasShareLink || isSaving} className="min-h-11 gap-2"><ShieldOff className="size-4" /> Revoke share links</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { void onRemove(); }} disabled={!hasCv || isSaving} className="min-h-11 gap-2 text-destructive"><FileX2 className="size-4" /> Remove CV</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="flex items-center gap-2">
+        {hasCv ? (
+          <>
+            <Button variant="ghost" className="h-10 px-3" onClick={onEditLayout} disabled={!hasProfileContent || isSaving}>
+              <Pencil className="size-4" /> <span className="hidden sm:inline">Edit layout</span>
+            </Button>
+            <Button variant="outline" className="h-10 px-3" onClick={onCopyLink} disabled={isSaving}>
+              <Link2 className="size-4" /> <span className="hidden sm:inline">Copy link</span>
+            </Button>
+            <Button className="h-10 px-4" onClick={onDownload} disabled={isSaving}>
+              <Download className="size-4" /> Download
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-10" aria-label="More CV actions"><MoreHorizontal className="size-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={onRevokeLink} disabled={!hasShareLink || isSaving} className="min-h-10 gap-2"><ShieldOff className="size-4" /> Revoke share links</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { void onRemove(); }} disabled={isSaving} className="min-h-10 gap-2 text-destructive focus:text-destructive"><FileX2 className="size-4" /> Remove CV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : (
+          <span title={!hasProfileContent ? 'Add your profile details first' : undefined}>
+            <Button className="h-10 px-4" onClick={onEditLayout} disabled={!hasProfileContent || isSaving}>
+              <Pencil className="size-4" /> Build CV
+            </Button>
+          </span>
+        )}
       </div>
     </div>
-
     <div className="bg-background/60 p-4 sm:p-6">
       {cvPreviewUrl ? (
-        <div className="overflow-hidden rounded-sm border border-border bg-card shadow-sm" style={{ aspectRatio: '210 / 297' }}>
+        <div className="mx-auto max-w-3xl overflow-hidden rounded-sm border border-border bg-card shadow-sm" style={{ aspectRatio: '210 / 297' }}>
           <iframe src={cvPreviewUrl} title="CV preview" className="h-full w-full border-0" />
         </div>
       ) : (

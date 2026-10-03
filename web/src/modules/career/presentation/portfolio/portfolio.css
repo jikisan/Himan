@@ -93,14 +93,30 @@ html:has(.pf-scroll) {
 }
 
 /* Indeterminate activity follows the fetch, never a made-up percentage. */
-.pf-loader-orbit {
-  animation: pf-loader-orbit 2s linear infinite;
+.pf-progress {
+  animation: pf-progress 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
-@keyframes pf-loader-orbit {
-  to { transform: rotate(360deg); }
+@keyframes pf-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pf-loader-orbit { animation: none; }
+  .pf-progress { animation: none; transform: translateX(100%); }
+}
+
+/* Back-to-top appears once the visitor has scrolled past the first screen.
+   Browsers without scroll-driven animations keep it always visible. */
+@supports (animation-timeline: scroll()) {
+  .pf-back-to-top {
+    animation: pf-reveal linear both;
+    animation-timeline: scroll();
+    animation-range: 0 100vh;
+  }
+}
+
+@keyframes pf-reveal {
+  0%, 60% { opacity: 0; visibility: hidden; transform: translateY(8px); }
+  100% { opacity: 1; visibility: visible; transform: none; }
 }

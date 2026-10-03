@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ItemEditorPage } from '../presentation/pages/ItemEditorPage';
 
 const fixtures = vi.hoisted(() => ({
-  items: [{ id: 'application', name: 'Software Engineer', cvFilePath: null, shareToken: 'token', portfolioEnabled: false, portfolioShowEmail: false }],
+  items: [{ id: 'application', name: 'Software Engineer', cvFilePath: null, shareToken: 'token', portfolioSlug: 'software-engineer', portfolioEnabled: false, portfolioShowEmail: false, portfolioPortraitPath: null, updatedAt: new Date('2026-01-01') }],
   blocks: [{ id: 'opening', kind: 'opening', label: 'Introduction', body: 'Applying for {{job_title}} at {{company}}.' }],
   itemBlocks: [{ blockId: 'opening', length: null }],
   cv: { cvData: null, profileBlocks: [], defaultLayout: [], hasContent: false },

@@ -54,4 +54,22 @@ describe('portfolio introduction', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(onLift).toHaveBeenCalledOnce();
   });
+
+  it('shows the progress bar while loading, before the photo is known', () => {
+    const { container } = render(<PortfolioSplash name={null} tagline={null} ready={false} intro onLift={vi.fn()} />);
+    expect(screen.getByTestId('splash-progress')).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('shows the portrait instead of the bar when there is a photo', () => {
+    const { container } = render(<PortfolioSplash name="June" tagline={null} ready intro onLift={vi.fn()} portraitUrl="https://media.example/me.png" />);
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://media.example/me.png');
+    expect(screen.queryByTestId('splash-progress')).not.toBeInTheDocument();
+  });
+
+  it('keeps the bar when there is no photo', () => {
+    const { container } = render(<PortfolioSplash name="June" tagline={null} ready intro onLift={vi.fn()} portraitUrl={null} />);
+    expect(screen.getByTestId('splash-progress')).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+  });
 });

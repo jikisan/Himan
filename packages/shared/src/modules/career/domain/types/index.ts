@@ -45,6 +45,10 @@ export interface CareerItemType {
   cvFilePath: string | null;
   cvLayout: CvBlockRef[] | null;
   shareToken: string;
+  portfolioEnabled: boolean;
+  portfolioShowEmail: boolean;
+  portfolioPortraitPath: string | null;
+  portfolioSlug: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -141,6 +145,10 @@ export interface UpdateCareerItemDto {
   name?: string;
   cvFilePath?: string | null;
   cvLayout?: CvBlockRef[] | null;
+  portfolioEnabled?: boolean;
+  portfolioShowEmail?: boolean;
+  portfolioPortraitPath?: string | null;
+  portfolioSlug?: string | null;
 }
 
 export interface SetItemBlocksDto {
@@ -165,6 +173,9 @@ export interface PlaceholderCtx {
   company: string;
   hiringManager?: string;
   hook?: string;
+  // Set only when the item's public portfolio is on; otherwise the token
+  // renders as [[portfolio_url]] so the gap shows in preview.
+  portfolioUrl?: string;
 }
 
 export interface ResolveResult {
@@ -175,4 +186,53 @@ export interface ResolveResult {
 export interface LetterHtmlData {
   bodyText: string;
   documentTitle: string;
+}
+
+// Public, whitelisted snapshot served by get_career_portfolio(). Dates stay
+// ISO strings — this crosses an anonymous RPC boundary, not a repository.
+export interface PortfolioProject {
+  id: string;
+  name: string;
+  description: string | null;
+  url: string | null;
+  tech: string[];
+  platform: string[];
+  startDate: string | null;
+  endDate: string | null;
+  outcome: string | null;
+  proofMetric: string | null;
+  proofLabel: string | null;
+  category: string | null;
+  featured: boolean;
+  // Storage paths from the RPC; the page turns them into public URLs.
+  images: string[];
+}
+
+export interface PortfolioExperience {
+  id: string;
+  company: string;
+  title: string;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  isCurrent: boolean;
+  summary: string | null;
+}
+
+export interface PortfolioData {
+  itemName: string;
+  summary: string | null;
+  portraitPath: string | null;
+  profile: {
+    fullName: string | null;
+    headline: string | null;
+    bio: string | null;
+    location: string | null;
+    website: string | null;
+    links: Record<string, string>;
+    email: string | null;
+  };
+  projects: PortfolioProject[];
+  experiences: PortfolioExperience[];
+  skills: string[];
 }

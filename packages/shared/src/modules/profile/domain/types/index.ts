@@ -9,6 +9,8 @@ export interface ProfileType {
   phone: string | null;
   website: string | null;
   links: Record<string, string>;
+  // Public portfolio URL prefix: /p/{handle}/{slug}.
+  handle: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +52,14 @@ export interface ProjectType {
   platform: string[];
   startDate: Date | null;
   endDate: Date | null;
+  // Portfolio proof fields — shown only on the public portfolio page.
+  outcome: string | null;
+  proofMetric: string | null;
+  proofLabel: string | null;
+  category: string | null;
+  featured: boolean;
+  // Storage paths in the public portfolio-media bucket, first = cover.
+  images: string[];
   position: number;
   createdAt: Date;
   updatedAt: Date;
@@ -95,6 +105,7 @@ export interface ProfileUpsertDto {
   phone?: string | null;
   website?: string | null;
   links?: Record<string, string>;
+  handle?: string | null;
 }
 
 export interface CreateExperienceDto {
@@ -168,6 +179,12 @@ export interface CreateProjectDto {
   platform?: string[];
   startDate?: Date | null;
   endDate?: Date | null;
+  outcome?: string | null;
+  proofMetric?: string | null;
+  proofLabel?: string | null;
+  category?: string | null;
+  featured?: boolean;
+  images?: string[];
   position?: number;
 }
 
@@ -179,6 +196,12 @@ export interface UpdateProjectDto {
   platform?: string[];
   startDate?: Date | null;
   endDate?: Date | null;
+  outcome?: string | null;
+  proofMetric?: string | null;
+  proofLabel?: string | null;
+  category?: string | null;
+  featured?: boolean;
+  images?: string[];
 }
 
 export interface CreateCertificateDto {

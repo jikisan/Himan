@@ -40,6 +40,12 @@ export class ProjectRepository {
           platform: dto.platform ?? [],
           start_date: toDateString(dto.startDate) ?? null,
           end_date: toDateString(dto.endDate) ?? null,
+          outcome: dto.outcome ?? null,
+          proof_metric: dto.proofMetric ?? null,
+          proof_label: dto.proofLabel ?? null,
+          category: dto.category ?? null,
+          featured: dto.featured ?? false,
+          images: dto.images ?? [],
           position,
         })
         .select()
@@ -66,6 +72,12 @@ export class ProjectRepository {
           ...(dto.platform !== undefined && { platform: dto.platform }),
           ...(dto.startDate !== undefined && { start_date: toDateString(dto.startDate) }),
           ...(dto.endDate !== undefined && { end_date: toDateString(dto.endDate) }),
+          ...(dto.outcome !== undefined && { outcome: dto.outcome }),
+          ...(dto.proofMetric !== undefined && { proof_metric: dto.proofMetric }),
+          ...(dto.proofLabel !== undefined && { proof_label: dto.proofLabel }),
+          ...(dto.category !== undefined && { category: dto.category }),
+          ...(dto.featured !== undefined && { featured: dto.featured }),
+          ...(dto.images !== undefined && { images: dto.images }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -131,6 +143,12 @@ export class ProjectRepository {
       platform: (data.platform as string[]) ?? [],
       startDate: data.start_date ? new Date(data.start_date as string) : null,
       endDate: data.end_date ? new Date(data.end_date as string) : null,
+      outcome: (data.outcome as string) ?? null,
+      proofMetric: (data.proof_metric as string) ?? null,
+      proofLabel: (data.proof_label as string) ?? null,
+      category: (data.category as string) ?? null,
+      featured: (data.featured as boolean) ?? false,
+      images: (data.images as string[]) ?? [],
       position: data.position as number,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),

@@ -1,6 +1,6 @@
-import { Download, FileX2, Link2, ListOrdered, Pencil, ShieldOff } from 'lucide-react';
+import { Download, FileText, FileX2, Link2, LoaderCircle, MoreHorizontal, Pencil, ShieldOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui';
 
 interface CvUploadPanelProps {
   hasCv: boolean;
@@ -15,76 +15,68 @@ interface CvUploadPanelProps {
   isSaving: boolean;
 }
 
-// Preview embeds the actual stored cv.pdf via a signed URL — what's shown
-// here is exactly the file a recruiter would get, not a live re-render of
-// current profile data. The CV file is produced by saving a layout ("Edit CV
-// layout"), which bakes cv.pdf into storage — there is no separate generate
-// step here.
-export const CvUploadPanel = ({ hasCv, cvPreviewUrl, hasProfileContent, onRemove, onCopyLink, onDownload, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">CV</h3>
-        <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
-          <span title={!hasProfileContent ? 'Add your profile details first' : 'Edit CV layout'}>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit CV layout" onClick={onEditLayout} disabled={!hasProfileContent}>
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </span>
-          <div className="w-px h-4 bg-border mx-0.5" />
-          <span title={!hasCv ? 'Save a CV layout first' : undefined}>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Copy CV link" onClick={onCopyLink} disabled={!hasCv}>
-              <Link2 className="h-4 w-4" />
-            </Button>
-          </span>
-          <span title={!hasCv ? 'Save a CV layout first' : undefined}>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Download CV" onClick={onDownload} disabled={!hasCv}>
-              <Download className="h-4 w-4" />
-            </Button>
-          </span>
-          <span title={!hasShareLink ? 'No CV link to revoke yet' : undefined}>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Revoke CV link" onClick={onRevokeLink} disabled={!hasShareLink}>
-              <ShieldOff className="h-4 w-4" />
-            </Button>
-          </span>
-          <div className="w-px h-4 bg-border mx-0.5" />
-          <span title={!hasCv ? 'Save a CV layout first' : isSaving ? 'Saving…' : undefined}>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Remove CV" onClick={onRemove} disabled={!hasCv || isSaving}>
-              <FileX2 className="h-4 w-4" />
-            </Button>
-          </span>
-        </div>
+// The preview embeds the saved PDF, exactly as a recruiter receives it.
+export const CvUploadPanel = ({ hasCv, cvPreviewUrl, hasProfileContent, onRemove, onCopyLink, onDownload, onEditLayout, hasShareLink, onRevokeLink, isSaving }: CvUploadPanelProps) => (
+  <section>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:px-6">
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold">Curriculum vitae</h2>
+        <p className="mt-1 text-xs text-muted-foreground" role="status">{isSaving ? 'Saving your CV…' : hasCv ? 'This is the PDF recruiters receive' : 'Built from your profile, tailored by you'}</p>
       </div>
-
-      <div
-        className={
-          cvPreviewUrl
-            ? 'rounded-lg border border-border bg-muted/30 overflow-hidden'
-            : 'rounded-lg border border-dashed border-border bg-muted/20 overflow-hidden'
-        }
-        style={{ aspectRatio: '210 / 297' }}
-      >
-        {cvPreviewUrl ? (
-          <iframe src={cvPreviewUrl} title="CV preview" className="h-full w-full border-0" />
+      <div className="flex items-center gap-2">
+        {hasCv ? (
+          <>
+            <Button variant="ghost" className="h-10 px-3" onClick={onEditLayout} disabled={!hasProfileContent || isSaving}>
+              <Pencil className="size-4" /> <span className="hidden sm:inline">Edit layout</span>
+            </Button>
+            <Button variant="outline" className="h-10 px-3" onClick={onCopyLink} disabled={isSaving}>
+              <Link2 className="size-4" /> <span className="hidden sm:inline">Copy link</span>
+            </Button>
+            <Button className="h-10 px-4" onClick={onDownload} disabled={isSaving}>
+              <Download className="size-4" /> Download
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-10" aria-label="More CV actions"><MoreHorizontal className="size-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={onRevokeLink} disabled={!hasShareLink || isSaving} className="min-h-10 gap-2"><ShieldOff className="size-4" /> Revoke share links</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { void onRemove(); }} disabled={isSaving} className="min-h-10 gap-2 text-destructive focus:text-destructive"><FileX2 className="size-4" /> Remove CV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         ) : (
-          <button
-            type="button"
-            onClick={onEditLayout}
-            disabled={!hasProfileContent || hasCv}
-            className="h-full w-full flex flex-col items-center justify-center gap-2 p-4 text-center disabled:cursor-default"
-          >
-            <ListOrdered className="h-5 w-5 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              {hasCv ? 'Loading CV preview…' : hasProfileContent ? 'Build a CV layout to generate your CV' : 'Add your profile details first'}
-            </p>
-            {!hasProfileContent && (
-              <Link to="/profile" className="text-xs text-primary underline underline-offset-2">
-                Go to profile
-              </Link>
-            )}
-          </button>
+          <span title={!hasProfileContent ? 'Add your profile details first' : undefined}>
+            <Button className="h-10 px-4" onClick={onEditLayout} disabled={!hasProfileContent || isSaving}>
+              <Pencil className="size-4" /> Build CV
+            </Button>
+          </span>
         )}
       </div>
     </div>
-  );
-};
+    <div className="bg-background/60 p-4 sm:p-6">
+      {cvPreviewUrl ? (
+        <div className="mx-auto max-w-3xl overflow-hidden rounded-sm border border-border bg-card shadow-sm" style={{ aspectRatio: '210 / 297' }}>
+          <iframe src={cvPreviewUrl} title="CV preview" className="h-full w-full border-0" />
+        </div>
+      ) : (
+        <div className="flex min-h-[28rem] flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-12 text-center">
+          <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border border-border bg-card text-primary">
+            {hasCv ? <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" /> : <FileText className="size-6" />}
+          </div>
+          <h4 className="text-base font-semibold">{hasCv ? 'Loading your CV' : 'A CV for this opportunity.'}</h4>
+          <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+            {hasCv ? 'Your saved PDF will appear here.' : hasProfileContent ? 'Choose the experience, skills and projects that tell the right story.' : 'Add your experience, skills and projects to your profile to build your first CV.'}
+          </p>
+          {!hasCv && (
+            hasProfileContent ? (
+              <Button variant="outline" className="mt-5 h-11" onClick={onEditLayout} disabled={isSaving}><Pencil className="size-4" /> Build your CV</Button>
+            ) : (
+              <Button variant="outline" className="mt-5 h-11" asChild><Link to="/profile">Complete your profile</Link></Button>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  </section>
+);

@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap');
+
+html:has(.pf-scroll) {
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 1023px) {
+  .pf-scroll section[id], .pf-scroll footer[id] {
+    scroll-margin-top: 8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.pf-scroll) { scroll-behavior: auto; }
+}
+
+/* The portfolio owns its own world: tokens are scoped to .pf so nothing
+   leaks into the app's shadcn theme, and the app's theme never reaches in. */
+.pf {
+  --pf-ink: #020c1f;
+  --pf-navy: #031942;
+  --pf-ink-soft: #0a1c3d;
+  --pf-sky: #0ea5e9;
+  --pf-sky-hi: #7dd3fc;
+  --pf-text: #eaf1fb;
+  --pf-muted: #a3b4cc;
+  --pf-faint: #6f84a3;
+  --pf-line: rgb(255 255 255 / 0.1);
+  --pf-line-strong: rgb(255 255 255 / 0.18);
+  --pf-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  background: var(--pf-ink);
+  color: var(--pf-text);
+  font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  font-variation-settings: 'wdth' 100;
+  font-size: 1rem;
+  line-height: 1.6;
+  min-height: 100dvh;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.pf ::selection {
+  background: var(--pf-sky);
+  color: var(--pf-ink);
+}
+
+.pf :focus-visible {
+  outline: 2px solid var(--pf-sky);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.pf a {
+  text-underline-offset: 0.2em;
+}
+
+/* Display voice: Archivo at full expanded width, black weight. */
+.pf-display {
+  font-variation-settings: 'wdth' 125;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+  text-wrap: balance;
+}
+
+.pf-label {
+  font-variation-settings: 'wdth' 112;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pf-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Blueprint grid behind the hero, faded out toward the bottom. */
+.pf-grid {
+  background-image:
+    linear-gradient(var(--pf-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pf-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 70% at 70% 20%, #000 20%, transparent 75%);
+}
+
+.pf-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pf-ink-soft) transparent;
+}
+
+/* Indeterminate activity follows the fetch, never a made-up percentage. */
+.pf-progress {
+  animation: pf-progress 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes pf-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-progress { animation: none; transform: translateX(100%); }
+}
+
+/* Back-to-top appears once the visitor has scrolled past the first screen.
+   Browsers without scroll-driven animations keep it always visible. */
+@supports (animation-timeline: scroll()) {
+  .pf-back-to-top {
+    animation: pf-reveal linear both;
+    animation-timeline: scroll();
+    animation-range: 0 100vh;
+  }
+}
+
+@keyframes pf-reveal {
+  0%, 60% { opacity: 0; visibility: hidden; transform: translateY(8px); }
+  100% { opacity: 1; visibility: visible; transform: none; }
+}

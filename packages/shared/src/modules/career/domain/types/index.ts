@@ -47,7 +47,7 @@ export interface CareerItemType {
   shareToken: string;
   portfolioEnabled: boolean;
   portfolioShowEmail: boolean;
-  portfolioPortraitPath: string | null;
+  portfolioShowCv: boolean;
   portfolioSlug: string;
   createdAt: Date;
   updatedAt: Date;
@@ -147,7 +147,7 @@ export interface UpdateCareerItemDto {
   cvLayout?: CvBlockRef[] | null;
   portfolioEnabled?: boolean;
   portfolioShowEmail?: boolean;
-  portfolioPortraitPath?: string | null;
+  portfolioShowCv?: boolean;
   portfolioSlug?: string | null;
 }
 
@@ -195,6 +195,8 @@ export interface PortfolioProject {
   name: string;
   description: string | null;
   url: string | null;
+  androidUrl: string | null;
+  iosUrl: string | null;
   tech: string[];
   platform: string[];
   startDate: string | null;
@@ -223,6 +225,9 @@ export interface PortfolioData {
   itemName: string;
   summary: string | null;
   portraitPath: string | null;
+  // Storage path of the CV the portfolio offers; null when there is none
+  // or the owner hid it. Readable by anyone while offered (storage policy).
+  cvPath: string | null;
   profile: {
     fullName: string | null;
     headline: string | null;

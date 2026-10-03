@@ -37,6 +37,7 @@ export class ProfileRepository {
             website: dto.website,
             links: dto.links,
             handle: dto.handle,
+            portfolio_portrait_path: dto.portfolioPortraitPath,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id' },
@@ -66,6 +67,7 @@ export class ProfileRepository {
       website: (data.website as string) ?? null,
       links: (data.links as Record<string, string>) ?? {},
       handle: (data.handle as string) ?? null,
+      portfolioPortraitPath: (data.portfolio_portrait_path as string) ?? null,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
     };

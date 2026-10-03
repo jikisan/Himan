@@ -3,23 +3,23 @@ BEGIN;
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-0000-0000-0000000000a1', 'portrait@example.com'),
   ('00000000-0000-0000-0000-0000000000a2', 'other@example.com');
-INSERT INTO public.profiles (user_id, full_name, bio, email, phone, links) VALUES
-  ('00000000-0000-0000-0000-0000000000a1', 'Test Person', 'Default bio', 'portrait@example.com', 'PRIVATE_PHONE', '{"github":"https://github.com/test"}');
+INSERT INTO public.profiles (user_id, full_name, bio, email, phone, links, portfolio_portrait_path) VALUES
+  ('00000000-0000-0000-0000-0000000000a1', 'Test Person', 'Default bio', 'portrait@example.com', 'PRIVATE_PHONE', '{"github":"https://github.com/test"}', '00000000-0000-0000-0000-0000000000a1/photo.png');
 INSERT INTO public.profile_experiences (user_id, company, title, start_date) VALUES
   ('00000000-0000-0000-0000-0000000000a1', 'Example', 'Developer', (current_date - interval '5 years')::date);
 INSERT INTO public.career_cv_blocks (id, user_id, kind, title, body) VALUES
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1', 'summary', 'Summary', '{{name}} | {{careerTitle}} | {{yearsOfWork}} | {{github}} | {{email}} | {{phone}} | {{unknown}}'),
   ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000a2', 'summary', 'Other owner', 'PRIVATE_SUMMARY'),
   ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000a1', 'experience', 'Experience', 'Not a summary');
-INSERT INTO public.career_items (user_id, name, share_token, cv_layout, portfolio_enabled, portfolio_show_email, portfolio_portrait_path) VALUES
-  ('00000000-0000-0000-0000-0000000000a1', 'Custom', 'pf_custom', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c1"},{"type":"summary"}]', true, false, '00000000-0000-0000-0000-0000000000a1/photo.png'),
-  ('00000000-0000-0000-0000-0000000000a1', 'Builtin', 'pf_builtin', '[{"type":"summary"},{"type":"custom","id":"00000000-0000-0000-0000-0000000000c1"}]', true, false, NULL),
-  ('00000000-0000-0000-0000-0000000000a1', 'Default', 'pf_default', NULL, true, false, NULL),
-  ('00000000-0000-0000-0000-0000000000a1', 'Empty', 'pf_empty', '[]', true, false, NULL),
-  ('00000000-0000-0000-0000-0000000000a1', 'Foreign', 'pf_foreign', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c2"},{"type":"custom","id":"not-a-uuid"}]', true, false, NULL),
-  ('00000000-0000-0000-0000-0000000000a1', 'Experience', 'pf_experience', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c3"}]', true, false, NULL),
-  ('00000000-0000-0000-0000-0000000000a1', 'Email', 'pf_email', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c1"}]', true, true, NULL),
-  ('00000000-0000-0000-0000-0000000000a1', 'Off', 'pf_disabled', NULL, false, false, NULL);
+INSERT INTO public.career_items (user_id, name, share_token, cv_layout, portfolio_enabled, portfolio_show_email) VALUES
+  ('00000000-0000-0000-0000-0000000000a1', 'Custom', 'pf_custom', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c1"},{"type":"summary"}]', true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Builtin', 'pf_builtin', '[{"type":"summary"},{"type":"custom","id":"00000000-0000-0000-0000-0000000000c1"}]', true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Default', 'pf_default', NULL, true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Empty', 'pf_empty', '[]', true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Foreign', 'pf_foreign', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c2"},{"type":"custom","id":"not-a-uuid"}]', true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Experience', 'pf_experience', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c3"}]', true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Email', 'pf_email', '[{"type":"custom","id":"00000000-0000-0000-0000-0000000000c1"}]', true, true),
+  ('00000000-0000-0000-0000-0000000000a1', 'Off', 'pf_disabled', NULL, false, false);
 
 SET LOCAL ROLE anon;
 DO $$
@@ -28,8 +28,9 @@ BEGIN
   IF r->>'summary' IS DISTINCT FROM 'Test Person | Custom | 5 | https://github.com/test |  |  |' THEN
     RAISE EXCEPTION 'Custom summary order or tokens incorrect: %', r->>'summary';
   END IF;
-  IF r->>'portraitPath' IS DISTINCT FROM '00000000-0000-0000-0000-0000000000a1/photo.png' THEN
-    RAISE EXCEPTION 'Configured portrait not returned';
+  IF r->>'portraitPath' IS DISTINCT FROM '00000000-0000-0000-0000-0000000000a1/photo.png'
+    OR public.get_career_portfolio('pf_builtin')->>'portraitPath' IS DISTINCT FROM '00000000-0000-0000-0000-0000000000a1/photo.png' THEN
+    RAISE EXCEPTION 'Profile portrait not returned on every portfolio';
   END IF;
   IF r::text LIKE '%PRIVATE_PHONE%' OR r::text LIKE '%portrait@example.com%' THEN
     RAISE EXCEPTION 'Hidden contact information leaked';
@@ -56,7 +57,7 @@ RESET ROLE;
 DO $$
 BEGIN
   BEGIN
-    UPDATE public.career_items SET portfolio_portrait_path = '00000000-0000-0000-0000-0000000000a2/other.png' WHERE share_token = 'pf_custom';
+    UPDATE public.profiles SET portfolio_portrait_path = '00000000-0000-0000-0000-0000000000a2/other.png' WHERE user_id = '00000000-0000-0000-0000-0000000000a1';
     RAISE EXCEPTION 'Foreign portrait path accepted';
   EXCEPTION WHEN check_violation THEN NULL;
   END;

@@ -4,7 +4,7 @@ import type { PortfolioData } from '@himan/shared/career';
 import { PortfolioHero } from '../presentation/portfolio/PortfolioHero';
 
 const data: PortfolioData = {
-  itemName: 'Developer', summary: 'My selected CV summary.', portraitPath: 'owner/photo.png',
+  itemName: 'Developer', summary: 'My selected CV summary.', portraitPath: 'owner/photo.png', cvPath: null,
   profile: { fullName: 'Test Person', bio: 'Unselected profile bio.', headline: 'Profile headline.', location: null, website: null, links: {}, email: null },
   projects: [], experiences: [], skills: [],
 };

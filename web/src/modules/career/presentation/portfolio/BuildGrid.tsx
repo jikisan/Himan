@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { deviceOf, yearSpan, type PortfolioProject } from '@himan/shared/career';
 import { SectionHeading } from './SectionHeading';
+import { StoreLinks } from './StoreLinks';
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const TECH_SHOWN = 4;
@@ -17,6 +18,9 @@ const BuildCard = ({ project, index }: { project: PortfolioProject; index: numbe
   const target = project.platform.join(' · ');
   const year = yearSpan(project.startDate, project.endDate);
   const extra = project.tech.length - TECH_SHOWN;
+  // The first block after the copy takes the slack so links sit at the bottom.
+  const hasStores = !!(project.androidUrl || project.iosUrl);
+  const pushDown = project.tech.length > 1 ? '' : 'mt-auto';
 
   return (
     <motion.article
@@ -85,12 +89,14 @@ const BuildCard = ({ project, index }: { project: PortfolioProject; index: numbe
         </ul>
       )}
 
+      <StoreLinks project={project} className={pushDown} />
+
       {project.url && (
         <a
           href={project.url}
           target="_blank"
           rel="noreferrer"
-          className={`inline-flex min-h-11 items-center gap-2 border-t border-[var(--pf-line)] pt-4 text-sm font-bold uppercase tracking-[0.12em] text-[var(--pf-sky)] transition-colors hover:text-white ${project.tech.length > 1 ? '' : 'mt-auto'}`}
+          className={`inline-flex min-h-11 items-center gap-2 border-t border-[var(--pf-line)] pt-4 text-sm font-bold uppercase tracking-[0.12em] text-[var(--pf-sky)] transition-colors hover:text-white ${hasStores ? '' : pushDown}`}
         >
           {linkLabel(project.url)}
           <ArrowUpRight className="h-4 w-4" />

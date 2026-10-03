@@ -42,7 +42,7 @@ import { PortfolioPreview } from '../components/PortfolioPreview';
 import { CvPreviewFrame } from '../components/CvPreviewFrame';
 import { generateCvPdfBlob } from '../utils/generateCvPdf';
 import { CareerStorageService } from '../../infrastructure';
-import { buildStoragePath, portfolioPath, type CareerLength, type ComposableBlock, type CvBlockRef } from '@himan/shared/career';
+import { buildStoragePath, cvFileName, portfolioPath, type CareerLength, type ComposableBlock, type CvBlockRef } from '@himan/shared/career';
 import { renderCvHtml, type RenderCvBlock } from '@himan/shared/profile';
 import { Logger } from '@core/infrastructure/services';
 
@@ -188,17 +188,10 @@ export const ItemEditorPage = () => {
     toast.success('CV link copied');
   };
 
-  // {fullName}_CV_{item}.pdf, e.g. June_Kyle_Santerna_CV_Android.pdf.
-  const cvDownloadName = () => {
-    const slug = (s: string) => s.trim().replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
-    const parts = [slug(cvData?.profile.fullName ?? ''), 'CV', slug(item?.name ?? '')];
-    return `${parts.filter(Boolean).join('_')}.pdf`;
-  };
-
   const handleDownloadCv = async () => {
     if (!item?.cvFilePath) return;
     try {
-      const url = await new CareerStorageService().createShareUrl(item.cvFilePath, cvDownloadName());
+      const url = await new CareerStorageService().createShareUrl(item.cvFilePath, cvFileName(cvData?.profile.fullName, item.name));
       window.open(url, '_blank');
     } catch (err) {
       Logger.error('Error downloading CV', err);
@@ -446,7 +439,9 @@ export const ItemEditorPage = () => {
                 handle={cvData?.profile.handle ?? null}
                 enabled={item.portfolioEnabled}
                 showEmail={item.portfolioShowEmail}
-                portraitPath={item.portfolioPortraitPath}
+                showCv={item.portfolioShowCv}
+                hasCv={!!item.cvFilePath}
+                portraitPath={cvData?.profile.portfolioPortraitPath ?? null}
                 onChange={(dto) => updateItem(item.id, dto)}
               />
               <PortfolioPreview url={item.portfolioEnabled ? portfolioUrl : null} version={item.updatedAt.getTime()} />

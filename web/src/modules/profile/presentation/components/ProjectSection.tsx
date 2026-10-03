@@ -4,6 +4,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/u
 import { useProjects } from '../hooks/useProjects';
 import { ProjectCard } from './ProjectCard';
 import { ProjectEditor, type ProjectFormValues } from './ProjectEditor';
+import { ProjectMediaService } from '../../infrastructure';
 
 const toDto = (values: ProjectFormValues) => ({
   name: values.name.trim(),
@@ -18,7 +19,10 @@ const toDto = (values: ProjectFormValues) => ({
   proofLabel: values.proofLabel.trim() || null,
   category: values.category.trim() || null,
   featured: values.featured,
+  images: values.images,
 });
+
+const media = new ProjectMediaService();
 
 export const ProjectSection = () => {
   const { data, loading, create, update, remove, reorder } = useProjects();
@@ -37,8 +41,11 @@ export const ProjectSection = () => {
 
   const handleUpdate = async (id: string, values: ProjectFormValues) => {
     setSavingId(id);
+    const before = data.find((p) => p.id === id)?.images ?? [];
     try {
       await update(id, toDto(values));
+      // Delete dropped screenshots only once the project no longer points at them.
+      await media.remove(before.filter((path) => !values.images.includes(path)));
     } finally {
       setSavingId(null);
     }
@@ -71,7 +78,10 @@ export const ProjectSection = () => {
             key={project.id}
             project={project}
             onSave={(values) => handleUpdate(project.id, values)}
-            onDelete={() => remove(project.id)}
+            onDelete={async () => {
+              await remove(project.id);
+              await media.remove(project.images);
+            }}
             onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
             onMoveDown={index < data.length - 1 ? () => handleMove(index, 1) : undefined}
             isSaving={savingId === project.id}

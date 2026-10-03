@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Switch, Textarea } from '@/components/ui';
 import type { ProjectType } from '@himan/shared/profile';
+import { ProjectScreenshots } from './ProjectScreenshots';
 
 export interface ProjectFormValues {
   name: string;
@@ -16,6 +17,7 @@ export interface ProjectFormValues {
   proofLabel: string;
   category: string;
   featured: boolean;
+  images: string[];
 }
 
 const toFormValues = (project?: ProjectType): ProjectFormValues => ({
@@ -31,6 +33,7 @@ const toFormValues = (project?: ProjectType): ProjectFormValues => ({
   proofLabel: project?.proofLabel ?? '',
   category: project?.category ?? '',
   featured: project?.featured ?? false,
+  images: project?.images ?? [],
 });
 
 interface ProjectEditorProps {
@@ -118,6 +121,7 @@ export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEd
             <Input id="proj-category" value={values.category} onChange={(e) => set('category', e.target.value)} placeholder="Mobile App / Membership" />
           </div>
         </div>
+        <ProjectScreenshots value={values.images} onChange={(images) => set('images', images)} />
         <div className="flex items-center justify-between gap-4">
           <Label htmlFor="proj-featured">Feature as the headline proof</Label>
           <Switch id="proj-featured" checked={values.featured} onCheckedChange={(v) => set('featured', v)} />

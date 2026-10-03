@@ -5,4 +5,5 @@ export {
   SkillRepository,
   ProjectRepository,
   CertificateRepository,
+  ProjectMediaService,
 } from '@himan/shared/profile';

@@ -45,6 +45,7 @@ export class ProjectRepository {
           proof_label: dto.proofLabel ?? null,
           category: dto.category ?? null,
           featured: dto.featured ?? false,
+          images: dto.images ?? [],
           position,
         })
         .select()
@@ -76,6 +77,7 @@ export class ProjectRepository {
           ...(dto.proofLabel !== undefined && { proof_label: dto.proofLabel }),
           ...(dto.category !== undefined && { category: dto.category }),
           ...(dto.featured !== undefined && { featured: dto.featured }),
+          ...(dto.images !== undefined && { images: dto.images }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -146,6 +148,7 @@ export class ProjectRepository {
       proofLabel: (data.proof_label as string) ?? null,
       category: (data.category as string) ?? null,
       featured: (data.featured as boolean) ?? false,
+      images: (data.images as string[]) ?? [],
       position: data.position as number,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),

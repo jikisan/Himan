@@ -145,6 +145,7 @@ describe('renderCvHtml', () => {
           proofLabel: null,
           category: null,
           featured: false,
+          images: [],
           startDate: null,
           endDate: null,
           position: 0,

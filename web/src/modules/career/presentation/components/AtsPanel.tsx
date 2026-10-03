@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, ScanText, X } from 'lucide-react';
 import { Label, Textarea } from '@/components/ui';
 import { evaluateAts } from '@himan/shared/career';
 
@@ -24,12 +24,15 @@ export const AtsPanel = ({ cvHtml }: AtsPanelProps) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">ATS check</h3>
-        {hasJd && <span className={`text-sm font-semibold ${scoreTone(report.score)}`}>{report.score}/100</span>}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold">How does your CV match?</h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">Check keyword coverage against a job description. This is a guide, not a hiring prediction.</p>
+        </div>
+        {hasJd && <span className={`shrink-0 text-2xl font-semibold tabular-nums ${scoreTone(report.score)}`}>{report.score}<span className="text-xs font-normal text-muted-foreground"> / 100</span></span>}
       </div>
 
-      <div className="rounded-lg border border-border p-4 space-y-4">
+      <div className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="jobDescription">Job description</Label>
           <Textarea
@@ -37,13 +40,20 @@ export const AtsPanel = ({ cvHtml }: AtsPanelProps) => {
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             placeholder="Paste the job ad here to score keyword coverage"
-            className="min-h-24 text-sm"
+            className="min-h-40 resize-y bg-background/50 text-sm leading-6"
           />
         </div>
 
+        {!hasJd && (
+          <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-background/50 p-4 text-sm text-muted-foreground">
+            <ScanText className="mt-0.5 size-5 shrink-0 text-primary" />
+            <p className="leading-6">Paste a job description to see your match score, missing keywords and formatting checks.</p>
+          </div>
+        )}
+
         {hasJd && (
           <>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div role="progressbar" aria-label="CV match score" aria-valuenow={report.score} aria-valuemin={0} aria-valuemax={100} className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className={
                   report.score >= 75 ? 'h-full bg-emerald-500' : report.score >= 50 ? 'h-full bg-amber-500' : 'h-full bg-destructive'
@@ -52,13 +62,13 @@ export const AtsPanel = ({ cvHtml }: AtsPanelProps) => {
               />
             </div>
 
-            <ul className="space-y-1.5">
+            <ul className="divide-y divide-border">
               {report.checks.map((check) => (
-                <li key={check.id} className="flex items-start gap-2 text-xs">
+                <li key={check.id} className="flex items-start gap-3 py-3 text-sm leading-6">
                   {check.passed ? (
-                    <Check className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <Check className="size-4 mt-1 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
                   ) : (
-                    <X className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-destructive" />
+                    <X className="size-4 mt-1 flex-shrink-0 text-destructive" />
                   )}
                   <span>
                     <span className="font-medium">{check.label}</span>

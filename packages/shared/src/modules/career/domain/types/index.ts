@@ -47,6 +47,7 @@ export interface CareerItemType {
   shareToken: string;
   portfolioEnabled: boolean;
   portfolioShowEmail: boolean;
+  portfolioPortraitPath: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -145,6 +146,7 @@ export interface UpdateCareerItemDto {
   cvLayout?: CvBlockRef[] | null;
   portfolioEnabled?: boolean;
   portfolioShowEmail?: boolean;
+  portfolioPortraitPath?: string | null;
 }
 
 export interface SetItemBlocksDto {
@@ -200,6 +202,8 @@ export interface PortfolioProject {
   proofLabel: string | null;
   category: string | null;
   featured: boolean;
+  // Storage paths from the RPC; the page turns them into public URLs.
+  images: string[];
 }
 
 export interface PortfolioExperience {
@@ -215,6 +219,8 @@ export interface PortfolioExperience {
 
 export interface PortfolioData {
   itemName: string;
+  summary: string | null;
+  portraitPath: string | null;
   profile: {
     fullName: string | null;
     headline: string | null;

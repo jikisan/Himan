@@ -76,6 +76,7 @@ export class CareerItemRepository {
           ...(dto.cvLayout !== undefined && { cv_layout: dto.cvLayout }),
           ...(dto.portfolioEnabled !== undefined && { portfolio_enabled: dto.portfolioEnabled }),
           ...(dto.portfolioShowEmail !== undefined && { portfolio_show_email: dto.portfolioShowEmail }),
+          ...(dto.portfolioPortraitPath !== undefined && { portfolio_portrait_path: dto.portfolioPortraitPath }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -142,6 +143,7 @@ export class CareerItemRepository {
       shareToken: data.share_token as string,
       portfolioEnabled: (data.portfolio_enabled as boolean) ?? false,
       portfolioShowEmail: (data.portfolio_show_email as boolean) ?? false,
+      portfolioPortraitPath: (data.portfolio_portrait_path as string) ?? null,
       createdAt: new Date(data.created_at as string),
       updatedAt: new Date(data.updated_at as string),
     };

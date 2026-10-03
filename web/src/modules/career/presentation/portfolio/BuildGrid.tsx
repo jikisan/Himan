@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
-import { yearSpan, type PortfolioProject } from '@himan/shared/career';
+import { deviceOf, yearSpan, type PortfolioProject } from '@himan/shared/career';
 import { SectionHeading } from './SectionHeading';
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
@@ -27,6 +27,17 @@ const BuildCard = ({ project, index }: { project: PortfolioProject; index: numbe
       transition={{ duration: 0.6, delay: (index % 3) * 0.06, ease: EASE_OUT }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
     >
+      {project.images[0] && (
+        <div className="-mx-2 -mt-2 aspect-[16/10] overflow-hidden rounded-2xl bg-[var(--pf-ink)]">
+          <img
+            src={project.images[0]}
+            alt={`${project.name} screenshot`}
+            loading="lazy"
+            className={`h-full w-full transition-transform duration-500 group-hover:scale-[1.03] ${deviceOf(project) === 'phone' ? 'object-contain py-3' : 'object-cover object-top'}`}
+          />
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <span className="pf-label pf-tabular text-[var(--pf-faint)]">/ Build {String(index + 1).padStart(2, '0')}</span>
         {year && <span className="pf-tabular text-sm text-[var(--pf-faint)]">{year}</span>}
@@ -76,7 +87,7 @@ const BuildCard = ({ project, index }: { project: PortfolioProject; index: numbe
 };
 
 export const BuildGrid = ({ projects }: { projects: PortfolioProject[] }) => (
-  <section id="work" aria-labelledby="work-title" className="mx-auto max-w-6xl scroll-mt-8 px-4 py-24 sm:px-8 md:py-32">
+  <section id="work" aria-labelledby="work-title" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24 sm:px-8 md:py-32">
     <SectionHeading
       id="work-title"
       lead="See what I've"

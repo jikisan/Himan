@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowUpRight, Mail } from 'lucide-react';
+import {
+  ArrowUpRight, FlaskConical, Globe, Layers, Mail, Plug, Rocket, Sparkles, Workflow, Zap, type LucideIcon,
+} from 'lucide-react';
 import { yearSpan, type PortfolioData, type PortfolioExperience } from '@himan/shared/career';
 import { SectionHeading } from './SectionHeading';
 
@@ -9,7 +12,7 @@ const experienceYears = (exp: PortfolioExperience) =>
   yearSpan(exp.startDate, exp.isCurrent ? null : exp.endDate) ?? '';
 
 export const ExperienceList = ({ experiences }: { experiences: PortfolioExperience[] }) => (
-  <section aria-labelledby="exp-title" className="mx-auto max-w-6xl px-4 py-24 sm:px-8 md:py-32">
+  <section id="experience" aria-labelledby="exp-title" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24 sm:px-8 md:py-32">
     <SectionHeading id="exp-title" lead="Where the work" accent="happened." />
     <ol className="border-t border-[var(--pf-line)]">
       {experiences.map((exp, i) => (
@@ -34,30 +37,93 @@ export const ExperienceList = ({ experiences }: { experiences: PortfolioExperien
   </section>
 );
 
-const MarqueeRow = ({ items, reverse }: { items: string[]; reverse?: boolean }) => (
-  <div className="pf-marquee flex overflow-hidden" aria-hidden>
-    <div className="pf-marquee-track flex shrink-0 items-center" data-reverse={reverse}>
-      {[...items, ...items].map((skill, i) => (
-        <span key={`${skill}-${i}`} className="flex items-center">
-          <span className="pf-display whitespace-nowrap px-6 text-[clamp(1.5rem,4vw,2.75rem)] text-white/85">{skill}</span>
-          <span className="h-2 w-2 rotate-45 bg-[var(--pf-sky)]" />
-        </span>
-      ))}
-    </div>
-  </div>
-);
+// Devicon names that differ from the Simple Icons slug.
+const DEVICON_NAMES: Record<string, string> = { java: 'java', css: 'css3', junit: 'junit' };
 
-export const SkillsMarquee = ({ skills }: { skills: string[] }) => {
-  const half = Math.ceil(skills.length / 2);
+// Simple Icons slugs for names that don't normalize to their slug.
+const ICON_SLUGS: Record<string, string> = {
+  java: 'openjdk',
+  html: 'html5',
+  junit: 'junit5',
+  nodejs: 'nodedotjs',
+  nextjs: 'nextdotjs',
+  postgres: 'postgresql',
+  claudecode: 'claude',
+  gitgithub: 'github',
+  gitlabci: 'gitlab',
+  reactnative: 'react',
+  kotlincomposemultiplatform: 'kotlin',
+  swiftui: 'swift',
+  appstoredeployment: 'appstore',
+  playstoredeployment: 'googleplay',
+};
+
+// Concept skills have no brand mark; pick a generic glyph by keyword.
+const CONCEPT_ICONS: [RegExp, LucideIcon][] = [
+  [/architect|mvvm|inject|pattern/i, Layers],
+  [/test|\bqa\b/i, FlaskConical],
+  [/agile|scrum|kanban/i, Workflow],
+  [/\bapis?\b|\brest\b/i, Plug],
+  [/automat|ghl/i, Zap],
+  [/deploy|publish|release/i, Rocket],
+  [/host|web/i, Globe],
+];
+
+const normalize = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Full-color logo: Devicon first (multi-color originals), then Simple
+// Icons in its brand color, then a generic glyph. Logos sit on a white
+// tile because many brand marks are dark and vanish on navy.
+const SkillIcon = ({ name }: { name: string }) => {
+  const key = normalize(name);
+  const concept = CONCEPT_ICONS.find(([re]) => re.test(name))?.[1];
+  const slug = ICON_SLUGS[key] ?? (concept ? null : key);
+  const devicon = DEVICON_NAMES[key] ?? slug;
+  const sources = slug
+    ? [`https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${devicon}/${devicon}-original.svg`, `https://cdn.simpleicons.org/${slug}`]
+    : [];
+  const [attempt, setAttempt] = useState(0);
+  const Icon = concept ?? Sparkles;
+
   return (
-    <section aria-label="Skills" className="flex flex-col gap-4 border-y border-[var(--pf-line)] bg-[var(--pf-navy)]/50 py-10">
-      <MarqueeRow items={skills.slice(0, half)} />
-      {skills.length > 8 && <MarqueeRow items={skills.slice(half)} reverse />}
-      {/* The marquee is decorative motion; this is the readable list. */}
-      <p className="sr-only">Skills: {skills.join(', ')}</p>
-    </section>
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white">
+      {attempt < sources.length ? (
+        <img
+          src={sources[attempt]}
+          alt=""
+          width={18}
+          height={18}
+          loading="lazy"
+          className="h-[18px] w-[18px] object-contain"
+          onError={() => setAttempt((n) => n + 1)}
+        />
+      ) : (
+        <Icon className="h-4 w-4 text-[var(--pf-navy)]" aria-hidden />
+      )}
+    </span>
   );
 };
+
+export const SkillsGrid = ({ skills }: { skills: string[] }) => (
+  <section id="skills" aria-labelledby="skills-title" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24 sm:px-8 md:py-32">
+    <SectionHeading id="skills-title" lead="The toolkit" accent="behind it." />
+    <ul className="flex flex-wrap gap-3">
+      {skills.map((skill, i) => (
+        <motion.li
+          key={skill}
+          className="flex items-center gap-2.5 rounded-full border border-[var(--pf-line)] bg-[var(--pf-navy)]/50 py-1.5 pl-1.5 pr-4 text-sm font-medium text-white/90 transition-colors hover:border-[var(--pf-sky)]/60"
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.4, delay: Math.min(i, 20) * 0.02, ease: EASE_OUT }}
+        >
+          <SkillIcon name={skill} />
+          {skill}
+        </motion.li>
+      ))}
+    </ul>
+  </section>
+);
 
 const prettyLinkName = (key: string) => key.charAt(0).toUpperCase() + key.slice(1);
 
@@ -69,7 +135,7 @@ export const ContactFooter = ({ data }: { data: PortfolioData }) => {
   ];
 
   return (
-    <footer id="contact" className="relative isolate overflow-hidden scroll-mt-8">
+    <footer id="contact" className="relative isolate overflow-hidden scroll-mt-24">
       <div
         className="absolute -bottom-48 left-1/2 -z-10 h-[32rem] w-[48rem] -translate-x-1/2 rounded-full bg-[var(--pf-sky)]/15 blur-[140px]"
         aria-hidden

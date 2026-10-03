@@ -1,5 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap');
 
+html:has(.pf-scroll) {
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 1023px) {
+  .pf-scroll section[id], .pf-scroll footer[id] {
+    scroll-margin-top: 8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.pf-scroll) { scroll-behavior: auto; }
+}
+
 /* The portfolio owns its own world: tokens are scoped to .pf so nothing
    leaks into the app's shadcn theme, and the app's theme never reaches in. */
 .pf {
@@ -73,31 +87,20 @@
   mask-image: radial-gradient(ellipse 80% 70% at 70% 20%, #000 20%, transparent 75%);
 }
 
-.pf-marquee-track {
-  animation: pf-marquee var(--pf-marquee-duration, 48s) linear infinite;
-}
-
-.pf-marquee-track[data-reverse='true'] {
-  animation-direction: reverse;
-}
-
-.pf-marquee:hover .pf-marquee-track {
-  animation-play-state: paused;
-}
-
-@keyframes pf-marquee {
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pf-marquee-track {
-    animation: none;
-  }
-}
-
 .pf-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--pf-ink-soft) transparent;
+}
+
+/* Indeterminate activity follows the fetch, never a made-up percentage. */
+.pf-loader-orbit {
+  animation: pf-loader-orbit 2s linear infinite;
+}
+
+@keyframes pf-loader-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-loader-orbit { animation: none; }
 }

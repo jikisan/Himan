@@ -8,7 +8,8 @@ import {
   yearSpan,
   safeUrl,
   sanitizePortfolio,
-  isFramable,
+  deviceOf,
+  scrollStep,
   type PortfolioData,
   type PortfolioProject,
 } from '@himan/shared/career';
@@ -27,6 +28,7 @@ const project = (over: Partial<PortfolioProject>): PortfolioProject => ({
   proofLabel: null,
   category: null,
   featured: false,
+  images: [],
   ...over,
 });
 
@@ -117,6 +119,8 @@ describe('safeUrl', () => {
 describe('sanitizePortfolio', () => {
   const data: PortfolioData = {
     itemName: 'Role',
+    summary: null,
+    portraitPath: null,
     profile: {
       fullName: 'A B',
       headline: null,
@@ -144,17 +148,28 @@ describe('sanitizePortfolio', () => {
   });
 });
 
-describe('isFramable', () => {
-  const app = 'https://himan.app';
-
-  it('frames an external web build', () => {
-    expect(isFramable('https://zipzapdone.jikisan.com/', app)).toBe(true);
+describe('deviceOf', () => {
+  it('uses phones for native-only apps', () => {
+    expect(deviceOf({ platform: ['Android', 'iOS'] })).toBe('phone');
   });
 
-  it('never frames the app itself, store listings, unsafe schemes, or nothing', () => {
-    expect(isFramable('https://himan.app/career', app)).toBe(false);
-    expect(isFramable('https://play.google.com/store/apps/details?id=x', app)).toBe(false);
-    expect(isFramable('javascript:alert(1)', app)).toBe(false);
-    expect(isFramable(null, app)).toBe(false);
+  it('uses a browser for web, cross-platform, automations, or unknown', () => {
+    expect(deviceOf({ platform: ['Android', 'iOS', 'Web'] })).toBe('browser');
+    expect(deviceOf({ platform: ['Automation'] })).toBe('browser');
+    expect(deviceOf({ platform: [] })).toBe('browser');
+  });
+});
+
+describe('scrollStep', () => {
+  it('splits the scroll into equal steps', () => {
+    expect(scrollStep(0, 4)).toBe(0);
+    expect(scrollStep(0.26, 4)).toBe(1);
+    expect(scrollStep(0.74, 4)).toBe(2);
+  });
+
+  it('clamps at both ends and handles empty lists', () => {
+    expect(scrollStep(1, 4)).toBe(3);
+    expect(scrollStep(-0.2, 4)).toBe(0);
+    expect(scrollStep(0.5, 0)).toBe(0);
   });
 });

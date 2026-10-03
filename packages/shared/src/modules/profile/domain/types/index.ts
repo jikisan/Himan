@@ -56,6 +56,8 @@ export interface ProjectType {
   proofLabel: string | null;
   category: string | null;
   featured: boolean;
+  // Storage paths in the public portfolio-media bucket, first = cover.
+  images: string[];
   position: number;
   createdAt: Date;
   updatedAt: Date;
@@ -179,6 +181,7 @@ export interface CreateProjectDto {
   proofLabel?: string | null;
   category?: string | null;
   featured?: boolean;
+  images?: string[];
   position?: number;
 }
 
@@ -195,6 +198,7 @@ export interface UpdateProjectDto {
   proofLabel?: string | null;
   category?: string | null;
   featured?: boolean;
+  images?: string[];
 }
 
 export interface CreateCertificateDto {

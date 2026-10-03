@@ -2,14 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
-import { isFramable, pickHeroProject, sanitizePortfolio, type PortfolioData } from '@himan/shared/career';
+import { deviceOf, pickHeroProject, sanitizePortfolio, type PortfolioData } from '@himan/shared/career';
+import { ProjectMediaService } from '@himan/shared/profile';
 import { CareerPortfolioRepository } from '../../infrastructure';
 import { PortfolioSplash } from './PortfolioSplash';
 import { PortfolioHero } from './PortfolioHero';
+import { PortfolioBackToTop, PortfolioNavigation, type PortfolioSection } from './PortfolioNavigation';
 import { ProofSection } from './ProofSection';
-import { BrowserShowcase } from './BrowserShowcase';
+import { BrowserTabs } from './BrowserTabs';
 import { BuildGrid } from './BuildGrid';
-import { ExperienceList, SkillsMarquee, ContactFooter } from './CareerSections';
+import { ExperienceList, SkillsGrid, ContactFooter } from './CareerSections';
 import './portfolio.css';
 
 const repo = new CareerPortfolioRepository();
@@ -75,40 +77,41 @@ const PortfolioPage = () => {
   const { token = '' } = useParams<{ token: string }>();
   const [splash] = useState(() => shouldShowSplash(token));
 
-  // Marked in an effect, not the state initializer: StrictMode runs
-  // initializers twice and the second read would already say "seen".
-  useEffect(() => {
+  const handleLift = useCallback(() => {
     if (!splash) return;
     try {
       sessionStorage.setItem(splashKey(token), 'seen');
     } catch {
-      // Private mode: it just shows again next time.
+      // Private mode: the introduction may show again next time.
     }
   }, [splash, token]);
-  const [lifted, setLifted] = useState(!splash);
-  const handleLift = useCallback(() => setLifted(true), []);
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['career-portfolio', token],
     queryFn: async () => {
       const raw = await repo.getByToken(token);
-      return raw && sanitizePortfolio(raw);
+      if (!raw) return null;
+      const clean = sanitizePortfolio(raw);
+      // Stored paths → public URLs in the portfolio-media bucket.
+      return {
+        ...clean,
+        projects: clean.projects.map((p) => ({ ...p, images: (p.images ?? []).map(ProjectMediaService.publicUrl) })),
+      };
     },
-    staleTime: Infinity,
+    staleTime: 0,
     retry: 1,
     enabled: !!token,
   });
 
   usePageMeta(data);
 
-  // Same navy as the splash, so a slow fetch reads as the intro's first
-  // frame rather than a blank page.
   if (isPending) {
     return (
-      <Shell>
-        <span className="sr-only" role="status">Loading portfolio</span>
-        {!splash && <span className="h-[3px] w-16 animate-pulse bg-[var(--pf-sky)]" aria-hidden />}
-      </Shell>
+      <MotionConfig reducedMotion="user">
+        <div className="pf pf-scroll overflow-x-clip">
+          <PortfolioSplash key="intro" name={null} tagline={null} ready={false} intro={splash} onLift={handleLift} />
+        </div>
+      </MotionConfig>
     );
   }
 
@@ -132,56 +135,58 @@ const PortfolioPage = () => {
   }
 
   const hero = pickHeroProject(data.projects);
-  const live = data.projects.filter((p) => isFramable(p.url, window.location.origin));
-  // Hero entrance waits for the splash to start lifting.
-  const heroDelay = splash && !lifted ? 1.95 : 0.1;
+  // Websites, dashboards and automations get browser tabs; native-only apps
+  // live in the proof fan and the build cards instead.
+  const web = data.projects.filter((p) => deviceOf(p) === 'browser' && (p.images.length > 0 || !!p.url));
+  const portraitUrl = data.portraitPath ? ProjectMediaService.publicUrl(data.portraitPath) : null;
+  const sections: PortfolioSection[] = [
+    { label: 'About', href: '#about' },
+    ...(hero ? [{ label: 'Highlights', href: '#highlights' }] : []),
+    ...(web.length ? [{ label: 'Live projects', href: '#live' }] : []),
+    ...(data.projects.length ? [{ label: 'Work', href: '#work' }] : []),
+    ...(data.skills.length ? [{ label: 'Skills', href: '#skills' }] : []),
+    ...(data.experiences.length ? [{ label: 'Experience', href: '#experience' }] : []),
+    { label: 'Contact', href: '#contact' },
+  ];
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="pf pf-scroll overflow-x-clip">
-        {splash && (
-          <PortfolioSplash
-            name={data.profile.fullName ?? data.itemName}
-            tagline={data.profile.headline}
-            onLift={handleLift}
-          />
-        )}
+      <div id="top" className="pf pf-scroll overflow-x-clip">
+        <PortfolioSplash
+          key="intro"
+          name={data.profile.fullName ?? data.itemName}
+          tagline={data.profile.headline}
+          portraitUrl={portraitUrl}
+          ready
+          intro={splash}
+          onLift={handleLift}
+        />
 
         <a
-          href="#work"
+          href={data.projects.length ? '#work' : '#about'}
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-40 focus:rounded-full focus:bg-[var(--pf-sky)] focus:px-4 focus:py-2 focus:text-[var(--pf-ink)]"
         >
-          Skip to the work
+          Skip to portfolio content
         </a>
 
-        <header className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between px-4 sm:px-8">
-          <span className="pf-label text-white">{data.profile.fullName}</span>
-          <nav aria-label="Sections" className="flex gap-1">
-            {[
-              ['Work', '#work'],
-              ['Contact', '#contact'],
-            ].map(([label, href]) => (
-              <a
-                key={href}
-                href={href}
-                className="pf-label inline-flex min-h-11 items-center rounded-full px-4 text-[var(--pf-muted)] transition-colors hover:text-white"
-              >
-                {label}
-              </a>
-            ))}
-          </nav>
+        <header className="sticky top-0 z-40 border-b border-[var(--pf-line)] bg-[var(--pf-ink)]/90 backdrop-blur-md">
+          <div className="mx-auto flex min-h-[4.5rem] max-w-6xl flex-col justify-center gap-1 px-4 py-3 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-0">
+            <span className="pf-label min-w-0 truncate text-white lg:max-w-56 lg:shrink-0">{data.profile.fullName}</span>
+            <PortfolioNavigation sections={sections} />
+          </div>
         </header>
 
         <main>
-          <PortfolioHero data={data} delay={heroDelay} />
+          <PortfolioHero data={data} delay={0.1} portraitUrl={portraitUrl} />
           {hero && <ProofSection project={hero} />}
-          {live.length > 0 && <BrowserShowcase projects={live} />}
+          {web.length > 0 && <BrowserTabs projects={web} />}
           {data.projects.length > 0 && <BuildGrid projects={data.projects} />}
-          {data.skills.length > 0 && <SkillsMarquee skills={data.skills} />}
+          {data.skills.length > 0 && <SkillsGrid skills={data.skills} />}
           {data.experiences.length > 0 && <ExperienceList experiences={data.experiences} />}
         </main>
 
         <ContactFooter data={data} />
+        <PortfolioBackToTop />
       </div>
     </MotionConfig>
   );

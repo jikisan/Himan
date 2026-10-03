@@ -1,9 +1,29 @@
 import { test, expect, type Page } from '@playwright/test';
 
-// The portfolio RPC is mocked: these tests exercise the public page, not
-// the database (supabase/tests/career_portfolio.sql covers the RPC).
+// The portfolio RPC and the screenshot bucket are mocked: these tests
+// exercise the public page, not the database
+// (supabase/tests/career_portfolio.sql covers the RPC).
+type Project = Record<string, unknown>;
+const project = (over: Project): Project => ({
+  description: null,
+  url: null,
+  tech: [],
+  platform: [],
+  startDate: null,
+  endDate: null,
+  outcome: null,
+  proofMetric: null,
+  proofLabel: null,
+  category: null,
+  featured: false,
+  images: [],
+  ...over,
+});
+
 const portfolio = {
   itemName: 'Web + Mobile Developer',
+  summary: 'Selected summary for web and mobile applications.',
+  portraitPath: 'u/portrait.png',
   profile: {
     fullName: 'June Kyle Santerna',
     headline: 'Full Stack Software Developer',
@@ -14,66 +34,48 @@ const portfolio = {
     email: null,
   },
   projects: [
-    {
-      id: 'flohmarkt',
-      name: 'Flohmarkt',
-      description: 'Flea-market and event discovery for web and native mobile.',
-      url: 'https://flohmarkt.example/',
-      tech: ['React', 'React Native', 'FastAPI'],
-      platform: ['Android', 'iOS', 'Web'],
-      startDate: '2025-09-01',
-      endDate: null,
-      outcome: 'Built so visitors find markets on a map.',
+    // Native app with screenshots → the pinned proof fan.
+    project({
+      id: 'memberzone',
+      name: 'MemberZone',
+      description: 'Membership club app with booking flows.',
+      tech: ['React Native'],
+      platform: ['Android', 'iOS'],
+      outcome: 'Built so members book without calling the front desk.',
       proofMetric: '40%',
       proofLabel: 'Test metric',
-      category: 'Web + Mobile / Marketplace',
       featured: true,
-    },
-    {
+      images: ['u/mz-1.png', 'u/mz-2.png', 'u/mz-3.png', 'u/mz-4.png'],
+    }),
+    // Web + automation builds → the scroll-driven browser tabs.
+    project({
+      id: 'flohmarkt',
+      name: 'Flohmarkt',
+      url: 'https://flohmarkt.example/',
+      tech: ['React'],
+      platform: ['Web'],
+      category: 'Web Build / Marketplace',
+      images: ['u/flohmarkt.png'],
+    }),
+    project({
       id: 'zipzap',
       name: 'ZipZapDone',
-      description: 'Offline grocery and errand tracker.',
       url: 'https://zipzap.example/',
-      tech: ['HTML', 'CSS'],
+      tech: ['HTML'],
       platform: ['Web'],
-      startDate: '2026-06-01',
-      endDate: null,
-      outcome: null,
-      proofMetric: null,
-      proofLabel: null,
-      category: null,
-      featured: false,
-    },
-    {
+      images: ['u/zipzap.png'],
+    }),
+    project({ id: 'sync', name: 'Invoice Sync', tech: ['n8n'], platform: ['Automation'], images: ['u/sync.png'] }),
+    // Store app → build cards only, with a Google Play link.
+    project({
       id: 'taily',
       name: 'Taily',
-      description: 'Pet care for Android and iOS.',
       url: 'https://play.google.com/store/apps/details?id=org.jikisan.taily',
       tech: ['Kotlin'],
       platform: ['Android', 'iOS'],
-      startDate: null,
-      endDate: null,
-      outcome: null,
-      proofMetric: null,
-      proofLabel: null,
-      category: null,
-      featured: false,
-    },
-    {
-      id: 'trap',
-      name: 'Trap',
-      description: null,
-      url: 'javascript:alert("project")',
-      tech: [],
-      platform: [],
-      startDate: null,
-      endDate: null,
-      outcome: null,
-      proofMetric: null,
-      proofLabel: null,
-      category: null,
-      featured: false,
-    },
+    }),
+    // Unsafe URL and no screenshot → scrubbed, so it can't become a tab.
+    project({ id: 'trap', name: 'Trap', url: 'javascript:alert("project")', platform: ['Web'] }),
   ],
   experiences: [
     {
@@ -90,17 +92,34 @@ const portfolio = {
   skills: ['Kotlin', 'React', 'Supabase', 'FastAPI'],
 };
 
+// 1×1 transparent PNG, served for every screenshot request.
+const PIXEL = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+);
+
 const mockPortfolio = async (page: Page, body: unknown = portfolio) => {
   await page.route('**/rest/v1/rpc/get_career_portfolio', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
   );
-  // Framed sites are stubbed so the test never depends on the internet.
-  await page.route(/https:\/\/(flohmarkt|zipzap)\.example\/.*/, (route) =>
-    route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>stub site</h1>' }),
+  await page.route('**/storage/v1/object/public/portfolio-media/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }),
   );
 };
 
 const splash = (page: Page) => page.locator('.pf .fixed.inset-0.z-50');
+
+// Scroll so a pinned section's progress sits at `fraction` (0..1).
+const scrollPinned = async (page: Page, testId: string, fraction: number) => {
+  await page.evaluate(
+    ({ testId, fraction }) => {
+      const el = document.querySelector(`[data-testid="${testId}"]`) as HTMLElement;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, top + (el.offsetHeight - window.innerHeight) * fraction);
+    },
+    { testId, fraction },
+  );
+};
 
 test.describe('public portfolio', () => {
   test('opens without login and renders the item', async ({ page }) => {
@@ -150,36 +169,76 @@ test.describe('public portfolio', () => {
     expect(hrefs).toContain('https://github.com/jikisan');
   });
 
-  test('builds grid lists every selected project with the right link label', async ({ page }) => {
+  test('build grid lists every selected project with the right link label', async ({ page }) => {
     await mockPortfolio(page);
     await page.goto('/p/tok-grid');
 
     const work = page.locator('#work');
     await work.scrollIntoViewIfNeeded();
-    for (const name of ['Flohmarkt', 'ZipZapDone', 'Taily', 'Trap']) {
+    for (const name of ['MemberZone', 'Flohmarkt', 'ZipZapDone', 'Invoice Sync', 'Taily', 'Trap']) {
       await expect(work.getByRole('heading', { name, level: 3 })).toBeVisible();
     }
     await expect(work.getByRole('link', { name: /Google Play/ })).toHaveAttribute('href', /play\.google\.com/);
   });
 });
 
-test.describe('live browser frame', () => {
-  test.skip(({ isMobile }) => isMobile, 'The live frame is desktop-only; mobile shows links instead.');
-
-  test('switches the framed site from the build list, and skips store links', async ({ page }) => {
+test.describe('proof section', () => {
+  test('fans the screenshots out from a stack as you scroll', async ({ page }) => {
     await mockPortfolio(page);
-    await page.goto('/p/tok-live');
+    await page.goto('/p/tok-proof');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    const tabs = page.getByRole('tablist', { name: 'Live builds' });
-    await tabs.scrollIntoViewIfNeeded();
-    await expect(tabs.getByRole('tab')).toHaveText([/Flohmarkt/, /ZipZapDone/]);
+    const phones = page.getByTestId('proof-scroll').getByRole('img', { name: 'MemberZone screenshot' });
+    await expect(phones).toHaveCount(4);
 
-    const frame = page.locator('iframe[title$="live preview"]');
-    await expect(frame).toHaveAttribute('src', 'https://flohmarkt.example/');
+    const spread = async () => {
+      const xs = await phones.evaluateAll((imgs) => imgs.map((img) => img.getBoundingClientRect().x));
+      return Math.max(...xs) - Math.min(...xs);
+    };
 
-    await tabs.getByRole('tab', { name: /ZipZapDone/ }).click();
-    await expect(tabs.getByRole('tab', { name: /ZipZapDone/ })).toHaveAttribute('aria-selected', 'true');
-    await expect(frame).toHaveAttribute('src', 'https://zipzap.example/');
+    await scrollPinned(page, 'proof-scroll', 0);
+    await page.waitForTimeout(300);
+    const stacked = await spread();
+
+    await scrollPinned(page, 'proof-scroll', 0.8);
+    await expect.poll(spread).toBeGreaterThan(stacked + 100);
+    await expect(page.getByText('Proof, not promises', { exact: true })).toBeVisible();
+  });
+});
+
+test.describe('web builds browser', () => {
+  const address = (page: Page) => page.getByTestId('browser-address');
+
+  test('switches tabs as you scroll, in order, skipping native and unsafe builds', async ({ page }) => {
+    await mockPortfolio(page);
+    await page.goto('/p/tok-tabs');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    const thumbs = page.getByRole('button', { name: /^Show / });
+    await expect(thumbs).toHaveText(['', '', '']);
+    await expect(thumbs.nth(0)).toHaveAccessibleName('Show Flohmarkt');
+    await expect(thumbs.nth(2)).toHaveAccessibleName('Show Invoice Sync');
+
+    await scrollPinned(page, 'browser-tabs', 0.1);
+    await expect(address(page)).toHaveText('flohmarkt.example/');
+
+    await scrollPinned(page, 'browser-tabs', 0.5);
+    await expect(address(page)).toHaveText('zipzap.example/');
+
+    await scrollPinned(page, 'browser-tabs', 0.95);
+    await expect(address(page)).toHaveText('invoice-sync.build');
+    await expect(page.getByRole('button', { name: 'Show Invoice Sync' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  test('a thumbnail jumps straight to its tab', async ({ page }) => {
+    await mockPortfolio(page);
+    await page.goto('/p/tok-thumbs');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    await scrollPinned(page, 'browser-tabs', 0.1);
+    await page.getByRole('button', { name: 'Show ZipZapDone' }).click();
+    await expect(address(page)).toHaveText('zipzap.example/');
+    await expect(page.getByRole('link', { name: 'Open ZipZapDone live' })).toHaveAttribute('href', 'https://zipzap.example/');
   });
 });
 

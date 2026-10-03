@@ -8,8 +8,23 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],
+    // Bundle UI dependencies so workspace packages use the same React instance.
+    deps: {
+      optimizer: {
+        client: {
+          enabled: true,
+          include: [
+            'react-router-dom', 'motion/react', 'lucide-react', 'sonner',
+            '@radix-ui/react-scroll-area', '@radix-ui/react-tabs', '@radix-ui/react-dialog',
+            '@radix-ui/react-select', '@radix-ui/react-slot',
+            '@radix-ui/react-dropdown-menu', '@radix-ui/react-alert-dialog',
+          ],
+        },
+      },
+    },
   },
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@core': path.resolve(__dirname, './src/modules/shared'),

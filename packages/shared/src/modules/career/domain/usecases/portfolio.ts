@@ -93,11 +93,18 @@ export function sanitizePortfolio(data: PortfolioData): PortfolioData {
   };
 }
 
-// Store listings refuse framing, so only real web builds get the live frame.
-// Never frame the app's own origin: with allow-same-origin that would hand
-// the framed page the app's storage and session. appOrigin is passed in
-// because this package has no DOM.
-export function isFramable(url: string | null, appOrigin: string): boolean {
-  const safe = safeUrl(url);
-  return !!safe && !isStoreUrl(safe) && new URL(safe).origin !== appOrigin;
+
+// Which frame a build's screenshots sit in: phones for native-only apps,
+// a browser window for anything on the web (sites, dashboards, automations).
+export function deviceOf(project: Pick<PortfolioProject, 'platform'>): 'phone' | 'browser' {
+  const platforms = project.platform.map((p) => p.toLowerCase());
+  const native = platforms.some((p) => p === 'android' || p === 'ios');
+  return native && !platforms.includes('web') ? 'phone' : 'browser';
+}
+
+// Scroll-driven tabs: progress 0..1 through the pinned section picks one of
+// `count` steps, each getting an equal share of the scroll.
+export function scrollStep(progress: number, count: number): number {
+  if (count <= 0) return 0;
+  return Math.min(count - 1, Math.max(0, Math.floor(progress * count)));
 }

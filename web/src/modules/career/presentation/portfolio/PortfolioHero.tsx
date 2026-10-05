@@ -1,8 +1,5 @@
-import { motion } from 'motion/react';
 import { ArrowDown, ArrowUpRight, MapPin } from 'lucide-react';
 import { splitWordmark, type PortfolioData } from '@himan/shared/career';
-
-const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 interface PortfolioHeroProps {
   data: PortfolioData;
@@ -17,9 +14,7 @@ export const PortfolioHero = ({ data, delay, portraitUrl }: PortfolioHeroProps) 
   const contactHref = profile.email ? `mailto:${profile.email}` : '#contact';
 
   const rise = (order: number) => ({
-    initial: { opacity: 0, y: 28 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.8, delay: delay + order * 0.09, ease: EASE_OUT },
+    style: { animation: `pf-rise 0.8s var(--pf-ease-out) ${delay + order * 0.09}s both` },
   });
 
   return (
@@ -33,31 +28,31 @@ export const PortfolioHero = ({ data, delay, portraitUrl }: PortfolioHeroProps) 
       <div className={`mx-auto grid min-h-[calc(100dvh-4.5rem)] max-w-6xl items-center gap-12 px-4 pb-20 pt-10 sm:px-8 ${portraitUrl ? 'lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : ''}`}>
         <div className="flex flex-col">
           <h1 className="pf-display text-[clamp(2.5rem,9.5vw,5.25rem)] lg:whitespace-nowrap">
-            <motion.span className="block text-white" {...rise(0)}>
+            <span className="block text-white" {...rise(0)}>
               {first}
-            </motion.span>
+            </span>
             {last && (
-              <motion.span className="block text-[var(--pf-sky)]" {...rise(1)}>
+              <span className="block text-[var(--pf-sky)]" {...rise(1)}>
                 {last}
-              </motion.span>
+              </span>
             )}
           </h1>
 
-          <motion.p
+          <p
             className="mt-8 flex items-center gap-4 text-[clamp(1.125rem,2.4vw,1.5rem)] font-semibold [font-variation-settings:'wdth'_112]"
             {...rise(2)}
           >
             <span className="h-[3px] w-10 shrink-0 bg-[var(--pf-sky)]" aria-hidden />
             {itemName}
-          </motion.p>
+          </p>
 
           {data.summary && (
-            <motion.p className="mt-6 max-w-[60ch] whitespace-pre-line text-lg text-[var(--pf-muted)]" {...rise(3)}>
+            <p className="mt-6 max-w-[60ch] whitespace-pre-line text-lg text-[var(--pf-muted)]">
               {data.summary}
-            </motion.p>
+            </p>
           )}
 
-          <motion.div className="mt-10 flex flex-wrap items-center gap-3" {...rise(4)}>
+          <div className="mt-10 flex flex-wrap items-center gap-3" {...rise(4)}>
             <a
               href={data.projects.length > 0 ? '#work' : '#contact'}
               className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--pf-sky)] px-7 text-sm font-bold uppercase tracking-[0.12em] text-[var(--pf-ink)] transition-colors duration-200 hover:bg-white"
@@ -78,9 +73,9 @@ export const PortfolioHero = ({ data, delay, portraitUrl }: PortfolioHeroProps) 
                 {profile.location}
               </span>
             )}
-          </motion.div>
+          </div>
         </div>
-        {portraitUrl && <motion.img
+        {portraitUrl && <img
           src={portraitUrl}
           alt={profile.fullName ? `Portrait of ${profile.fullName}` : 'Portfolio portrait'}
           width={1254}

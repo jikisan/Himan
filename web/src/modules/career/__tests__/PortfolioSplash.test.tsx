@@ -1,15 +1,6 @@
-import type { ComponentProps, ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PortfolioSplash } from '../presentation/portfolio/PortfolioSplash';
-
-// Test readiness and timing without waiting for decorative exit animations.
-vi.mock('motion/react', () => ({
-  AnimatePresence: ({ children }: { children: ReactNode }) => children,
-  motion: {
-    div: ({ children, className, role }: ComponentProps<'div'>) => <div className={className} role={role}>{children}</div>,
-  },
-}));
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });

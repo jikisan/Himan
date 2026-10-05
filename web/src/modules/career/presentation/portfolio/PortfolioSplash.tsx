@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import { splitWordmark } from '@himan/shared/career';
-
-const INTRO_MS = 1250;
 
 interface PortfolioSplashProps {
   name: string | null;
@@ -15,9 +12,10 @@ interface PortfolioSplashProps {
 
 export const PortfolioSplash = ({ name, tagline, ready, intro, onLift, portraitUrl }: PortfolioSplashProps) => {
   const [visible, setVisible] = useState(!ready || intro);
-  const [startedAt] = useState(() => performance.now());
+  const [exiting, setExiting] = useState(false);
   const [first, last] = splitWordmark(name ?? 'A little introduction.');
   const dismiss = useCallback(() => {
+    setExiting(true);
     setVisible(false);
     onLift();
   }, [onLift]);
@@ -33,23 +31,27 @@ export const PortfolioSplash = ({ name, tagline, ready, intro, onLift, portraitU
 
   useEffect(() => {
     if (!visible || !ready) return;
-    // A slow fetch already covers the introduction; never restart its wait.
-    const remaining = intro ? Math.max(0, INTRO_MS - (performance.now() - startedAt)) : 0;
-    const timer = window.setTimeout(dismiss, remaining);
+    // The loading introduction ends as soon as content is ready.
+    const timer = window.setTimeout(dismiss, 0);
     return () => window.clearTimeout(timer);
-  }, [visible, ready, intro, startedAt, dismiss]);
+  }, [visible, ready, dismiss]);
+
+  useEffect(() => {
+    if (!exiting) return;
+    const timer = window.setTimeout(() => setExiting(false), 200);
+    return () => window.clearTimeout(timer);
+  }, [exiting]);
 
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
+    <>
+      {(visible || exiting) && (
+        <div
           key="splash"
           role="status"
+          aria-hidden={!visible}
           aria-live="polite"
           aria-busy={!ready}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-[var(--pf-navy)] px-6"
-          exit={{ opacity: 0, y: -24 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-[var(--pf-navy)] px-6 ${exiting ? 'pf-splash-exit' : ''}`}
         >
           <span className="sr-only">{ready ? 'Portfolio ready' : 'Loading portfolio'}</span>
           <div className="pf-grid pointer-events-none absolute inset-0 opacity-40" aria-hidden />
@@ -77,15 +79,19 @@ export const PortfolioSplash = ({ name, tagline, ready, intro, onLift, portraitU
                 </div>
               </div>
             ) : (
-              <div data-testid="splash-progress" className="mb-10 h-0.5 w-48 overflow-hidden rounded-full bg-[var(--pf-line)]">
-                <div className={`h-full rounded-full bg-[var(--pf-sky)] ${ready ? 'w-full transition-[width] duration-500' : 'pf-progress w-1/3'}`} />
+              <div className="mb-10 flex h-40 items-center sm:h-48">
+                <div data-testid="splash-progress" className="h-0.5 w-48 overflow-hidden rounded-full bg-[var(--pf-line)]">
+                  <div className={`h-full rounded-full bg-[var(--pf-sky)] ${ready ? 'w-full transition-[width] duration-500' : 'pf-progress w-1/3'}`} />
+                </div>
               </div>
             )}
             <p className="pf-display text-[clamp(2.25rem,7vw,4.5rem)]">
               <span className="block text-white">{first}</span>
               {last && <span className="mt-1 block text-[var(--pf-sky)]">{last}</span>}
             </p>
-            {tagline && <p className="mt-5 max-w-xl text-sm text-[var(--pf-muted)] sm:text-base">{tagline}</p>}
+            <div className="mt-5 min-h-5 max-w-xl text-sm text-[var(--pf-muted)] sm:min-h-6 sm:text-base">
+              {tagline && <p>{tagline}</p>}
+            </div>
             <div className="mt-8 flex min-h-6 items-center gap-2.5 text-xs text-[var(--pf-muted)]">
               <span className={`size-1.5 rounded-full bg-[var(--pf-sky)] ${ready ? '' : 'animate-pulse motion-reduce:animate-none'}`} />
               {ready ? 'Ready. Welcome to my work.' : 'Bringing the portfolio together…'}
@@ -101,8 +107,8 @@ export const PortfolioSplash = ({ name, tagline, ready, intro, onLift, portraitU
               Skip intro
             </button>
           )}
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 };

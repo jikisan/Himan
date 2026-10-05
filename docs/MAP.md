@@ -30,6 +30,7 @@ through `index.ts` barrel files — direct internal path imports are prohibited.
 | passwords | shared·web·mobile | 52 | [[passwords]] |
 | invoice-generator | shared·web | 49 | [[invoice-generator]] |
 | cards | shared·web·mobile | 46 | [[cards]] |
+| government | shared·web·mobile | — | [[government]]; private IDs with direct number copying |
 | notes | shared·web | 39 | [[notes]] |
 | storage | shared·web | 36 | [[storage]] |
 | subscriptions | shared·web | 34 | [[subscriptions]] |

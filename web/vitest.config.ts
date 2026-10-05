@@ -33,6 +33,8 @@ export default defineConfig({
       '@notes': path.resolve(__dirname, './src/modules/notes'),
       '@passwords': path.resolve(__dirname, './src/modules/passwords'),
       '@cards': path.resolve(__dirname, './src/modules/cards'),
+      '@government': path.resolve(__dirname, './src/modules/government'),
+      '@storage': path.resolve(__dirname, './src/modules/storage'),
       '@settings': path.resolve(__dirname, './src/modules/settings'),
       '@subscriptions': path.resolve(__dirname, './src/modules/subscriptions'),
       '@invoice-generator': path.resolve(__dirname, './src/modules/invoice-generator'),

@@ -130,7 +130,7 @@ export const BrowserTabs = ({ projects }: { projects: PortfolioProject[] }) => {
                   transition={{ duration: 0.45, ease: EASE_OUT }}
                 >
                   {image ? (
-                    <img src={image} alt={`${current.name} screenshot`} className="h-full w-full object-cover object-top" draggable={false} />
+                    <img src={image} alt={`${current.name} screenshot`} loading="lazy" className="h-full w-full object-cover object-top" draggable={false} />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
                       <p className="pf-display text-[clamp(1.5rem,4vw,3rem)] text-white/10">{current.url ? hostOf(current.url) : current.name}</p>

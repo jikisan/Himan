@@ -15,6 +15,13 @@ type QuickLink = {
 };
 
 const quickLinks: QuickLink[] = [
+  {
+    id: 'government',
+    icon: 'file-text',
+    label: 'Government',
+    description: 'Your government details and documents',
+    route: '/(app)/government',
+  },
   // {
   //   id: 'notes',
   //   icon: 'file-text',

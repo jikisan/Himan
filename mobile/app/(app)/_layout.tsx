@@ -6,7 +6,7 @@ import {
   SourceSerif4_600SemiBold,
   SourceSerif4_400Regular_Italic,
 } from '@expo-google-fonts/source-serif-4';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, defaultShouldDehydrateQuery, defaultShouldDehydrateMutation } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ThemeProvider } from '../../contexts/ThemeProvider';
 import { NetworkProvider } from '@/modules/shared/infrastructure/network/NetworkProvider';
@@ -37,7 +37,10 @@ export default function AppLayout() {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister: sqlitePersister, maxAge: Infinity }}
+      persistOptions={{ persister: sqlitePersister, maxAge: Infinity, dehydrateOptions: {
+        shouldDehydrateQuery: (query) => !query.meta?.sensitive && defaultShouldDehydrateQuery(query),
+        shouldDehydrateMutation: (mutation) => !mutation.meta?.sensitive && defaultShouldDehydrateMutation(mutation),
+      } }}
     >
       <NetworkProvider>
         <SyncProvider>

@@ -99,7 +99,10 @@ const PIXEL = Buffer.from(
 );
 
 const mockPortfolio = async (page: Page, body: unknown = portfolio) => {
-  await page.route('**/rest/v1/rpc/get_career_portfolio', (route) =>
+  await page.route('**/rest/v1/rpc/get_career_portfolio?*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
+  );
+  await page.route('**/rest/v1/rpc/get_career_portfolio_by_slug?*', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
   );
   await page.route('**/storage/v1/object/public/portfolio-media/**', (route) =>
@@ -111,6 +114,7 @@ const splash = (page: Page) => page.locator('.pf .fixed.inset-0.z-50');
 
 // Scroll so a pinned section's progress sits at `fraction` (0..1).
 const scrollPinned = async (page: Page, testId: string, fraction: number) => {
+  await page.getByTestId(testId).waitFor();
   await page.evaluate(
     ({ testId, fraction }) => {
       const el = document.querySelector(`[data-testid="${testId}"]`) as HTMLElement;
@@ -129,13 +133,43 @@ test.describe('public portfolio', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('June Kyle');
     await expect(page).toHaveTitle('June Kyle Santerna — Web + Mobile Developer');
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', portfolio.summary);
     await expect(page).toHaveURL(/\/p\/tok-render$/); // no redirect to /login
+  });
+
+  test('opens a readable link without loading the authenticated app', async ({ page }) => {
+    const requests: string[] = [];
+    page.on('request', (request) => requests.push(new URL(request.url()).pathname));
+    await mockPortfolio(page);
+    await page.goto('/p/junekyle/android-developer');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('June Kyle');
+    expect(requests.some((url) => url === '/src/App.tsx' || /\/assets\/App-.*\.js$/.test(url))).toBe(false);
+    expect(requests.filter((url) => url.endsWith('/get_career_portfolio_by_slug'))).toHaveLength(1);
+  });
+
+  test('loads the storage client on demand for an offered CV', async ({ page }) => {
+    await mockPortfolio(page, { ...portfolio, cvPath: 'owner/cv.pdf' });
+    await page.route('**/storage/v1/object/sign/career/**', (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({ contentType: 'application/json', body: JSON.stringify({ signedURL: '/object/sign/career/owner/cv.pdf?token=download' }) })
+        : route.fulfill({ contentType: 'text/html', body: '<p>CV download</p>' }),
+    );
+    await page.goto('/p/tok-cv');
+    await page.getByRole('button', { name: 'Download CV' }).click();
+    await expect(page).toHaveURL(/\/storage\/v1\/object\/sign\/career\/owner\/cv\.pdf\?token=download/);
   });
 
   test('plays the intro once per tab', async ({ page }) => {
     await mockPortfolio(page);
-    await page.goto('/p/tok-splash');
+    let release = () => {};
+    const response = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/rest/v1/rpc/get_career_portfolio?*', async (route) => {
+      await response;
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(portfolio) });
+    });
+    await page.goto('/p/tok-splash', { waitUntil: 'domcontentloaded' });
     await expect(splash(page)).toBeVisible();
+    release();
     await expect(splash(page)).toBeHidden({ timeout: 5_000 });
 
     await page.reload();
@@ -163,6 +197,7 @@ test.describe('public portfolio', () => {
     await mockPortfolio(page);
     await page.goto('/p/tok-links');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.locator('a[href="https://github.com/jikisan"]')).toBeAttached();
 
     const hrefs = await page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? ''));
     expect(hrefs.filter((h) => h.toLowerCase().startsWith('javascript:'))).toEqual([]);

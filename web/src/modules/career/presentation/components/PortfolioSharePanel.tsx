@@ -6,6 +6,7 @@ import { ProfileRepository, ProjectMediaService } from '@himan/shared/profile';
 import { portfolioPath, slugify, SLUG_PATTERN, type UpdateCareerItemDto } from '@himan/shared/career';
 import { profileKeys } from '../../../profile/presentation/hooks';
 import { useAuth } from '@auth/presentation/hooks';
+import { CompressionService } from '@storage/infrastructure';
 import { toast } from 'sonner';
 import { Button, Label, Switch } from '@/components/ui';
 
@@ -108,7 +109,8 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
     setSavingPhoto(true);
     let uploaded: string | undefined;
     try {
-      uploaded = await media.upload(user.id, new Uint8Array(await file.arrayBuffer()), file.type);
+      const compressed = await CompressionService.compress(file);
+      uploaded = await media.upload(user.id, new Uint8Array(await compressed.arrayBuffer()), compressed.type);
       await savePortrait(uploaded);
       if (portraitPath) await media.remove([portraitPath]);
       toast.success('Portfolio photo saved');

@@ -7,6 +7,8 @@ import { PortfolioSharePanel } from '../presentation/components/PortfolioSharePa
 
 const media = vi.hoisted(() => ({ upload: vi.fn(), remove: vi.fn() }));
 const profiles = vi.hoisted(() => ({ upsert: vi.fn() }));
+const compress = vi.hoisted(() => vi.fn());
+vi.mock('@storage/infrastructure', () => ({ CompressionService: { compress } }));
 vi.mock('@auth/presentation/hooks', () => ({ useAuth: () => ({ user: { id: 'owner' } }) }));
 vi.mock('../../profile/presentation/hooks', () => ({ profileKeys: { all: ['profile'] } }));
 vi.mock('@himan/shared/profile', () => ({
@@ -31,6 +33,7 @@ const Panel = (props: Partial<PanelProps> & Pick<PanelProps, 'onChange'>) => (
 
 beforeEach(() => {
   vi.resetAllMocks();
+  compress.mockImplementation(async (file: File) => file);
   media.upload.mockResolvedValue('owner/new.png');
   media.remove.mockResolvedValue(undefined);
 });
@@ -41,6 +44,17 @@ function uploadPhoto() {
 }
 
 describe('portfolio photo settings', () => {
+  it('uploads compressed bytes with their resulting content type', async () => {
+    const compressed = new File(['compressed photo'], 'photo.webp', { type: 'image/webp' });
+    compress.mockResolvedValue(compressed);
+    render(<Panel onChange={vi.fn()} />);
+    uploadPhoto();
+    await waitFor(() => expect(media.upload).toHaveBeenCalledWith(
+      'owner', new Uint8Array(new TextEncoder().encode('compressed photo')), 'image/webp',
+    ));
+    expect(compress).toHaveBeenCalledOnce();
+  });
+
   it('saves the uploaded path before deleting the old portrait', async () => {
     profiles.upsert.mockImplementation(async () => {
       expect(media.remove).not.toHaveBeenCalled();

@@ -4,7 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/webp" href="/assets/images/himan_logo.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>body { margin: 0; }</style>
     <title>Himan</title>
+    <script>
+      // Public visits fetch data and typography while the app bundle downloads.
+      if (/^\/p\/[^/]+(?:\/[^/]+)?\/?$/.test(location.pathname)) {
+        try {
+          const parts = location.pathname.replace(/\/$/, '').split('/').slice(2).map(decodeURIComponent);
+          const fn = parts.length === 2 ? 'get_career_portfolio_by_slug' : 'get_career_portfolio';
+          const args = parts.length === 2 ? { p_handle: parts[0], p_slug: parts[1] } : { p_token: parts[0] };
+          const query = new URLSearchParams({ ...args, apikey: '%VITE_SUPABASE_ANON_KEY%' });
+          const promise = fetch('%VITE_SUPABASE_URL%/rest/v1/rpc/' + fn + '?' + query, { cache: 'no-store' }).then(response => {
+            if (!response.ok) throw new Error('Failed to load portfolio');
+            return response.json();
+          });
+          window.__himanPortfolioRequest = { key: JSON.stringify([fn, args]), promise };
+          promise.catch(() => {}); // The page's query handles failures and retries.
+          const font = document.createElement('link');
+          Object.assign(font, { rel: 'preload', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous', href: '/assets/fonts/archivo-latin-variable.woff2' });
+          document.head.appendChild(font);
+        } catch { /* Malformed links reach the normal unavailable state. */ }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

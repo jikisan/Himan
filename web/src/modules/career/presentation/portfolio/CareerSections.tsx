@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
+import { useState, type ReactNode } from 'react';
+import { MotionConfig, motion } from 'motion/react';
 import {
   ArrowUpRight, FlaskConical, Globe, Layers, Mail, Plug, Rocket, Sparkles, Workflow, Zap, type LucideIcon,
 } from 'lucide-react';
@@ -7,6 +7,10 @@ import { yearSpan, type PortfolioData, type PortfolioExperience } from '@himan/s
 import { SectionHeading } from './SectionHeading';
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+
+export const PortfolioMotion = ({ children }: { children: ReactNode }) => (
+  <MotionConfig reducedMotion="user">{children}</MotionConfig>
+);
 
 const experienceYears = (exp: PortfolioExperience) =>
   yearSpan(exp.startDate, exp.isCurrent ? null : exp.endDate) ?? '';

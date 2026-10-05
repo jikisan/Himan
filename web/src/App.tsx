@@ -1,4 +1,5 @@
 import { BrowserRouter } from 'react-router-dom';
+import './index.css';
 import { Toaster } from 'sonner';
 import { Router } from './router';
 import { AuthProvider } from '@auth/presentation/contexts';

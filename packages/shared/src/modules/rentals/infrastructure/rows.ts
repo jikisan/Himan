@@ -64,11 +64,12 @@ export const tenancyRow = z.object({
 }));
 
 // RAISE EXCEPTION (P0001) messages are written for people; pass them through.
-export function rentalError(error: unknown, fallback: string): Error {
+export function rentalError(error: unknown, fallback: string,
+  duplicate = 'That name is already used in this property'): Error {
   const { code, message } = (error ?? {}) as { code?: string; message?: string };
   if (code === 'P0001' && message) return new Error(message);
   if (code === '23503') return new Error(fallback);
-  if (code === '23505') return new Error('That name is already used in this property');
+  if (code === '23505') return new Error(duplicate);
   if (code === '42501') return new Error('You don’t have permission to do that');
   return error instanceof Error ? error : new Error(fallback);
 }

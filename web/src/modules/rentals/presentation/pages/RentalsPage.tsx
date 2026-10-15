@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatPesos, hasRentalRole, manilaToday, unitOccupancy } from '@himan/shared/rentals';
 import type { RentalTenancy, RentalUnit } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
@@ -31,6 +32,7 @@ function RentalsContent(state: RentalsState) {
   const { properties, tenancies, loading, error, online, userId, busy, run, refetch, fileUrl } = state;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [ending, setEnding] = useState<RentalTenancy | null>(null);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -102,7 +104,7 @@ const label = (t: RentalTenancy) => `${state.renters.find((r) => r.id === t.rent
           <p className="text-sm text-muted-foreground">{c ? `${formatPesos(c.monthlyRentCentavos)}/mo · due day ${c.dueDay} · ${c.startDate} → ${c.endDate}` : 'No contract'}
             {t.moveOut && ` · moved out ${t.moveOut}`}</p></div>
         {!t.moveOut && hasRentalRole(role, 'manager') && <Button variant="outline"
-          onClick={() => void tryAct({ type: 'endTenancy', id: t.id, moveOut: manilaToday() }, 'Tenancy ended')}>End today</Button>}
+          onClick={() => setEnding(t)}>End today</Button>}
       </div>; })}
     </section>;
   })}
@@ -110,6 +112,11 @@ const label = (t: RentalTenancy) => `${state.renters.find((r) => r.id === t.rent
 </TabsContent>
         </Tabs>
       </>}
+
+    <ConfirmDialog open={!!ending} onOpenChange={(open) => !open && setEnding(null)} confirmText="End tenancy"
+      title={ending ? `End ${label(ending)}?` : ''}
+      description={`Move-out is recorded as ${manilaToday()} and the contract ends. This can’t be undone here.`}
+      onConfirm={() => { if (ending) void tryAct({ type: 'endTenancy', id: ending.id, moveOut: manilaToday() }, 'Tenancy ended'); setEnding(null); }} />
 
     <Dialog open={!!dialog} onOpenChange={(open) => !open && setDialog(null)}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">

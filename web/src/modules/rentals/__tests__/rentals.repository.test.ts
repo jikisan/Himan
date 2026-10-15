@@ -54,6 +54,16 @@ describe('TenancyRepository', () => {
   });
 });
 
+describe('TenancyRepository duplicates', () => {
+  it('explains a second active tenancy for the same renter in the same unit', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } });
+    await expect(new TenancyRepository().start({ unitId: '00000000-0000-0000-0000-000000000001',
+      renterId: '00000000-0000-0000-0000-000000000002', moveIn: '2026-10-01', startDate: '2026-10-01',
+      endDate: '2027-10-01', monthlyRentCentavos: 1000000, dueDay: 30, advanceMonths: 1, depositCentavos: 1000000 }))
+      .rejects.toThrow('This renter already has an active tenancy in this unit');
+  });
+});
+
 describe('RenterRepository files', () => {
   it('removes a failed upload’s object before its reserved metadata', async () => {
     const cleanup = result({ id: 'f' });

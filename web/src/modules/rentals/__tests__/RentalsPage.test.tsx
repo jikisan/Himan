@@ -109,6 +109,15 @@ describe('Rentals page — tenancies and sharing', () => {
     expect(screen.getByText('Juan Dela Cruz · Room B')).toBeInTheDocument();
     expect(screen.getByText(/₱10,000.00\/mo · due day 30/)).toBeInTheDocument();
   });
+  it('asks before ending a tenancy and only ends it after confirming', async () => {
+    state.properties = [{ ...property, units: [...property.units, fullRoom] }];
+    state.renters = [renter]; state.tenancies = [active]; state.run.mockResolvedValue(undefined);
+    page(); openTab();
+    fireEvent.click(screen.getByRole('button', { name: 'End today' }));
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'End tenancy' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'endTenancy', id: 't1' })));
+  });
   it('lets the owner open sharing and hides it from managers', () => {
     page();
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();

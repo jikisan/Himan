@@ -151,10 +151,10 @@ BEGIN
     RETURN NEW;
   END IF;
   IF NEW.lessor_name = '' THEN
-    NEW.lessor_name := coalesce((SELECT p.full_name FROM public.profiles p WHERE p.user_id = NEW.created_by), '');
+    NEW.lessor_name := coalesce((SELECT p.full_name FROM public.profiles p WHERE p.user_id = (SELECT auth.uid())), '');
   END IF;
   IF NEW.lessor_address = '' THEN
-    NEW.lessor_address := coalesce((SELECT p.location FROM public.profiles p WHERE p.user_id = NEW.created_by), '');
+    NEW.lessor_address := coalesce((SELECT p.location FROM public.profiles p WHERE p.user_id = (SELECT auth.uid())), '');
   END IF;
   RETURN NEW;
 END;
@@ -246,9 +246,26 @@ ALTER TABLE public.rental_renters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rental_renter_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rental_tenancies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rental_contracts ENABLE ROW LEVEL SECURITY;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.rental_properties, public.rental_property_members,
-  public.rental_units, public.rental_renters, public.rental_renter_files TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.rental_tenancies, public.rental_contracts TO authenticated;
+-- UPDATE is column-scoped: ownership and parent keys (property_id, user_id,
+-- tenancy_id, renter_id, unit_id, created_by) can never be rewritten through the API,
+-- so a row cannot be moved into a property the caller has no rights on.
+REVOKE ALL ON public.rental_properties, public.rental_property_members, public.rental_units,
+  public.rental_renters, public.rental_renter_files, public.rental_tenancies, public.rental_contracts FROM anon, authenticated;
+GRANT SELECT, INSERT, DELETE ON public.rental_properties, public.rental_units, public.rental_renters,
+  public.rental_renter_files TO authenticated;
+GRANT SELECT, DELETE ON public.rental_property_members TO authenticated;
+GRANT SELECT, INSERT ON public.rental_tenancies, public.rental_contracts TO authenticated;
+GRANT UPDATE (name, address, owner_name, owner_address, lessor_name, lessor_civil_status, lessor_address,
+  lessor_capacity, signing_city, invoice_prefix, archived_at) ON public.rental_properties TO authenticated;
+GRANT UPDATE (role) ON public.rental_property_members TO authenticated;
+GRANT UPDATE (name, kind, capacity, electric_mode, electric_amount_centavos, water_mode, water_amount_centavos)
+  ON public.rental_units TO authenticated;
+GRANT UPDATE (full_name, phone, facebook, email, address, emergency_name, emergency_phone, occupants, notes)
+  ON public.rental_renters TO authenticated;
+GRANT UPDATE (ready) ON public.rental_renter_files TO authenticated;
+GRANT UPDATE (move_out, notes) ON public.rental_tenancies TO authenticated;
+GRANT UPDATE (start_date, end_date, monthly_rent_centavos, due_day, advance_months, deposit_centavos, status)
+  ON public.rental_contracts TO authenticated;
 
 -- created_by = auth.uid() lets INSERT ... RETURNING pass before the owner trigger fires.
 CREATE POLICY "Members read properties" ON public.rental_properties FOR SELECT TO authenticated
@@ -317,7 +334,7 @@ RETURNS TABLE (user_id uuid, email text, role text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT m.user_id, u.email::text, m.role
   FROM public.rental_property_members m JOIN auth.users u ON u.id = m.user_id
-  WHERE m.property_id = p_property_id AND public.rental_has_role(p_property_id, 'viewer')
+  WHERE m.property_id = p_property_id AND public.rental_has_role(p_property_id, 'owner')
   ORDER BY public.rental_role_rank(m.role) DESC, u.email
 $$;
 

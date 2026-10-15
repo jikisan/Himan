@@ -79,9 +79,7 @@ DO $$ BEGIN
     UPDATE public.rental_tenancies SET unit_id = '00000000-0000-0000-0000-0000000ac002'
     WHERE renter_id = '00000000-0000-0000-0000-0000000ad001';
     RAISE EXCEPTION 'Tenancy unit was changed';
-  EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM <> 'Tenancy unit and renter cannot be changed' THEN RAISE; END IF;
-  END;
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 
   -- Review Focus 3: sharing.
   BEGIN
@@ -103,9 +101,27 @@ DO $$ BEGIN
   IF NOT FOUND THEN NULL; ELSE RAISE EXCEPTION 'Owner membership was deleted'; END IF;
 END $$;
 
+-- Security: member rows can only change role, never property or user.
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab002', 'Second');
+DO $$ BEGIN
+  BEGIN
+    UPDATE public.rental_property_members SET user_id = '00000000-0000-0000-0000-0000000aa003'
+    WHERE user_id = '00000000-0000-0000-0000-0000000aa002';
+    RAISE EXCEPTION 'Owner reassigned a member to a non-friend';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_property_members SET property_id = '00000000-0000-0000-0000-0000000ab002'
+    WHERE user_id = '00000000-0000-0000-0000-0000000aa002';
+    RAISE EXCEPTION 'Owner moved a member to another property';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = '00000000-0000-0000-0000-0000000aa002';
+END $$;
+
 -- As the friend (viewer).
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa002', true);
 DO $$ BEGIN
+  IF (SELECT count(*) FROM public.rental_list_members('00000000-0000-0000-0000-0000000ab001')) <> 0
+  THEN RAISE EXCEPTION 'Viewer can list member emails'; END IF;
   IF (SELECT count(*) FROM public.rental_properties) <> 1 THEN RAISE EXCEPTION 'Viewer cannot see shared property'; END IF;
   IF (SELECT count(*) FROM public.rental_renters) <> 3 THEN RAISE EXCEPTION 'Viewer cannot see renters'; END IF;
   -- Review Focus 5: no ID files for viewers.

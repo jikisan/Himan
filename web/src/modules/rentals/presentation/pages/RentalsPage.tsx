@@ -1,24 +1,26 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Building2, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
+import { ArrowLeft, Building2, Pencil, Plus, Share2, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatPesos, hasRentalRole, unitOccupancy } from '@himan/shared/rentals';
-import type { RentalUnit } from '@himan/shared/rentals';
+import { formatPesos, hasRentalRole, manilaToday, unitOccupancy } from '@himan/shared/rentals';
+import type { RentalTenancy, RentalUnit } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { PropertyForm } from '../components/PropertyForm';
 import { UnitForm } from '../components/UnitForm';
 import { RenterForm } from '../components/RenterForm';
 import { RenterFiles } from '../components/RenterFiles';
+import { StartTenancyForm } from '../components/StartTenancyForm';
+import { ShareDialog } from '../components/ShareDialog';
 import { inputClass } from '../components/Field';
 import { errorMessage } from '../utils/errorMessage';
 
 export type RentalsState = ReturnType<typeof useRentals>;
 type DialogState = { type: 'property'; id: string | null } | { type: 'unit'; id: string | null }
-  | { type: 'renter'; id: string | null } | null;
+  | { type: 'renter'; id: string | null } | { type: 'tenancy' } | { type: 'share' } | null;
 
 export function RentalsPage() {
   const rentals = useRentals();
@@ -35,6 +37,8 @@ function RentalsContent(state: RentalsState) {
   const act = async (action: RentalAction, message: string) => { await run(action); toast.success(message); setDialog(null); };
   const tryAct = (action: RentalAction, message: string) => act(action, message).catch((e) => toast.error(errorMessage(e)));
   const propertyRenters = state.renters.filter((r) => r.propertyId === property?.id);
+const propertyTenancies = tenancies.filter((t) => t.propertyId === property?.id);
+const label = (t: RentalTenancy) => `${state.renters.find((r) => r.id === t.renterId)?.fullName ?? 'Renter'} · ${property?.units.find((u) => u.id === t.unitId)?.name ?? 'Unit'}`;
   const editingUnit = dialog?.type === 'unit' ? property?.units.find((u) => u.id === dialog.id) : undefined;
 
   return <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -63,11 +67,12 @@ function RentalsContent(state: RentalsState) {
             <Button variant="outline" onClick={() => setDialog({ type: 'property', id: property.id })}><Pencil className="h-4 w-4" />Edit</Button>
             <Button variant="outline" onClick={() => void tryAct({ type: 'archiveProperty', id: property.id, archived: !property.archivedAt },
               property.archivedAt ? 'Property restored' : 'Property archived')}>{property.archivedAt ? 'Unarchive' : 'Archive'}</Button>
+            <Button variant="outline" onClick={() => setDialog({ type: 'share' })}><Share2 className="h-4 w-4" />Share</Button>
           </>}
         </div>
 
         <Tabs defaultValue="units">
-          <TabsList><TabsTrigger value="units">Units</TabsTrigger><TabsTrigger value="renters">Renters</TabsTrigger></TabsList>
+          <TabsList><TabsTrigger value="units">Units</TabsTrigger><TabsTrigger value="renters">Renters</TabsTrigger><TabsTrigger value="tenancies">Tenancies</TabsTrigger></TabsList>
           <TabsContent value="units" className="mt-4 space-y-3">
             {hasRentalRole(role, 'owner') && <Button onClick={() => setDialog({ type: 'unit', id: null })}><Plus className="h-4 w-4" />Add unit</Button>}
             {property.units.length === 0 && <p className="text-muted-foreground">No units yet. A whole house is one unit; rooms and bedspaces are one unit each.</p>}
@@ -85,6 +90,23 @@ function RentalsContent(state: RentalsState) {
     <span><span className="block font-medium">{r.fullName}</span>
       <span className="text-sm text-muted-foreground">{[r.phone, r.facebook].filter(Boolean).join(' · ') || 'No contact saved'}</span></span>
   </button>)}
+</TabsContent>
+<TabsContent value="tenancies" className="mt-4 space-y-3">
+  {hasRentalRole(role, 'manager') && <Button onClick={() => setDialog({ type: 'tenancy' })}><Plus className="h-4 w-4" />Start tenancy</Button>}
+  {(['Active', 'Ended'] as const).map((group) => {
+    const rows = propertyTenancies.filter((t) => (group === 'Active') === (t.moveOut === null));
+    return rows.length > 0 && <section key={group} className="space-y-2">
+      <h2 className="text-sm font-medium text-muted-foreground">{group}</h2>
+      {rows.map((t) => { const c = t.contracts[0]; return <div key={t.id} className="flex items-center justify-between rounded-xl border p-4">
+        <div><p className="font-medium">{label(t)}</p>
+          <p className="text-sm text-muted-foreground">{c ? `${formatPesos(c.monthlyRentCentavos)}/mo · due day ${c.dueDay} · ${c.startDate} → ${c.endDate}` : 'No contract'}
+            {t.moveOut && ` · moved out ${t.moveOut}`}</p></div>
+        {!t.moveOut && hasRentalRole(role, 'manager') && <Button variant="outline"
+          onClick={() => void tryAct({ type: 'endTenancy', id: t.id, moveOut: manilaToday() }, 'Tenancy ended')}>End today</Button>}
+      </div>; })}
+    </section>;
+  })}
+  {propertyTenancies.length === 0 && <p className="text-muted-foreground">No tenancies yet.</p>}
 </TabsContent>
         </Tabs>
       </>}
@@ -116,6 +138,17 @@ function RentalsContent(state: RentalsState) {
       onClick={() => void tryAct({ type: 'removeRenter', id: renter.id }, 'Renter deleted')}><Trash2 className="h-4 w-4" />Delete renter</Button>}
   </>;
 })()}
+{dialog?.type === 'tenancy' && property && <>
+  <DialogHeader><DialogTitle>Start tenancy</DialogTitle>
+    <DialogDescription>Advance pays the first month. Deposit is held until move-out.</DialogDescription></DialogHeader>
+  <StartTenancyForm units={property.units} renters={propertyRenters} tenancies={tenancies} busy={busy} onCancel={() => setDialog(null)}
+    onSave={async (input) => { await act({ type: 'startTenancy', input }, 'Tenancy started'); }} />
+</>}
+{dialog?.type === 'share' && property && <>
+  <DialogHeader><DialogTitle>Share {property.name}</DialogTitle>
+    <DialogDescription>Only accepted friends can be added.</DialogDescription></DialogHeader>
+  <ShareDialog propertyId={property.id} busy={busy} run={run} listMembers={state.listMembers} listFriends={state.listFriends} />
+</>}
       </DialogContent>
     </Dialog>
   </div>;

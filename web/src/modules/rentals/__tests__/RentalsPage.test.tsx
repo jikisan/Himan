@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { RentalProperty } from '@himan/shared/rentals';
 import type { Renter } from '@himan/shared/rentals';
+import type { RentalTenancy } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
 const property: RentalProperty = {
@@ -80,5 +81,39 @@ describe('Rentals page — renters', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Juan Dela Cruz' }));
     expect(screen.queryByText('Valid ID')).not.toBeInTheDocument();
     expect(screen.queryByText('national-id.png')).not.toBeInTheDocument();
+  });
+});
+
+
+const fullRoom = { id: 'u2', propertyId: 'p', name: 'Room B', kind: 'room' as const, capacity: 1, electricMode: 'none' as const,
+  electricAmountCentavos: 0, waterMode: 'none' as const, waterAmountCentavos: 0 };
+const active: RentalTenancy = { id: 't1', propertyId: 'p', unitId: 'u2', renterId: 'r1', moveIn: '2026-10-01', moveOut: null,
+  contracts: [{ id: 'c1', tenancyId: 't1', startDate: '2026-10-01', endDate: '2027-10-01', monthlyRentCentavos: 1000000,
+    dueDay: 30, advanceMonths: 1, depositCentavos: 1000000, status: 'active' }] };
+
+describe('Rentals page — tenancies and sharing', () => {
+  const openTab = () => { fireEvent.mouseDown(screen.getByRole('tab', { name: 'Tenancies' })); fireEvent.click(screen.getByRole('tab', { name: 'Tenancies' })); };
+  it('offers only units with a free slot when starting a tenancy', () => {
+    state.properties = [{ ...property, units: [...property.units, fullRoom] }];
+    state.renters = [renter]; state.tenancies = [active];
+    page(); openTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Start tenancy' }));
+    const options = [...(screen.getByLabelText('Unit') as HTMLSelectElement).options].map((o) => o.text);
+    expect(options).toContain('Room A (2 free)');
+    expect(options.some((o) => o.startsWith('Room B'))).toBe(false);
+  });
+  it('shows the active tenancy with its rent and due day', () => {
+    state.properties = [{ ...property, units: [...property.units, fullRoom] }];
+    state.renters = [renter]; state.tenancies = [active];
+    page(); openTab();
+    expect(screen.getByText('Juan Dela Cruz · Room B')).toBeInTheDocument();
+    expect(screen.getByText(/₱10,000.00\/mo · due day 30/)).toBeInTheDocument();
+  });
+  it('lets the owner open sharing and hides it from managers', () => {
+    page();
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    state.properties = [{ ...property, role: 'manager' }];
+    page();
+    expect(screen.getAllByRole('button', { name: 'Share' })).toHaveLength(1);
   });
 });

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { RentalProperty } from '@himan/shared/rentals';
+import type { Renter } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
 const property: RentalProperty = {
@@ -53,5 +54,31 @@ describe('Rentals page — properties and units', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save unit' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUnit', propertyId: 'p', id: null,
       input: expect.objectContaining({ name: 'Room B', electricMode: 'submeter', electricAmountCentavos: 1250 }) }));
+  });
+});
+
+
+const renter: Renter = { id: 'r1', propertyId: 'p', fullName: 'Juan Dela Cruz', phone: '0917', facebook: '', email: '',
+  address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '',
+  files: [{ id: 'f1', renterId: 'r1', propertyId: 'p', name: 'national-id.png', mimeType: 'image/png', size: 10, storagePath: 'p/renters/r1/f1', ready: true }] };
+
+describe('Rentals page — renters', () => {
+  it('lists only renters of the selected property', () => {
+    state.renters = [renter, { ...renter, id: 'r2', propertyId: 'other', fullName: 'Other Person' }];
+    page();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Renters' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Renters' }));
+    expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument();
+    expect(screen.queryByText('Other Person')).not.toBeInTheDocument();
+  });
+  it('never shows the ID files section to a viewer', () => {
+    state.properties = [{ ...property, role: 'viewer' }];
+    state.renters = [renter];
+    page();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Renters' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Renters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Juan Dela Cruz' }));
+    expect(screen.queryByText('Valid ID')).not.toBeInTheDocument();
+    expect(screen.queryByText('national-id.png')).not.toBeInTheDocument();
   });
 });

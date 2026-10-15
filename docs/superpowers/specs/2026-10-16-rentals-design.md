@@ -93,6 +93,8 @@ signature + typed name + timestamp + user agent. Lessor countersigns in-app.
 acknowledgment receipt — on both the landlord app and the public link. Mobile later
 uses `expo-print`. `react-to-pdf` (rasterizing) is rejected for these documents.
 
+Spike 2026-10-16: builds under rolldown-vite as a lazy chunk (+441 KB gzip, 1.2 MB raw — load it only on PDF actions). ₱ glyph **needs `Font.register`**: the built-in Helvetica renders U+20B1 as `±`. Register a TTF with ₱ (check Archivo covers U+20B1; else bundle Noto Sans).
+
 ## Dashboard
 
 Tiles: collected this month · outstanding · overdue count · occupancy · deposits held.

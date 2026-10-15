@@ -88,6 +88,7 @@ Exports raw `.ts` files (no build step) via subpath exports — consumed directl
 @himan/shared/invoice-generator
 @himan/shared/subscriptions
 @himan/shared/grocery
+@himan/shared/rentals
 @himan/shared/config
 @himan/shared/services
 ```

@@ -15,19 +15,19 @@ const property: RentalProperty = {
 };
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as unknown[], tenancies: [] as unknown[],
-  online: true, userId: 'owner', loading: false, error: null, busy: false,
+  online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
 }));
 vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
 
-beforeEach(() => { vi.clearAllMocks(); state.properties = [property]; state.renters = []; state.tenancies = []; });
+beforeEach(() => { vi.clearAllMocks(); state.myName = 'Maria Santos'; state.properties = [property]; state.renters = []; state.tenancies = []; });
 const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
 
 describe('Rentals page — properties and units', () => {
   it('shows unit occupancy for the selected property', () => {
     page();
     expect(screen.getByText('Room A')).toBeInTheDocument();
-    expect(screen.getByText('0 / 2 occupied')).toBeInTheDocument();
+    expect(screen.getAllByText('0 / 2 occupied').length).toBeGreaterThan(0);
   });
   it('hides owner-only controls from a viewer', () => {
     state.properties = [{ ...property, role: 'viewer' }];
@@ -135,5 +135,44 @@ describe('Rentals page — tenancies and sharing', () => {
     state.properties = [{ ...property, role: 'manager' }];
     page();
     expect(screen.getAllByRole('button', { name: 'Share' })).toHaveLength(1);
+  });
+});
+
+
+describe('Rentals page — property owner and lessor', () => {
+  const openNew = () => { page(); fireEvent.click(screen.getByRole('button', { name: 'New property' })); };
+  it('fills owner and lessor with my profile name by default', async () => {
+    state.run.mockResolvedValue(undefined);
+    openNew();
+    expect(screen.getByLabelText('Owner name')).toHaveValue('Maria Santos');
+    expect(screen.getByLabelText('Owner name')).toHaveAttribute('readonly');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bakilid House 2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveProperty', id: null,
+      input: expect.objectContaining({ ownerName: 'Maria Santos', lessorName: 'Maria Santos' }) }));
+  });
+  it('lets me type a different lessor after unticking', async () => {
+    state.run.mockResolvedValue(undefined);
+    openNew();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Use my name as lessor name' }));
+    fireEvent.change(screen.getByLabelText('Lessor name'), { target: { value: 'Pedro Reyes' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bakilid House 2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({ ownerName: 'Maria Santos', lessorName: 'Pedro Reyes' }) })));
+  });
+  it('disables the shortcut when my profile has no name', () => {
+    state.myName = '';
+    openNew();
+    expect(screen.getByRole('checkbox', { name: 'Use my name as owner name' })).toBeDisabled();
+    expect(screen.getByLabelText('Owner name')).not.toHaveAttribute('readonly');
+  });
+  it('asks before deleting a unit', async () => {
+    state.run.mockResolvedValue(undefined);
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Room A' }));
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete unit' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeUnit', id: 'u1' }));
   });
 });

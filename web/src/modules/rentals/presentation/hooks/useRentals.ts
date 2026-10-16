@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { onlineManager, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
+import { ProfileRepository } from '@himan/shared/profile';
 import type { PropertyInput, RenterInput, StartTenancyInput, UnitInput } from '@himan/shared/rentals';
 import { PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
 
@@ -25,15 +26,16 @@ export function useRentals() {
   const userId = user?.id;
   const client = useQueryClient();
   const repos = useMemo(() => ({ properties: new PropertyRepository(), renters: new RenterRepository(),
-    tenancies: new TenancyRepository(), friends: new FriendRepository() }), []);
+    tenancies: new TenancyRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
   const online = useSyncExternalStore(onlineManager.subscribe, () => onlineManager.isOnline());
   const query = useQuery({
     queryKey: ['rentals', userId], enabled: !!userId && online,
     meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false, refetchOnMount: 'always', networkMode: 'always',
     queryFn: async () => {
-      const [properties, renters, tenancies] = await Promise.all([
-        repos.properties.findAll(userId!), repos.renters.findAll(), repos.tenancies.findAll()]);
-      return { properties, renters, tenancies };
+      const [properties, renters, tenancies, profile] = await Promise.all([
+        repos.properties.findAll(userId!), repos.renters.findAll(), repos.tenancies.findAll(),
+        repos.profile.get(userId!).catch(() => null)]);
+      return { properties, renters, tenancies, myName: profile?.fullName?.trim() ?? '' };
     },
   });
   const mutation = useMutation({
@@ -61,7 +63,7 @@ export function useRentals() {
   });
   const data = online && userId ? query.data : undefined;
   return {
-    properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [],
+    properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
     loading: query.isLoading, error: query.error, online, userId, busy: mutation.isPending,
     refetch: query.refetch, run: mutation.mutateAsync,
     fileUrl: (id: string, download = false) => repos.renters.fileUrl(id, download),

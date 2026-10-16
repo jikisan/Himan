@@ -30,7 +30,7 @@ Renter ID files: bucket `rental-files` (private), managers only, 60-second signe
 Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and `profiles` (lessor defaults).
 
 ## Verification (2026-10-16)
-- Web Vitest: 28 rentals tests (domain 11, repository 7, page 10); full suite 159/159.
+- Web Vitest: 30 rentals tests (domain 11, repository 8, page 11); full suite 161/161.
 - SQL: `supabase/tests/rentals.sql` passes against all migrations in an isolated local
   Supabase (ports 544xx); fixtures roll back.
 - Integration (temporary, not committed): repositories against real PostgREST/RLS/Storage —

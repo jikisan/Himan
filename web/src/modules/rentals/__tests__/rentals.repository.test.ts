@@ -8,7 +8,7 @@ function result(data: unknown, error: unknown = null) {
   const value = { data, error };
   const chain = {
     select: vi.fn(() => chain), eq: vi.fn(() => chain), insert: vi.fn(() => chain), update: vi.fn(() => chain),
-    delete: vi.fn(() => chain), order: vi.fn(() => chain), single: vi.fn(async () => value),
+    delete: vi.fn(() => chain), order: vi.fn(() => chain), limit: vi.fn(() => chain), single: vi.fn(async () => value),
     then: (resolve: (response: typeof value) => unknown) => Promise.resolve(value).then(resolve),
   };
   return chain;
@@ -61,6 +61,20 @@ describe('TenancyRepository duplicates', () => {
       renterId: '00000000-0000-0000-0000-000000000002', moveIn: '2026-10-01', startDate: '2026-10-01',
       endDate: '2027-10-01', monthlyRentCentavos: 1000000, dueDay: 30, advanceMonths: 1, depositCentavos: 1000000 }))
       .rejects.toThrow('This renter already has an active tenancy in this unit');
+  });
+});
+
+describe('RenterRepository remove', () => {
+  it('refuses a renter with tenancy history before touching their ID files', async () => {
+    const history = result([{ id: 't1' }]);
+    mock.from.mockReturnValueOnce(history);
+    const remove = vi.fn(async () => ({ error: null }));
+    mock.storage.from.mockReturnValue({ remove });
+    await expect(new RenterRepository().remove('r')).rejects.toThrow('tenancy history');
+    expect(mock.from).toHaveBeenCalledWith('rental_tenancies');
+    expect(history.eq).toHaveBeenCalledWith('renter_id', 'r');
+    expect(remove).not.toHaveBeenCalled();
+    expect(mock.from).toHaveBeenCalledTimes(1);
   });
 });
 

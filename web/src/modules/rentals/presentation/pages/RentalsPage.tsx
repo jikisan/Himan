@@ -33,6 +33,7 @@ function RentalsContent(state: RentalsState) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [ending, setEnding] = useState<RentalTenancy | null>(null);
+  const [deletingRenter, setDeletingRenter] = useState<{ id: string; name: string } | null>(null);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -118,6 +119,11 @@ const label = (t: RentalTenancy) => `${state.renters.find((r) => r.id === t.rent
       description={`Move-out is recorded as ${manilaToday()} and the contract ends. This can’t be undone here.`}
       onConfirm={() => { if (ending) void tryAct({ type: 'endTenancy', id: ending.id, moveOut: manilaToday() }, 'Tenancy ended'); setEnding(null); }} />
 
+    <ConfirmDialog open={!!deletingRenter} onOpenChange={(open) => !open && setDeletingRenter(null)} confirmText="Delete"
+      title={deletingRenter ? `Delete ${deletingRenter.name}?` : ''}
+      description="Their contact details and ID files are removed permanently. Renters with tenancy history can’t be deleted."
+      onConfirm={() => { if (deletingRenter) void tryAct({ type: 'removeRenter', id: deletingRenter.id }, 'Renter deleted'); setDeletingRenter(null); }} />
+
     <Dialog open={!!dialog} onOpenChange={(open) => !open && setDialog(null)}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         {dialog?.type === 'property' && <>
@@ -142,7 +148,7 @@ const label = (t: RentalTenancy) => `${state.renters.find((r) => r.id === t.rent
       onSave={async (input) => { await act({ type: 'saveRenter', propertyId: property.id, id: dialog.id, input }, 'Renter saved'); }} />
     {renter && canManage && <RenterFiles renter={renter} busy={busy} run={run} fileUrl={fileUrl} />}
     {renter && canManage && <Button variant="ghost" className="text-destructive"
-      onClick={() => void tryAct({ type: 'removeRenter', id: renter.id }, 'Renter deleted')}><Trash2 className="h-4 w-4" />Delete renter</Button>}
+      onClick={() => setDeletingRenter({ id: renter.id, name: renter.fullName })}><Trash2 className="h-4 w-4" />Delete renter</Button>}
   </>;
 })()}
 {dialog?.type === 'tenancy' && property && <>

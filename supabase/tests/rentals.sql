@@ -155,6 +155,26 @@ DO $$ BEGIN
   EXCEPTION WHEN foreign_key_violation THEN NULL; END;
 END $$;
 
+-- Deleting a property whose renter has a stored ID must not orphan the object.
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab003', 'Third');
+INSERT INTO public.rental_renters (id, property_id, full_name)
+VALUES ('00000000-0000-0000-0000-0000000ad009', '00000000-0000-0000-0000-0000000ab003', 'Filed');
+INSERT INTO public.rental_renter_files (id, renter_id, property_id, name, mime_type, size) VALUES
+  ('00000000-0000-0000-0000-0000000ae009', '00000000-0000-0000-0000-0000000ad009', '00000000-0000-0000-0000-0000000ab003', 'id.png', 'image/png', 10);
+RESET ROLE;
+INSERT INTO storage.objects (bucket_id, name)
+SELECT 'rental-files', storage_path FROM public.rental_renter_files WHERE id = '00000000-0000-0000-0000-0000000ae009';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+DO $$ BEGIN
+  BEGIN
+    DELETE FROM public.rental_properties WHERE id = '00000000-0000-0000-0000-0000000ab003';
+    RAISE EXCEPTION 'Property delete orphaned a stored renter file';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Remove the stored renter file before deleting its metadata' THEN RAISE; END IF;
+  END;
+END $$;
+
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

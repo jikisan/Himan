@@ -27,6 +27,12 @@ export class RenterRepository {
   }
 
   async remove(id: string): Promise<void> {
+    // Check history first: files are deleted before the row, so a later FK failure
+    // would otherwise leave the renter without their ID.
+    const { data: history, error: historyError } = await getSupabase().from('rental_tenancies')
+      .select('id').eq('renter_id', id).limit(1);
+    if (historyError) throw rentalError(historyError, 'Could not remove renter');
+    if (z.array(z.unknown()).parse(history).length) throw new Error('This renter has tenancy history and can’t be deleted');
     const { data, error } = await getSupabase().from('rental_renter_files').select('id').eq('renter_id', id);
     if (error) throw rentalError(error, 'Could not remove renter');
     for (const file of z.array(z.object({ id: z.string() })).parse(data)) await this.removeFile(file.id);

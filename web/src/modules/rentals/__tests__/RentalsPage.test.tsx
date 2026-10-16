@@ -72,6 +72,17 @@ describe('Rentals page — renters', () => {
     expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument();
     expect(screen.queryByText('Other Person')).not.toBeInTheDocument();
   });
+  it('asks before deleting a renter', async () => {
+    state.renters = [renter]; state.run.mockResolvedValue(undefined);
+    page();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Renters' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Renters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Juan Dela Cruz' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete renter' }));
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeRenter', id: 'r1' }));
+  });
   it('never shows the ID files section to a viewer', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     state.renters = [renter];

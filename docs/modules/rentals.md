@@ -40,6 +40,12 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   is full" → end one. Share dialog not exercised in a browser (needs a second friend account).
 - `@react-pdf/renderer` spike: builds; ₱ needs `Font.register` (Phase 2).
 
+- Remote (2026-10-16): applied alone to the linked Himan project with `supabase db query --linked -f`
+  inside one transaction, then `supabase migration repair --status applied 20261016000000`.
+  Verified: 7 tables with RLS, 25 table policies, private `rental-files` bucket, no anon EXECUTE,
+  member `user_id` not updatable. `db push` was avoided: remote history has 3 remote-only
+  versions (20261003143028/143636/144108) and 3 local-only portfolio versions (20261003200000/210000/220000).
+
 ## Local environment notes (pre-existing, not changed)
 - Seed migrations `20260427000001`, `20260904000000`, `20260909000000` raise "No users found"
   on a fresh database, so `supabase db reset` fails on a clean machine.

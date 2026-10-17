@@ -339,6 +339,19 @@ BEGIN
     UPDATE public.rental_bills SET lines = jsonb_build_array(jsonb_build_object('kind', 'rent', 'label', E'\u00a0\u2003', 'amount', 1)) WHERE id = v_id;
     RAISE EXCEPTION 'A blank-looking label was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"electric","label":"E","amount":1,"meter":{"readings":["r"],"fromDate":"2026-10-01","toDate":"2026-11-01","fromValue":0,"toValue":10,"usage":10,"rate":"16","sharedWith":1}}]' WHERE id = v_id;
+    RAISE EXCEPTION 'A text meter rate was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"electric","label":"E","amount":1,"meter":{"readings":["r"],"fromDate":"2026-10-01","toDate":"2026-11-01","fromValue":0,"toValue":10,"usage":10,"rate":16,"sharedWith":"2"}}]' WHERE id = v_id;
+    RAISE EXCEPTION 'A text share count was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"electric","label":"E","amount":1,"meter":{"readings":["r"],"fromDate":"2026-10-01","toDate":"2026-11-01","fromValue":0,"toValue":10,"usage":1e400,"rate":16,"sharedWith":1}}]' WHERE id = v_id;
+    RAISE EXCEPTION 'An oversized meter usage was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  UPDATE public.rental_bills SET lines = '[{"kind":"electric","label":"E","amount":1,"meter":{"readings":["r"],"fromDate":"2026-10-01","toDate":"2026-11-01","fromValue":1200.5,"toValue":1350.25,"usage":149.75,"rate":1600,"sharedWith":3}}]' WHERE id = v_id;
   UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":500000},{"kind":"other","label":"Discount","amount":-5000}]' WHERE id = v_id;
   BEGIN
     UPDATE public.rental_tenancies SET charges = '[{"label":"Parking","amount":0}]' WHERE id = v_t;

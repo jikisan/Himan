@@ -230,6 +230,13 @@ describe('Reading stored rows', () => {
     mock.from.mockReturnValueOnce(result([{ ...billRow, lines: [{ kind: 'charge', label, amount: 100000 }] }]));
     expect((await new BillRepository().findAll())[0].lines[0].label).toBe(label);
   });
+  it('loads a line whose meter numbers can’t be read, keeping the readings it billed', async () => {
+    const meter = { readings: ['r1'], fromDate: '2026-10-01', toDate: '2026-11-01', fromValue: 0, toValue: 10, usage: Infinity,
+      rate: '16', sharedWith: '2' };
+    mock.from.mockReturnValueOnce(result([{ ...billRow, lines: [{ kind: 'electric', label: 'Electricity', amount: 100, meter }] }]));
+    const [bill] = await new BillRepository().findAll();
+    expect(bill.lines[0].meter).toMatchObject({ readings: ['r1'], usage: 0, rate: 0, sharedWith: 1 });
+  });
   it('fails the load instead of hiding a bill it can’t read', async () => {
     mock.from.mockReturnValueOnce(result([billRow, { ...billRow, id: 'bad', lines: [{ kind: 'bribe', label: '', amount: 'x' }] }]));
     await expect(new BillRepository().findAll()).rejects.toThrow();

@@ -53,6 +53,8 @@ Renter ID files: bucket `rental-files` (private), managers only, 60-second signe
   `rental_valid_charges`; real calendar dates, names need a visible character — `20261017200000`). The client reads
   with schemas that accept everything the database accepts (`storedBillLineSchema`, `storedChargeSchema`) and fails
   closed otherwise, so an issued bill is never silently hidden (hiding it would let its month or readings be billed again).
+  Meter numbers must be plain JSON decimals (`20261017300000`); display-only meter numbers read as 0 if unreadable,
+  while the billed `readings` ids stay strict.
 - One issued monthly bill per tenancy per month; one issued move-in bill per tenancy. Cancelled bills can't change.
 - Advance/deposit locked once a move-in bill exists; rent locked once a monthly bill exists (renew via `rental_change_rent`).
 - A reading on an issued bill can't be edited or deleted.
@@ -93,6 +95,8 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   `rental_bills`, `rental_issue_bill` is SECURITY DEFINER, the three validation CHECKs exist, no anon EXECUTE.
 - Done 2026-10-17: `20261017200000` (date/label tightening) applied the same way and recorded. Verified: Feb 30 and
   blank-only names rejected, normal lines and charges accepted, no anon EXECUTE on `rental_real_date`.
+- Done 2026-10-17: `20261017300000` (meter number checks) applied the same way and recorded. Verified: text rate and
+  oversized usage rejected, normal decimal meter line accepted.
 - `20261017000000_add_rental_bills.sql` must be applied to the hosted DB **before** deploying the bills web build:
   loading `/rentals` reads `rental_bills` and `rental_meter_readings`.
 - Done 2026-10-16: `20261016100000` applied alone to the linked Himan project (`db query --linked -f`, one

@@ -85,7 +85,16 @@ export const billLineSchema = z.object({
 
 /** Reading back from the database: accepts every line and charge the database accepts (its checks are the
  * authority), so a stored row can never fail to load. Writes still use the stricter schemas above. */
-export const storedBillLineSchema = billLineSchema.extend({ label: z.string() });
+export const storedBillLineSchema = billLineSchema.extend({
+  label: z.string(),
+  // Meter numbers are only shown on the statement; one that can't be read shows as 0 rather than blocking every bill.
+  // `readings` stays strict: it is what stops usage being billed twice.
+  meter: z.object({
+    readings: z.array(z.string()), fromDate: z.string(), toDate: z.string(),
+    fromValue: z.number().catch(0), toValue: z.number().catch(0), usage: z.number().catch(0),
+    rate: z.number().int().catch(0), sharedWith: z.number().int().min(1).catch(1),
+  }).optional(),
+});
 export const storedChargeSchema = tenancyChargeSchema.extend({ label: z.string(), amount: z.number().int() });
 
 const twoDecimals = (v: number) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;

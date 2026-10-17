@@ -175,6 +175,28 @@ DO $$ BEGIN
   END;
 END $$;
 
+-- Usual rent: owners can set it, negatives are refused.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+UPDATE public.rental_units SET default_rent_centavos = 800000 WHERE id = '00000000-0000-0000-0000-0000000ac002';
+DO $$ BEGIN
+  IF (SELECT default_rent_centavos FROM public.rental_units WHERE id = '00000000-0000-0000-0000-0000000ac002') <> 800000 THEN
+    RAISE EXCEPTION 'Owner could not set usual rent';
+  END IF;
+  BEGIN
+    UPDATE public.rental_units SET default_rent_centavos = -1 WHERE id = '00000000-0000-0000-0000-0000000ac002';
+    RAISE EXCEPTION 'Negative usual rent was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  UPDATE public.rental_units SET extra_person_rent_centavos = 50000 WHERE id = '00000000-0000-0000-0000-0000000ac002';
+  IF (SELECT extra_person_rent_centavos FROM public.rental_units WHERE id = '00000000-0000-0000-0000-0000000ac002') <> 50000 THEN
+    RAISE EXCEPTION 'Owner could not set extra-person rent';
+  END IF;
+  BEGIN
+    UPDATE public.rental_units SET extra_person_rent_centavos = -1 WHERE id = '00000000-0000-0000-0000-0000000ac002';
+    RAISE EXCEPTION 'Negative extra-person rent was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+END $$;
+
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

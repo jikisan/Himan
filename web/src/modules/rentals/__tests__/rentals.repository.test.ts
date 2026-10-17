@@ -60,7 +60,7 @@ describe('TenancyRepository duplicates', () => {
     await expect(new TenancyRepository().start({ unitId: '00000000-0000-0000-0000-000000000001',
       renterId: '00000000-0000-0000-0000-000000000002', moveIn: '2026-10-01', startDate: '2026-10-01',
       endDate: '2027-10-01', monthlyRentCentavos: 1000000, dueDay: 30, advanceMonths: 1, depositCentavos: 1000000 }))
-      .rejects.toThrow('This renter already has an active tenancy in this unit');
+      .rejects.toThrow('This tenant already lives in this room');
   });
 });
 
@@ -70,7 +70,7 @@ describe('RenterRepository remove', () => {
     mock.from.mockReturnValueOnce(history);
     const remove = vi.fn(async () => ({ error: null }));
     mock.storage.from.mockReturnValue({ remove });
-    await expect(new RenterRepository().remove('r')).rejects.toThrow('tenancy history');
+    await expect(new RenterRepository().remove('r')).rejects.toThrow('rented here before');
     expect(mock.from).toHaveBeenCalledWith('rental_tenancies');
     expect(history.eq).toHaveBeenCalledWith('renter_id', 'r');
     expect(remove).not.toHaveBeenCalled();
@@ -97,5 +97,42 @@ describe('RenterRepository files', () => {
     await expect(new RenterRepository().fileUrl('f', true)).resolves.toBe('https://x/signed');
     expect(lookup.eq).toHaveBeenCalledWith('ready', true);
     expect(signed).toHaveBeenCalledWith('p/renters/r/f', 60, { download: 'id.png' });
+  });
+});
+
+describe('PropertyRepository usual rent', () => {
+  it('maps the room’s usual rent and treats a missing value as not set', async () => {
+    mock.from.mockReturnValue(result([{ ...propertyRow, units: [{ ...propertyRow.units[0], default_rent_centavos: 800000, extra_person_rent_centavos: 50000 },
+      { ...propertyRow.units[0], id: 'u2' }] }]));
+    const [property] = await new PropertyRepository().findAll('me');
+    expect(property.units.map((u) => u.defaultRentCentavos)).toEqual([800000, 0]);
+    expect(property.units.map((u) => u.extraPersonRentCentavos)).toEqual([50000, 0]);
+  });
+  it('saves the usual rent in centavos', async () => {
+    const query = result({ id: 'u' });
+    mock.from.mockReturnValue(query);
+    await new PropertyRepository().saveUnit('p', null, { name: 'Room A', kind: 'room', capacity: 1, electricMode: 'none',
+      electricAmountCentavos: 0, waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 800000, extraPersonRentCentavos: 50000 });
+    expect(query.insert).toHaveBeenCalledWith(expect.objectContaining({ default_rent_centavos: 800000, extra_person_rent_centavos: 50000 }));
+  });
+});
+
+describe('TenancyRepository terms', () => {
+  it('updates rent and due day on the active contract only', async () => {
+    const query = result({ id: 'c' });
+    mock.from.mockReturnValue(query);
+    await new TenancyRepository().updateTerms('c', { monthlyRentCentavos: 900000, dueDay: 15, advanceMonths: 2, depositCentavos: 1800000 });
+    expect(query.update).toHaveBeenCalledWith({ monthly_rent_centavos: 900000, due_day: 15, advance_months: 2, deposit_centavos: 1800000 });
+    expect(query.eq).toHaveBeenCalledWith('status', 'active');
+  });
+});
+
+describe('TenancyRepository plain errors', () => {
+  it('says the room is full in plain words', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'This unit is full' } });
+    await expect(new TenancyRepository().start({ unitId: '00000000-0000-0000-0000-000000000001',
+      renterId: '00000000-0000-0000-0000-000000000002', moveIn: '2026-10-01', startDate: '2026-10-01',
+      endDate: '2027-10-01', monthlyRentCentavos: 1, dueDay: 1, advanceMonths: 1, depositCentavos: 0 }))
+      .rejects.toThrow('This room is full. Move someone out first, or add a bed.');
   });
 });

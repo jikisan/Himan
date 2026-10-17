@@ -1,38 +1,35 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
-import { Archive, ArchiveRestore, ArrowLeft, BedDouble, Building2, DoorClosed, House, KeyRound, MoreHorizontal, Pencil, Plus,
-  Share2, Trash2, Users, WifiOff } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, Building2, DoorClosed, House, KeyRound, MoreHorizontal, Pencil, Plus,
+  Share2, Trash2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { formatPesos, hasRentalRole, manilaToday, unitOccupancy } from '@himan/shared/rentals';
-import type { RentalTenancy, RentalUnit } from '@himan/shared/rentals';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { formatPesos, hasRentalRole, manilaToday, nextDueDate } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { PropertyForm } from '../components/PropertyForm';
 import { UnitForm } from '../components/UnitForm';
-import { RenterForm } from '../components/RenterForm';
-import { RenterFiles } from '../components/RenterFiles';
-import { StartTenancyForm } from '../components/StartTenancyForm';
 import { ShareDialog } from '../components/ShareDialog';
-import { Initials, RoleBadge } from '../components/Badges';
-import { inputClass } from '../components/Field';
+import { RoleBadge } from '../components/Badges';
+import { RoomsBoard } from '../components/RoomsBoard';
+import { TenantsList } from '../components/TenantsList';
+import { AddTenantForm } from '../components/AddTenantForm';
+import { TenantSheet } from '../components/TenantSheet';
+import { MoveOutDialog } from '../components/MoveOutDialog';
+import { SetupWizard } from '../components/SetupWizard';
 import { cn } from '@core/presentation/utils';
 import { errorMessage } from '../utils/errorMessage';
 
 export type RentalsState = ReturnType<typeof useRentals>;
-type DialogState = { type: 'property'; id: string | null } | { type: 'unit'; id: string | null }
-  | { type: 'renter'; id: string | null } | { type: 'tenancy' } | { type: 'share' } | null;
+type DialogState = { type: 'setup' } | { type: 'property'; id: string } | { type: 'room'; id: string | null }
+  | { type: 'addTenant'; unitId: string } | { type: 'tenant'; renterId: string } | { type: 'share' } | null;
 type Confirm = { title: string; description: string; confirmText: string; action: RentalAction; done: string } | null;
-
-const KIND_ICON = { whole: House, room: DoorClosed, bedspace: BedDouble } as const;
-const KIND_LABEL = { whole: 'Whole house', room: 'Room', bedspace: 'Bedspace' } as const;
-const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
 
 export function RentalsPage() {
   const rentals = useRentals();
@@ -42,8 +39,10 @@ export function RentalsPage() {
 function RentalsContent(state: RentalsState) {
   const { properties, tenancies, loading, error, online, userId, busy, run, refetch, fileUrl } = state;
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [view, setView] = useState<'rooms' | 'tenants'>('rooms');
   const [dialog, setDialog] = useState<DialogState>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [movingOutId, setMovingOutId] = useState<string | null>(null);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -54,58 +53,81 @@ function RentalsContent(state: RentalsState) {
   const propertyRenters = state.renters.filter((r) => r.propertyId === property?.id);
   const propertyTenancies = tenancies.filter((t) => t.propertyId === property?.id);
   const activeTenancies = propertyTenancies.filter((t) => t.moveOut === null);
-  const unitName = (id: string) => property?.units.find((u) => u.id === id)?.name ?? 'Unit';
-  const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Renter';
-  const label = (t: RentalTenancy) => `${renterName(t.renterId)} · ${unitName(t.unitId)}`;
-  const editingUnit = dialog?.type === 'unit' ? property?.units.find((u) => u.id === dialog.id) : undefined;
+  const unitName = (id: string) => property?.units.find((u) => u.id === id)?.name ?? 'Room';
+  const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Tenant';
   const beds = property?.units.reduce((sum, u) => sum + u.capacity, 0) ?? 0;
-  const rentRoll = activeTenancies.reduce((sum, t) => sum + (t.contracts[0]?.monthlyRentCentavos ?? 0), 0);
+  const rentRoll = activeTenancies.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
+  const tenantCount = new Set(activeTenancies.map((t) => t.renterId)).size;
+  const freeRooms = (property?.units ?? []).filter((u) => activeTenancies.filter((t) => t.unitId === u.id).length < u.capacity).map((u) => u.name);
+  const today = manilaToday();
+  const dueSoon = activeTenancies.flatMap((tenancy) => {
+    const contract = tenancy.contracts.find((c) => c.status === 'active');
+    if (!contract) return [];
+    const date = nextDueDate(contract.dueDay, today);
+    const inDays = differenceInCalendarDays(parseISO(date), parseISO(today));
+    return inDays <= 7 ? [{ tenancy, rent: contract.monthlyRentCentavos, date, inDays }] : [];
+  }).sort((a, b) => a.inDays - b.inDays);
+  const movingOut = propertyTenancies.find((t) => t.id === movingOutId) ?? null;
   const canCreate = online && !!userId && !busy;
-  const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} onClick={() => setDialog({ type: 'property', id: null })} disabled={!canCreate}>
+  const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} className="h-11 sm:h-9" onClick={() => setDialog({ type: 'setup' })} disabled={!canCreate}>
     <Plus className="h-4 w-4" />New property</Button>;
+  const hasFooter = dialog && dialog.type !== 'share' && dialog.type !== 'tenant';
 
-  return <div className="container mx-auto max-w-5xl px-4 py-8 sm:px-6">
-    <Link to="/dashboard" className="mb-6 inline-flex items-center gap-2 rounded text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+  return <div className="container mx-auto max-w-6xl px-4 pt-8 pb-28 sm:px-6 sm:pb-8">
+    <Link to="/dashboard" className="mb-4 inline-flex items-center gap-2 rounded text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ArrowLeft size={16} />Dashboard</Link>
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight"><Building2 className="h-8 w-8 text-primary" />Rentals</h1>
-        <p className="mt-2 text-muted-foreground">Your properties, renters and tenancies.</p>
-      </div>
-      {property && newProperty(false)}
-    </header>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+      <aside aria-label="Properties" className="min-w-0 lg:w-60 lg:shrink-0">
+        <h1 className="text-2xl font-bold tracking-tight">Rentals</h1>
+        {online && userId && !loading && !error && property && <>
+          <p className="mt-4 mb-1 hidden px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground lg:block">Properties</p>
+          <ul className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 lg:mt-0 lg:flex-col lg:gap-1 lg:overflow-visible">
+            {ordered.map((p) => {
+              const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
+              const total = p.units.reduce((sum, u) => sum + u.capacity, 0);
+              return <li key={p.id} className="shrink-0 lg:shrink">
+                <button type="button" aria-pressed={p.id === property.id} onClick={() => setSelectedId(p.id)}
+                  className={cn('flex w-44 flex-col gap-2 rounded-lg border border-transparent p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-full',
+                    'aria-pressed:border-primary/50 aria-pressed:bg-muted aria-pressed:shadow-sm', p.archivedAt && 'opacity-60')}>
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="truncate font-semibold">{p.name}{p.archivedAt && <span className="sr-only"> (archived)</span>}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{taken}/{total}</span>
+                  </span>
+                  <Meter value={taken} max={total} />
+                </button>
+              </li>;
+            })}
+          </ul>
+          <div className="mt-2">{newProperty(false)}</div>
+        </>}
+      </aside>
 
+      <main className="min-w-0 flex-1 space-y-5">
     {!online ? <Empty icon={WifiOff} title="You’re offline">Connect to the internet to manage rentals.</Empty>
       : !userId ? <Empty icon={KeyRound} title="Signed out">Sign in to manage rentals.</Empty>
       : loading ? <div role="status" aria-label="Loading rentals" className="space-y-4">
-          <div className="h-28 animate-pulse rounded-xl bg-muted/40" /><div className="h-10 w-72 animate-pulse rounded-lg bg-muted/40" />
-          <div className="h-48 animate-pulse rounded-xl bg-muted/40" /></div>
+          <div className="h-40 animate-pulse rounded-xl bg-muted/40" /><div className="grid gap-4 md:grid-cols-2">
+            <div className="h-44 animate-pulse rounded-xl bg-muted/40" /><div className="h-44 animate-pulse rounded-xl bg-muted/40" /></div></div>
       : error ? <div role="alert"><Empty icon={Building2} title="Could not load rentals" action={
           <Button variant="outline" onClick={() => void refetch()}>Retry</Button>}>Check your connection, then try again.</Empty></div>
       : !property ? <Empty icon={House} title="No properties yet" action={newProperty(true)}>
-          Add your house first, then its rooms or bedspaces.</Empty>
+          Add your property first, then its rooms. It takes about a minute.</Empty>
       : <>
-        <section aria-label="Property" className="mb-8 rounded-xl border bg-card p-5 shadow-sm">
+        <section aria-label="Property" className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                {ordered.length > 1 ? <>
-                  <label className="sr-only" htmlFor="rentals-property">Property</label>
-                  <select id="rentals-property" className={cn(inputClass, 'w-auto max-w-full font-semibold sm:text-base')} value={property.id}
-                    onChange={(e) => setSelectedId(e.target.value)}>
-                    {ordered.map((p) => <option key={p.id} value={p.id}>{p.name}{p.archivedAt ? ' (archived)' : ''}</option>)}
-                  </select>
-                </> : <h2 className="text-xl font-semibold">{property.name}</h2>}
+                <h2 className="text-2xl font-bold tracking-tight">{property.name}</h2>
                 {role && <RoleBadge role={role} />}
                 {property.archivedAt && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Archived</span>}
               </div>
               {property.address && <p className="text-sm text-muted-foreground">{property.address}</p>}
             </div>
             {isOwner && <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setDialog({ type: 'property', id: property.id })}><Pencil className="h-4 w-4" />Edit</Button>
-              <Button variant="outline" onClick={() => setDialog({ type: 'share' })}><Share2 className="h-4 w-4" />Share</Button>
+              <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'property', id: property.id })}><Pencil className="h-4 w-4" />Edit</Button>
+              <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'share' })}><Share2 className="h-4 w-4" />Share</Button>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="More property actions"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="size-11 sm:size-9" aria-label="More property actions"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem className="gap-2" onSelect={() => void tryAct({ type: 'archiveProperty', id: property.id, archived: !property.archivedAt },
                     property.archivedAt ? 'Property restored' : 'Property archived')}>
@@ -115,117 +137,114 @@ function RentalsContent(state: RentalsState) {
               </DropdownMenu>
             </div>}
           </div>
-          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t pt-4 sm:grid-cols-4">
-            <Stat label="Units" value={property.units.length} />
-            <Stat label="Occupied" value={`${activeTenancies.length} of ${beds}`} />
-            <Stat label="Renters" value={propertyRenters.length} />
-            <Stat label="Monthly rent" value={formatPesos(rentRoll)} />
+          <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+            <Stat label="Beds taken" value={<>{activeTenancies.length} <span className="text-xs font-medium text-muted-foreground sm:text-base">of {beds}</span></>}>
+              <Meter value={activeTenancies.length} max={beds} /></Stat>
+            <Stat label="Monthly rent" value={formatPesos(rentRoll)}>
+              {tenantCount} {tenantCount === 1 ? 'tenant' : 'tenants'}</Stat>
+            <Stat label="Free beds" value={beds - activeTenancies.length}>{beds === 0 ? 'Add a room first' : freeRooms.join(' · ') || 'Every bed is taken'}</Stat>
           </dl>
         </section>
 
-        <Tabs defaultValue="units">
-          <TabsList>
-            <Tab value="units" count={property.units.length}>Units</Tab>
-            <Tab value="renters" count={propertyRenters.length}>Renters</Tab>
-            <Tab value="tenancies" count={activeTenancies.length}>Tenancies</Tab>
-          </TabsList>
+        {dueSoon.length > 0 && <section aria-labelledby="rentals-due" className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id="rentals-due" className="font-semibold">Rent due in the next 7 days</h3>
+            <span className="text-xs text-muted-foreground">From each tenant’s due day</span>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {dueSoon.map(({ tenancy, rent, date, inDays }) => <li key={tenancy.id}>
+              <button type="button" onClick={() => setDialog({ type: 'tenant', renterId: tenancy.renterId })}
+                className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span aria-hidden className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                  <span className="text-[10px] font-bold uppercase leading-none">{format(parseISO(date), 'MMM')}</span>
+                  <span className="text-base font-bold leading-tight">{format(parseISO(date), 'd')}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{renterName(tenancy.renterId)}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{unitName(tenancy.unitId)} · {inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`}</span></span>
+                <span className="shrink-0 text-sm font-semibold tabular-nums">{formatPesos(rent)}</span>
+              </button>
+            </li>)}
+          </ul>
+        </section>}
 
-          <TabsContent value="units" className="mt-5 space-y-4">
-            <TabBar hint="A whole house is one unit; each room or bedspace is its own unit.">
-              {isOwner && <Button onClick={() => setDialog({ type: 'unit', id: null })}><Plus className="h-4 w-4" />Add unit</Button>}</TabBar>
-            {property.units.length === 0 ? <Empty icon={DoorClosed} title="No units yet">Add the rooms, bedspaces or whole house you rent out.</Empty>
-              : <ul className="divide-y rounded-xl border bg-card">{property.units.map((unit) => <UnitRow key={unit.id} unit={unit} canEdit={isOwner}
-                occupancy={unitOccupancy(unit, tenancies)} onEdit={() => setDialog({ type: 'unit', id: unit.id })}
-                onRemove={() => setConfirm({ title: `Delete ${unit.name}?`, confirmText: 'Delete unit', action: { type: 'removeUnit', id: unit.id },
-                  done: 'Unit deleted', description: 'Units with tenancy history can’t be deleted.' })} />)}</ul>}
-          </TabsContent>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div role="group" aria-label="View" className="fixed inset-x-4 bottom-4 z-20 flex rounded-xl border bg-muted p-1 shadow-lg sm:static sm:inline-flex sm:rounded-lg sm:border-0 sm:shadow-none [&>button]:flex-1 sm:[&>button]:flex-none">
+            {(['rooms', 'tenants'] as const).map((v) => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
+              className="min-h-11 rounded-md px-4 sm:min-h-9 text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {v === 'rooms' ? 'Rooms' : 'Tenants'}</button>)}
+          </div>
+          {view === 'rooms' && isOwner && property.units.length > 0 && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'room', id: null })}>
+            <Plus className="h-4 w-4" />Add room</Button>}
+        </div>
 
-          <TabsContent value="renters" className="mt-5 space-y-4">
-            <TabBar hint="Contact details are shared with everyone on this property.">
-              {isManager && <Button onClick={() => setDialog({ type: 'renter', id: null })}><Plus className="h-4 w-4" />Add renter</Button>}</TabBar>
-            {propertyRenters.length === 0 ? <Empty icon={Users} title="No renters yet">Add a renter before starting their tenancy.</Empty>
-              : <ul className="divide-y rounded-xl border bg-card">{propertyRenters.map((r) => {
-                const living = activeTenancies.filter((t) => t.renterId === r.id).map((t) => unitName(t.unitId));
-                return <li key={r.id}><button type="button" aria-label={`Open ${r.fullName}`}
-                  className="flex w-full items-center gap-3 p-4 text-left transition-colors first:rounded-t-xl hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
-                  onClick={() => setDialog({ type: 'renter', id: r.id })}>
-                  <Initials name={r.fullName} />
-                  <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.fullName}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{[r.phone, r.facebook].filter(Boolean).join(' · ') || 'No contact saved'}</span></span>
-                  <span className={`shrink-0 text-sm ${living.length ? '' : 'text-muted-foreground'}`}>{living.length ? living.join(', ') : 'Not renting'}</span>
-                </button></li>;
-              })}</ul>}
-          </TabsContent>
-
-          <TabsContent value="tenancies" className="mt-5 space-y-4">
-            <TabBar hint="Advance pays the first month. Deposit is held until move-out.">
-              {isManager && <Button onClick={() => setDialog({ type: 'tenancy' })}><Plus className="h-4 w-4" />Start tenancy</Button>}</TabBar>
-            {propertyTenancies.length === 0 && <Empty icon={KeyRound} title="No tenancies yet">Start one when a renter moves in.</Empty>}
-            {(['Active', 'Ended'] as const).map((group) => {
-              const rows = propertyTenancies.filter((t) => (group === 'Active') === (t.moveOut === null));
-              return rows.length > 0 && <section key={group} className="space-y-2">
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group} · {rows.length}</h2>
-                <ul className={`divide-y rounded-xl border bg-card ${group === 'Ended' ? 'text-muted-foreground' : ''}`}>
-                  {rows.map((t) => { const c = t.contracts[0]; return <li key={t.id} className="flex flex-wrap items-center gap-3 p-4">
-                    <Initials name={renterName(t.renterId)} />
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-medium ${group === 'Active' ? 'text-foreground' : ''}`}>{label(t)}</p>
-                      <p className="text-sm text-muted-foreground tabular-nums">{c ? `${formatPesos(c.monthlyRentCentavos)}/mo · due day ${c.dueDay}` : 'No contract'}</p>
-                      <p className="text-xs text-muted-foreground tabular-nums">{c && `${day(c.startDate)} – ${day(c.endDate)}`}
-                        {t.moveOut && ` · moved out ${day(t.moveOut)}`}</p>
-                    </div>
-                    {!t.moveOut && isManager && <Button variant="outline" size="sm" onClick={() => setConfirm({
-                      title: `End ${label(t)}?`, confirmText: 'End tenancy', done: 'Tenancy ended',
-                      action: { type: 'endTenancy', id: t.id, moveOut: manilaToday() },
-                      description: `Move-out is recorded as ${day(manilaToday())} and the contract ends. This can’t be undone here.` })}>End today</Button>}
-                  </li>; })}
-                </ul>
-              </section>;
-            })}
-          </TabsContent>
-        </Tabs>
+        {view === 'rooms' ? property.units.length === 0
+          ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
+              <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
+          : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner}
+              onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
+              onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
+              onMoveOut={setMovingOutId}
+              onEditRoom={(id) => setDialog({ type: 'room', id })}
+              onDeleteRoom={(id) => setConfirm({ title: `Delete ${unitName(id)}?`, confirmText: 'Delete room', done: 'Room deleted',
+                action: { type: 'removeUnit', id }, description: 'Rooms that have had tenants can’t be deleted.' })} />
+          : <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName}
+              onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />}
       </>}
+      </main>
+    </div>
 
     <ConfirmDialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)} confirmText={confirm?.confirmText ?? ''}
       title={confirm?.title ?? ''} description={confirm?.description ?? ''}
       onConfirm={() => { if (confirm) void tryAct(confirm.action, confirm.done); setConfirm(null); }} />
 
-    <Dialog open={!!dialog} onOpenChange={(open) => !open && setDialog(null)}>
-      <DialogContent className={cn('max-h-[90dvh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--muted-foreground)_transparent]', dialog?.type !== 'share' && dialog?.type !== 'unit' && 'sm:max-w-xl',
+    <MoveOutDialog tenancy={movingOut} name={movingOut ? renterName(movingOut.renterId) : ''} busy={busy} onClose={() => setMovingOutId(null)}
+      onConfirm={(moveOut) => { if (movingOut) void tryAct({ type: 'endTenancy', id: movingOut.id, moveOut }, 'Moved out'); setMovingOutId(null); }} />
+
+    <Dialog open={!!dialog && dialog.type !== 'tenant'} onOpenChange={(open) => !open && setDialog(null)}>
+      <DialogContent className={cn('max-h-[90dvh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--muted-foreground)_transparent]',
+        dialog?.type !== 'share' && dialog?.type !== 'room' && 'sm:max-w-xl',
         // Forms end in a sticky FormActions bar that replaces the bottom padding.
-        (dialog?.type === 'property' || dialog?.type === 'unit' || dialog?.type === 'tenancy' || (dialog?.type === 'renter' && isManager)) && 'pb-0')}>
-        {dialog?.type === 'property' && <>
-          <DialogHeader><DialogTitle>{dialog.id ? 'Edit property' : 'New property'}</DialogTitle>
-            <DialogDescription>Owner and lessor details are printed on contracts.</DialogDescription></DialogHeader>
-          <PropertyForm property={dialog.id ? property : undefined} myName={state.myName ?? ''} busy={busy} onCancel={() => setDialog(null)}
+        hasFooter && 'pb-0')}>
+        {dialog?.type === 'setup' && <>
+          <DialogHeader><DialogTitle>Set up a property</DialogTitle>
+            <DialogDescription>Three quick steps. Contract details can wait.</DialogDescription></DialogHeader>
+          <SetupWizard myName={state.myName ?? ''} busy={busy} onCancel={() => setDialog(null)} onFinish={async (action) => {
+            const { propertyId, failed } = await run(action) as { propertyId: string; failed: string[] };
+            setSelectedId(propertyId);
+            setView('rooms');
+            setDialog(null);
+            if (failed.length) toast.warning(`Saved, but couldn’t add ${failed.join(', ')}. Add it from the Rooms board.`);
+            else toast.success(`${action.input.name} is ready. Tap an empty room to add a tenant.`);
+          }} />
+        </>}
+        {dialog?.type === 'property' && property && <>
+          <DialogHeader><DialogTitle>Edit property</DialogTitle>
+            <DialogDescription>Owner and signer details are printed on contracts.</DialogDescription></DialogHeader>
+          <PropertyForm property={property} myName={state.myName ?? ''} busy={busy} onCancel={() => setDialog(null)}
             onSave={async (input) => { await act({ type: 'saveProperty', id: dialog.id, input }, 'Property saved'); }} />
         </>}
-        {dialog?.type === 'unit' && property && <>
-          <DialogHeader><DialogTitle>{dialog.id ? `Edit ${editingUnit?.name ?? 'unit'}` : 'Add unit'}</DialogTitle>
-            <DialogDescription>{property.name}</DialogDescription></DialogHeader>
-          <UnitForm unit={editingUnit} busy={busy} onCancel={() => setDialog(null)}
-            onSave={async (input) => { await act({ type: 'saveUnit', propertyId: property.id, id: dialog.id, input }, 'Unit saved'); }} />
-        </>}
-        {dialog?.type === 'renter' && property && (() => {
-          const renter = propertyRenters.find((r) => r.id === dialog.id);
+        {dialog?.type === 'room' && property && (() => {
+          const room = property.units.find((u) => u.id === dialog.id);
           return <>
-            <DialogHeader><DialogTitle>{renter ? renter.fullName : 'Add renter'}</DialogTitle>
-              <DialogDescription>Visible to everyone you share {property.name} with.</DialogDescription></DialogHeader>
-            {renter && isManager && <RenterFiles renter={renter} busy={busy} run={run} fileUrl={fileUrl} />}
-            <RenterForm renter={renter} readOnly={!isManager} busy={busy} onCancel={() => setDialog(null)}
-              onSave={async (input) => { await act({ type: 'saveRenter', propertyId: property.id, id: dialog.id, input }, 'Renter saved'); }}
-              deleteAction={renter && <Button type="button" variant="ghost" className="px-2 text-destructive hover:text-destructive" onClick={() => setConfirm({
-                title: `Delete ${renter.fullName}?`, confirmText: 'Delete', done: 'Renter deleted', action: { type: 'removeRenter', id: renter.id },
-                description: 'Their contact details and ID files are removed permanently. Renters with tenancy history can’t be deleted.' })}>
-                <Trash2 className="h-4 w-4" />Delete renter</Button>} />
+            <DialogHeader><DialogTitle>{room ? `Edit ${room.name}` : 'Add room'}</DialogTitle>
+              <DialogDescription>{property.name}</DialogDescription></DialogHeader>
+            <UnitForm unit={room} busy={busy} onCancel={() => setDialog(null)}
+              onSave={async (input) => { await act({ type: 'saveUnit', propertyId: property.id, id: dialog.id, input }, 'Room saved'); }} />
           </>;
         })()}
-        {dialog?.type === 'tenancy' && property && <>
-          <DialogHeader><DialogTitle>Start tenancy</DialogTitle>
-            <DialogDescription>Advance pays the first month. Deposit is held until move-out.</DialogDescription></DialogHeader>
-          <StartTenancyForm units={property.units} renters={propertyRenters} tenancies={tenancies} busy={busy} onCancel={() => setDialog(null)}
-            onSave={async (input) => { await act({ type: 'startTenancy', input }, 'Tenancy started'); }} />
-        </>}
+        {dialog?.type === 'addTenant' && property && (() => {
+          const room = property.units.find((u) => u.id === dialog.unitId);
+          const here = new Set(activeTenancies.filter((t) => t.unitId === dialog.unitId).map((t) => t.renterId));
+          return room && <>
+            <DialogHeader><DialogTitle>Add tenant to {room.name}</DialogTitle>
+              <DialogDescription>{room.kind === 'bedspace' ? `Shared room · ${room.capacity - here.size} of ${room.capacity} beds free`
+                : room.kind === 'whole' ? 'Whole house' : 'Private room'}
+                {room.defaultRentCentavos > 0 && ` · ${formatPesos(room.defaultRentCentavos)}`}
+                {room.extraPersonRentCentavos > 0 && room.defaultRentCentavos > 0 && ` + ${formatPesos(room.extraPersonRentCentavos)} per extra person`}
+              </DialogDescription></DialogHeader>
+            <AddTenantForm unit={room} renters={propertyRenters.filter((r) => !here.has(r.id))} busy={busy} onCancel={() => setDialog(null)}
+              onSave={async (action) => { await act(action, `${action.renter?.fullName ?? renterName(action.renterId ?? '')} moved in`); }} />
+          </>;
+        })()}
         {dialog?.type === 'share' && property && <>
           <DialogHeader><DialogTitle>Share {property.name}</DialogTitle>
             <DialogDescription>Only accepted friends can be added.</DialogDescription></DialogHeader>
@@ -233,21 +252,35 @@ function RentalsContent(state: RentalsState) {
         </>}
       </DialogContent>
     </Dialog>
+
+    <Sheet open={dialog?.type === 'tenant'} onOpenChange={(open) => !open && setDialog(null)}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[480px]">
+        {dialog?.type === 'tenant' && property && (() => {
+          const renter = propertyRenters.find((r) => r.id === dialog.renterId);
+          return renter && <TenantSheet renter={renter} tenancies={propertyTenancies} unitName={unitName} canManage={isManager} busy={busy} run={run}
+            fileUrl={fileUrl} onMoveOut={setMovingOutId}
+            onSaveDetails={async (input) => { await run({ type: 'saveRenter', propertyId: property.id, id: renter.id, input }); toast.success('Tenant saved'); }}
+            deleteAction={<Button type="button" variant="ghost" className="px-2 text-destructive hover:text-destructive" onClick={() => setConfirm({
+              title: `Delete ${renter.fullName}?`, confirmText: 'Delete', done: 'Tenant deleted', action: { type: 'removeRenter', id: renter.id },
+              description: 'Their contact details and ID files are removed permanently. Tenants who have rented here before can’t be deleted.' })}>
+              <Trash2 className="h-4 w-4" />Delete tenant</Button>} />;
+        })()}
+      </SheetContent>
+    </Sheet>
   </div>;
 }
 
-function Stat({ label, value }: { label: string; value: ReactNode }) {
-  return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-lg font-semibold tabular-nums">{value}</dd></div>;
+function Stat({ label, value, children }: { label: string; value: ReactNode; children: ReactNode }) {
+  return <div className="min-w-0 rounded-lg bg-muted/30 px-3 py-2.5 sm:px-4 sm:py-3">
+    <dt className="truncate text-xs text-muted-foreground sm:text-sm">{label}</dt>
+    <dd className="mt-0.5 truncate text-lg font-bold tabular-nums sm:text-2xl">{value}</dd>
+    <dd className="mt-1.5 truncate text-xs text-muted-foreground sm:text-sm">{children}</dd>
+  </div>;
 }
 
-function Tab({ value, count, children }: { value: string; count: number; children: string }) {
-  return <TabsTrigger value={value} className="gap-2">{children}
-    <span aria-hidden className="rounded-full bg-background/70 px-1.5 text-xs tabular-nums text-muted-foreground">{count}</span></TabsTrigger>;
-}
-
-function TabBar({ hint, children }: { hint: string; children: ReactNode }) {
-  return <div className="flex flex-wrap items-center justify-between gap-3">
-    <p className="text-sm text-muted-foreground">{hint}</p>{children}</div>;
+function Meter({ value, max }: { value: number; max: number }) {
+  return <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-muted">
+    <span className="block h-full rounded-full bg-primary" style={{ width: `${max ? Math.min(value / max, 1) * 100 : 0}%` }} /></span>;
 }
 
 function Empty({ icon: Icon, title, action, children }: { icon: typeof House; title: string; action?: ReactNode; children: ReactNode }) {
@@ -257,36 +290,4 @@ function Empty({ icon: Icon, title, action, children }: { icon: typeof House; ti
     <p className="mt-1 max-w-sm text-sm text-muted-foreground">{children}</p>
     {action && <div className="mt-5">{action}</div>}
   </div>;
-}
-
-function UnitRow({ unit, occupancy, canEdit, onEdit, onRemove }: {
-  unit: RentalUnit; occupancy: { occupied: number; capacity: number }; canEdit: boolean; onEdit: () => void; onRemove: () => void;
-}) {
-  const Icon = KIND_ICON[unit.kind];
-  const utility = (name: string, mode: string, amount: number, per: string) =>
-    mode === 'none' ? null : `${name} ${formatPesos(amount)}/${mode === 'fixed' ? 'mo' : per}`;
-  const bills = [utility('Electric', unit.electricMode, unit.electricAmountCentavos, 'kWh'),
-    utility('Water', unit.waterMode, unit.waterAmountCentavos, 'm³')].filter(Boolean);
-  const full = occupancy.occupied >= occupancy.capacity;
-  return <li className="flex items-center gap-3 p-4">
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"><Icon className="h-4 w-4" /></span>
-    <div className="min-w-0 flex-1">
-      <p className="truncate font-medium">{unit.name}</p>
-      <p className="truncate text-sm text-muted-foreground">{[KIND_LABEL[unit.kind], ...bills].join(' · ')}</p>
-      <p aria-hidden className={`text-sm tabular-nums sm:hidden ${full ? 'font-medium text-primary' : 'text-muted-foreground'}`}>
-        {occupancy.occupied} / {occupancy.capacity} occupied{full && ' · Full'}</p>
-    </div>
-    <div className="hidden shrink-0 text-right sm:block">
-      <p className={`text-sm tabular-nums ${full ? 'font-medium text-primary' : 'text-muted-foreground'}`}>{occupancy.occupied} / {occupancy.capacity} occupied</p>
-      {full && <p className="text-xs font-medium text-primary">Full</p>}
-      {occupancy.capacity > 1 && occupancy.capacity <= 12 && <div aria-hidden className="mt-1 flex justify-end gap-1">
-        {Array.from({ length: occupancy.capacity }, (_, i) =>
-          <span key={i} className={`size-1.5 rounded-full ${i < occupancy.occupied ? 'bg-primary' : 'bg-muted-foreground/25'}`} />)}
-      </div>}
-    </div>
-    {canEdit && <div className="flex shrink-0 gap-1">
-      <Button variant="ghost" size="icon" className="size-11 sm:size-9" aria-label={`Edit ${unit.name}`} onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="size-11 sm:size-9" aria-label={`Delete ${unit.name}`} onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
-    </div>}
-  </li>;
 }

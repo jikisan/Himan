@@ -6,10 +6,12 @@ export const unitRow = z.object({
   id: z.string(), property_id: z.string(), name: z.string(), kind: z.enum(['whole', 'room', 'bedspace']),
   capacity: z.number(), electric_mode: z.enum(['none', 'submeter', 'fixed']), electric_amount_centavos: z.number(),
   water_mode: z.enum(['none', 'submeter', 'fixed']), water_amount_centavos: z.number(),
+  default_rent_centavos: z.number().default(0), extra_person_rent_centavos: z.number().default(0),
 }).transform((r): RentalUnit => ({
   id: r.id, propertyId: r.property_id, name: r.name, kind: r.kind, capacity: r.capacity,
   electricMode: r.electric_mode, electricAmountCentavos: r.electric_amount_centavos,
-  waterMode: r.water_mode, waterAmountCentavos: r.water_amount_centavos,
+  waterMode: r.water_mode, waterAmountCentavos: r.water_amount_centavos, defaultRentCentavos: r.default_rent_centavos,
+  extraPersonRentCentavos: r.extra_person_rent_centavos,
 }));
 
 export const propertyRow = z.object({

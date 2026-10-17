@@ -10,8 +10,19 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plan: [[2026
 
 ## Layers
 - Shared: `packages/shared/src/modules/rentals/` — domain (money in centavos, roles, schemas) + repositories.
-- Web: `web/src/modules/rentals/` — `/rentals` page (Units · Renters · Tenancies), `useRentals` hook.
-- DB: `supabase/migrations/20261016000000_create_rentals_module.sql`; assertions `supabase/tests/rentals.sql`.
+- Shared flows: `infrastructure/flows.ts` — `addTenant` (creates tenant + move-in, removes the new tenant if the
+  move-in fails) and `setupProperty` (property + rooms, reports failed room names). Domain `flow.ts`:
+  `moveInDefaults`, `roomSpots`.
+- Web: `web/src/modules/rentals/` — `/rentals` page, flow v2 (plain words for non-technical users):
+  Property side list with bed meters · stats (beds taken, monthly rent, free beds) · "Rent due in the next 7 days"
+  (domain `nextDueDate`, Manila today) · Rooms board (`RoomsBoard`, one line per bed, Full / N free pill,
+  "+ Add tenant" on free beds) · Tenants view (`TenantsList`, table: room, rent, since).
+  Dialogs: `SetupWizard` (new property, 3 steps), `AddTenantForm`, `TenantSheet` (right side panel: call/text/move out, rent + next due, contract, ID, read-only contact with Edit, history),
+  `MoveOutDialog` (dated), `UnitForm` (room), `PropertyForm` (edit; contract details collapsed), `ShareDialog`.
+  UI words: Room / Shared room / Tenant / Move in / Move out; DB keeps unit / bedspace / renter / tenancy.
+- DB: `supabase/migrations/20261016000000_create_rentals_module.sql`, `20261016100000_add_rental_unit_default_rent.sql`
+  (`rental_units.default_rent_centavos`, 0 = not set; `extra_person_rent_centavos`, rent = usual + extra × (people − 1),
+  domain `roomRent`, prefills Add tenant from "People living in the room"); assertions `supabase/tests/rentals.sql`.
 
 ## Access model
 Per property via `rental_property_members` (owner/manager/viewer). Every policy calls
@@ -30,7 +41,8 @@ Renter ID files: bucket `rental-files` (private), managers only, 60-second signe
 Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and `profiles` (lessor defaults).
 
 ## Verification (2026-10-16)
-- Web Vitest: 30 rentals tests (domain 11, repository 8, page 11); full suite 161/161.
+- Web Vitest (flow v2): 51 rentals tests (domain, repository, flows, page); full suite 182/182; build ok.
+  Earlier phase-1 run: 30 rentals tests, 161/161.
 - SQL: `supabase/tests/rentals.sql` passes against all migrations in an isolated local
   Supabase (ports 544xx); fixtures roll back.
 - Integration (temporary, not committed): repositories against real PostgREST/RLS/Storage —
@@ -45,6 +57,13 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   Verified: 7 tables with RLS, 25 table policies, private `rental-files` bucket, no anon EXECUTE,
   member `user_id` not updatable. `db push` was avoided: remote history has 3 remote-only
   versions (20261003143028/143636/144108) and 3 local-only portfolio versions (20261003200000/210000/220000).
+
+## Deploy order
+- Done 2026-10-16: `20261016100000` applied alone to the linked Himan project (`db query --linked -f`, one
+  transaction) and recorded with `migration repair --status applied 20261016100000`. Verified: integer NOT NULL
+  DEFAULT 0, `authenticated` can UPDATE it, existing rows 0.
+- Apply `20261016100000_add_rental_unit_default_rent.sql` to the hosted DB **before** deploying the flow-v2 web build:
+  room saves (and the setup wizard's rooms) send `default_rent_centavos` and fail without the column.
 
 ## Local environment notes (pre-existing, not changed)
 - Seed migrations `20260427000001`, `20260904000000`, `20260909000000` raise "No users found"

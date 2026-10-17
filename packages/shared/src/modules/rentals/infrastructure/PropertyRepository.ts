@@ -39,22 +39,23 @@ export class PropertyRepository {
 
   async remove(id: string): Promise<void> {
     const { error } = await getSupabase().from('rental_properties').delete().eq('id', id).select('id').single();
-    if (error) throw rentalError(error, 'This property has tenancy history. Archive it instead.');
+    if (error) throw rentalError(error, 'This property has had tenants. Archive it instead.');
   }
 
   async saveUnit(propertyId: string, id: string | null, input: UnitInput): Promise<void> {
     const v = unitSchema.parse(input);
     const row = { name: v.name, kind: v.kind, capacity: v.capacity, electric_mode: v.electricMode,
-      electric_amount_centavos: v.electricAmountCentavos, water_mode: v.waterMode, water_amount_centavos: v.waterAmountCentavos };
+      electric_amount_centavos: v.electricAmountCentavos, water_mode: v.waterMode, water_amount_centavos: v.waterAmountCentavos,
+      default_rent_centavos: v.defaultRentCentavos, extra_person_rent_centavos: v.extraPersonRentCentavos };
     const query = id ? getSupabase().from('rental_units').update(row).eq('id', id)
       : getSupabase().from('rental_units').insert({ ...row, property_id: propertyId });
     const { error } = await query.select('id').single();
-    if (error) throw rentalError(error, 'Could not save unit');
+    if (error) throw rentalError(error, 'Could not save room');
   }
 
   async removeUnit(id: string): Promise<void> {
     const { error } = await getSupabase().from('rental_units').delete().eq('id', id).select('id').single();
-    if (error) throw rentalError(error, 'This unit has tenancy history and can’t be deleted');
+    if (error) throw rentalError(error, 'This room has had tenants, so it can’t be deleted');
   }
 
   async listMembers(propertyId: string): Promise<RentalMember[]> {

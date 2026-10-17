@@ -7,9 +7,10 @@ export function Field({ id, label, hint, className, children }: {
   id: string; label: string; hint?: string; className?: string; children: ReactNode;
 }) {
   return <div className={cn('space-y-1.5', className)}>
-    <Label htmlFor={id} className="flex items-baseline justify-between gap-2">
-      {label}{hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
-    </Label>
+    <div className="flex items-baseline justify-between gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </div>
     {children}
   </div>;
 }
@@ -36,8 +37,8 @@ export function MoneyInput({ className, ...props }: InputHTMLAttributes<HTMLInpu
 export function FormActions({ submit, onCancel, start }: { submit: string; onCancel: () => void; start?: ReactNode }) {
   return <div className="sticky bottom-0 z-10 -mx-6 flex flex-wrap items-center justify-end gap-2 border-t bg-card px-6 py-4">
     {start && <div className="mr-auto">{start}</div>}
-    <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-    <Button type="submit">{submit}</Button>
+    <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
+    <Button type="submit" className="h-11 sm:h-9">{submit}</Button>
   </div>;
 }
 

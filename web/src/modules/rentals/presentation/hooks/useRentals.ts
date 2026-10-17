@@ -3,7 +3,8 @@ import { onlineManager, useMutation, useQuery, useQueryClient } from '@tanstack/
 import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
 import { ProfileRepository } from '@himan/shared/profile';
-import type { PropertyInput, RenterInput, StartTenancyInput, UnitInput } from '@himan/shared/rentals';
+import { addTenant, setupProperty } from '@himan/shared/rentals';
+import type { AddTenantInput, ContractTermsInput, PropertyInput, RenterInput, StartTenancyInput, UnitInput } from '@himan/shared/rentals';
 import { PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
 
 export type RentalAction =
@@ -18,6 +19,9 @@ export type RentalAction =
   | { type: 'removeRenterFile'; id: string }
   | { type: 'startTenancy'; input: StartTenancyInput }
   | { type: 'endTenancy'; id: string; moveOut: string }
+  | ({ type: 'addTenant' } & AddTenantInput)
+  | { type: 'updateTerms'; contractId: string; input: ContractTermsInput }
+  | { type: 'setupProperty'; input: PropertyInput; rooms: UnitInput[] }
   | { type: 'addMember'; propertyId: string; userId: string; role: 'manager' | 'viewer' }
   | { type: 'removeMember'; propertyId: string; userId: string };
 
@@ -55,6 +59,9 @@ export function useRentals() {
         case 'removeRenterFile': return repos.renters.removeFile(a.id);
         case 'startTenancy': return repos.tenancies.start(a.input);
         case 'endTenancy': return repos.tenancies.end(a.id, a.moveOut);
+        case 'addTenant': return addTenant(repos, a);
+        case 'updateTerms': return repos.tenancies.updateTerms(a.contractId, a.input);
+        case 'setupProperty': return setupProperty(repos, a);
         case 'addMember': return repos.properties.addMember(a.propertyId, a.userId, a.role);
         case 'removeMember': return repos.properties.removeMember(a.propertyId, a.userId);
       }

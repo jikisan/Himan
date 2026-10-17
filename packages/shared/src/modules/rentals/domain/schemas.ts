@@ -8,6 +8,8 @@ export const RENTAL_FILE_LIMIT = 10 * 1024 * 1024;
 
 const centavos = (min: number) => z.number().int().min(min).max(2_000_000_000);
 const text = (max: number) => z.string().trim().max(max);
+const rent = z.number().int().min(1, 'Enter the monthly rent').max(2_000_000_000, 'That rent is too high');
+const dueDay = z.number('Due day is 1–31').int('Due day is 1–31').min(1, 'Due day is 1–31').max(31, 'Due day is 1–31');
 
 export const propertySchema = z.object({
   name: z.string().trim().min(1, 'Enter a property name').max(120),
@@ -18,35 +20,51 @@ export const propertySchema = z.object({
 });
 
 export const unitSchema = z.object({
-  name: z.string().trim().min(1, 'Enter a unit name').max(80),
+  name: z.string().trim().min(1, 'Enter a room name').max(80),
   kind: z.enum(UNIT_KINDS),
   capacity: z.number().int().min(1).max(50),
   electricMode: z.enum(UTILITY_MODES), electricAmountCentavos: centavos(0),
   waterMode: z.enum(UTILITY_MODES), waterAmountCentavos: centavos(0),
+  defaultRentCentavos: centavos(0).default(0),
+  extraPersonRentCentavos: centavos(0).default(0),
 })
-  .refine((u) => u.kind === 'bedspace' || u.capacity === 1, { message: 'Only bedspace units hold more than one renter', path: ['capacity'] })
+  .refine((u) => u.kind === 'bedspace' || u.capacity === 1, { message: 'Only shared rooms hold more than one tenant', path: ['capacity'] })
   .refine((u) => (u.electricMode === 'none') === (u.electricAmountCentavos === 0), { message: 'Enter the electricity rate or amount', path: ['electricAmountCentavos'] })
   .refine((u) => (u.waterMode === 'none') === (u.waterAmountCentavos === 0), { message: 'Enter the water rate or amount', path: ['waterAmountCentavos'] });
 
 export const renterSchema = z.object({
-  fullName: z.string().trim().min(1, 'Enter the renter’s name').max(160),
+  fullName: z.string().trim().min(1, 'Enter the tenant’s name').max(160),
   phone: text(40), facebook: text(200),
   email: z.union([z.literal(''), z.email('Enter a valid email')]),
   address: text(300), emergencyName: text(160), emergencyPhone: text(40),
   occupants: z.number().int().min(1).max(50), notes: text(10000),
 });
 
-export const startTenancySchema = z.object({
-  unitId: z.guid('Choose a unit'), renterId: z.guid('Choose a renter'),
-  moveIn: z.iso.date(), startDate: z.iso.date(), endDate: z.iso.date(),
-  monthlyRentCentavos: centavos(1), dueDay: z.number().int().min(1).max(31),
+const tenancyTerms = {
+  moveIn: z.iso.date('Choose the move-in date'), startDate: z.iso.date(), endDate: z.iso.date('Choose when the contract ends'),
+  monthlyRentCentavos: rent, dueDay,
   advanceMonths: z.number().int().min(0).max(12), depositCentavos: centavos(0),
-}).refine((t) => t.endDate > t.startDate, { message: 'Contract must end after it starts', path: ['endDate'] });
+};
+const endsAfterStart = [(t: { startDate: string; endDate: string }) => t.endDate > t.startDate,
+  { message: 'Contract must end after it starts', path: ['endDate'] }] as [(t: { startDate: string; endDate: string }) => boolean,
+  { message: string; path: string[] }];
+
+/** Contract terms of a move-in, before the unit and tenant ids exist. */
+export const tenancyTermsSchema = z.object(tenancyTerms).refine(...endsAfterStart);
+export const startTenancySchema = z.object({ unitId: z.guid('Choose a unit'), renterId: z.guid('Choose a renter'), ...tenancyTerms })
+  .refine(...endsAfterStart);
+
+export const contractTermsSchema = z.object({
+  monthlyRentCentavos: rent, dueDay,
+  advanceMonths: z.number('Advance is 0–12 months').int('Advance is 0–12 months').min(0, 'Advance is 0–12 months').max(12, 'Advance is 0–12 months'),
+  depositCentavos: centavos(0),
+});
 
 export type PropertyInput = z.infer<typeof propertySchema>;
 export type UnitInput = z.infer<typeof unitSchema>;
 export type RenterInput = z.infer<typeof renterSchema>;
 export type StartTenancyInput = z.infer<typeof startTenancySchema>;
+export type ContractTermsInput = z.infer<typeof contractTermsSchema>;
 
 export function validateRentalFile(name: string, mimeType: string | null | undefined, size: number): string {
   if (!name.trim() || name.length > 255) throw new Error('File name must be 1–255 characters');

@@ -11,7 +11,7 @@ export class RenterRepository {
   async findAll(): Promise<Renter[]> {
     const { data, error } = await getSupabase().from('rental_renters')
       .select('*, files:rental_renter_files(*)').order('full_name').order('id');
-    if (error) throw rentalError(error, 'Could not load renters');
+    if (error) throw rentalError(error, 'Could not load tenants');
     return z.array(renterRow).parse(data);
   }
 
@@ -22,7 +22,7 @@ export class RenterRepository {
     const query = id ? getSupabase().from('rental_renters').update(row).eq('id', id)
       : getSupabase().from('rental_renters').insert({ ...row, property_id: propertyId });
     const { data, error } = await query.select('id').single();
-    if (error) throw rentalError(error, 'Could not save renter');
+    if (error) throw rentalError(error, 'Could not save tenant');
     return z.object({ id: z.string() }).parse(data).id;
   }
 
@@ -31,13 +31,13 @@ export class RenterRepository {
     // would otherwise leave the renter without their ID.
     const { data: history, error: historyError } = await getSupabase().from('rental_tenancies')
       .select('id').eq('renter_id', id).limit(1);
-    if (historyError) throw rentalError(historyError, 'Could not remove renter');
-    if (z.array(z.unknown()).parse(history).length) throw new Error('This renter has tenancy history and can’t be deleted');
+    if (historyError) throw rentalError(historyError, 'Could not delete tenant');
+    if (z.array(z.unknown()).parse(history).length) throw new Error('This tenant has rented here before, so they can’t be deleted');
     const { data, error } = await getSupabase().from('rental_renter_files').select('id').eq('renter_id', id);
-    if (error) throw rentalError(error, 'Could not remove renter');
+    if (error) throw rentalError(error, 'Could not delete tenant');
     for (const file of z.array(z.object({ id: z.string() })).parse(data)) await this.removeFile(file.id);
     const { error: deleteError } = await getSupabase().from('rental_renters').delete().eq('id', id).select('id').single();
-    if (deleteError) throw rentalError(deleteError, 'This renter has tenancy history and can’t be deleted');
+    if (deleteError) throw rentalError(deleteError, 'This tenant has rented here before, so they can’t be deleted');
   }
 
   async upload(renterId: string, propertyId: string, file: { name: string; mimeType?: string | null; bytes: ArrayBuffer }): Promise<void> {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
-import { startTenancySchema } from '../domain/index.js';
-import type { RentalTenancy, StartTenancyInput } from '../domain/index.js';
+import { contractTermsSchema, startTenancySchema } from '../domain/index.js';
+import type { ContractTermsInput, RentalTenancy, StartTenancyInput } from '../domain/index.js';
 import { rentalError, tenancyRow } from './rows.js';
 
 export class TenancyRepository {
@@ -18,12 +18,22 @@ export class TenancyRepository {
       p_unit_id: v.unitId, p_renter_id: v.renterId, p_move_in: v.moveIn, p_start: v.startDate, p_end: v.endDate,
       p_rent: v.monthlyRentCentavos, p_due_day: v.dueDay, p_advance: v.advanceMonths, p_deposit: v.depositCentavos,
     });
-    if (error) throw rentalError(error, 'Could not start tenancy', 'This renter already has an active tenancy in this unit');
+    if (error?.message === 'This unit is full') throw new Error('This room is full. Move someone out first, or add a bed.');
+    if (error) throw rentalError(error, 'Could not move the tenant in', 'This tenant already lives in this room');
     return z.string().parse(data);
   }
 
   async end(id: string, moveOut: string): Promise<void> {
     const { error } = await getSupabase().rpc('rental_end_tenancy', { p_tenancy_id: id, p_move_out: moveOut });
-    if (error) throw rentalError(error, 'Could not end tenancy');
+    if (error) throw rentalError(error, 'Could not record the move-out');
+  }
+
+  async updateTerms(contractId: string, input: ContractTermsInput): Promise<void> {
+    const v = contractTermsSchema.parse(input);
+    const { error } = await getSupabase().from('rental_contracts')
+      .update({ monthly_rent_centavos: v.monthlyRentCentavos, due_day: v.dueDay, advance_months: v.advanceMonths,
+        deposit_centavos: v.depositCentavos })
+      .eq('id', contractId).eq('status', 'active').select('id').single();
+    if (error) throw rentalError(error, 'Could not update rent');
   }
 }

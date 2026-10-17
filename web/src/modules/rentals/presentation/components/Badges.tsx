@@ -1,8 +1,9 @@
+import { cn } from '@core/presentation/utils';
 import type { RentalRole } from '@himan/shared/rentals';
 
-export function Initials({ name }: { name: string }) {
+export function Initials({ name, className }: { name: string; className?: string }) {
   const letters = name.split('@')[0].split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-  return <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+  return <span aria-hidden className={cn('flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary', className)}>
     {letters || '?'}</span>;
 }
 

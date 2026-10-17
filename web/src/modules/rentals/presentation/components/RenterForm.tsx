@@ -53,7 +53,7 @@ export function RenterForm({ renter, readOnly, busy, onSave, onCancel, deleteAct
         </Field>
       </FormSection>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {!readOnly && <FormActions submit="Save renter" onCancel={onCancel} start={deleteAction} />}
+      {!readOnly && <FormActions submit="Save tenant" onCancel={onCancel} start={deleteAction} />}
     </fieldset>
   </form>;
 }

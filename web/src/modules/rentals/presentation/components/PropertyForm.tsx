@@ -54,33 +54,44 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
         {text('name', 'Name', { wide: true })}
         {text('address', 'Address', { wide: true })}
       </FormSection>
-      <FormSection title="Owner">
-        {name('ownerName', 'Owner name')}
-        {text('ownerAddress', 'Owner address', { wide: true })}
-      </FormSection>
-      <FormSection title="Lessor" description="The person who signs contracts with renters.">
-        {name('lessorName', 'Lessor name')}
-        <Field id="property-capacity" label="Signs as">
-          <select id="property-capacity" className={inputClass} value={form.lessorCapacity}
-            onChange={(event) => setForm((f) => ({ ...f, lessorCapacity: event.target.value as PropertyInput['lessorCapacity'] }))}>
-            {LESSOR_CAPACITIES.map((value) => <option key={value} value={value}>
-              {value === 'owner' ? 'Owner' : 'Authorized representative'}</option>)}
-          </select>
-        </Field>
-        {text('lessorCivilStatus', 'Civil status')}
-        {text('lessorAddress', 'Lessor address', { hint: 'blank uses your profile', wide: true })}
-      </FormSection>
-      <FormSection title="Contracts and invoices">
-        {text('signingCity', 'Signing city')}
-        {text('invoicePrefix', 'Invoice prefix', { hint: `${form.invoicePrefix || 'INV'}-${manilaToday().slice(0, 4)}-0001` })}
-      </FormSection>
+      <details open={!!property && hasContractDetails(property)} className="group rounded-lg border p-4 [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold">
+          <span><span className="block">Contract details – fill in later</span><span className="block text-xs font-normal text-muted-foreground">Only needed when you print a contract.</span></span>
+          <span aria-hidden className="text-muted-foreground transition-transform group-open:rotate-90">›</span>
+        </summary>
+        <div className="mt-5 space-y-6">
+          <FormSection title="Owner of the house">
+            {name('ownerName', 'Owner name')}
+            {text('ownerAddress', 'Owner address', { wide: true })}
+          </FormSection>
+          <FormSection title="Who signs the contract" description="Usually the owner, or someone they authorized.">
+            {name('lessorName', 'Signer’s name')}
+            <Field id="property-capacity" label="Signs as">
+              <select id="property-capacity" className={inputClass} value={form.lessorCapacity}
+                onChange={(event) => setForm((f) => ({ ...f, lessorCapacity: event.target.value as PropertyInput['lessorCapacity'] }))}>
+                {LESSOR_CAPACITIES.map((value) => <option key={value} value={value}>
+                  {value === 'owner' ? 'The owner' : 'Authorized representative'}</option>)}
+              </select>
+            </Field>
+            {text('lessorCivilStatus', 'Civil status')}
+            {text('lessorAddress', 'Signer’s address', { hint: 'blank uses your profile', wide: true })}
+          </FormSection>
+          <FormSection title="Printing">
+            {text('signingCity', 'City where contracts are signed')}
+            {text('invoicePrefix', 'Invoice number starts with', { hint: `${form.invoicePrefix || 'INV'}-${manilaToday().slice(0, 4)}-0001` })}
+          </FormSection>
+        </div>
+      </details>
       {!myName && <p className="text-xs text-muted-foreground">
-        Add your full name in <Link to="/profile" className="underline underline-offset-2">Profile</Link> to fill owner and lessor with one tick.</p>}
+        Add your full name in <Link to="/profile" className="underline underline-offset-2">Profile</Link> to fill the owner and signer with one tick.</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <FormActions submit="Save property" onCancel={onCancel} />
     </fieldset>
   </form>;
 }
+
+const hasContractDetails = (p: RentalProperty) =>
+  [p.ownerAddress, p.lessorCivilStatus, p.lessorAddress, p.signingCity].some(Boolean) || p.invoicePrefix !== 'INV';
 
 function pick(p: RentalProperty): PropertyInput {
   return { name: p.name, address: p.address, ownerName: p.ownerName, ownerAddress: p.ownerAddress,

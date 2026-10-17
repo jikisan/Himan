@@ -111,3 +111,31 @@ Due-soon / overdue list. (Income chart and main-dashboard widget deferred.)
 
 Payment gateways · auto-split of main utility bill · per-day penalties · landlord
 expenses / P&L · income chart · main-dashboard widget · push reminders.
+
+## Flow v2 — plain flow for non-technical users (grilling Q1–Q18, 2026-10-16)
+
+Some landlords and co-managers are not technical. The UI drops the Units / Renters /
+Tenancies tabs for a room-first flow. The data model is unchanged apart from one column.
+
+- **Users:** both the property creator and shared friends (Q1). Ships in Phase 1, before billing (Q7).
+- **Home = Rooms board** (Q2, Q8). One card per room: name, type, ⋯ menu (Edit / Delete).
+  Each spot shows the tenant (name, ₱rent/mo, "due every Nth", **Move out**) or an empty
+  **+ Add tenant**. Shared rooms show one line per bed.
+- **Views:** segmented **Rooms | Tenants** (Q12). Tenants is a searchable directory with the current
+  room or "Moved out", and a "Show past tenants" toggle. The Tenancies tab is gone.
+- **Words** (Q3): Unit → Room, Bedspace → Shared room (beds), Renter → Tenant, Tenancy → hidden
+  (Move in / Move out), Lessor → "Who signs the contract", Submeter → "By meter reading".
+  Legal terms stay in the contract PDF only.
+- **First property = 3-step setup** (Q4, Q15): house name and address → quick-add rooms
+  (type, beds, usual rent) → electricity and water asked once, copied to every new room.
+  Contract-only fields (owner address, civil status, signing city, invoice prefix, signs as)
+  sit in a collapsed "Contract details – fill in later" section in the wizard and in Edit.
+- **Add tenant** (Q9, Q10, Q13): required name, mobile, move-in date, rent (pre-filled from the room's
+  usual rent). Defaults: deposit = advance = 1 month, due day = move-in day, contract 1 year.
+  "Due on move-in" total. "More details (optional)" holds the rest, including the ID upload.
+  "Already a tenant? Pick from list" reuses an existing person. Creates renter + tenancy together.
+- **Tenant sheet** (Q16): tap a tenant → details, ID files, **Edit rent & due day** on the active
+  contract (Phase 2 locks this once an invoice exists).
+- **Move out** (Q11): date dialog, default today, not before move-in (fixes M2).
+- **Schema** (Q13): `rental_units.default_rent_centavos integer NOT NULL DEFAULT 0` (0 = not set; per bed for shared rooms).
+- **Help** (Q14): inline hints and empty states only, no tour. English only (Q5). Phone-width web first (Q6).

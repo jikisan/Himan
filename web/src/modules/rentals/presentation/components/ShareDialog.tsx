@@ -44,8 +44,8 @@ export function ShareDialog({ propertyId, busy, run, listMembers, listFriends }:
         <Button disabled={busy} onClick={() => void share()}>Share</Button>
       </div>}
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <dt className="font-medium text-foreground">Manager</dt><dd>Adds renters and tenancies, sees renter IDs.</dd>
-      <dt className="font-medium text-foreground">Viewer</dt><dd>Read-only. No renter IDs.</dd>
+      <dt className="font-medium text-foreground">Manager</dt><dd>Adds and moves out tenants, sees their IDs.</dd>
+      <dt className="font-medium text-foreground">Viewer</dt><dd>Can look only. Can’t see tenant IDs.</dd>
     </dl>
   </div>;
 }

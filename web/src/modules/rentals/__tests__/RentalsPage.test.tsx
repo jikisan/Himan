@@ -1,178 +1,378 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { RentalProperty } from '@himan/shared/rentals';
-import type { Renter } from '@himan/shared/rentals';
-import type { RentalTenancy } from '@himan/shared/rentals';
+import type { RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
+const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: number, extra: Partial<RentalUnit> = {}): RentalUnit => ({
+  id, propertyId: 'p', name, kind, capacity, electricMode: 'none', electricAmountCentavos: 0, waterMode: 'none',
+  waterAmountCentavos: 0, defaultRentCentavos: 0, extraPersonRentCentavos: 0, ...extra });
 const property: RentalProperty = {
   id: 'p', createdBy: 'owner', name: 'Bakilid House', address: '', ownerName: '', ownerAddress: '',
   lessorName: 'Owner', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '',
   invoicePrefix: 'INV', archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
-  units: [{ id: 'u1', propertyId: 'p', name: 'Room A', kind: 'bedspace', capacity: 2, electricMode: 'none',
-    electricAmountCentavos: 0, waterMode: 'none', waterAmountCentavos: 0 }],
+  units: [unit('u1', 'Room A', 'bedspace', 4, { defaultRentCentavos: 350000 }), unit('u2', 'Room B', 'room', 1)],
 };
+const person = (id: string, fullName: string): Renter => ({ id, propertyId: 'p', fullName, phone: '0917', facebook: '', email: '',
+  address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '', files: [] });
+const stay = (id: string, unitId: string, renterId: string, moveIn: string, moveOut: string | null = null): RentalTenancy => ({
+  id, propertyId: 'p', unitId, renterId, moveIn, moveOut,
+  contracts: [{ id: `c-${id}`, tenancyId: id, startDate: moveIn, endDate: '2027-10-01', monthlyRentCentavos: 350000,
+    dueDay: 30, advanceMonths: 1, depositCentavos: 350000, status: moveOut ? 'ended' : 'active' }] });
+
 const state = vi.hoisted(() => ({
-  properties: [] as RentalProperty[], renters: [] as unknown[], tenancies: [] as unknown[],
+  properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
 }));
 vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
+const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
+vi.mock('sonner', () => ({ toast: toasts }));
 
-beforeEach(() => { vi.clearAllMocks(); state.myName = 'Maria Santos'; state.properties = [property]; state.renters = []; state.tenancies = []; });
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Rent is due on the 30th in these fixtures; the 10th keeps "due soon" out of unrelated tests.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-10T02:00:00Z'));
+  state.myName = 'Maria Santos';
+  state.properties = [property];
+  state.renters = [person('r1', 'Ana Cruz'), person('r2', 'Ben Reyes'), person('r3', 'Carlo Lim'), person('r4', 'Dina Past')];
+  state.tenancies = [stay('t1', 'u1', 'r1', '2026-01-01'), stay('t2', 'u1', 'r2', '2026-02-01'), stay('t3', 'u2', 'r3', '2026-03-01'),
+    stay('t4', 'u2', 'r4', '2025-01-01', '2025-12-01')];
+  state.run.mockResolvedValue(undefined);
+});
 const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+const card = (name: string) => within(screen.getByRole('region', { name }));
 
-describe('Rentals page — properties and units', () => {
-  it('shows unit occupancy for the selected property', () => {
+describe('Rooms board', () => {
+  it('shows each bed of a shared room, filled first, with an add slot per free bed', () => {
     page();
-    expect(screen.getByText('Room A')).toBeInTheDocument();
-    expect(screen.getAllByText('0 / 2 occupied').length).toBeGreaterThan(0);
+    expect(card('Room A').getByText('Ana Cruz')).toBeInTheDocument();
+    expect(card('Room A').getByText('Ben Reyes')).toBeInTheDocument();
+    expect(card('Room A').getAllByRole('button', { name: 'Add tenant' })).toHaveLength(2);
+    expect(card('Room A').getByText('Shared room · 4 beds')).toBeInTheDocument();
   });
-  it('hides owner-only controls from a viewer', () => {
+  it('offers no add slot in a full room', () => {
+    page();
+    expect(card('Room B').getByText('Carlo Lim')).toBeInTheDocument();
+    expect(card('Room B').queryByRole('button', { name: 'Add tenant' })).not.toBeInTheDocument();
+  });
+  it('shows rent and due day in plain words', () => {
+    page();
+    expect(card('Room B').getByText('₱3,500.00/mo · due every 30th')).toBeInTheDocument();
+  });
+  it('is read-only for a viewer', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     page();
-    expect(screen.queryByRole('button', { name: 'Add unit' })).not.toBeInTheDocument();
+    expect(card('Room A').getAllByText('Empty')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Add tenant' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Move out/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Room A options' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
   });
-  it('keeps the unit form open with a readable error when the rate is not a peso amount', async () => {
+  it('asks before deleting a room', async () => {
     page();
-    fireEvent.click(screen.getByRole('button', { name: 'Add unit' }));
-    fireEvent.change(screen.getByLabelText('Unit name'), { target: { value: 'Room B' } });
-    fireEvent.change(screen.getByLabelText('Electricity'), { target: { value: 'submeter' } });
-    fireEvent.change(screen.getByLabelText('Electricity rate per kWh'), { target: { value: 'twelve' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save unit' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter an amount like 10,000 or 1,500.50');
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Room B options' }), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete room' }));
     expect(state.run).not.toHaveBeenCalled();
-  });
-  it('saves a unit in centavos', async () => {
-    state.run.mockResolvedValue(undefined);
-    page();
-    fireEvent.click(screen.getByRole('button', { name: 'Add unit' }));
-    fireEvent.change(screen.getByLabelText('Unit name'), { target: { value: 'Room B' } });
-    fireEvent.change(screen.getByLabelText('Electricity'), { target: { value: 'submeter' } });
-    fireEvent.change(screen.getByLabelText('Electricity rate per kWh'), { target: { value: '12.50' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save unit' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUnit', propertyId: 'p', id: null,
-      input: expect.objectContaining({ name: 'Room B', electricMode: 'submeter', electricAmountCentavos: 1250 }) }));
-  });
-});
-
-
-const renter: Renter = { id: 'r1', propertyId: 'p', fullName: 'Juan Dela Cruz', phone: '0917', facebook: '', email: '',
-  address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '',
-  files: [{ id: 'f1', renterId: 'r1', propertyId: 'p', name: 'national-id.png', mimeType: 'image/png', size: 10, storagePath: 'p/renters/r1/f1', ready: true }] };
-
-describe('Rentals page — renters', () => {
-  it('lists only renters of the selected property', () => {
-    state.renters = [renter, { ...renter, id: 'r2', propertyId: 'other', fullName: 'Other Person' }];
-    page();
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Renters' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Renters' }));
-    expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument();
-    expect(screen.queryByText('Other Person')).not.toBeInTheDocument();
-  });
-  it('asks before deleting a renter', async () => {
-    state.renters = [renter]; state.run.mockResolvedValue(undefined);
-    page();
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Renters' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Renters' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open Juan Dela Cruz' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete renter' }));
-    expect(state.run).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeRenter', id: 'r1' }));
-  });
-  it('never shows the ID files section to a viewer', () => {
-    state.properties = [{ ...property, role: 'viewer' }];
-    state.renters = [renter];
-    page();
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Renters' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Renters' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open Juan Dela Cruz' }));
-    expect(screen.queryByText('Valid ID')).not.toBeInTheDocument();
-    expect(screen.queryByText('national-id.png')).not.toBeInTheDocument();
-  });
-});
-
-
-const fullRoom = { id: 'u2', propertyId: 'p', name: 'Room B', kind: 'room' as const, capacity: 1, electricMode: 'none' as const,
-  electricAmountCentavos: 0, waterMode: 'none' as const, waterAmountCentavos: 0 };
-const active: RentalTenancy = { id: 't1', propertyId: 'p', unitId: 'u2', renterId: 'r1', moveIn: '2026-10-01', moveOut: null,
-  contracts: [{ id: 'c1', tenancyId: 't1', startDate: '2026-10-01', endDate: '2027-10-01', monthlyRentCentavos: 1000000,
-    dueDay: 30, advanceMonths: 1, depositCentavos: 1000000, status: 'active' }] };
-
-describe('Rentals page — tenancies and sharing', () => {
-  const openTab = () => { fireEvent.mouseDown(screen.getByRole('tab', { name: 'Tenancies' })); fireEvent.click(screen.getByRole('tab', { name: 'Tenancies' })); };
-  it('offers only units with a free slot when starting a tenancy', () => {
-    state.properties = [{ ...property, units: [...property.units, fullRoom] }];
-    state.renters = [renter]; state.tenancies = [active];
-    page(); openTab();
-    fireEvent.click(screen.getByRole('button', { name: 'Start tenancy' }));
-    const options = [...(screen.getByLabelText('Unit') as HTMLSelectElement).options].map((o) => o.text);
-    expect(options).toContain('Room A (2 free)');
-    expect(options.some((o) => o.startsWith('Room B'))).toBe(false);
-  });
-  it('shows the active tenancy with its rent and due day', () => {
-    state.properties = [{ ...property, units: [...property.units, fullRoom] }];
-    state.renters = [renter]; state.tenancies = [active];
-    page(); openTab();
-    expect(screen.getByText('Juan Dela Cruz · Room B')).toBeInTheDocument();
-    expect(screen.getByText(/₱10,000.00\/mo · due day 30/)).toBeInTheDocument();
-  });
-  it('asks before ending a tenancy and only ends it after confirming', async () => {
-    state.properties = [{ ...property, units: [...property.units, fullRoom] }];
-    state.renters = [renter]; state.tenancies = [active]; state.run.mockResolvedValue(undefined);
-    page(); openTab();
-    fireEvent.click(screen.getByRole('button', { name: 'End today' }));
-    expect(state.run).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'End tenancy' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'endTenancy', id: 't1' })));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete room' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeUnit', id: 'u2' }));
   });
   it('lets the owner open sharing and hides it from managers', () => {
-    page();
+    const { unmount } = page();
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    unmount();
     state.properties = [{ ...property, role: 'manager' }];
     page();
-    expect(screen.getAllByRole('button', { name: 'Share' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Tenants view', () => {
+  const openTenants = () => { page(); fireEvent.click(screen.getByRole('button', { name: 'Tenants' })); };
+  it('lists current tenants with their room and hides past ones until asked', () => {
+    openTenants();
+    expect(screen.getByRole('button', { name: /Ana Cruz/ })).toHaveTextContent('Room A');
+    expect(screen.queryByText('Dina Past')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show past tenants' }));
+    expect(screen.getByRole('button', { name: /Dina Past/ })).toHaveTextContent('Moved out');
+  });
+  it('filters by name', () => {
+    openTenants();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search tenants' }), { target: { value: 'ben' } });
+    expect(screen.getByText('Ben Reyes')).toBeInTheDocument();
+    expect(screen.queryByText('Ana Cruz')).not.toBeInTheDocument();
+  });
+});
+
+describe('Add tenant', () => {
+  const openAdd = () => { page(); fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]); };
+  it('needs only name, mobile, move-in and rent, and fills the rest', async () => {
+    openAdd();
+    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3500.00');
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
+    fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-11-15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'addTenant', propertyId: 'p', unitId: 'u1', renterId: null, moveIn: '2026-11-15',
+      renter: expect.objectContaining({ fullName: 'Elle Tan', phone: '0918' }),
+      terms: { startDate: '2026-11-15', endDate: '2027-11-15', monthlyRentCentavos: 350000, dueDay: 15,
+        advanceMonths: 1, depositCentavos: 350000 } })));
+  });
+  it('shows what is due on move-in', () => {
+    openAdd();
+    expect(screen.getByText('₱7,000.00')).toBeInTheDocument();
+  });
+  it('shows advance and deposit next to the rent, and the total follows them', () => {
+    openAdd();
+    expect(screen.getByLabelText('Advance months').closest('details')).toBeNull();
+    expect(screen.getByLabelText('Deposit').closest('details')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Advance months'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Deposit'), { target: { value: '7,000' } });
+    expect(screen.getByText('₱14,000.00')).toBeInTheDocument();
+  });
+  it('can pick someone already on file', async () => {
+    openAdd();
+    fireEvent.click(screen.getByRole('button', { name: 'Already a tenant' }));
+    fireEvent.change(screen.getByLabelText('Tenant'), { target: { value: 'r4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant', renterId: 'r4', renter: null })));
+  });
+  it('asks for a mobile number for a new person', async () => {
+    openAdd();
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s mobile number');
+    expect(state.run).not.toHaveBeenCalled();
+  });
+  it('explains a zero rent in plain words', async () => {
+    openAdd();
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
+    fireEvent.change(screen.getByLabelText('Monthly rent'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the monthly rent');
+  });
+  it('opens More details when the problem is hidden inside it', async () => {
+    openAdd();
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
+    fireEvent.change(screen.getByLabelText('Contract ends'), { target: { value: '2020-01-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Contract must end after it starts');
+    expect(screen.getByText('Contract and contact').closest('details')).toHaveAttribute('open');
+  });
+  it('asks for a name before saving', async () => {
+    openAdd();
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s name');
+    expect(state.run).not.toHaveBeenCalled();
+  });
+});
+
+describe('Tenant sheet and move out', () => {
+  it('edits rent and due day, refusing a due day of 32', async () => {
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    expect(screen.getByText(/Lives in Room B since Mar 1, 2026/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
+    fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '32' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rent' }));
+    expect(await screen.findByText('Due day is 1–31')).toBeInTheDocument();
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('Rent per month'), { target: { value: '4,000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rent' }));
+    fireEvent.change(screen.getByLabelText('Advance months'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Deposit'), { target: { value: '8,000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rent' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateTerms', contractId: 'c-t3',
+      input: { monthlyRentCentavos: 400000, dueDay: 5, advanceMonths: 2, depositCentavos: 800000 } }));
+  });
+  it('moves a tenant out from their sheet', async () => {
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Carlo Lim out of Room B' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'endTenancy', id: 't3' })));
+  });
+  it('shows contact read-only until Edit, then saves without closing the sheet', async () => {
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit contact' }));
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0999' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save tenant' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'saveRenter', id: 'r3',
+      input: expect.objectContaining({ phone: '0999' }) })));
+    expect(screen.getByRole('dialog', { name: 'Carlo Lim' })).toBeInTheDocument();
+  });
+  it('refuses a move-out before move-in and records a valid date', async () => {
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: 'Move out Carlo Lim' }));
+    const date = screen.getByLabelText('Move-out date');
+    fireEvent.change(date, { target: { value: '2026-02-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Move-out can’t be before move-in (Mar 1, 2026)');
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.change(date, { target: { value: '2026-09-30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'endTenancy', id: 't3', moveOut: '2026-09-30' }));
   });
 });
 
 
-describe('Rentals page — property owner and lessor', () => {
-  const openNew = () => { page(); fireEvent.click(screen.getByRole('button', { name: 'New property' })); };
-  it('fills owner and lessor with my profile name by default', async () => {
-    state.run.mockResolvedValue(undefined);
-    openNew();
-    expect(screen.getByLabelText('Owner name')).toHaveValue('Maria Santos');
-    expect(screen.getByLabelText('Owner name')).toHaveAttribute('readonly');
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bakilid House 2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveProperty', id: null,
-      input: expect.objectContaining({ ownerName: 'Maria Santos', lessorName: 'Maria Santos' }) }));
-  });
-  it('lets me type a different lessor after unticking', async () => {
-    state.run.mockResolvedValue(undefined);
-    openNew();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Use my name as lessor name' }));
-    fireEvent.change(screen.getByLabelText('Lessor name'), { target: { value: 'Pedro Reyes' } });
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bakilid House 2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
-      input: expect.objectContaining({ ownerName: 'Maria Santos', lessorName: 'Pedro Reyes' }) })));
-  });
-  it('disables the shortcut when my profile has no name', () => {
-    state.myName = '';
-    openNew();
-    expect(screen.getByRole('checkbox', { name: 'Use my name as owner name' })).toBeDisabled();
-    expect(screen.getByLabelText('Owner name')).not.toHaveAttribute('readonly');
-  });
-  it('asks before deleting a unit', async () => {
-    state.run.mockResolvedValue(undefined);
+describe('Per-person room price', () => {
+  it('prices a private room by headcount until the rent is typed over', async () => {
+    state.properties = [{ ...property, units: [...property.units, unit('u3', 'Room C', 'room', 1,
+      { defaultRentCentavos: 300000, extraPersonRentCentavos: 50000 })] }];
     page();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Room A' }));
-    expect(state.run).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete unit' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeUnit', id: 'u1' }));
+    expect(card('Room C').getByText('Private room · +₱500.00 per extra person')).toBeInTheDocument();
+    fireEvent.click(card('Room C').getByRole('button', { name: 'Add tenant' }));
+    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3000.00');
+    fireEvent.change(screen.getByLabelText('People living in the room'), { target: { value: '2' } });
+    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3500.00');
+    expect(screen.getByText('₱3,000.00 + ₱500.00 × 1 extra')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Monthly rent'), { target: { value: '3,200' } });
+    fireEvent.change(screen.getByLabelText('People living in the room'), { target: { value: '3' } });
+    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3,200');
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant', unitId: 'u3',
+      renter: expect.objectContaining({ occupants: 3 }), terms: expect.objectContaining({ monthlyRentCentavos: 320000 }) })));
+  });
+  it('saves the extra-person price on a room', async () => {
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Add room' }));
+    fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'Room C' } });
+    fireEvent.change(screen.getByLabelText('Usual rent'), { target: { value: '3,000' } });
+    fireEvent.change(screen.getByLabelText('Extra per added person'), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save room' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'saveUnit',
+      input: expect.objectContaining({ defaultRentCentavos: 300000, extraPersonRentCentavos: 50000 }) })));
+  });
+});
+
+describe('Overview', () => {
+  it('lists rent due in the next 7 days', () => {
+    vi.setSystemTime(new Date('2026-10-26T02:00:00Z'));
+    page();
+    const due = within(screen.getByRole('region', { name: 'Rent due in the next 7 days' }));
+    expect(due.getByRole('button', { name: /Ana Cruz.*Room A · in 4 days/ })).toBeInTheDocument();
+    expect(due.getAllByRole('button')).toHaveLength(3);
+  });
+  it('hides rent due later than a week', () => {
+    page();
+    expect(screen.queryByRole('region', { name: 'Rent due in the next 7 days' })).not.toBeInTheDocument();
+  });
+  it('switches property from the side list', () => {
+    state.properties = [property, { ...property, id: 'p2', name: 'Mabolo Studio', units: [] }];
+    page();
+    fireEvent.click(screen.getByRole('button', { name: /^Mabolo Studio/ }));
+    expect(screen.getByRole('heading', { name: 'Mabolo Studio' })).toBeInTheDocument();
+    expect(screen.getByText('No rooms yet')).toBeInTheDocument();
+  });
+});
+
+describe('First property setup', () => {
+  const start = () => { state.properties = []; page(); fireEvent.click(screen.getByRole('button', { name: 'New property' })); };
+  const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  it('walks through house, rooms and utilities, then saves everything at once', async () => {
+    state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
+    start();
+    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    next();
+    fireEvent.change(screen.getAllByLabelText('Room name')[0], { target: { value: 'Room A' } });
+    fireEvent.change(screen.getAllByLabelText('Usual rent')[0], { target: { value: '3,000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add another room' }));
+    expect(screen.getAllByLabelText('Room name')[1]).toHaveValue('Room B');
+    next();
+    fireEvent.change(screen.getByLabelText('Electricity'), { target: { value: 'submeter' } });
+    fireEvent.change(screen.getByLabelText('Price per kWh'), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'setupProperty',
+      input: expect.objectContaining({ name: 'Lahug House', ownerName: 'Maria Santos', lessorName: 'Maria Santos' }),
+      rooms: [expect.objectContaining({ name: 'Room A', kind: 'room', defaultRentCentavos: 300000, electricMode: 'submeter', electricAmountCentavos: 2000 }),
+        expect.objectContaining({ name: 'Room B', electricMode: 'submeter', electricAmountCentavos: 2000, waterMode: 'none' })] }));
+  });
+  it('makes a shared room from the room type switch and counts its beds', async () => {
+    state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
+    start();
+    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    next();
+    fireEvent.click(screen.getByRole('radio', { name: 'Shared room (beds)' }));
+    fireEvent.change(screen.getByLabelText('Beds'), { target: { value: '4' } });
+    expect(screen.getByText('1 room · 4 beds')).toBeInTheDocument();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
+      rooms: [expect.objectContaining({ kind: 'bedspace', capacity: 4 })] })));
+  });
+  it('needs a property name before moving on', () => {
+    start();
+    next();
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a property name');
+    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
+  });
+  it('makes one whole-house room when the house is rented as a whole', async () => {
+    state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
+    start();
+    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    next();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'I rent out the whole house to one household' }));
+    expect(screen.queryByLabelText('Room name')).not.toBeInTheDocument();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
+      rooms: [expect.objectContaining({ name: 'Whole house', kind: 'whole', capacity: 1 })] })));
+  });
+  it('names the rooms that could not be saved', async () => {
+    state.run.mockResolvedValue({ propertyId: 'p2', failed: ['Room B'] });
+    start();
+    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    next();
+    fireEvent.click(screen.getByRole('button', { name: 'Add another room' }));
+    next();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(toasts.warning).toHaveBeenCalledWith('Saved, but couldn’t add Room B. Add it from the Rooms board.'));
+  });
+});
+
+describe('Property and room forms', () => {
+  it('keeps contract details out of the way but still saves my name when ticked', async () => {
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByText('Contract details – fill in later')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Use my name as owner name' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'saveProperty', id: 'p',
+      input: expect.objectContaining({ ownerName: 'Maria Santos' }) })));
+  });
+  it('saves a room with its usual rent and a readable error for a bad rate', async () => {
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Add room' }));
+    fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'Room C' } });
+    fireEvent.change(screen.getByLabelText('Electricity'), { target: { value: 'submeter' } });
+    fireEvent.change(screen.getByLabelText('Price per kWh'), { target: { value: 'twelve' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save room' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter an amount like 10,000 or 1,500.50');
+    fireEvent.change(screen.getByLabelText('Price per kWh'), { target: { value: '12.50' } });
+    fireEvent.change(screen.getByLabelText('Usual rent'), { target: { value: '4,500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save room' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUnit', propertyId: 'p', id: null,
+      input: expect.objectContaining({ name: 'Room C', electricAmountCentavos: 1250, defaultRentCentavos: 450000 }) }));
+  });
+});
+
+describe('Property summary edge cases', () => {
+  it('does not claim every bed is taken when there are no rooms', () => {
+    state.properties = [{ ...property, units: [] }];
+    state.tenancies = [];
+    page();
+    expect(screen.queryByText('Every bed is taken')).not.toBeInTheDocument();
+    expect(screen.getByText('Add a room first')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile } from '../domain/index.js';
-import { billLineSchema, METER_KINDS, RENTAL_ROLES, tenancyChargeSchema } from '../domain/index.js';
+import { METER_KINDS, RENTAL_ROLES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
 
 export const unitRow = z.object({
   id: z.string(), property_id: z.string(), name: z.string(), kind: z.enum(['whole', 'room', 'bedspace']),
@@ -60,8 +60,7 @@ const contractRow = z.object({
 export const tenancyRow = z.object({
   id: z.string(), property_id: z.string(), unit_id: z.string(), renter_id: z.string(),
   move_in: z.string(), move_out: z.string().nullable(), contracts: z.array(contractRow).default([]),
-  // One bad charge must not hide the tenant; the database validates them too.
-  charges: z.array(tenancyChargeSchema).default([]).catch([]),
+  charges: z.array(storedChargeSchema).default([]),
 }).transform((r): RentalTenancy => ({
   id: r.id, propertyId: r.property_id, unitId: r.unit_id, renterId: r.renter_id,
   moveIn: r.move_in, moveOut: r.move_out, charges: r.charges,
@@ -77,7 +76,7 @@ export const readingRow = z.object({
 
 export const billRow = z.object({
   id: z.string(), property_id: z.string(), tenancy_id: z.string(), kind: z.enum(['move_in', 'monthly', 'final']),
-  period: z.string(), number: z.string(), issued_on: z.string(), due_on: z.string(), lines: z.array(billLineSchema),
+  period: z.string(), number: z.string(), issued_on: z.string(), due_on: z.string(), lines: z.array(storedBillLineSchema),
   status: z.enum(['issued', 'void']), void_reason: z.string(),
 }).transform((r): RentalBill => ({
   id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, kind: r.kind, period: r.period, number: r.number,

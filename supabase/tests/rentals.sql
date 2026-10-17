@@ -327,6 +327,18 @@ BEGIN
     UPDATE public.rental_bills SET lines = '[{"kind":"electric","label":"E","amount":1,"meter":{"readings":[1]}}]' WHERE id = v_id;
     RAISE EXCEPTION 'A half-filled meter line was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":1,"period":{"from":"2026-13-45","to":"2026-12-01"}}]' WHERE id = v_id;
+    RAISE EXCEPTION 'An impossible date was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":1,"period":{"from":"2026-02-30","to":"2026-03-01"}}]' WHERE id = v_id;
+    RAISE EXCEPTION 'February 30 was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = jsonb_build_array(jsonb_build_object('kind', 'rent', 'label', E'\u00a0\u2003', 'amount', 1)) WHERE id = v_id;
+    RAISE EXCEPTION 'A blank-looking label was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
   UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":500000},{"kind":"other","label":"Discount","amount":-5000}]' WHERE id = v_id;
   BEGIN
     UPDATE public.rental_tenancies SET charges = '[{"label":"Parking","amount":0}]' WHERE id = v_t;
@@ -335,6 +347,10 @@ BEGIN
   BEGIN
     UPDATE public.rental_tenancies SET charges = '[{"label":"","amount":100}]' WHERE id = v_t;
     RAISE EXCEPTION 'A nameless charge was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_tenancies SET charges = jsonb_build_array(jsonb_build_object('label', E'\u00a0', 'amount', 100)) WHERE id = v_t;
+    RAISE EXCEPTION 'A blank-looking charge name was accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
   UPDATE public.rental_tenancies SET charges = '[{"label":"Parking","amount":100000}]' WHERE id = v_t;
 

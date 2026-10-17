@@ -83,6 +83,11 @@ export const billLineSchema = z.object({
   }).optional(),
 });
 
+/** Reading back from the database: accepts every line and charge the database accepts (its checks are the
+ * authority), so a stored row can never fail to load. Writes still use the stricter schemas above. */
+export const storedBillLineSchema = billLineSchema.extend({ label: z.string() });
+export const storedChargeSchema = tenancyChargeSchema.extend({ label: z.string(), amount: z.number().int() });
+
 const twoDecimals = (v: number) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
 export const readingInputSchema = z.object({
   unitId: z.guid(), kind: z.enum(METER_KINDS), readOn: z.iso.date('Choose the reading date'),

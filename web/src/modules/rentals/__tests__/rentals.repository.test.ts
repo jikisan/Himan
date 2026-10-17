@@ -223,14 +223,15 @@ describe('PropertyRepository bill settings', () => {
   });
 });
 
-describe('Malformed rows', () => {
-  it('skips a malformed bill instead of failing every bill', async () => {
-    mock.from.mockReturnValueOnce(result([billRow, { ...billRow, id: 'bad', lines: [{ kind: 'bribe', label: '', amount: 'x' }] }]));
-    expect((await new BillRepository().findAll()).map((b) => b.id)).toEqual(['b']);
+describe('Reading stored rows', () => {
+  it('loads every line the database accepts, even an 80-character label with emoji', async () => {
+    // 80 characters to Postgres, 90 UTF-16 units to JavaScript.
+    const label = '😀'.repeat(10) + 'x'.repeat(70);
+    mock.from.mockReturnValueOnce(result([{ ...billRow, lines: [{ kind: 'charge', label, amount: 100000 }] }]));
+    expect((await new BillRepository().findAll())[0].lines[0].label).toBe(label);
   });
-  it('treats malformed extra charges as none', async () => {
-    mock.from.mockReturnValueOnce(result([{ id: 't', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01',
-      move_out: null, charges: [{ label: 'Parking', amount: 'x' }] }]));
-    expect((await new TenancyRepository().findAll())[0].charges).toEqual([]);
+  it('fails the load instead of hiding a bill it can’t read', async () => {
+    mock.from.mockReturnValueOnce(result([billRow, { ...billRow, id: 'bad', lines: [{ kind: 'bribe', label: '', amount: 'x' }] }]));
+    await expect(new BillRepository().findAll()).rejects.toThrow();
   });
 });

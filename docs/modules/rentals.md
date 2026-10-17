@@ -50,7 +50,9 @@ Renter ID files: bucket `rental-files` (private), managers only, 60-second signe
 - Bill numbers `PREFIX-YYYY-NNNN` per property (format CHECK), assigned only in `rental_issue_bill` (SECURITY DEFINER,
   checks manager role itself) under an advisory lock; unique. No direct INSERT on `rental_bills` (`20261017100000`).
 - Bill lines and extra charges are validated per item in the database (`rental_valid_bill_lines`,
-  `rental_valid_charges`); the client also skips a malformed bill row instead of failing the whole load.
+  `rental_valid_charges`; real calendar dates, names need a visible character — `20261017200000`). The client reads
+  with schemas that accept everything the database accepts (`storedBillLineSchema`, `storedChargeSchema`) and fails
+  closed otherwise, so an issued bill is never silently hidden (hiding it would let its month or readings be billed again).
 - One issued monthly bill per tenancy per month; one issued move-in bill per tenancy. Cancelled bills can't change.
 - Advance/deposit locked once a move-in bill exists; rent locked once a monthly bill exists (renew via `rental_change_rent`).
 - A reading on an issued bill can't be edited or deleted.
@@ -89,6 +91,8 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   Browser: Bills tab loads real data; preview of a skip-utilities bill shows rent + fixed water; nothing issued.
 - Done 2026-10-17: `20261017100000` (hardening) applied the same way and recorded. Verified: no INSERT grant or policy on
   `rental_bills`, `rental_issue_bill` is SECURITY DEFINER, the three validation CHECKs exist, no anon EXECUTE.
+- Done 2026-10-17: `20261017200000` (date/label tightening) applied the same way and recorded. Verified: Feb 30 and
+  blank-only names rejected, normal lines and charges accepted, no anon EXECUTE on `rental_real_date`.
 - `20261017000000_add_rental_bills.sql` must be applied to the hosted DB **before** deploying the bills web build:
   loading `/rentals` reads `rental_bills` and `rental_meter_readings`.
 - Done 2026-10-16: `20261016100000` applied alone to the linked Himan project (`db query --linked -f`, one

@@ -211,6 +211,25 @@ describe('Tenant sheet and move out', () => {
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateTerms', contractId: 'c-t3',
       input: { monthlyRentCentavos: 400000, dueDay: 5, advanceMonths: 2, depositCentavos: 800000 } }));
   });
+  it('shows ID files as previews and asks before removing one', async () => {
+    state.renters = state.renters.map((r) => (r.id === 'r3' ? { ...r, files: [
+      { id: 'f1', renterId: 'r3', propertyId: 'p', name: 'national-id.jpg', mimeType: 'image/jpeg', size: 245760, storagePath: 'x', ready: true },
+      { id: 'f2', renterId: 'r3', propertyId: 'p', name: 'contract.pdf', mimeType: 'application/pdf', size: 2_200_000, storagePath: 'y', ready: true }] } : r));
+    state.fileUrl.mockResolvedValue('https://files.example/signed.jpg');
+    state.run.mockResolvedValue(undefined);
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    const files = within(screen.getByRole('region', { name: 'Valid ID' }));
+    await waitFor(() => expect(files.getByRole('button', { name: 'View national-id.jpg' }).querySelector('img')).toHaveAttribute('src', 'https://files.example/signed.jpg'));
+    expect(state.fileUrl).toHaveBeenCalledTimes(1);
+    expect(files.getByText('PDF')).toBeInTheDocument();
+    expect(files.getByText('240 KB')).toBeInTheDocument();
+    expect(files.getByText('2.1 MB')).toBeInTheDocument();
+    fireEvent.click(files.getByRole('button', { name: 'Remove contract.pdf' }));
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.click(files.getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeRenterFile', id: 'f2' }));
+  });
   it('links Messenger from the sheet', () => {
     state.renters = state.renters.map((r) => (r.id === 'r3' ? { ...r, facebook: 'carlo.lim' } : r));
     page();
@@ -427,7 +446,7 @@ describe('Bills in the existing screens', () => {
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     openDetails();
     fireEvent.change(screen.getByLabelText('Electricity reading today'), { target: { value: '1200' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Other' }));
     fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Parking' } });
     fireEvent.change(screen.getByLabelText('Charge amount'), { target: { value: '1,000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
@@ -463,9 +482,11 @@ describe('Bills in the existing screens', () => {
   it('saves extra monthly charges from the tenant sheet', async () => {
     page();
     fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
-    fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Wi-Fi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Wi-Fi' }));
+    expect(screen.getByLabelText('Charge name')).toHaveValue('Wi-Fi');
+    expect(screen.queryByRole('button', { name: 'Wi-Fi' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Charge amount'), { target: { value: '300' } });
+    expect(screen.getByText('Total each month').nextElementSibling).toHaveTextContent('₱300.00');
     fireEvent.click(screen.getByRole('button', { name: 'Save charges' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'setCharges', tenancyId: 't3', charges: [{ label: 'Wi-Fi', amount: 30000 }] }));
   });

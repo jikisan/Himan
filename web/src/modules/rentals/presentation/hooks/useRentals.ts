@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { onlineManager, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
@@ -41,6 +41,8 @@ export function useRentals() {
   const client = useQueryClient();
   const repos = useMemo(() => ({ properties: new PropertyRepository(), renters: new RenterRepository(),
     tenancies: new TenancyRepository(), bills: new BillRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
+  // Stable, so components can sign a file link once (e.g. ID thumbnails) instead of on every render.
+  const fileUrl = useCallback((id: string, download = false) => repos.renters.fileUrl(id, download), [repos]);
   const online = useSyncExternalStore(onlineManager.subscribe, () => onlineManager.isOnline());
   const query = useQuery({
     queryKey: ['rentals', userId], enabled: !!userId && online,
@@ -100,7 +102,7 @@ export function useRentals() {
     bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
     loading: query.isLoading, error: query.error, online, userId, busy: mutation.isPending,
     refetch: query.refetch, run: mutation.mutateAsync,
-    fileUrl: (id: string, download = false) => repos.renters.fileUrl(id, download),
+    fileUrl,
     listMembers: (propertyId: string) => repos.properties.listMembers(propertyId),
     listFriends: () => repos.friends.getFriends(userId!),
   };

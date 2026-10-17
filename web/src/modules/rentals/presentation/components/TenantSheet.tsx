@@ -61,7 +61,8 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
       </div>}
     </SheetHeader>
 
-    <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5 [scrollbar-width:thin]">
+    {/* Every section gets a line above it: same spacing around each line. */}
+    <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
       {nextDue && <section aria-labelledby="sheet-rent" className="rounded-xl border p-4">
         <div className="flex items-center justify-between">
           <h3 id="sheet-rent" className="text-sm font-semibold">Rent</h3>
@@ -148,7 +149,7 @@ function Charges({ tenancy, room, showRoom, canManage, busy, onSave }: {
   if (!canManage && !tenancy.charges.length) return null;
   return <section aria-label="Extra monthly charges" className="space-y-2">
     <div><h3 className="text-sm font-semibold">Extra monthly charges{showRoom && ` · ${room}`}</h3>
-      <p className="text-xs text-muted-foreground">Added to every bill, e.g. parking.</p></div>
+      <p className="text-xs text-muted-foreground">Added to every monthly SOA.</p></div>
     {canManage ? <form noValidate className="space-y-2" onSubmit={async (event) => {
       event.preventDefault();
       try { await onSave(parseCharges(rows)); setMessage({ error: false, text: 'Saved' }); } catch (e) { setMessage({ error: true, text: errorMessage(e) }); }

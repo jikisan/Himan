@@ -247,11 +247,14 @@ describe('Tenant sheet and move out', () => {
     expect(link).toHaveAttribute('href', long);
   });
   it('moves a tenant out from their sheet', async () => {
+    // moveOut resolves with the warnings and final SOA id the page reports.
+    state.run.mockResolvedValue({ warnings: [], finalBillId: null });
     page();
     fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Move Carlo Lim out of Room B' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveOut', tenancyId: 't3' })));
+    await waitFor(() => expect(toasts.success).toHaveBeenCalledWith('Moved out'));
   });
   it('shows contact read-only until Edit, then saves without closing the sheet', async () => {
     page();
@@ -265,6 +268,8 @@ describe('Tenant sheet and move out', () => {
     expect(screen.getByRole('dialog', { name: 'Carlo Lim' })).toBeInTheDocument();
   });
   it('refuses a move-out before move-in and records a valid date', async () => {
+    // moveOut resolves with the warnings and final SOA id the page reports.
+    state.run.mockResolvedValue({ warnings: [], finalBillId: null });
     page();
     fireEvent.click(card('Room B').getByRole('button', { name: 'Move out Carlo Lim' }));
     const date = screen.getByLabelText('Move-out date');

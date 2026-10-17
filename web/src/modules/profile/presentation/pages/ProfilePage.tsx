@@ -44,7 +44,11 @@ export const ProfilePage = () => {
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting);
-        if (visible.length > 0) setActive(visible[0].target.id);
+        if (visible.length === 0) return;
+        const id = visible[0].target.id;
+        setActive(id);
+        const parent = Object.entries(submenus).find(([, items]) => items.some((i) => i.id === id))?.[0];
+        if (parent) setCollapsed((prev) => (prev[parent] ? { ...prev, [parent]: false } : prev));
       },
       { root: viewport, rootMargin: '-15% 0px -75% 0px' }
     );
@@ -55,12 +59,6 @@ export const ProfilePage = () => {
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experiences.length, projects.length]);
-
-  useEffect(() => {
-    const parent = Object.entries(submenus).find(([, items]) => items.some((i) => i.id === active))?.[0];
-    if (parent) setCollapsed((prev) => (prev[parent] ? { ...prev, [parent]: false } : prev));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
 
   return (
     <div className="flex flex-col h-full bg-background">

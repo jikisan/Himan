@@ -30,7 +30,7 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
         const headingId = `room-${unit.id}`;
         const spots = roomSpots(unit, tenancies);
         const free = spots.filter((t) => !t).length;
-        return <section key={unit.id} aria-labelledby={headingId} className="rounded-xl border bg-card shadow-sm">
+        return <section key={unit.id} aria-labelledby={headingId} className="min-w-0 rounded-xl border bg-card shadow-sm">
           <header className="flex items-center gap-3 py-3 pl-4 pr-2">
             <div className="min-w-0 flex-1">
               <h3 id={headingId} className="truncate font-semibold">{unit.name}</h3>
@@ -60,7 +60,7 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
                     <span className="block truncate text-sm tabular-nums text-muted-foreground">{rentLine(t)}</span></span>
                   <ChevronRight aria-hidden className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
                 </button>
-                {canManage && <Button variant="outline" size="sm" className="h-11 shrink-0 sm:h-9" aria-label={`Move out ${name(t.renterId)}`}
+                {canManage && <Button variant="outline" size="sm" className="hidden h-9 shrink-0 sm:inline-flex" aria-label={`Move out ${name(t.renterId)}`}
                   onClick={() => onMoveOut(t.id)}>Move out</Button>}
               </div>
               : canManage ? <button type="button" onClick={() => onAddTenant(unit.id)}

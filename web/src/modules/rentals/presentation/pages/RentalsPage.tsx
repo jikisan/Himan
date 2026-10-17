@@ -73,7 +73,7 @@ function RentalsContent(state: RentalsState) {
     <Plus className="h-4 w-4" />New property</Button>;
   const hasFooter = dialog && dialog.type !== 'share' && dialog.type !== 'tenant';
 
-  return <div className="container mx-auto max-w-6xl px-4 pt-8 pb-28 sm:px-6 sm:pb-8">
+  return <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <Link to="/dashboard" className="mb-4 inline-flex items-center gap-2 rounded text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ArrowLeft size={16} />Dashboard</Link>
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
@@ -81,7 +81,7 @@ function RentalsContent(state: RentalsState) {
         <h1 className="text-2xl font-bold tracking-tight">Rentals</h1>
         {online && userId && !loading && !error && property && <>
           <p className="mt-4 mb-1 hidden px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground lg:block">Properties</p>
-          <ul className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 lg:mt-0 lg:flex-col lg:gap-1 lg:overflow-visible">
+          <ul className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:mt-0 lg:flex-col lg:gap-1 lg:overflow-visible">
             {ordered.map((p) => {
               const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
               const total = p.units.reduce((sum, u) => sum + u.capacity, 0);
@@ -137,11 +137,11 @@ function RentalsContent(state: RentalsState) {
               </DropdownMenu>
             </div>}
           </div>
-          <dl className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+          <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            <Stat label="Monthly rent" value={formatPesos(rentRoll)} className="col-span-2 sm:col-span-1">
+              {tenantCount} {tenantCount === 1 ? 'tenant' : 'tenants'}</Stat>
             <Stat label="Beds taken" value={<>{activeTenancies.length} <span className="text-xs font-medium text-muted-foreground sm:text-base">of {beds}</span></>}>
               <Meter value={activeTenancies.length} max={beds} /></Stat>
-            <Stat label="Monthly rent" value={formatPesos(rentRoll)}>
-              {tenantCount} {tenantCount === 1 ? 'tenant' : 'tenants'}</Stat>
             <Stat label="Free beds" value={beds - activeTenancies.length}>{beds === 0 ? 'Add a room first' : freeRooms.join(' · ') || 'Every bed is taken'}</Stat>
           </dl>
         </section>
@@ -167,7 +167,7 @@ function RentalsContent(state: RentalsState) {
         </section>}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="group" aria-label="View" className="fixed inset-x-4 bottom-4 z-20 flex rounded-xl border bg-muted p-1 shadow-lg sm:static sm:inline-flex sm:rounded-lg sm:border-0 sm:shadow-none [&>button]:flex-1 sm:[&>button]:flex-none">
+          <div role="group" aria-label="View" className="flex w-full rounded-lg bg-muted p-1 sm:inline-flex sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none">
             {(['rooms', 'tenants'] as const).map((v) => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
               className="min-h-11 rounded-md px-4 sm:min-h-9 text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {v === 'rooms' ? 'Rooms' : 'Tenants'}</button>)}
@@ -270,8 +270,8 @@ function RentalsContent(state: RentalsState) {
   </div>;
 }
 
-function Stat({ label, value, children }: { label: string; value: ReactNode; children: ReactNode }) {
-  return <div className="min-w-0 rounded-lg bg-muted/30 px-3 py-2.5 sm:px-4 sm:py-3">
+function Stat({ label, value, className, children }: { label: string; value: ReactNode; className?: string; children: ReactNode }) {
+  return <div className={cn('min-w-0 rounded-lg bg-muted/30 px-3 py-2.5 sm:px-4 sm:py-3', className)}>
     <dt className="truncate text-xs text-muted-foreground sm:text-sm">{label}</dt>
     <dd className="mt-0.5 truncate text-lg font-bold tabular-nums sm:text-2xl">{value}</dd>
     <dd className="mt-1.5 truncate text-xs text-muted-foreground sm:text-sm">{children}</dd>

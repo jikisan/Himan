@@ -303,7 +303,7 @@ describe('First property setup', () => {
     start();
     fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
     next();
-    fireEvent.click(screen.getByRole('radio', { name: 'Shared room (beds)' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Shared room' }));
     fireEvent.change(screen.getByLabelText('Beds'), { target: { value: '4' } });
     expect(screen.getByText('1 room · 4 beds')).toBeInTheDocument();
     next();

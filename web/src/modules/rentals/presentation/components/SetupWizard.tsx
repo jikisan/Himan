@@ -105,8 +105,8 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: {
                 <MoneyInput id={`setup-rent-${row.key}`} value={row.rent} placeholder="Optional" onChange={(e) => edit(row.key, { rent: e.target.value })} />
               </Field>
               <div role="radiogroup" aria-label={`${row.name || 'Room'} type`} className="flex rounded-lg bg-muted p-1 sm:col-span-2">
-                {([['Private room', false], ['Shared room (beds)', true]] as const).map(([label, shared]) =>
-                  <label key={label} className="flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-md text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring sm:min-h-8">
+                {([['Private room', false], ['Shared room', true]] as const).map(([label, shared]) =>
+                  <label key={label} className="flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-md px-2 text-center text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring sm:min-h-8">
                     <input type="radio" name={`setup-kind-${row.key}`} className="sr-only" checked={row.shared === shared}
                       onChange={() => edit(row.key, { shared })} />{label}</label>)}
               </div>

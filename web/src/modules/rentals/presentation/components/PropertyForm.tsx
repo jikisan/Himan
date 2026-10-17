@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { manilaToday, propertySchema, LESSOR_CAPACITIES } from '@himan/shared/rentals';
+import { billPrefix, centavosToInput, manilaToday, parsePesos, propertySchema, LESSOR_CAPACITIES } from '@himan/shared/rentals';
 import type { PropertyInput, RentalProperty } from '@himan/shared/rentals';
-import { Field, FormActions, FormSection, inputClass } from './Field';
+import { Field, FormActions, FormSection, MoneyInput, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 
 const empty: PropertyInput = { name: '', address: '', ownerName: '', ownerAddress: '', lessorName: '',
-  lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'INV' };
-type TextKey = Exclude<keyof PropertyInput, 'lessorCapacity'>;
+  lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'INV',
+  lateFeeCentavos: 0, rentDueDay: null };
+type TextKey = Exclude<keyof PropertyInput, 'lessorCapacity' | 'lateFeeCentavos' | 'rentDueDay'>;
 type NameKey = 'ownerName' | 'lessorName';
 
 export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
@@ -17,6 +18,8 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
   // null = not touched yet: new properties default to "me", saved ones to "me" only when the name already matches.
   const [mine, setMine] = useState<Record<NameKey, boolean | null>>({ ownerName: null, lessorName: null });
   const [error, setError] = useState('');
+  const [due, setDue] = useState(property?.rentDueDay ? String(property.rentDueDay) : '');
+  const [fee, setFee] = useState(centavosToInput(property?.lateFeeCentavos ?? 0));
   const isMine = (key: NameKey) => !!myName && (mine[key] ?? (property ? property[key] === myName : true));
   const set = (key: TextKey) => (event: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: event.target.value }));
   const text = (key: TextKey, label: string, extra?: { hint?: string; placeholder?: string; wide?: boolean }) =>
@@ -42,8 +45,11 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
 
   return <form className="space-y-6" onSubmit={async (event) => {
     event.preventDefault();
+    let lateFeeCentavos;
+    try { lateFeeCentavos = fee.trim() ? parsePesos(fee) : 0; } catch (failure) { setError(`Late fee: ${errorMessage(failure)}`); return; }
     const value = { ...form, ownerName: isMine('ownerName') ? myName : form.ownerName,
-      lessorName: isMine('lessorName') ? myName : form.lessorName };
+      lessorName: isMine('lessorName') ? myName : form.lessorName, rentDueDay: due.trim() ? Number(due) : null, lateFeeCentavos,
+      invoicePrefix: form.invoicePrefix || billPrefix(form.name) };
     const result = propertySchema.safeParse(value);
     if (!result.success) { setError(result.error.issues[0].message); return; }
     setError('');
@@ -53,6 +59,17 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
       <FormSection title="Property">
         {text('name', 'Name', { wide: true })}
         {text('address', 'Address', { wide: true })}
+      </FormSection>
+      <FormSection title="Bills">
+        <Field id="property-due" label="Rent is due every" hint="day of the month · blank = move-in day">
+          <input id="property-due" type="number" min={1} max={31} className={inputClass} value={due} onChange={(e) => setDue(e.target.value)} />
+        </Field>
+        <Field id="property-late-fee" label="Late fee" hint="optional">
+          <MoneyInput id="property-late-fee" value={fee} placeholder="0.00" onChange={(e) => setFee(e.target.value)} />
+        </Field>
+        {property && due !== (property.rentDueDay ? String(property.rentDueDay) : '') && <p className="text-xs text-muted-foreground sm:col-span-2">
+          New tenants get this date. Change existing tenants on their tenant sheet.</p>}
+        {text('invoicePrefix', 'Bill numbers start with', { hint: `${form.invoicePrefix || 'INV'}-${manilaToday().slice(0, 4)}-0001` })}
       </FormSection>
       <details open={!!property && hasContractDetails(property)} className="group rounded-lg border p-4 [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold">
@@ -78,7 +95,6 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
           </FormSection>
           <FormSection title="Printing">
             {text('signingCity', 'City where contracts are signed')}
-            {text('invoicePrefix', 'Invoice number starts with', { hint: `${form.invoicePrefix || 'INV'}-${manilaToday().slice(0, 4)}-0001` })}
           </FormSection>
         </div>
       </details>
@@ -91,10 +107,11 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
 }
 
 const hasContractDetails = (p: RentalProperty) =>
-  [p.ownerAddress, p.lessorCivilStatus, p.lessorAddress, p.signingCity].some(Boolean) || p.invoicePrefix !== 'INV';
+  [p.ownerAddress, p.lessorCivilStatus, p.lessorAddress, p.signingCity].some(Boolean);
 
 function pick(p: RentalProperty): PropertyInput {
   return { name: p.name, address: p.address, ownerName: p.ownerName, ownerAddress: p.ownerAddress,
     lessorName: p.lessorName, lessorCivilStatus: p.lessorCivilStatus, lessorAddress: p.lessorAddress,
-    lessorCapacity: p.lessorCapacity, signingCity: p.signingCity, invoicePrefix: p.invoicePrefix };
+    lessorCapacity: p.lessorCapacity, signingCity: p.signingCity, invoicePrefix: p.invoicePrefix,
+    lateFeeCentavos: p.lateFeeCentavos, rentDueDay: p.rentDueDay };
 }

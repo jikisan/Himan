@@ -197,6 +197,127 @@ DO $$ BEGIN
   EXCEPTION WHEN check_violation THEN NULL; END;
 END $$;
 
+-- ── Phase 2 part 1: bills ──────────────────────────────────────────────────
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab009', 'Bills House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity, electric_mode, electric_amount_centavos) VALUES
+  ('00000000-0000-0000-0000-0000000ac091', '00000000-0000-0000-0000-0000000ab009', 'Room 1', 'room', 1, 'submeter', 1600),
+  ('00000000-0000-0000-0000-0000000ac092', '00000000-0000-0000-0000-0000000ab009', 'Room A', 'bedspace', 3, 'none', 0),
+  ('00000000-0000-0000-0000-0000000ac093', '00000000-0000-0000-0000-0000000ab009', 'Room C', 'room', 1, 'none', 0);
+INSERT INTO public.rental_renters (id, property_id, full_name) VALUES
+  ('00000000-0000-0000-0000-0000000ad091', '00000000-0000-0000-0000-0000000ab009', 'Bill One'),
+  ('00000000-0000-0000-0000-0000000ad092', '00000000-0000-0000-0000-0000000ab009', 'Bill Two'),
+  ('00000000-0000-0000-0000-0000000ad093', '00000000-0000-0000-0000-0000000ab009', 'Bill Three');
+
+DO $$ DECLARE v_t uuid; v_c uuid; v_year text := to_char((now() AT TIME ZONE 'Asia/Manila')::date, 'YYYY');
+  v_bill public.rental_bills; v_r uuid; v_id uuid;
+BEGIN
+  -- 1. Move-in on the due date: advance + deposit only.
+  v_t := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac091', '00000000-0000-0000-0000-0000000ad091',
+    '2026-10-05', '2026-10-05', '2027-10-05', 500000, 5, 1, 500000);
+  SELECT * INTO v_bill FROM public.rental_bills WHERE tenancy_id = v_t;
+  IF v_bill.number <> 'INV-' || v_year || '-0001' OR v_bill.kind <> 'move_in' OR v_bill.due_on <> '2026-10-05'
+    OR jsonb_array_length(v_bill.lines) <> 2
+    OR (SELECT sum((l->>'amount')::bigint) FROM jsonb_array_elements(v_bill.lines) l) <> 1000000
+  THEN RAISE EXCEPTION 'Move-in bill on the due date is wrong: %', row_to_json(v_bill); END IF;
+
+  -- 1b. Move-in between due dates: prorated days first.
+  v_id := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac092', '00000000-0000-0000-0000-0000000ad092',
+    '2026-10-15', '2026-10-15', '2027-10-15', 350000, 5, 1, 350000);
+  SELECT * INTO v_bill FROM public.rental_bills WHERE tenancy_id = v_id;
+  IF v_bill.lines->0->>'label' <> 'Rent (21 days)' OR (v_bill.lines->0->>'amount')::bigint <> 245000
+    OR v_bill.lines->0->'period'->>'from' <> '2026-10-15' OR v_bill.lines->0->'period'->>'to' <> '2026-11-04'
+    OR jsonb_array_length(v_bill.lines) <> 3 OR v_bill.number <> 'INV-' || v_year || '-0002'
+  THEN RAISE EXCEPTION 'Prorated move-in bill is wrong: %', v_bill.lines; END IF;
+  v_id := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac093', '00000000-0000-0000-0000-0000000ad093',
+    '2027-02-10', '2027-02-10', '2028-02-10', 300000, 31, 0, 0);
+  SELECT * INTO v_bill FROM public.rental_bills WHERE tenancy_id = v_id;
+  IF v_bill.lines->0->>'label' <> 'Rent (18 days)' OR (v_bill.lines->0->>'amount')::bigint <> 180000
+    OR v_bill.lines->0->'period'->>'to' <> '2027-02-27'
+  THEN RAISE EXCEPTION 'Due day 31 in February prorates wrong: %', v_bill.lines; END IF;
+
+  -- 2. Monthly bill numbering and one bill per tenant per month.
+  v_id := public.rental_issue_bill(v_t, 'monthly', '2026-11', '2026-11-05', '[{"kind":"rent","label":"Rent","amount":500000}]');
+  IF (SELECT number FROM public.rental_bills WHERE id = v_id) <> 'INV-' || v_year || '-0004'
+  THEN RAISE EXCEPTION 'Monthly bill number is wrong'; END IF;
+  BEGIN
+    PERFORM public.rental_issue_bill(v_t, 'monthly', '2026-11', '2026-11-05', '[{"kind":"rent","label":"Rent","amount":500000}]');
+    RAISE EXCEPTION 'A second November bill was accepted';
+  EXCEPTION WHEN unique_violation THEN NULL; END;
+
+  -- 3. Cancelling frees the month; a cancelled bill can't change.
+  UPDATE public.rental_bills SET status = 'void', void_reason = 'typo' WHERE id = v_id;
+  PERFORM public.rental_issue_bill(v_t, 'monthly', '2026-11', '2026-11-05', '[{"kind":"rent","label":"Rent","amount":500000}]');
+  BEGIN
+    UPDATE public.rental_bills SET status = 'issued' WHERE id = v_id;
+    RAISE EXCEPTION 'A cancelled bill was changed';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE '%cancelled%' THEN RAISE; END IF;
+  END;
+
+  -- 4. Billed terms are locked; rent changes become a renewal.
+  SELECT id INTO v_c FROM public.rental_contracts WHERE tenancy_id = v_t AND status = 'active';
+  BEGIN
+    UPDATE public.rental_contracts SET advance_months = 2 WHERE id = v_c;
+    RAISE EXCEPTION 'Advance changed after the move-in bill';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE '%move-in bill%' THEN RAISE; END IF;
+  END;
+  BEGIN
+    UPDATE public.rental_contracts SET monthly_rent_centavos = 550000 WHERE id = v_c;
+    RAISE EXCEPTION 'Rent changed after a monthly bill';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE '%New rent from%' THEN RAISE; END IF;
+  END;
+  UPDATE public.rental_contracts SET due_day = 6 WHERE id = v_c;
+  PERFORM public.rental_change_rent(v_c, '2026-12-01', 550000);
+  IF (SELECT count(*) FROM public.rental_contracts WHERE tenancy_id = v_t AND status = 'active' AND monthly_rent_centavos = 550000) <> 1
+    OR (SELECT status || end_date FROM public.rental_contracts WHERE id = v_c) <> 'ended2026-12-01'
+  THEN RAISE EXCEPTION 'New rent from did not renew the contract'; END IF;
+
+  -- 5. A reading on an issued bill can't be deleted.
+  INSERT INTO public.rental_meter_readings (property_id, unit_id, kind, read_on, value)
+  VALUES ('00000000-0000-0000-0000-0000000ab009', '00000000-0000-0000-0000-0000000ac091', 'electric', '2026-11-01', 100)
+  RETURNING id INTO v_r;
+  PERFORM public.rental_issue_bill(v_t, 'final', '2026-11', '2026-11-30', jsonb_build_array(jsonb_build_object(
+    'kind', 'electric', 'label', 'Electricity', 'amount', 1000, 'meter', jsonb_build_object('readings', jsonb_build_array(v_r)))));
+  BEGIN
+    DELETE FROM public.rental_meter_readings WHERE id = v_r;
+    RAISE EXCEPTION 'A billed reading was deleted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE '%issued bill%' THEN RAISE; END IF;
+  END;
+
+  -- 6. Value checks and property settings.
+  BEGIN
+    INSERT INTO public.rental_meter_readings (property_id, unit_id, kind, read_on, value)
+    VALUES ('00000000-0000-0000-0000-0000000ab009', '00000000-0000-0000-0000-0000000ac091', 'water', '2026-11-01', -1);
+    RAISE EXCEPTION 'Negative reading accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_tenancies SET charges = '{}' WHERE id = v_t;
+    RAISE EXCEPTION 'Non-array charges accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  UPDATE public.rental_properties SET late_fee_centavos = 150000, rent_due_day = 5 WHERE id = '00000000-0000-0000-0000-0000000ab009';
+  IF (SELECT late_fee_centavos * 100 + rent_due_day FROM public.rental_properties WHERE id = '00000000-0000-0000-0000-0000000ab009') <> 15000005
+  THEN RAISE EXCEPTION 'Owner could not set late fee and due day'; END IF;
+  BEGIN
+    UPDATE public.rental_properties SET rent_due_day = 32 WHERE id = '00000000-0000-0000-0000-0000000ab009';
+    RAISE EXCEPTION 'Due day 32 accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+
+  -- 7. Viewers can't issue.
+  PERFORM public.rental_add_member('00000000-0000-0000-0000-0000000ab009', '00000000-0000-0000-0000-0000000aa002', 'viewer');
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa002', true);
+  IF (SELECT count(*) FROM public.rental_bills WHERE property_id = '00000000-0000-0000-0000-0000000ab009') = 0
+  THEN RAISE EXCEPTION 'Viewer cannot read bills'; END IF;
+  BEGIN
+    PERFORM public.rental_issue_bill(v_t, 'monthly', '2027-01', '2027-01-06', '[{"kind":"rent","label":"Rent","amount":1}]');
+    RAISE EXCEPTION 'Viewer issued a bill';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+END $$;
+
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

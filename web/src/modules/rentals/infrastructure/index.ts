@@ -1,1 +1,1 @@
-export { PropertyRepository, RenterRepository, TenancyRepository } from '@himan/shared/rentals';
+export { BillRepository, PropertyRepository, RenterRepository, TenancyRepository } from '@himan/shared/rentals';

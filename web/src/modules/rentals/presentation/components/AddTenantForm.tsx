@@ -1,10 +1,14 @@
 import { useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { centavosToInput, formatPesos, manilaToday, moveInDefaults, parsePesos, renterSchema, roomRent, tenancyTermsSchema } from '@himan/shared/rentals';
+import { centavosToInput, formatPesos, manilaToday, moveInDefaults, parsePesos, proratedRent, renterSchema, roomRent, tenancyTermsSchema } from '@himan/shared/rentals';
+import type { MeterKind } from '@himan/shared/rentals';
 import type { RentalUnit, Renter, RenterInput } from '@himan/shared/rentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { Field, FormActions, FormSection, MoneyInput, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
+import { ChargesEditor } from './ChargesEditor';
+import { parseCharges } from '../utils/charges';
+import type { ChargeRow } from '../utils/charges';
 import { cn } from '@core/presentation/utils';
 
 type AddTenant = Extract<RentalAction, { type: 'addTenant' }>;
@@ -12,8 +16,8 @@ const blankPerson: RenterInput = { fullName: '', phone: '', facebook: '', email:
   emergencyPhone: '', occupants: 1, notes: '' };
 const peso = (value: string) => { try { return value.trim() ? parsePesos(value) : null; } catch { return null; } };
 
-export function AddTenantForm({ unit, renters, busy, onSave, onCancel }: {
-  unit: RentalUnit; renters: Renter[]; busy: boolean; onSave(action: AddTenant): Promise<void>; onCancel(): void;
+export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, onCancel }: {
+  unit: RentalUnit; renters: Renter[]; rentDueDay?: number | null; busy: boolean; onSave(action: AddTenant): Promise<void>; onCancel(): void;
 }) {
   const [person, setPerson] = useState(blankPerson);
   const [existingId, setExistingId] = useState<string | null>(null);
@@ -32,14 +36,19 @@ export function AddTenantForm({ unit, renters, busy, onSave, onCancel }: {
     if (details.current && !['fullName', 'phone', 'moveIn', 'monthlyRentCentavos', 'advanceMonths', 'depositCentavos'].includes(String(path))) details.current.open = true;
     setError(message);
   };
-  const auto = moveInDefaults(moveIn || manilaToday(), peso(rent) ?? 0);
+  const [readings, setReadings] = useState<Partial<Record<MeterKind, string>>>({});
+  const [charges, setCharges] = useState<ChargeRow[]>([]);
+  const meters = (['electric', 'water'] as const).filter((k) => (k === 'electric' ? unit.electricMode : unit.waterMode) === 'submeter');
+  const auto = moveInDefaults(moveIn || manilaToday(), peso(rent) ?? 0, rentDueDay);
   const endDate = own.endDate ?? auto.endDate;
   const dueDay = own.dueDay ?? String(auto.dueDay);
   const advance = own.advance ?? '1';
   const deposit = own.deposit ?? centavosToInput(auto.depositCentavos);
   const rentValue = peso(rent);
   const depositValue = deposit.trim() ? peso(deposit) : 0;
-  const total = rentValue !== null && depositValue !== null ? rentValue * Number(advance || 0) + depositValue : null;
+  const dueNumber = Number(dueDay);
+  const days = rentValue !== null && moveIn && dueNumber >= 1 && dueNumber <= 31 ? proratedRent(rentValue, moveIn, dueNumber) : null;
+  const total = rentValue !== null && depositValue !== null ? rentValue * Number(advance || 0) + depositValue + (days?.amount ?? 0) : null;
   const setPeople = (n: number) => setPerson((p) => ({ ...p, occupants: n }));
   const setP = (key: keyof RenterInput) => (e: { target: { value: string } }) =>
     setPerson((p) => ({ ...p, [key]: key === 'occupants' ? Number(e.target.value) : e.target.value }));
@@ -60,9 +69,13 @@ export function AddTenantForm({ unit, renters, busy, onSave, onCancel }: {
         depositCentavos: deposit.trim() ? parsePesos(deposit) : 0 });
       if (!terms.success) { fail(terms.error.issues[0].message, terms.error.issues[0].path[0]); return; }
       setError('');
+      let extra;
+      try { extra = parseCharges(charges); } catch (e) { fail(errorMessage(e), 'charges'); return; }
+      const starting = meters.flatMap((kind) => readings[kind]?.trim() ? [{ kind, value: Number(readings[kind]) }] : []);
+      if (starting.some((r) => !Number.isFinite(r.value) || r.value < 0)) { fail('Meter readings must be 0 or more', 'readings'); return; }
       const { moveIn: date, ...rest } = terms.data;
       await onSave({ type: 'addTenant', propertyId: unit.propertyId, unitId: unit.id, renterId: existingId,
-        renter: renter?.data ?? null, moveIn: date, terms: rest });
+        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra });
     } catch (failure) { setError(errorMessage(failure)); }
   }}>
     <fieldset disabled={busy} className="space-y-6">
@@ -112,7 +125,7 @@ export function AddTenantForm({ unit, renters, busy, onSave, onCancel }: {
         </Field>
         <div aria-live="polite" className="flex items-center justify-between gap-3 rounded-xl bg-primary/10 px-4 py-3 sm:col-span-2">
           <span className="text-sm"><span className="block font-medium">Collect on move-in</span>
-            <span className="block text-xs text-muted-foreground">{advance || 0} month{advance === '1' ? '' : 's'} advance + deposit</span></span>
+            <span className="block text-xs text-muted-foreground">{days ? `${days.days} day${days.days === 1 ? '' : 's'} rent + ` : ''}{advance || 0} month{advance === '1' ? '' : 's'} advance + deposit</span></span>
           <span className="text-2xl font-bold tabular-nums text-primary">{total === null ? '—' : formatPesos(total)}</span>
         </div>
       </FormSection>
@@ -130,6 +143,17 @@ export function AddTenantForm({ unit, renters, busy, onSave, onCancel }: {
               <input id="add-end" type="date" className={inputClass} value={endDate} onChange={(e) => setOwn((o) => ({ ...o, endDate: e.target.value }))} />
             </Field>
           </FormSection>
+          {meters.length > 0 && <FormSection title="Starting meter readings" description="Optional. The number on the meter today, so the first bill has usage.">
+            {meters.map((kind) => <Field key={kind} id={`add-reading-${kind}`} label={kind === 'electric' ? 'Electricity reading' : 'Water reading'}>
+              <input id={`add-reading-${kind}`} type="number" inputMode="decimal" min={0} step="any" className={inputClass}
+                value={readings[kind] ?? ''} onChange={(e) => setReadings((r) => ({ ...r, [kind]: e.target.value }))} />
+            </Field>)}
+          </FormSection>}
+          <section className="space-y-3">
+            <div><h3 className="text-sm font-semibold">Extra monthly charges</h3>
+              <p className="text-xs text-muted-foreground">Optional, e.g. parking. Added to every bill.</p></div>
+            <ChargesEditor idPrefix="add" value={charges} onChange={setCharges} />
+          </section>
           {existingId === null && <FormSection title="Contact and household">
             {text('facebook', 'Facebook / Messenger')}
             {text('email', 'Email', { type: 'email', autoComplete: 'email' })}

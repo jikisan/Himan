@@ -78,7 +78,7 @@ describe('rentals flow helpers', () => {
   const room = { id: 'u', propertyId: 'p', name: 'Room A', kind: 'bedspace', capacity: 4, electricMode: 'none',
     electricAmountCentavos: 0, waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 0, extraPersonRentCentavos: 0 } as RentalUnit;
   const t = (id: string, moveIn: string, unitId = 'u'): RentalTenancy =>
-    ({ id, propertyId: 'p', unitId, renterId: `r-${id}`, moveIn, moveOut: null, contracts: [] });
+    ({ id, propertyId: 'p', unitId, renterId: `r-${id}`, moveIn, moveOut: null, contracts: [], charges: [] });
 
   it('defaults a move-in to a one-year contract due on the move-in day', () => {
     expect(moveInDefaults('2026-10-31', 1000000)).toEqual({ startDate: '2026-10-31', endDate: '2027-10-31',

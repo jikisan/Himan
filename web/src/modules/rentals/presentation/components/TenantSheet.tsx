@@ -4,22 +4,24 @@ import { format, parseISO } from 'date-fns';
 import { LogOut, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { centavosToInput, contractTermsSchema, formatPesos, manilaToday, nextDueDate, parsePesos } from '@himan/shared/rentals';
-import type { ContractTermsInput, RentalContract, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import { addPeriods, centavosToInput, contractTermsSchema, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf } from '@himan/shared/rentals';
+import type { ContractTermsInput, RentalBill, RentalContract, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
 import { Initials } from './Badges';
 import { RenterForm } from './RenterForm';
 import { RenterFiles } from './RenterFiles';
 import { errorMessage } from '../utils/errorMessage';
+import { ChargesEditor } from './ChargesEditor';
+import { parseCharges, toChargeRows } from '../utils/charges';
 
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
 const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 rounded-lg border py-2 text-xs font-semibold transition-colors '
   + 'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
-export function TenantSheet({ renter, tenancies, unitName, canManage, busy, run, fileUrl, onSaveDetails, onMoveOut, deleteAction }: {
-  renter: Renter; tenancies: RentalTenancy[]; unitName(id: string): string; canManage: boolean; deleteAction?: ReactNode;
+export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage, busy, run, fileUrl, onSaveDetails, onMoveOut, deleteAction }: {
+  renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; unitName(id: string): string; canManage: boolean; deleteAction?: ReactNode;
   onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void;
 } & Pick<RentalsState, 'busy' | 'run' | 'fileUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
@@ -68,8 +70,13 @@ export function TenantSheet({ renter, tenancies, unitName, canManage, busy, run,
           {contracts.length === 1 && ` · every ${contracts[0].dueDay === 31 ? 'month end' : ordinal(contracts[0].dueDay)}`}</p>
         {editing === 'rent' && <div className="mt-4 space-y-3">{active.map((t) => {
           const contract = t.contracts.find((c) => c.status === 'active');
+          const billed = (kind: RentalBill['kind']) => bills.some((b) => b.tenancyId === t.id && b.kind === kind && b.status === 'issued');
           return contract && <RentTerms key={contract.id} contract={contract} room={unitName(t.unitId)} showRoom={active.length > 1} busy={busy}
-            onSave={(input) => run({ type: 'updateTerms', contractId: contract.id, input })} />;
+            billed={{ monthly: billed('monthly'), moveIn: billed('move_in') }}
+            onSave={async (input, newRent) => {
+              if (input) await run({ type: 'updateTerms', contractId: contract.id, input });
+              if (newRent) await run({ type: 'changeRent', contractId: contract.id, from: newRent.from, rentCentavos: newRent.rentCentavos });
+            }} />;
         })}</div>}
       </section>}
 
@@ -82,6 +89,9 @@ export function TenantSheet({ renter, tenancies, unitName, canManage, busy, run,
           <Item label="Advance" value={`${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'}`} />
         </dl>
       </section>)}
+
+      {active.map((t) => <Charges key={t.id} tenancy={t} room={unitName(t.unitId)} showRoom={active.length > 1} canManage={canManage} busy={busy}
+        onSave={(charges) => run({ type: 'setCharges', tenancyId: t.id, charges })} />)}
 
       {canManage && <RenterFiles renter={renter} busy={busy} run={run} fileUrl={fileUrl} />}
 
@@ -122,38 +132,86 @@ function Item({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-semibold tabular-nums">{value}</dd></div>;
 }
 
-function RentTerms({ contract, room, showRoom, busy, onSave }: {
-  contract: RentalContract; room: string; showRoom: boolean; busy: boolean;
-  onSave(input: ContractTermsInput): Promise<unknown>;
+function Charges({ tenancy, room, showRoom, canManage, busy, onSave }: {
+  tenancy: RentalTenancy; room: string; showRoom: boolean; canManage: boolean; busy: boolean;
+  onSave(charges: RentalTenancy['charges']): Promise<unknown>;
+}) {
+  const [rows, setRows] = useState(() => toChargeRows(tenancy.charges));
+  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  if (!canManage && !tenancy.charges.length) return null;
+  return <section aria-label="Extra monthly charges" className="space-y-2">
+    <div><h3 className="text-sm font-semibold">Extra monthly charges{showRoom && ` · ${room}`}</h3>
+      <p className="text-xs text-muted-foreground">Added to every bill, e.g. parking.</p></div>
+    {canManage ? <form noValidate className="space-y-2" onSubmit={async (event) => {
+      event.preventDefault();
+      try { await onSave(parseCharges(rows)); setMessage({ error: false, text: 'Saved' }); } catch (e) { setMessage({ error: true, text: errorMessage(e) }); }
+    }}>
+      <fieldset disabled={busy} className="space-y-2">
+        <ChargesEditor idPrefix={`charges-${tenancy.id}`} value={rows} onChange={(r) => { setRows(r); setMessage(null); }} />
+        <div className="flex justify-end"><Button type="submit" variant="outline" className="h-11 sm:h-9">Save charges</Button></div>
+      </fieldset>
+      {message && <p role={message.error ? 'alert' : 'status'} className={`text-sm ${message.error ? 'text-destructive' : 'text-muted-foreground'}`}>{message.text}</p>}
+    </form>
+      : <ul className="divide-y rounded-lg border text-sm">{tenancy.charges.map((c) => <li key={c.label} className="flex justify-between px-3 py-2">
+        <span>{c.label}</span><span className="tabular-nums">{formatPesos(c.amount)}</span></li>)}</ul>}
+  </section>;
+}
+
+function RentTerms({ contract, room, showRoom, busy, billed, onSave }: {
+  contract: RentalContract; room: string; showRoom: boolean; busy: boolean; billed: { monthly: boolean; moveIn: boolean };
+  onSave(input: ContractTermsInput | null, newRent: { from: string; rentCentavos: number } | null): Promise<unknown>;
 }) {
   const [rent, setRent] = useState(centavosToInput(contract.monthlyRentCentavos));
+  const [newRent, setNewRent] = useState('');
+  const [from, setFrom] = useState(addPeriods(periodOf(manilaToday()), 1));
   const [dueDay, setDueDay] = useState(String(contract.dueDay));
   const [advance, setAdvance] = useState(String(contract.advanceMonths));
   const [deposit, setDeposit] = useState(centavosToInput(contract.depositCentavos));
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const id = `terms-${contract.id}`;
+  const lockedHint = billed.moveIn ? 'On the move-in bill' : undefined;
   return <form noValidate className="space-y-3 rounded-lg border p-4" onSubmit={async (event) => {
     event.preventDefault();
     try {
-      const result = contractTermsSchema.safeParse({ monthlyRentCentavos: parsePesos(rent), dueDay: Number(dueDay),
-        advanceMonths: Number(advance), depositCentavos: deposit.trim() ? parsePesos(deposit) : 0 });
+      const result = contractTermsSchema.safeParse({ monthlyRentCentavos: billed.monthly ? contract.monthlyRentCentavos : parsePesos(rent),
+        dueDay: Number(dueDay), advanceMonths: Number(advance), depositCentavos: deposit.trim() ? parsePesos(deposit) : 0 });
       if (!result.success) { setMessage({ error: true, text: result.error.issues[0].message }); return; }
-      await onSave(result.data);
-      setMessage({ error: false, text: 'Saved' });
+      const changed = result.data.monthlyRentCentavos !== contract.monthlyRentCentavos || result.data.dueDay !== contract.dueDay
+        || result.data.advanceMonths !== contract.advanceMonths || result.data.depositCentavos !== contract.depositCentavos;
+      let renewal = null;
+      if (billed.monthly && newRent.trim()) {
+        if (!/^\d{4}-\d{2}$/.test(from)) { setMessage({ error: true, text: 'Choose the month the new rent starts' }); return; }
+        renewal = { from: `${from}-01`, rentCentavos: parsePesos(newRent) };
+        if (!renewal.rentCentavos) { setMessage({ error: true, text: 'Enter the monthly rent' }); return; }
+      }
+      if (!changed && !renewal) { setMessage({ error: false, text: 'Nothing changed' }); return; }
+      await onSave(changed ? result.data : null, renewal);
+      setMessage({ error: false, text: renewal ? `New rent starts ${from}` : 'Saved' });
     } catch (failure) { setMessage({ error: true, text: errorMessage(failure) }); }
   }}>
     <div><h3 className="text-sm font-semibold">Rent, advance and deposit{showRoom && ` · ${room}`}</h3>
-      <p className="text-xs text-muted-foreground">Fix a typo or record a new agreement.</p></div>
+      <p className="text-xs text-muted-foreground">{billed.monthly ? 'This rent is already on bills. A new rent starts from the month you pick.'
+        : 'Fix a typo or record a new agreement.'}</p></div>
     <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-2">
-      <Field id={`${id}-rent`} label="Rent per month"><MoneyInput id={`${id}-rent`} value={rent} onChange={(e) => setRent(e.target.value)} /></Field>
+      {billed.monthly ? <>
+        <Field id={`${id}-new-rent`} label="New rent" hint={`now ${formatPesos(contract.monthlyRentCentavos)}`}>
+          <MoneyInput id={`${id}-new-rent`} value={newRent} placeholder="Leave blank to keep" onChange={(e) => setNewRent(e.target.value)} />
+        </Field>
+        <Field id={`${id}-from`} label="Starting">
+          <input id={`${id}-from`} type="month" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+      </> : <Field id={`${id}-rent`} label="Rent per month"><MoneyInput id={`${id}-rent`} value={rent} onChange={(e) => setRent(e.target.value)} /></Field>}
       <Field id={`${id}-due`} label="Due day">
         <input id={`${id}-due`} type="number" min={1} max={31} className={inputClass} value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
       </Field>
-      <Field id={`${id}-advance`} label="Advance months">
-        <input id={`${id}-advance`} type="number" min={0} max={12} className={inputClass} value={advance} onChange={(e) => setAdvance(e.target.value)} />
+      <Field id={`${id}-advance`} label="Advance months" hint={lockedHint}>
+        <input id={`${id}-advance`} type="number" min={0} max={12} className={inputClass} value={advance} readOnly={billed.moveIn}
+          onChange={(e) => setAdvance(e.target.value)} />
       </Field>
-      <Field id={`${id}-deposit`} label="Deposit"><MoneyInput id={`${id}-deposit`} value={deposit} onChange={(e) => setDeposit(e.target.value)} /></Field>
-      <Button type="submit" variant="outline" className="h-11 sm:col-span-2 sm:h-10 sm:w-fit sm:justify-self-end">Save rent</Button>
+      <Field id={`${id}-deposit`} label="Deposit" hint={lockedHint}>
+        <MoneyInput id={`${id}-deposit`} value={deposit} readOnly={billed.moveIn} onChange={(e) => setDeposit(e.target.value)} />
+      </Field>
+      <Button type="submit" variant="outline" className="h-11 sm:col-span-2 sm:h-10 sm:w-fit sm:justify-self-end">Save</Button>
     </fieldset>
     {message && <p role={message.error ? 'alert' : 'status'} className={`text-sm ${message.error ? 'text-destructive' : 'text-muted-foreground'}`}>{message.text}</p>}
   </form>;

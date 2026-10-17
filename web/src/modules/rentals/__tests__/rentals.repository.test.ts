@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PropertyRepository, RenterRepository, TenancyRepository } from '@himan/shared/rentals';
+import { BillRepository, PropertyRepository, RenterRepository, TenancyRepository } from '@himan/shared/rentals';
 
 const mock = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } }));
 vi.mock('@himan/shared/config', () => ({ getSupabase: () => mock }));
@@ -134,5 +134,91 @@ describe('TenancyRepository plain errors', () => {
       renterId: '00000000-0000-0000-0000-000000000002', moveIn: '2026-10-01', startDate: '2026-10-01',
       endDate: '2027-10-01', monthlyRentCentavos: 1, dueDay: 1, advanceMonths: 1, depositCentavos: 0 }))
       .rejects.toThrow('This room is full. Move someone out first, or add a bed.');
+  });
+});
+
+const billRow = { id: 'b', property_id: 'p', tenancy_id: 't', kind: 'monthly', period: '2026-11', number: 'LU-2026-0002',
+  issued_on: '2026-11-01', due_on: '2026-11-15', lines: [{ kind: 'rent', label: 'Rent', amount: 350000 }], status: 'issued', void_reason: '' };
+const rentLine = { kind: 'rent' as const, label: 'Rent', amount: 350000, period: { from: '2026-11-15', to: '2026-12-14' } };
+
+describe('BillRepository', () => {
+  it('issues a bill through the numbering RPC with lines as they are', async () => {
+    mock.rpc.mockResolvedValue({ data: 'b', error: null });
+    await expect(new BillRepository().issue({ tenancyId: 't', kind: 'monthly', period: '2026-11', dueOn: '2026-11-15', lines: [rentLine] }))
+      .resolves.toBe('b');
+    expect(mock.rpc).toHaveBeenCalledWith('rental_issue_bill', { p_tenancy_id: 't', p_kind: 'monthly', p_period: '2026-11',
+      p_due_on: '2026-11-15', p_lines: [rentLine] });
+  });
+  it('explains a second bill for the same month', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } });
+    await expect(new BillRepository().issue({ tenancyId: 't', kind: 'monthly', period: '2026-11', dueOn: '2026-11-15', lines: [rentLine] }))
+      .rejects.toThrow('This tenant already has a bill for that month');
+  });
+  it('refuses a bill with no lines before calling the database', async () => {
+    await expect(new BillRepository().issue({ tenancyId: 't', kind: 'monthly', period: '2026-11', dueOn: '2026-11-15', lines: [] })).rejects.toThrow();
+    expect(mock.rpc).not.toHaveBeenCalled();
+  });
+  it('maps bills and readings', async () => {
+    mock.from.mockReturnValueOnce(result([billRow])).mockReturnValueOnce(result([{ id: 'r', property_id: 'p', unit_id: 'u',
+      kind: 'electric', read_on: '2026-11-10', value: 1350.5, is_reset: false }]));
+    const repo = new BillRepository();
+    expect((await repo.findAll())[0]).toMatchObject({ tenancyId: 't', issuedOn: '2026-11-01', dueOn: '2026-11-15', voidReason: '', lines: billRow.lines });
+    expect((await repo.findReadings())[0]).toEqual({ id: 'r', propertyId: 'p', unitId: 'u', kind: 'electric', readOn: '2026-11-10', value: 1350.5, isReset: false });
+  });
+  it('saves several readings at once', async () => {
+    const query = result([{ id: 'r', property_id: 'p', unit_id: '00000000-0000-0000-0000-000000000001', kind: 'electric',
+      read_on: '2026-11-10', value: '1350.00', is_reset: false }]);
+    mock.from.mockReturnValue(query);
+    const [saved] = await new BillRepository().saveReadings('p', [{ unitId: '00000000-0000-0000-0000-000000000001', kind: 'electric',
+      readOn: '2026-11-10', value: 1350, isReset: false }]);
+    expect(query.insert).toHaveBeenCalledWith([{ property_id: 'p', unit_id: '00000000-0000-0000-0000-000000000001', kind: 'electric',
+      read_on: '2026-11-10', value: 1350, is_reset: false }]);
+    expect(saved.value).toBe(1350);
+  });
+  it('explains a second reading on the same day', async () => {
+    mock.from.mockReturnValue(result(null, { code: '23505', message: 'dup' }));
+    await expect(new BillRepository().saveReadings('p', [{ unitId: '00000000-0000-0000-0000-000000000001', kind: 'electric',
+      readOn: '2026-11-10', value: 1, isReset: false }])).rejects.toThrow('There is already a reading for that room on that date');
+  });
+  it('cancels only an issued bill and edits lines', async () => {
+    const cancel = result({ id: 'b' });
+    mock.from.mockReturnValueOnce(cancel);
+    await new BillRepository().void('b', 'typo');
+    expect(cancel.update).toHaveBeenCalledWith({ status: 'void', void_reason: 'typo' });
+    expect(cancel.eq).toHaveBeenCalledWith('status', 'issued');
+    const edit = result({ id: 'b' });
+    mock.from.mockReturnValueOnce(edit);
+    await new BillRepository().updateLines('b', [rentLine]);
+    expect(edit.update).toHaveBeenCalledWith({ lines: [rentLine] });
+  });
+});
+
+describe('TenancyRepository bills support', () => {
+  it('maps extra charges and saves them', async () => {
+    mock.from.mockReturnValueOnce(result([{ id: 't', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01',
+      move_out: null, charges: [{ label: 'Parking', amount: 100000 }] }]));
+    const [t] = await new TenancyRepository().findAll();
+    expect(t.charges).toEqual([{ label: 'Parking', amount: 100000 }]);
+    const save = result({ id: 't' });
+    mock.from.mockReturnValueOnce(save);
+    await new TenancyRepository().setCharges('t', [{ label: 'Parking', amount: 100000 }]);
+    expect(save.update).toHaveBeenCalledWith({ charges: [{ label: 'Parking', amount: 100000 }] });
+  });
+  it('changes rent from a date through the renewal RPC', async () => {
+    mock.rpc.mockResolvedValue({ data: 'c2', error: null });
+    await new TenancyRepository().changeRent('c', '2026-12-01', 400000);
+    expect(mock.rpc).toHaveBeenCalledWith('rental_change_rent', { p_contract_id: 'c', p_from: '2026-12-01', p_rent: 400000 });
+  });
+});
+
+describe('PropertyRepository bill settings', () => {
+  it('saves and maps late fee and due day', async () => {
+    mock.from.mockReturnValueOnce(result([{ ...propertyRow, late_fee_centavos: 50000, rent_due_day: 5 }]));
+    const [property] = await new PropertyRepository().findAll('me');
+    expect(property).toMatchObject({ lateFeeCentavos: 50000, rentDueDay: 5 });
+    const save = result({ id: 'p' });
+    mock.from.mockReturnValueOnce(save);
+    await new PropertyRepository().save('p', { ...property, rentDueDay: null });
+    expect(save.update).toHaveBeenCalledWith(expect.objectContaining({ late_fee_centavos: 50000, rent_due_day: null }));
   });
 });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
-import { contractTermsSchema, startTenancySchema } from '../domain/index.js';
-import type { ContractTermsInput, RentalTenancy, StartTenancyInput } from '../domain/index.js';
+import { contractTermsSchema, startTenancySchema, tenancyChargeSchema } from '../domain/index.js';
+import type { ContractTermsInput, RentalTenancy, StartTenancyInput, TenancyCharge } from '../domain/index.js';
 import { rentalError, tenancyRow } from './rows.js';
 
 export class TenancyRepository {
@@ -35,5 +35,17 @@ export class TenancyRepository {
         deposit_centavos: v.depositCentavos })
       .eq('id', contractId).eq('status', 'active').select('id').single();
     if (error) throw rentalError(error, 'Could not update rent');
+  }
+
+  async setCharges(tenancyId: string, charges: TenancyCharge[]): Promise<void> {
+    const v = z.array(tenancyChargeSchema).max(20).parse(charges);
+    const { error } = await getSupabase().from('rental_tenancies').update({ charges: v }).eq('id', tenancyId).select('id').single();
+    if (error) throw rentalError(error, 'Could not save the extra charges');
+  }
+
+  /** Ends the active contract and starts a renewal with the new rent from `from`. */
+  async changeRent(contractId: string, from: string, rentCentavos: number): Promise<void> {
+    const { error } = await getSupabase().rpc('rental_change_rent', { p_contract_id: contractId, p_from: from, p_rent: rentCentavos });
+    if (error) throw rentalError(error, 'Could not change the rent');
   }
 }

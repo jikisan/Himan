@@ -17,6 +17,9 @@ export const propertySchema = z.object({
   lessorName: text(160), lessorCivilStatus: text(40), lessorAddress: text(300),
   lessorCapacity: z.enum(LESSOR_CAPACITIES), signingCity: text(120),
   invoicePrefix: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,10}$/, 'Use 1–10 letters or digits'),
+  lateFeeCentavos: centavos(0).default(0),
+  /** "Rent is due every [N]" for the whole property; null = each tenant's move-in day. */
+  rentDueDay: dueDay.nullable().default(null),
 });
 
 export const unitSchema = z.object({
@@ -60,6 +63,34 @@ export const contractTermsSchema = z.object({
   depositCentavos: centavos(0),
 });
 
+export const METER_KINDS = ['electric', 'water'] as const;
+export const BILL_LINE_KINDS = ['rent', 'advance', 'deposit', 'charge', 'electric', 'water', 'penalty', 'other'] as const;
+const isoDate = z.iso.date();
+
+export const tenancyChargeSchema = z.object({
+  label: z.string().trim().min(1, 'Enter a name and amount for each charge').max(60),
+  amount: z.number().int().min(1, 'Enter a name and amount for each charge').max(2_000_000_000),
+});
+
+export const billLineSchema = z.object({
+  kind: z.enum(BILL_LINE_KINDS),
+  label: z.string().trim().min(1, 'Enter a name for each line').max(80),
+  amount: z.number().int().min(-2_000_000_000).max(2_000_000_000),
+  period: z.object({ from: isoDate, to: isoDate }).optional(),
+  meter: z.object({
+    readings: z.array(z.string()), fromDate: isoDate, fromValue: z.number(), toDate: isoDate, toValue: z.number(),
+    usage: z.number(), rate: z.number().int(), sharedWith: z.number().int().min(1),
+  }).optional(),
+});
+
+const twoDecimals = (v: number) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
+export const readingInputSchema = z.object({
+  unitId: z.guid(), kind: z.enum(METER_KINDS), readOn: z.iso.date('Choose the reading date'),
+  value: z.number('Enter the meter reading').min(0, 'Readings can’t be negative').max(9_999_999_999)
+    .refine(twoDecimals, 'Use at most 2 decimals'),
+  isReset: z.boolean(),
+});
+
 export type PropertyInput = z.infer<typeof propertySchema>;
 export type UnitInput = z.infer<typeof unitSchema>;
 export type RenterInput = z.infer<typeof renterSchema>;
@@ -74,3 +105,7 @@ export function validateRentalFile(name: string, mimeType: string | null | undef
   if (!RENTAL_FILE_TYPES.some((allowed) => allowed === type)) throw new Error('Choose a PDF, JPEG, or PNG file');
   return type!;
 }
+export type MeterKind = (typeof METER_KINDS)[number];
+export type TenancyCharge = z.infer<typeof tenancyChargeSchema>;
+export type BillLine = z.infer<typeof billLineSchema>;
+export type ReadingInput = z.infer<typeof readingInputSchema>;

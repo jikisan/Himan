@@ -1,12 +1,12 @@
 ---
 type: module
 area: rentals
-status: phase-1
+status: phase-2-bills
 ---
 
 # Rentals
 
-Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plan: [[2026-10-16-rentals-phase-1-foundation]].
+Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plans: [[2026-10-16-rentals-phase-1-foundation]], [[2026-10-16-rentals-flow-v2]], [[2026-10-17-rentals-bills]].
 
 ## Layers
 - Shared: `packages/shared/src/modules/rentals/` — domain (money in centavos, roles, schemas) + repositories.
@@ -20,9 +20,20 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plan: [[2026
   Dialogs: `SetupWizard` (new property, 3 steps), `AddTenantForm`, `TenantSheet` (right side panel: call/text/move out, rent + next due, contract, ID, read-only contact with Edit, history),
   `MoveOutDialog` (dated), `UnitForm` (room), `PropertyForm` (edit; contract details collapsed), `ShareDialog`.
   UI words: Room / Shared room / Tenant / Move in / Move out; DB keeps unit / bedspace / renter / tenancy.
+- Bills (Phase 2 part 1): domain `billing.ts` — pure, pending bills are computed live (no stored drafts):
+  `pendingBill` (issued / covered by advance / needs reading / ready), `utilityLine` (reading-to-reading segments,
+  equal split in shared rooms, leftover centavo to the longest-staying tenant), `finalBillLines`, `proratedRent`
+  (rent ÷ 30 × days to the first due date; must match `rental_start_tenancy`), `statementText`, `formatBillPesos`.
+  Repo `BillRepository` (issue via RPC, edit lines, void, readings). Flows `moveOut` (final readings → end → final bill),
+  `issueBills`; `addTenant` also saves starting readings and extra charges (failures become warnings).
+  Web: **Bills** view (`BillsView` + `MeterReadings`), `Statement` (Statement of Account layout), `BillSheet`
+  (copy for Messenger, late fee, edit, cancel), `ChargesEditor`; tenant sheet locks billed terms ("New rent from").
 - DB: `supabase/migrations/20261016000000_create_rentals_module.sql`, `20261016100000_add_rental_unit_default_rent.sql`
   (`rental_units.default_rent_centavos`, 0 = not set; `extra_person_rent_centavos`, rent = usual + extra × (people − 1),
-  domain `roomRent`, prefills Add tenant from "People living in the room"); assertions `supabase/tests/rentals.sql`.
+  domain `roomRent`, prefills Add tenant from "People living in the room"), `20261017000000_add_rental_bills.sql`
+  (`rental_meter_readings`, `rental_bills` with jsonb line snapshots, `late_fee_centavos`, `rent_due_day`,
+  `rental_tenancies.charges`, RPCs `rental_issue_bill` / `rental_change_rent`, `rental_start_tenancy` now issues the
+  move-in bill); assertions `supabase/tests/rentals.sql`.
 
 ## Access model
 Per property via `rental_property_members` (owner/manager/viewer). Every policy calls
@@ -36,6 +47,10 @@ Renter ID files: bucket `rental-files` (private), managers only, 60-second signe
 - One active tenancy per renter per unit; one active contract per tenancy.
 - Tenancies never deleted; ending one sets `move_out` and ends its active contract.
 - Property with tenancy history can't be deleted → archive.
+- Bill numbers `PREFIX-YYYY-NNNN` per property, assigned only in `rental_issue_bill` under an advisory lock; unique.
+- One issued monthly bill per tenancy per month; one issued move-in bill per tenancy. Cancelled bills can't change.
+- Advance/deposit locked once a move-in bill exists; rent locked once a monthly bill exists (renew via `rental_change_rent`).
+- A reading on an issued bill can't be edited or deleted.
 
 ## Blast radius
 Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and `profiles` (lessor defaults).
@@ -58,7 +73,19 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   member `user_id` not updatable. `db push` was avoided: remote history has 3 remote-only
   versions (20261003143028/143636/144108) and 3 local-only portfolio versions (20261003200000/210000/220000).
 
+## Verification (2026-10-17, bills)
+- SQL: bills block in `supabase/tests/rentals.sql` (move-in bill with and without prorated days, due day 31 in
+  February, numbering, duplicate month, void, contract locks, renewal, reading guard, viewer can't issue) passes on the
+  isolated stack.
+- Web Vitest: 263/263 (rentals: billing 22, repository, flows, Bills view, page).
+
 ## Deploy order
+- Done 2026-10-17: `20261017000000` applied alone to the linked Himan project (`db query --linked -f`, one transaction)
+  and recorded with `migration repair --status applied 20261017000000`. Verified: both tables with RLS, 7 policies,
+  both RPCs, no anon EXECUTE, `rental_start_tenancy` issues move-in bills, new columns present, 0 bills.
+  Browser: Bills tab loads real data; preview of a skip-utilities bill shows rent + fixed water; nothing issued.
+- `20261017000000_add_rental_bills.sql` must be applied to the hosted DB **before** deploying the bills web build:
+  loading `/rentals` reads `rental_bills` and `rental_meter_readings`.
 - Done 2026-10-16: `20261016100000` applied alone to the linked Himan project (`db query --linked -f`, one
   transaction) and recorded with `migration repair --status applied 20261016100000`. Verified: integer NOT NULL
   DEFAULT 0, `authenticated` can UPDATE it, existing rows 0.

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { parsePesos, propertySchema, unitSchema } from '@himan/shared/rentals';
+import { billPrefix, parsePesos, propertySchema, unitSchema } from '@himan/shared/rentals';
 import type { PropertyInput, UnitInput } from '@himan/shared/rentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { Field, FormSection, MoneyInput, inputClass } from './Field';
@@ -14,14 +14,15 @@ type Setup = Extract<RentalAction, { type: 'setupProperty' }>;
 type Row = { key: number; name: string; shared: boolean; beds: string; rent: string; extra: string };
 const STEPS = ['Property', 'Rooms', 'Electricity and water'] as const;
 const blankProperty: PropertyInput = { name: '', address: '', ownerName: '', ownerAddress: '', lessorName: '',
-  lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'INV' };
+  lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'INV',
+  lateFeeCentavos: 0, rentDueDay: null };
 const letter = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : String(i + 1));
 
 export function SetupWizard({ myName, busy, onFinish, onCancel }: {
   myName: string; busy: boolean; onFinish(action: Setup): Promise<void>; onCancel(): void;
 }) {
   const [step, setStep] = useState(0);
-  const [house, setHouse] = useState({ name: '', address: '' });
+  const [house, setHouse] = useState({ name: '', address: '', due: '' });
   const [whole, setWhole] = useState(false);
   const [rows, setRows] = useState<Row[]>([{ key: 0, name: 'Room A', shared: false, beds: '2', rent: '', extra: '' }]);
   const [utilities, setUtilities] = useState<UtilityState>({ modes: { electric: 'none', water: 'none' }, amounts: { electric: '', water: '' } });
@@ -44,6 +45,8 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: {
   };
   const checkStep = () => {
     if (step === 0 && !house.name.trim()) throw new Error('Enter a property name');
+    if (step === 0 && house.due.trim() && !(Number.isInteger(Number(house.due)) && Number(house.due) >= 1 && Number(house.due) <= 31))
+      throw new Error('Due day is 1–31');
     if (step === 1) {
       if (!whole && rows.length === 0) throw new Error('Add at least one room');
       const names = rows.map((r) => r.name.trim().toLowerCase());
@@ -58,7 +61,8 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: {
       checkStep();
       setError('');
       if (step < 2) { setStep(step + 1); return; }
-      const input = propertySchema.parse({ ...blankProperty, ...house, ownerName: myName, lessorName: myName });
+      const input = propertySchema.parse({ ...blankProperty, name: house.name, address: house.address, ownerName: myName, lessorName: myName,
+        invoicePrefix: billPrefix(house.name), rentDueDay: house.due.trim() ? Number(house.due) : null });
       await onFinish({ type: 'setupProperty', input, rooms: rooms() });
     } catch (failure) { setError(errorMessage(failure)); }
   }}>
@@ -77,6 +81,10 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: {
         <Field id="setup-address" label="Address" hint="optional" className="sm:col-span-2">
           <input id="setup-address" autoComplete="street-address" className={inputClass} value={house.address}
             onChange={(e) => setHouse((h) => ({ ...h, address: e.target.value }))} />
+        </Field>
+        <Field id="setup-due" label="Rent is due every" hint="day of the month · optional" className="sm:col-span-2">
+          <input id="setup-due" type="number" min={1} max={31} className={inputClass} value={house.due} placeholder="e.g. 5 · blank = each tenant’s move-in day"
+            onChange={(e) => setHouse((h) => ({ ...h, due: e.target.value }))} />
         </Field>
       </FormSection>}
 

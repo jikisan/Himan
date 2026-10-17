@@ -1,10 +1,10 @@
 import { addYears, format, parseISO } from 'date-fns';
 import type { RentalTenancy, RentalUnit } from './types.js';
 
-/** Contract defaults for "Add tenant": one year, due on the move-in day, one month advance and deposit. */
-export function moveInDefaults(moveIn: string, rentCentavos: number) {
+/** Contract defaults for "Add tenant": one year, due on the property's due day (else the move-in day), one month advance and deposit. */
+export function moveInDefaults(moveIn: string, rentCentavos: number, rentDueDay?: number | null) {
   return { startDate: moveIn, endDate: format(addYears(parseISO(moveIn), 1), 'yyyy-MM-dd'),
-    dueDay: Number(moveIn.slice(8, 10)), advanceMonths: 1 as const, depositCentavos: rentCentavos };
+    dueDay: rentDueDay ?? Number(moveIn.slice(8, 10)), advanceMonths: 1 as const, depositCentavos: rentCentavos };
 }
 
 /** One entry per bed: active tenancies oldest first, then null for each free bed. */

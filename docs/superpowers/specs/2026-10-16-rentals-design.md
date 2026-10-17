@@ -139,3 +139,70 @@ Tenancies tabs for a room-first flow. The data model is unchanged apart from one
 - **Move out** (Q11): date dialog, default today, not before move-in (fixes M2).
 - **Schema** (Q13): `rental_units.default_rent_centavos integer NOT NULL DEFAULT 0` (0 = not set; per bed for shared rooms).
 - **Help** (Q14): inline hints and empty states only, no tour. English only (Q5). Phone-width web first (Q6).
+
+## Phase 2 part 1 — meter readings and bills (grilling Q1–Q33 + billing flow C, 2026-10-17)
+
+Reference: the user's own apartment Statement of Account (rent, CUSA, parking, water and
+electric with both readings, rate and amount, total, due date, late-fee note, "Received by").
+The houses the user rents out have no CUSA or parking, so extra charges are optional.
+
+- **Flow C — one session a month, own due dates:** once a month the landlord reads every
+  meter, types them on one screen, and issues all bills at once. Each bill keeps the tenant's
+  own due date and a full month of rent from that due day (e.g. "Rent Nov 15 – Dec 14").
+  Utilities cover reading-to-reading (the same period for every room read that day) and land on
+  each tenant's next bill. Each Ready row also has its own **Issue** for a late reading.
+- **One statement per tenant** (tenancy) per month: one per private room / whole house, one per
+  bed in a shared room. Extra people in a room are covered by the rent ("extra per added person").
+- **Bills tab** (Q9, Q15): month picker (default current month, back to the earliest move-in).
+  A **Meter readings** list (one row per metered room and meter: last reading and date, new
+  reading box, live usage and amount; one reading date; one **Save readings**), then one row per
+  tenant: *Covered by advance* · *Needs reading* · *Ready ₱X* · *Issued No. ₱X* · *Cancelled*.
+  **Issue all ready** plus per-row **Issue**. Managers issue; viewers read and copy.
+- **Making bills** (Q1, Q13): rows are computed live (no stored drafts). A tenant gets a bill for
+  month `YYYY-MM` when they still live there on that month's due date. A second bill for the same
+  tenant and month is refused.
+- **Due date** (Q2, Q34): the tenant's due day in that month, clamped to the month's last day.
+  Property setting **"Rent is due every [N]"** (asked in setup and Edit property; the user's rooms
+  all share one date). New tenants get it in Add tenant, changeable per tenant; with no property
+  setting the due day is the move-in day. Existing tenants keep theirs.
+- **Advance** (Q2, Q28, Q22): pays the **first** N billable months (N = advance months of the
+  first contract). Those months show grey "Covered by advance" rows.
+- **Lines** (Q25, Q26): rent (with its period) · optional extra monthly charges per tenant (name +
+  amount, empty by default, set in Add tenant and on the tenant sheet) · water · electricity ·
+  late fee · "Other" (positive or negative). No VAT or tax lines.
+- **Utilities** (Q4, Q10, Q18, Q20, Q24): metered = (reading − previous) × rate. In a shared room
+  each reading-to-reading segment is **split equally** among the tenants living there on the later
+  reading's date; leftover centavos go to the longest-staying tenant. Flat amount = charged to
+  **each** tenant. Each line keeps its readings, dates, usage, rate and share (Q17).
+- **Readings** (Q5, Q11, Q32): the first reading of a meter is the starting point (not charged).
+  "Meter reset / replaced" makes a reading a new starting point. A reading lower than the last is
+  refused unless it is a reset. No unbilled reading → *Needs reading*; "Skip utilities this month"
+  issues without utilities and the usage rolls into the next bill. Add tenant takes optional
+  starting readings. Readings used by an issued bill can't be changed or deleted.
+- **Move-in bill** (Q3, Q21, Q23, Q35): Add tenant issues it at once, due on the move-in date, in the
+  same transaction: **rent for the days until the first due date** (rent ÷ 30 × days, e.g. move-in
+  Oct 15, due every 5th → "Rent Oct 15 – Nov 4 (21 days)"; none when moving in on the due date) +
+  advance × rent + deposit. The advance then pays the first full months from the first due date. The deposit is money held, not income. Tenants who
+  moved in before Phase 2 get none.
+- **Move-out** (Q14, Q19, Q24): optional final reading(s) → a **final bill** with the leaving
+  tenant's share of unbilled usage; housemates' shares go on their next bill.
+- **Numbers** (Q12): `PREFIX-YYYY-NNNN` per property, counting within the issue year, assigned at
+  issue. New properties default the prefix to the name's initials ("LU").
+- **Changing bills** (Q6): issued bills stay editable (amounts, Other and late-fee lines) until
+  payments exist (part 2). Cancel asks for confirmation; cancelled bills stay visible, can't be
+  changed, and free the month to be billed again.
+- **Rent terms lock** (Q7): advance and deposit lock once a move-in bill exists (cancel it to
+  change them). Once a monthly bill exists, a rent change becomes **"New rent from [month]"**
+  (ends the contract, starts a renewal). The due day can still be fixed.
+- **Partial months** (Q8): never prorated; use an "Other" line.
+- **Late fee** (Q29): optional property amount; stated in the footer; an overdue bill gets a
+  one-tap "Add late fee". Never automatic.
+- **Statement of Account** (Q31): header (owner name and address, tenant, room, month, bill date,
+  number) · rent and charges · Water and Electricity with both reading dates and values, usage,
+  rate, amount (and "1/3 share" when split) · total · due date · footer (late-fee note,
+  "Received by"). "Copy for Messenger" = same content as plain text. Payment accounts: part 3. PDF: part 4.
+- **Previous balance** (Q30): from part 2. **Money** (Q33): bills hide ".00" on whole pesos.
+- **Schema:** `rental_properties.late_fee_centavos` and `rent_due_day`, `rental_tenancies.charges` (jsonb array),
+  `rental_meter_readings`, `rental_bills` (lines as a jsonb snapshot; status `issued`/`void`),
+  RPCs `rental_issue_bill`, `rental_change_rent`, contract guard trigger, and
+  `rental_start_tenancy` issuing the move-in bill.

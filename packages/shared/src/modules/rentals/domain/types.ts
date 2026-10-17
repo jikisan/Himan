@@ -1,4 +1,4 @@
-import type { PropertyInput, RenterInput, UnitInput } from './schemas.js';
+import type { BillLine, MeterKind, PropertyInput, RenterInput, TenancyCharge, UnitInput } from './schemas.js';
 import type { RentalRole } from './roles.js';
 
 export interface RentalUnit extends UnitInput { id: string; propertyId: string }
@@ -17,6 +17,13 @@ export interface RentalContract {
 }
 export interface RentalTenancy {
   id: string; propertyId: string; unitId: string; renterId: string;
-  moveIn: string; moveOut: string | null; contracts: RentalContract[];
+  moveIn: string; moveOut: string | null; contracts: RentalContract[]; charges: TenancyCharge[];
 }
 export interface RentalMember { userId: string; email: string; role: RentalRole }
+export interface MeterReading {
+  id: string; propertyId: string; unitId: string; kind: MeterKind; readOn: string; value: number; isReset: boolean;
+}
+export interface RentalBill {
+  id: string; propertyId: string; tenancyId: string; kind: 'move_in' | 'monthly' | 'final'; period: string; number: string;
+  issuedOn: string; dueOn: string; lines: BillLine[]; status: 'issued' | 'void'; voidReason: string;
+}

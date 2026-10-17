@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
+import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
 const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: number, extra: Partial<RentalUnit> = {}): RentalUnit => ({
@@ -10,18 +10,19 @@ const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: numb
 const property: RentalProperty = {
   id: 'p', createdBy: 'owner', name: 'Bakilid House', address: '', ownerName: '', ownerAddress: '',
   lessorName: 'Owner', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '',
-  invoicePrefix: 'INV', archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
+  invoicePrefix: 'INV', lateFeeCentavos: 0, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
   units: [unit('u1', 'Room A', 'bedspace', 4, { defaultRentCentavos: 350000 }), unit('u2', 'Room B', 'room', 1)],
 };
 const person = (id: string, fullName: string): Renter => ({ id, propertyId: 'p', fullName, phone: '0917', facebook: '', email: '',
   address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '', files: [] });
 const stay = (id: string, unitId: string, renterId: string, moveIn: string, moveOut: string | null = null): RentalTenancy => ({
-  id, propertyId: 'p', unitId, renterId, moveIn, moveOut,
+  id, propertyId: 'p', unitId, renterId, moveIn, moveOut, charges: [],
   contracts: [{ id: `c-${id}`, tenancyId: id, startDate: moveIn, endDate: '2027-10-01', monthlyRentCentavos: 350000,
     dueDay: 30, advanceMonths: 1, depositCentavos: 350000, status: moveOut ? 'ended' : 'active' }] });
 
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
+  bills: [] as RentalBill[], readings: [] as MeterReading[],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
 }));
@@ -39,6 +40,7 @@ beforeEach(() => {
   state.renters = [person('r1', 'Ana Cruz'), person('r2', 'Ben Reyes'), person('r3', 'Carlo Lim'), person('r4', 'Dina Past')];
   state.tenancies = [stay('t1', 'u1', 'r1', '2026-01-01'), stay('t2', 'u1', 'r2', '2026-02-01'), stay('t3', 'u2', 'r3', '2026-03-01'),
     stay('t4', 'u2', 'r4', '2025-01-01', '2025-12-01')];
+  state.bills = [];
   state.run.mockResolvedValue(undefined);
 });
 const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
@@ -178,15 +180,15 @@ describe('Tenant sheet and move out', () => {
     expect(screen.getByText(/Lives in Room B since Mar 1, 2026/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
     fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '32' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save rent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Due day is 1–31')).toBeInTheDocument();
     expect(state.run).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '5' } });
     fireEvent.change(screen.getByLabelText('Rent per month'), { target: { value: '4,000' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save rent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     fireEvent.change(screen.getByLabelText('Advance months'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('Deposit'), { target: { value: '8,000' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save rent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateTerms', contractId: 'c-t3',
       input: { monthlyRentCentavos: 400000, dueDay: 5, advanceMonths: 2, depositCentavos: 800000 } }));
   });
@@ -195,7 +197,7 @@ describe('Tenant sheet and move out', () => {
     fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Move Carlo Lim out of Room B' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'endTenancy', id: 't3' })));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveOut', tenancyId: 't3' })));
   });
   it('shows contact read-only until Edit, then saves without closing the sheet', async () => {
     page();
@@ -218,7 +220,7 @@ describe('Tenant sheet and move out', () => {
     expect(state.run).not.toHaveBeenCalled();
     fireEvent.change(date, { target: { value: '2026-09-30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'endTenancy', id: 't3', moveOut: '2026-09-30' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'moveOut', tenancyId: 't3', moveOut: '2026-09-30', readings: [] }));
   });
 });
 
@@ -374,5 +376,99 @@ describe('Property summary edge cases', () => {
     page();
     expect(screen.queryByText('Every bed is taken')).not.toBeInTheDocument();
     expect(screen.getByText('Add a room first')).toBeInTheDocument();
+  });
+});
+
+describe('Bills in the existing screens', () => {
+  const metered = (u: RentalUnit) => ({ ...u, electricMode: 'submeter' as const, electricAmountCentavos: 1600 });
+  const openDetails = () => fireEvent.click(screen.getByText(/Contract and contact/));
+  it('takes starting readings and extra charges when moving someone in', async () => {
+    state.run.mockResolvedValue({ renterId: 'r9', warnings: [] });
+    state.properties = [{ ...property, units: [metered(property.units[0]), property.units[1]] }];
+    page();
+    fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]);
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
+    openDetails();
+    fireEvent.change(screen.getByLabelText('Electricity reading'), { target: { value: '1200' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+    fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Parking' } });
+    fireEvent.change(screen.getByLabelText('Charge amount'), { target: { value: '1,000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant',
+      readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }] })));
+    expect(toasts.success).toHaveBeenCalledWith('Elle Tan moved in');
+  });
+  it('uses the property due date and charges the days until it on move-in', async () => {
+    state.run.mockResolvedValue({ renterId: 'r9', warnings: [] });
+    state.properties = [{ ...property, rentDueDay: 5 }];
+    page();
+    fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]);
+    fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-10-15' } });
+    expect(screen.getByText('₱9,450.00')).toBeInTheDocument();
+    expect(screen.getByText('21 days rent + 1 month advance + deposit')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ terms: expect.objectContaining({ dueDay: 5 }) })));
+  });
+  it('asks for a final reading when moving out of a metered room', async () => {
+    state.run.mockResolvedValue({ warnings: [], finalBillId: 'b' });
+    state.properties = [{ ...property, units: [property.units[0], metered(property.units[1])] }];
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: 'Move out Carlo Lim' }));
+    fireEvent.change(screen.getByLabelText('Final electricity reading (optional)'), { target: { value: '900' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'moveOut', tenancyId: 't3', moveOut: '2026-10-10',
+      readings: [{ kind: 'electric', value: 900 }] }));
+    expect(toasts.success).toHaveBeenCalledWith('Moved out. Final bill issued.');
+  });
+  it('saves extra monthly charges from the tenant sheet', async () => {
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+    fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Wi-Fi' } });
+    fireEvent.change(screen.getByLabelText('Charge amount'), { target: { value: '300' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save charges' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'setCharges', tenancyId: 't3', charges: [{ label: 'Wi-Fi', amount: 30000 }] }));
+  });
+  it('turns a rent change into “new rent from” once bills exist', async () => {
+    const bill = (kind: RentalBill['kind'], period: string): RentalBill => ({ id: `${kind}-${period}`, propertyId: 'p', tenancyId: 't3', kind,
+      period, number: 'INV-2026-0001', issuedOn: '2026-10-01', dueOn: '2026-10-30', lines: [{ kind: 'rent', label: 'Rent', amount: 350000 }],
+      status: 'issued', voidReason: '' });
+    state.bills = [bill('move_in', '2026-03'), bill('monthly', '2026-10')];
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
+    expect(screen.queryByLabelText('Rent per month')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Advance months')).toHaveAttribute('readonly');
+    expect(screen.getAllByText('On the move-in bill').length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText('New rent'), { target: { value: '4,000' } });
+    fireEvent.change(screen.getByLabelText('Starting'), { target: { value: '2026-11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'changeRent', contractId: 'c-t3', from: '2026-11-01', rentCentavos: 400000 }));
+  });
+  it('saves the property due date and late fee', async () => {
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Rent is due every'), { target: { value: '5' } });
+    expect(screen.getByText('New tenants get this date. Change existing tenants on their tenant sheet.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Late fee'), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'saveProperty',
+      input: expect.objectContaining({ rentDueDay: 5, lateFeeCentavos: 50000 }) })));
+  });
+  it('asks for the due date in setup and makes the bill prefix from the name', async () => {
+    state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
+    state.properties = [];
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'New property' }));
+    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug Units' } });
+    fireEvent.change(screen.getByLabelText('Rent is due every'), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'setupProperty',
+      input: expect.objectContaining({ invoicePrefix: 'LU', rentDueDay: 5 }) })));
   });
 });

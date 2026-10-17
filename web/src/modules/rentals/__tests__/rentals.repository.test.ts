@@ -7,7 +7,7 @@ vi.mock('@himan/shared/config', () => ({ getSupabase: () => mock }));
 function result(data: unknown, error: unknown = null) {
   const value = { data, error };
   const chain = {
-    select: vi.fn(() => chain), eq: vi.fn(() => chain), insert: vi.fn(() => chain), update: vi.fn(() => chain),
+    select: vi.fn(() => chain), eq: vi.fn(() => chain), in: vi.fn(() => chain), insert: vi.fn(() => chain), update: vi.fn(() => chain),
     delete: vi.fn(() => chain), order: vi.fn(() => chain), limit: vi.fn(() => chain), single: vi.fn(async () => value),
     then: (resolve: (response: typeof value) => unknown) => Promise.resolve(value).then(resolve),
   };
@@ -168,15 +168,32 @@ describe('BillRepository', () => {
   it('saves several readings at once', async () => {
     const query = result([{ id: 'r', property_id: 'p', unit_id: '00000000-0000-0000-0000-000000000001', kind: 'electric',
       read_on: '2026-11-10', value: '1350.00', is_reset: false }]);
-    mock.from.mockReturnValue(query);
+    mock.from.mockReturnValueOnce(result([])).mockReturnValue(query);
     const [saved] = await new BillRepository().saveReadings('p', [{ unitId: '00000000-0000-0000-0000-000000000001', kind: 'electric',
       readOn: '2026-11-10', value: 1350, isReset: false }]);
     expect(query.insert).toHaveBeenCalledWith([{ property_id: 'p', unit_id: '00000000-0000-0000-0000-000000000001', kind: 'electric',
       read_on: '2026-11-10', value: 1350, is_reset: false }]);
     expect(saved.value).toBe(1350);
   });
+  it('corrects the reading already saved for that meter and day', async () => {
+    const U = '00000000-0000-0000-0000-000000000001';
+    const update = result({ id: 'r', property_id: 'p', unit_id: U, kind: 'electric', read_on: '2026-11-10', value: '1400.00', is_reset: false });
+    mock.from.mockReturnValueOnce(result([{ id: 'r', unit_id: U, kind: 'electric', read_on: '2026-11-10' }])).mockReturnValue(update);
+    const [saved] = await new BillRepository().saveReadings('p', [{ unitId: U, kind: 'electric', readOn: '2026-11-10', value: 1400, isReset: false }]);
+    expect(update.insert).not.toHaveBeenCalled();
+    expect(update.update).toHaveBeenCalledWith({ value: 1400, is_reset: false });
+    expect(update.eq).toHaveBeenCalledWith('id', 'r');
+    expect(saved.value).toBe(1400);
+  });
+  it('explains why a billed reading can’t be corrected', async () => {
+    const U = '00000000-0000-0000-0000-000000000001';
+    mock.from.mockReturnValueOnce(result([{ id: 'r', unit_id: U, kind: 'electric', read_on: '2026-11-10' }]))
+      .mockReturnValue(result(null, { code: 'P0001', message: 'This reading is on an issued bill. Cancel that bill first.' }));
+    await expect(new BillRepository().saveReadings('p', [{ unitId: U, kind: 'electric', readOn: '2026-11-10', value: 1, isReset: false }]))
+      .rejects.toThrow('This reading is on an issued bill. Cancel that bill first.');
+  });
   it('explains a second reading on the same day', async () => {
-    mock.from.mockReturnValue(result(null, { code: '23505', message: 'dup' }));
+    mock.from.mockReturnValueOnce(result([])).mockReturnValue(result(null, { code: '23505', message: 'dup' }));
     await expect(new BillRepository().saveReadings('p', [{ unitId: '00000000-0000-0000-0000-000000000001', kind: 'electric',
       readOn: '2026-11-10', value: 1, isReset: false }])).rejects.toThrow('There is already a reading for that room on that date');
   });

@@ -42,12 +42,31 @@ export class BillRepository {
     if (error) throw rentalError(error, 'Could not cancel the bill');
   }
 
+  /** Adds readings; a reading for a meter and day that already has one corrects it (refused if an issued bill used it). */
   async saveReadings(propertyId: string, inputs: ReadingInput[]): Promise<MeterReading[]> {
-    const rows = z.array(readingInputSchema).min(1).parse(inputs).map((r) => ({ property_id: propertyId, unit_id: r.unitId,
+    const valid = z.array(readingInputSchema).min(1).parse(inputs);
+    const table = () => getSupabase().from('rental_meter_readings');
+    const { data: found, error: lookup } = await table().select('id, unit_id, kind, read_on')
+      .eq('property_id', propertyId).in('read_on', [...new Set(valid.map((r) => r.readOn))]);
+    if (lookup) throw rentalError(lookup, 'Could not save the readings');
+    const existing = (found ?? []) as { id: string; unit_id: string; kind: string; read_on: string }[];
+    const idOf = (r: ReadingInput) => existing.find((f) => f.unit_id === r.unitId && f.kind === r.kind && f.read_on === r.readOn)?.id;
+    const saved: unknown[] = [];
+    const fresh = valid.filter((r) => !idOf(r)).map((r) => ({ property_id: propertyId, unit_id: r.unitId,
       kind: r.kind, read_on: r.readOn, value: r.value, is_reset: r.isReset }));
-    const { data, error } = await getSupabase().from('rental_meter_readings').insert(rows).select('*');
-    if (error) throw rentalError(error, 'Could not save the readings', 'There is already a reading for that room on that date');
-    return z.array(readingRow).parse(data);
+    if (fresh.length) {
+      const { data, error } = await table().insert(fresh).select('*');
+      if (error) throw rentalError(error, 'Could not save the readings', 'There is already a reading for that room on that date');
+      saved.push(...(data ?? []));
+    }
+    for (const r of valid) {
+      const id = idOf(r);
+      if (!id) continue;
+      const { data, error } = await table().update({ value: r.value, is_reset: r.isReset }).eq('id', id).select('*').single();
+      if (error) throw rentalError(error, 'Could not correct the reading');
+      saved.push(data);
+    }
+    return z.array(readingRow).parse(saved);
   }
 
   async removeReading(id: string): Promise<void> {

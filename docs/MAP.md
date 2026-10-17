@@ -31,6 +31,7 @@ through `index.ts` barrel files — direct internal path imports are prohibited.
 | invoice-generator | shared·web | 49 | [[invoice-generator]] |
 | cards | shared·web·mobile | 46 | [[cards]] |
 | government | shared·web·mobile | — | [[government]]; private IDs with direct number copying |
+| rentals | shared·web | — | [[rentals]]; per-property roles, capacity-guarded tenancies, meter readings + bills (SOA) |
 | notes | shared·web | 39 | [[notes]] |
 | storage | shared·web | 36 | [[storage]] |
 | subscriptions | shared·web | 34 | [[subscriptions]] |

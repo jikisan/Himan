@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { FileText, KeyRound, CreditCard, HardDrive, Receipt, ShoppingCart, Briefcase, Landmark, type LucideIcon } from "lucide-react";
+import { FileText, KeyRound, CreditCard, HardDrive, Receipt, ShoppingCart, Briefcase, Landmark, Building2, type LucideIcon } from "lucide-react";
 import { useAuth } from "@auth/presentation/hooks";
 import { useSubscription } from "@subscriptions/presentation/hooks";
 import { useNotes } from "@notes/presentation/hooks";
@@ -103,6 +103,7 @@ export const DashboardPage = () => {
 
   const moreApps = [
     { to: "/government", icon: Landmark, label: "Government", color: "from-teal-400 to-teal-600" },
+    { to: "/rentals", icon: Building2, label: "Rentals", color: "from-amber-400 to-orange-600" },
     ...(canAccessStorage ? [{ to: "/storage", icon: HardDrive, label: "Storage", color: "from-sky-400 to-blue-600" }] : []),
     { to: "/invoice-generator", icon: Receipt, label: "Invoices", color: "from-emerald-400 to-green-600" },
     { to: "/career", icon: Briefcase, label: "Career", color: "from-violet-400 to-purple-600" },

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Enter/exit animations used by the shadcn dialogs, sheets, popovers and menus (animate-in, slide-in-from-*, fade-in-*). */
+@plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -312,4 +314,9 @@ input[type="date"] {
 
 .editor-scroll:hover {
   scrollbar-color: hsl(var(--border) / 0.3) transparent;
+}
+
+/* Respect "reduce motion": dialogs and sheets appear without sliding. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .animate-out { animation-duration: 1ms !important; }
 }

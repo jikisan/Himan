@@ -53,7 +53,7 @@ export function Statement({ bill, info }: { bill: StatementBill; info: Statement
         </dl>
         <Row label={`${num(l.meter.usage)} ${UNIT_OF[l.kind]} × ${formatBillPesos(l.meter.rate)}`} amount={l.amount}
           note={l.meter.sharedWith > 1 ? `Your 1/${l.meter.sharedWith} share of the room’s meter` : undefined} />
-      </> : <Row label="Fixed monthly amount" amount={l.amount} />}
+      </> : <Row label={l.billMonth ? `${periodLabel(l.billMonth)} bill` : 'Fixed monthly amount'} amount={l.amount} />}
     </section>)}
 
     <div className="space-y-1 border-t pt-3">

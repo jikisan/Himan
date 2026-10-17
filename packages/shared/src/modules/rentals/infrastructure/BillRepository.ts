@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
-import { billLineSchema, readingInputSchema } from '../domain/index.js';
-import type { BillLine, MeterReading, ReadingInput, RentalBill } from '../domain/index.js';
-import { billRow, readingRow, rentalError } from './rows.js';
+import { billLineSchema, readingInputSchema, utilityBillInputSchema } from '../domain/index.js';
+import type { BillLine, MeterReading, ReadingInput, RentalBill, UtilityBill, UtilityBillInput } from '../domain/index.js';
+import { billRow, readingRow, rentalError, utilityBillRow } from './rows.js';
 
 export interface IssueBillInput { tenancyId: string; kind: RentalBill['kind']; period: string; dueOn: string; lines: BillLine[] }
 const lines = z.array(billLineSchema).min(1, 'A bill needs at least one line');
@@ -67,6 +67,35 @@ export class BillRepository {
       saved.push(data);
     }
     return z.array(readingRow).parse(saved);
+  }
+
+  async findUtilityBills(): Promise<UtilityBill[]> {
+    const { data, error } = await getSupabase().from('rental_utility_bills').select('*').order('period', { ascending: false });
+    if (error) throw rentalError(error, 'Could not load the utility bills');
+    return z.array(utilityBillRow).parse(data);
+  }
+
+  /** Saves each room's amount for a month; a month that already has one is corrected. */
+  async saveUtilityBills(propertyId: string, inputs: UtilityBillInput[]): Promise<void> {
+    const valid = z.array(utilityBillInputSchema).min(1).parse(inputs);
+    const table = () => getSupabase().from('rental_utility_bills');
+    const { data: found, error: lookup } = await table().select('id, unit_id, kind, period')
+      .eq('property_id', propertyId).in('period', [...new Set(valid.map((b) => b.period))]);
+    if (lookup) throw rentalError(lookup, 'Could not save the bill amounts');
+    const existing = (found ?? []) as { id: string; unit_id: string; kind: string; period: string }[];
+    const idOf = (b: UtilityBillInput) => existing.find((f) => f.unit_id === b.unitId && f.kind === b.kind && f.period === b.period)?.id;
+    const fresh = valid.filter((b) => !idOf(b)).map((b) => ({ property_id: propertyId, unit_id: b.unitId, kind: b.kind, period: b.period,
+      amount_centavos: b.amountCentavos }));
+    if (fresh.length) {
+      const { error } = await table().insert(fresh).select('id');
+      if (error) throw rentalError(error, 'Could not save the bill amounts', 'That month already has an amount');
+    }
+    for (const b of valid) {
+      const id = idOf(b);
+      if (!id) continue;
+      const { error } = await table().update({ amount_centavos: b.amountCentavos }).eq('id', id).select('id').single();
+      if (error) throw rentalError(error, 'Could not correct the bill amount');
+    }
   }
 
   async removeReading(id: string): Promise<void> {

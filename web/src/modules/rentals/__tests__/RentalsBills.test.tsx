@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
+import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter, UtilityBill } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
 const U1 = '00000000-0000-0000-0000-000000000001';
@@ -30,7 +30,7 @@ const issued = (tenancyId: string, extra: Partial<RentalBill> = {}): RentalBill 
 
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
-  bills: [] as RentalBill[], readings: [] as MeterReading[],
+  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
 }));
@@ -48,6 +48,7 @@ beforeEach(() => {
   state.tenancies = [stay('t1', U1, 'r1', '2026-01-15', 15), stay('t2', U2, 'r2', '2026-10-15', 15), stay('t3', U2, 'r3', '2026-11-01', 1)];
   state.readings = [{ id: 'r0', propertyId: 'p', unitId: U1, kind: 'electric', readOn: '2026-10-15', value: 1200, isReset: false }];
   state.bills = [];
+  state.utilityBills = [];
   state.run.mockResolvedValue({ issued: 1, failed: [] });
 });
 const openBills = () => {
@@ -453,5 +454,44 @@ describe('Statement and bill sheet', () => {
     expect(sheet.getByRole('button', { name: 'Copy for Messenger' })).toBeInTheDocument();
     expect(sheet.queryByRole('button', { name: 'Edit SOA' })).not.toBeInTheDocument();
     expect(sheet.queryByRole('button', { name: 'Cancel SOA' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Electricity billed by the month’s bill amount', () => {
+  // Room 1 is the whole house here: no meter, the actual electricity bill is typed each month.
+  beforeEach(() => {
+    state.properties = [{ ...property, units: [unit(U1, 'Room 1', 'room', 1, { electricMode: 'monthly', electricAmountCentavos: 0 }), property.units[1]] }];
+    state.readings = [];
+  });
+  it('waits for the bill amount and saves it from the dialog', async () => {
+    state.run.mockResolvedValue(undefined);
+    openBills();
+    expect(row('Juan Dela Cruz').getByText('Needs bill amount')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).getByRole('button', { name: 'Add bill amounts' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'November 2026 bill amounts' }));
+    fireEvent.change(dialog.getByLabelText('Room 1 · Electricity'), { target: { value: '2,345' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save amounts' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUtilityBills', propertyId: 'p',
+      inputs: [{ unitId: U1, kind: 'electric', period: '2026-11', amountCentavos: 234500 }] }));
+  });
+  it('puts the month’s amount on the SOA', async () => {
+    state.utilityBills = [{ id: 'ub', propertyId: 'p', unitId: U1, kind: 'electric', period: '2026-11', amountCentavos: 234500 }];
+    openBills();
+    fireEvent.click(row('Juan Dela Cruz').getByRole('button', { name: 'Generate SOA' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'issueBills', inputs: [expect.objectContaining({ tenancyId: 't1',
+      lines: [expect.objectContaining({ kind: 'rent' }), { kind: 'electric', label: 'Electricity', amount: 234500, billMonth: '2026-11' }] })] }));
+  });
+  it('asks for the amount on Home', () => {
+    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+    expect(screen.getByText('Add November bill amount')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add bill amounts' }));
+    expect(screen.getByRole('dialog', { name: 'November 2026 bill amounts' })).toBeInTheDocument();
+  });
+  it('shows the bill month on the SOA', () => {
+    state.bills = [issued('t1', { lines: [issued('t1').lines[0], { kind: 'electric', label: 'Electricity', amount: 234500, billMonth: '2026-11' }] })];
+    openBills();
+    fireEvent.click(screen.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' }));
+    expect(within(screen.getByRole('dialog')).getByText('November 2026 bill')).toBeInTheDocument();
   });
 });

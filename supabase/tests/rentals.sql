@@ -379,6 +379,39 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
 END $$;
 
+-- Utilities billed by the month's actual bill amount.
+DO $$ BEGIN
+  UPDATE public.rental_units SET electric_mode = 'monthly', electric_amount_centavos = 0 WHERE id = '00000000-0000-0000-0000-0000000ac002';
+  BEGIN
+    UPDATE public.rental_units SET electric_amount_centavos = 1000 WHERE id = '00000000-0000-0000-0000-0000000ac002';
+    RAISE EXCEPTION 'A monthly-bill room took a price';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  INSERT INTO public.rental_utility_bills (property_id, unit_id, kind, period, amount_centavos)
+  VALUES ('00000000-0000-0000-0000-0000000ab001', '00000000-0000-0000-0000-0000000ac002', 'electric', '2026-11', 234500);
+  BEGIN
+    INSERT INTO public.rental_utility_bills (property_id, unit_id, kind, period, amount_centavos)
+    VALUES ('00000000-0000-0000-0000-0000000ab001', '00000000-0000-0000-0000-0000000ac002', 'electric', '2026-11', 1);
+    RAISE EXCEPTION 'Two amounts for one month were accepted';
+  EXCEPTION WHEN unique_violation THEN NULL; END;
+  BEGIN
+    INSERT INTO public.rental_utility_bills (property_id, unit_id, kind, period, amount_centavos)
+    VALUES ('00000000-0000-0000-0000-0000000ab001', '00000000-0000-0000-0000-0000000ac002', 'electric', '2026-13', 1);
+    RAISE EXCEPTION 'A bad month was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  IF NOT public.rental_valid_bill_lines('[{"kind":"electric","label":"Electricity","amount":234500,"billMonth":"2026-11"}]')
+  THEN RAISE EXCEPTION 'A bill-month line was refused'; END IF;
+  IF public.rental_valid_bill_lines('[{"kind":"electric","label":"Electricity","amount":1,"billMonth":"Nov"}]')
+  THEN RAISE EXCEPTION 'A bad bill month was accepted'; END IF;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa003', true);
+  IF EXISTS (SELECT 1 FROM public.rental_utility_bills) THEN RAISE EXCEPTION 'A stranger can read utility bills'; END IF;
+  BEGIN
+    INSERT INTO public.rental_utility_bills (property_id, unit_id, kind, period, amount_centavos)
+    VALUES ('00000000-0000-0000-0000-0000000ab001', '00000000-0000-0000-0000-0000000ac002', 'electric', '2026-12', 1);
+    RAISE EXCEPTION 'A stranger added a utility bill';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+END $$;
+
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

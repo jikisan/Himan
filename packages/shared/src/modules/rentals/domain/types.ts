@@ -23,6 +23,8 @@ export interface RentalMember { userId: string; email: string; role: RentalRole 
 export interface MeterReading {
   id: string; propertyId: string; unitId: string; kind: MeterKind; readOn: string; value: number; isReset: boolean;
 }
+/** A room's actual utility bill for one month (utilities set to 'monthly'). */
+export interface UtilityBill { id: string; propertyId: string; unitId: string; kind: MeterKind; period: string; amountCentavos: number }
 export interface RentalBill {
   id: string; propertyId: string; tenancyId: string; kind: 'move_in' | 'monthly' | 'final'; period: string; number: string;
   issuedOn: string; dueOn: string; lines: BillLine[]; status: 'issued' | 'void'; voidReason: string;

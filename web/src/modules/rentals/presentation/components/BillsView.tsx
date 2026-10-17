@@ -6,9 +6,10 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { addPeriods, billTotal, finalBillLines, utilityLine, firstBillablePeriod, formatBillPesos, isOverdue, manilaToday, periodLabel, periodOf, statementText } from '@himan/shared/rentals';
-import type { BillLine, IssueBillInput, MeterReading, ReadingInput, RentalBill, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
+import type { BillLine, IssueBillInput, MeterReading, ReadingInput, UtilityBill, RentalBill, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { AddReadingsDialog, MeterReadings } from './MeterReadings';
+import { BillAmountsDialog } from './BillAmountsDialog';
 import type { ReadingSoa } from './MeterReadings';
 import { Initials } from './Badges';
 import type { StatementInfo } from './Statement';
@@ -25,9 +26,10 @@ const short = (date: string) => format(parseISO(date), 'MMM d');
  * One month of bills, grouped by what to do next: waiting for a meter, ready to issue, issued, no bill.
  * Meter readings sit beside the list on a laptop and open as their own screen on a phone.
  */
-export function BillsView({ property, tenancies, renters, readings, bills, canManage, busy, run, statementInfo, startWithMeters, startOnCancelled,
+export function BillsView({ property, tenancies, renters, readings, bills, utilityBills, startWithAmounts, canManage, busy, run, statementInfo, startWithMeters, startOnCancelled,
   onOpenBill, onOpenPending }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; readings: MeterReading[]; bills: RentalBill[];
+  utilityBills: UtilityBill[]; startWithAmounts?: boolean;
   canManage: boolean; statementInfo(t: RentalTenancy): StatementInfo; startWithMeters?: boolean;
   /** Open on this month with the Cancelled filter (from Home's "not replaced" task). */
   startOnCancelled?: string;
@@ -45,8 +47,14 @@ export function BillsView({ property, tenancies, renters, readings, bills, canMa
   const latest = addPeriods(periodOf(today), 1);
   const name = (t: RentalTenancy) => renters.find((r) => r.id === t.renterId)?.fullName ?? 'Tenant';
   const room = (t: RentalTenancy) => property.units.find((u) => u.id === t.unitId)?.name ?? 'Room';
-  const rows = monthRows({ property, tenancies, readings, bills }, period, skipped);
-  const todo = monthTodo(rows, [], today);
+  const rows = monthRows({ property, tenancies, readings, bills, utilityBills }, period, skipped);
+  const todo = monthTodo(rows, [], today, property.units);
+  const [amountsOpen, setAmountsOpen] = useState(!!startWithAmounts);
+  const isMonthly = (unitId: string, kind: 'electric' | 'water') => {
+    const unit = property.units.find((u) => u.id === unitId);
+    return (kind === 'electric' ? unit?.electricMode : unit?.waterMode) === 'monthly';
+  };
+  const hasMonthly = canManage && property.units.some((u) => u.electricMode === 'monthly' || u.waterMode === 'monthly');
   // Every SOA that exists for this month (monthly, move-in, final, cancelled), past due first, cancelled last.
   const soas = rows.flatMap((r) => [...(r.pending.state === 'issued' ? [r.pending.bill] : []), ...r.others].map((bill) => ({ r, bill })));
   const pastDue = (b: RentalBill) => isOverdue(b, today) && b.kind !== 'move_in';
@@ -83,16 +91,16 @@ export function BillsView({ property, tenancies, renters, readings, bills, canMa
   };
   // A cancelled SOA with nothing replacing it can be made again. Monthly ones normally come back under "Ready for SOA";
   // only one that can't (e.g. the tenant moved out before the due date) gets the button. A final SOA re-reads the meters.
-  const unreplaced = new Set(unreplacedCancelled({ property, tenancies, readings, bills }).map((b) => b.id));
+  const unreplaced = new Set(unreplacedCancelled({ property, tenancies, readings, bills, utilityBills }).map((b) => b.id));
   const canRegenerate = (b: RentalBill) => unreplaced.has(b.id);
   // Rent and charges are copied; electricity and water are worked out again from today's readings,
   // so a reading corrected after cancelling shows up in the new SOA.
   const regenerate = (b: RentalBill, t: RentalTenancy) => {
-    const ctx = { property, tenancies, readings, bills };
+    const ctx = { property, tenancies, readings, bills, utilityBills };
     const unit = property.units.find((u) => u.id === t.unitId);
     const lines = b.kind === 'final' && t.moveOut ? finalBillLines(ctx, t.id, t.moveOut)
       : b.lines.flatMap((l) => l.kind !== 'electric' && l.kind !== 'water' ? [l]
-        : unit ? [utilityLine({ unit, kind: l.kind, tenancy: t, tenancies, readings, bills, upTo: b.dueOn })].filter((x): x is BillLine => !!x) : [l]);
+        : unit ? [utilityLine({ unit, kind: l.kind, tenancy: t, tenancies, readings, bills, upTo: b.dueOn, period: b.period, dueOn: b.dueOn, utilityBills })].filter((x): x is BillLine => !!x) : [l]);
     void issue([{ tenancyId: t.id, kind: b.kind, period: b.period, dueOn: b.dueOn, lines: lines.length ? lines : b.lines }]);
   };
   const copy = async (bill: RentalBill, t: RentalTenancy) => {
@@ -161,6 +169,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, canMa
         </div>
         {hasMeters && !panelShown && <Button variant="outline" className="h-11 sm:h-9" onClick={showMeters}>
           <Gauge className="h-4 w-4" />Meters</Button>}
+        {hasMonthly && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setAmountsOpen(true)}>
+          <ReceiptText className="h-4 w-4" />Bill amounts</Button>}
       </div>
 
       {todo.waiting.length + todo.ready.length + soas.length === 0 && <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-10 text-center">
@@ -172,11 +182,15 @@ export function BillsView({ property, tenancies, renters, readings, bills, canMa
       {todo.waiting.length > 0 && <section aria-labelledby="bills-waiting" className="overflow-hidden rounded-xl border border-amber-500/40 bg-card shadow-sm">
         <div className="flex flex-wrap items-center gap-3 bg-amber-500/10 px-4 py-3">
           <h3 id="bills-waiting" className="min-w-0 flex-1 font-semibold">
-            {todo.waiting.length} SOA{todo.waiting.length === 1 ? '' : 's'} waiting for meter readings</h3>
-          {hasMeters && <Button className="h-11 sm:h-9" onClick={readMeters}><Gauge className="h-4 w-4" />Read meters</Button>}
+            {todo.waiting.length} SOA{todo.waiting.length === 1 ? '' : 's'} waiting for {todo.meters.size && todo.amounts.size ? 'readings and bill amounts'
+              : todo.amounts.size ? 'bill amounts' : 'meter readings'}</h3>
+          {hasMeters && todo.meters.size > 0 && <Button className="h-11 sm:h-9" onClick={readMeters}><Gauge className="h-4 w-4" />Read meters</Button>}
+          {hasMonthly && todo.amounts.size > 0 && <Button className="h-11 sm:h-9" onClick={() => setAmountsOpen(true)}>
+            <ReceiptText className="h-4 w-4" />Add bill amounts</Button>}
         </div>
         <ul className="divide-y">{todo.waiting.map((r) => row(r, { sub: room(r.t), facts: due(r.due),
-          badge: <span className={cn(chip, 'bg-amber-500/15 text-amber-800 dark:text-amber-300')}>Needs reading</span>,
+          badge: <span className={cn(chip, 'bg-amber-500/15 text-amber-800 dark:text-amber-300')}>{r.pending.state === 'needs-reading'
+            && r.pending.kinds.every((k) => isMonthly(r.t.unitId, k)) ? 'Needs bill amount' : 'Needs reading'}</span>,
           actions: canManage && <Button variant="outline" size="sm" className={btn}
             onClick={() => setSkipped((s) => new Set(s).add(`${r.t.id}:${period}`))}>Skip utilities this month</Button> }))}</ul>
       </section>}
@@ -243,6 +257,11 @@ export function BillsView({ property, tenancies, renters, readings, bills, canMa
       className="w-full space-y-2 duration-300 ease-out animate-in fade-in-0 slide-in-from-right-6 lg:sticky lg:top-4 lg:w-[340px] lg:shrink-0">
       {meters}
     </aside>}
+    {hasMonthly && <BillAmountsDialog open={amountsOpen} onOpenChange={setAmountsOpen} units={property.units} tenancies={tenancies}
+      utilityBills={utilityBills} period={period} needed={todo.amounts} busy={busy} onSave={async (inputs) => {
+        await run({ type: 'saveUtilityBills', propertyId: property.id, inputs });
+        toast.success(inputs.length === 1 ? 'Bill amount saved' : 'Bill amounts saved');
+      }} />}
     {hasMeters && <AddReadingsDialog open={addOpen} onOpenChange={setAddOpen} units={property.units} readings={readings}
       needed={todo.meters} busy={busy} onSave={saveReadings} />}
     {meters && !wide && <Sheet open={metersOpen} onOpenChange={setMetersOpen}>

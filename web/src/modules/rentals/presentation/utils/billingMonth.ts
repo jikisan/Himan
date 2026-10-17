@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from 'react';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { billTotal, contractFor, dueOn, isOverdue, pendingBill } from '@himan/shared/rentals';
-import type { MeterReading, Pending, RentalBill, RentalProperty, RentalTenancy } from '@himan/shared/rentals';
+import type { MeterReading, Pending, RentalBill, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from '@himan/shared/rentals';
+
+type Ctx = { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[]; utilityBills?: UtilityBill[] };
 
 export interface MonthRow { t: RentalTenancy; pending: Pending; others: RentalBill[]; skip: boolean; due: string }
 
 /** Every tenant who has (or will have) a bill this month, earliest due first. `skipped` holds `${tenancyId}:${period}` keys. */
-export function monthRows(ctx: { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[] },
+export function monthRows(ctx: Ctx,
   period: string, skipped: Set<string> = new Set()): MonthRow[] {
   const room = (t: RentalTenancy) => ctx.property.units.find((u) => u.id === t.unitId)?.name ?? '';
   return ctx.tenancies.map((t) => {
@@ -19,13 +21,21 @@ export function monthRows(ctx: { property: RentalProperty; tenancies: RentalTena
     .sort((a, b) => a.due.localeCompare(b.due) || room(a.t).localeCompare(room(b.t)));
 }
 
-/** What is left to do for a month: meters to read, bills to issue, and issued bills that are late. */
-export function monthTodo(rows: MonthRow[], bills: RentalBill[], today: string) {
+/** What is left to do for a month: meters to read, bill amounts to type, SOAs to generate, and late ones. */
+export function monthTodo(rows: MonthRow[], bills: RentalBill[], today: string, units: RentalUnit[] = []) {
   const waiting = rows.filter((r) => r.pending.state === 'needs-reading');
   const ready = rows.filter((r) => r.pending.state === 'ready');
+  const keys = waiting.flatMap(({ t, pending }) => pending.state === 'needs-reading' ? pending.kinds.map((k) => ({ unitId: t.unitId, kind: k })) : []);
+  const byAmount = ({ unitId, kind }: { unitId: string; kind: 'electric' | 'water' }) => {
+    const unit = units.find((u) => u.id === unitId);
+    return (kind === 'electric' ? unit?.electricMode : unit?.waterMode) === 'monthly';
+  };
   return {
     waiting, ready,
-    meters: new Set(waiting.flatMap(({ t, pending }) => pending.state === 'needs-reading' ? pending.kinds.map((k) => `${t.unitId}:${k}`) : [])),
+    /** `${unitId}:${kind}` of sub-meters a waiting SOA needs read. */
+    meters: new Set(keys.filter((k) => !byAmount(k)).map((k) => `${k.unitId}:${k.kind}`)),
+    /** `${unitId}:${kind}` of utilities whose month's bill amount a waiting SOA needs. */
+    amounts: new Set(keys.filter(byAmount).map((k) => `${k.unitId}:${k.kind}`)),
     readyTotal: ready.reduce((sum, r) => sum + (r.pending.state === 'ready' ? billTotal(r.pending.lines) : 0), 0),
     // ponytail: no payment tracking yet, so "past due" can't know a bill was paid. Only recent monthly/final bills
     // are raised (move-in bills are paid at move-in); swap for an unpaid check once payments are recorded.
@@ -38,7 +48,7 @@ export function monthTodo(rows: MonthRow[], bills: RentalBill[], today: string) 
  * The latest cancelled SOA for each one that nothing replaces and that won't come back on their own: move-in and final SOAs, and monthly
  * ones whose month no longer gets a monthly SOA (e.g. the tenant moved out before the due date).
  */
-export function unreplacedCancelled(ctx: { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[] }): RentalBill[] {
+export function unreplacedCancelled(ctx: Ctx): RentalBill[] {
   // One missing SOA per tenant, kind and (for monthly) month, however often it was cancelled: keep the latest copy.
   const slot = (b: RentalBill) => `${b.tenancyId}:${b.kind}:${b.kind === 'monthly' ? b.period : ''}`;
   const latest = new Map<string, RentalBill>();

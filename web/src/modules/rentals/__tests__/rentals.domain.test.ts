@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePesos, formatPesos, centavosToInput, manilaToday, hasRentalRole, unitOccupancy,
   unitSchema, startTenancySchema, renterSchema, validateRentalFile, RENTAL_FILE_LIMIT,
-  moveInDefaults, roomSpots, contractTermsSchema, nextDueDate, roomRent } from '@himan/shared/rentals';
+  moveInDefaults, roomSpots, contractTermsSchema, nextDueDate, roomRent, utilityLine } from '@himan/shared/rentals';
 import type { RentalTenancy, RentalUnit } from '@himan/shared/rentals';
 
 const unit = { name: 'Room A', kind: 'bedspace' as const, capacity: 2, electricMode: 'submeter' as const,
@@ -112,5 +112,23 @@ describe('rentals flow helpers', () => {
     expect(zero.error?.issues[0].message).toBe('Due day is 1–31');
     expect(contractTermsSchema.safeParse({ advanceMonths: 1, depositCentavos: 0, monthlyRentCentavos: 1, dueDay: 32 }).success).toBe(false);
     expect(contractTermsSchema.safeParse({ advanceMonths: 1, depositCentavos: 0, monthlyRentCentavos: 1, dueDay: 31 }).success).toBe(true);
+  });
+});
+
+describe('utility billed by the month’s bill amount', () => {
+  const room = { id: 'u', propertyId: 'p', name: 'House', kind: 'whole', capacity: 1, electricMode: 'monthly', electricAmountCentavos: 0,
+    waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 0, extraPersonRentCentavos: 0 } as RentalUnit;
+  const t = (id: string, moveIn: string): RentalTenancy => ({ id, propertyId: 'p', unitId: 'u', renterId: id, moveIn, moveOut: null, contracts: [], charges: [] });
+  const bills = [{ id: 'b', propertyId: 'p', unitId: 'u', kind: 'electric' as const, period: '2026-11', amountCentavos: 100001 }];
+  it('splits the month’s bill between whoever lives there on the due date, first mover-in takes the extra centavo', () => {
+    const a = t('a', '2026-01-01'), b = t('b', '2026-02-01');
+    const line = (x: RentalTenancy) => utilityLine({ unit: room, kind: 'electric', tenancy: x, tenancies: [a, b], readings: [], bills: [],
+      period: '2026-11', dueOn: '2026-11-15', utilityBills: bills });
+    expect(line(a)).toEqual({ kind: 'electric', label: 'Electricity (1/2 share)', amount: 50001, billMonth: '2026-11' });
+    expect(line(b)?.amount).toBe(50000);
+  });
+  it('has nothing to bill without that month’s amount', () => {
+    expect(utilityLine({ unit: room, kind: 'electric', tenancy: t('a', '2026-01-01'), tenancies: [], readings: [], bills: [],
+      period: '2026-12', dueOn: '2026-12-15', utilityBills: bills })).toBeNull();
   });
 });

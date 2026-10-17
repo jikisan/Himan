@@ -5,7 +5,7 @@ import { FriendRepository } from '@himan/shared/friends';
 import { ProfileRepository } from '@himan/shared/profile';
 import { addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
 import type { AddTenantInput, BillLine, ContractTermsInput, IssueBillInput, MeterKind, PropertyInput, ReadingInput, RenterInput,
-  StartTenancyInput, TenancyCharge, UnitInput } from '@himan/shared/rentals';
+  StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
 import { BillRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
 
 export type RentalAction =
@@ -24,6 +24,7 @@ export type RentalAction =
   | { type: 'updateTerms'; contractId: string; input: ContractTermsInput }
   | { type: 'setupProperty'; input: PropertyInput; rooms: UnitInput[] }
   | { type: 'saveReadings'; propertyId: string; inputs: ReadingInput[] }
+  | { type: 'saveUtilityBills'; propertyId: string; inputs: UtilityBillInput[] }
   | { type: 'removeReading'; id: string }
   | { type: 'issueBills'; inputs: IssueBillInput[] }
   | { type: 'updateBillLines'; id: string; lines: BillLine[] }
@@ -45,10 +46,10 @@ export function useRentals() {
     queryKey: ['rentals', userId], enabled: !!userId && online,
     meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false, refetchOnMount: 'always', networkMode: 'always',
     queryFn: async () => {
-      const [properties, renters, tenancies, bills, readings, profile] = await Promise.all([
+      const [properties, renters, tenancies, bills, readings, utilityBills, profile] = await Promise.all([
         repos.properties.findAll(userId!), repos.renters.findAll(), repos.tenancies.findAll(),
-        repos.bills.findAll(), repos.bills.findReadings(), repos.profile.get(userId!).catch(() => null)]);
-      return { properties, renters, tenancies, bills, readings, myName: profile?.fullName?.trim() ?? '' };
+        repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.profile.get(userId!).catch(() => null)]);
+      return { properties, renters, tenancies, bills, readings, utilityBills, myName: profile?.fullName?.trim() ?? '' };
     },
   });
   const mutation = useMutation({
@@ -72,6 +73,7 @@ export function useRentals() {
         case 'updateTerms': return repos.tenancies.updateTerms(a.contractId, a.input);
         case 'setupProperty': return setupProperty(repos, a);
         case 'saveReadings': return repos.bills.saveReadings(a.propertyId, a.inputs);
+        case 'saveUtilityBills': return repos.bills.saveUtilityBills(a.propertyId, a.inputs);
         case 'removeReading': return repos.bills.removeReading(a.id);
         case 'issueBills': return issueBills(repos, a.inputs);
         case 'updateBillLines': return repos.bills.updateLines(a.id, a.lines);
@@ -83,7 +85,7 @@ export function useRentals() {
           const tenancy = data?.tenancies.find((t) => t.id === a.tenancyId);
           const property = data?.properties.find((p) => p.id === tenancy?.propertyId);
           if (!data || !property) throw new Error('Tenant not found');
-          return moveOut(repos, { ctx: { property, tenancies: data.tenancies, readings: data.readings, bills: data.bills },
+          return moveOut(repos, { ctx: { property, tenancies: data.tenancies, readings: data.readings, bills: data.bills, utilityBills: data.utilityBills },
             tenancyId: a.tenancyId, moveOut: a.moveOut, readings: a.readings });
         }
         case 'addMember': return repos.properties.addMember(a.propertyId, a.userId, a.role);
@@ -95,7 +97,7 @@ export function useRentals() {
   const data = online && userId ? query.data : undefined;
   return {
     properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
-    bills: data?.bills ?? [], readings: data?.readings ?? [],
+    bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
     loading: query.isLoading, error: query.error, online, userId, busy: mutation.isPending,
     refetch: query.refetch, run: mutation.mutateAsync,
     fileUrl: (id: string, download = false) => repos.renters.fileUrl(id, download),

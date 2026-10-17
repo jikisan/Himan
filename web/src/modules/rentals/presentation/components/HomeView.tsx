@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { BedDouble, CircleCheck, Clock, DoorOpen, Gauge, ReceiptText } from 'lucide-react';
 import { billTotal, formatBillPesos, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
-import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
+import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
 
@@ -10,10 +10,11 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
-  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled }: {
+  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
+  utilityBills: UtilityBill[]; onAddBillAmounts(): void;
 }) {
   const today = manilaToday();
   const period = periodOf(today);
@@ -21,8 +22,8 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
   const name = (t: Pick<RentalTenancy, 'renterId'>) => renters.find((r) => r.id === t.renterId)?.fullName ?? 'Tenant';
   const roomName = (unitId: string) => property.units.find((u) => u.id === unitId)?.name ?? 'Room';
   const active = tenancies.filter((t) => t.moveOut === null);
-  const rows = monthRows({ property, tenancies, readings, bills }, period);
-  const todo = monthTodo(rows, bills, today);
+  const rows = monthRows({ property, tenancies, readings, bills, utilityBills }, period);
+  const todo = monthTodo(rows, bills, today, property.units);
   const meterRooms = [...new Set([...todo.meters].map((key) => roomName(key.split(':')[0])))];
   const freeUnits = property.units.filter((u) => active.filter((t) => t.unitId === u.id).length < u.capacity);
   const freeBeds = freeUnits.reduce((sum, u) => sum + u.capacity - active.filter((t) => t.unitId === u.id).length, 0);
@@ -42,15 +43,21 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
   const tasks: ReactNode[] = [];
   if (property.units.length === 0 && canEdit) tasks.push(<Task key="room" icon={DoorOpen} tone="primary" title="Add your first room"
     detail="Then you can move tenants in." action="Add room" primary onAction={onAddRoom} />);
-  if (canManage && todo.waiting.length) tasks.push(<Task key="meters" icon={Gauge} tone="amber"
+  if (canManage && todo.meters.size) tasks.push(<Task key="meters" icon={Gauge} tone="amber"
     title={`Read ${todo.meters.size} meter${todo.meters.size === 1 ? '' : 's'}`}
-    detail={`${names(meterRooms)} · ${todo.waiting.length} ${month} bill${todo.waiting.length === 1 ? ' waits' : 's wait'} for ${todo.meters.size === 1 ? 'it' : 'them'}`}
+    detail={`${names(meterRooms)} · needed for ${month} SOAs`}
     action="Read meters" primary onAction={onReadMeters} />);
+  if (canManage && todo.amounts.size) {
+    const what = [...todo.amounts].map((key) => { const [unitId, kind] = key.split(':'); return `${roomName(unitId)} ${kind === 'electric' ? 'electricity' : 'water'}`; });
+    tasks.push(<Task key="amounts" icon={ReceiptText} tone="amber"
+      title={`Add ${month} ${todo.amounts.size === 1 ? 'bill amount' : `${todo.amounts.size} bill amounts`}`}
+      detail={`${names(what)} · needed for ${month} SOAs`} action="Add bill amounts" primary={!todo.meters.size} onAction={onAddBillAmounts} />);
+  }
   if (canManage && todo.ready.length) tasks.push(<Task key="issue" icon={ReceiptText} tone="primary"
     title={`Generate ${todo.ready.length} SOA${todo.ready.length === 1 ? '' : 's'}`}
     detail={`${names(todo.ready.map((r) => name(r.t)))} · ${formatBillPesos(todo.readyTotal)} total`}
     action="Review" primary={!todo.waiting.length} onAction={onOpenBills} />);
-  const cancelled = canManage ? unreplacedCancelled({ property, tenancies, readings, bills }) : [];
+  const cancelled = canManage ? unreplacedCancelled({ property, tenancies, readings, bills, utilityBills }) : [];
   if (cancelled.length) {
     const what = (b: RentalBill) => `${(() => { const t = tenancyOf(b); return t ? name(t) : 'Tenant'; })()} (${
       b.kind === 'move_in' ? 'move-in' : b.kind === 'final' ? 'final' : periodLabel(b.period).split(' ')[0]})`;

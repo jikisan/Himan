@@ -192,6 +192,18 @@ describe('BillRepository', () => {
     await expect(new BillRepository().saveReadings('p', [{ unitId: U, kind: 'electric', readOn: '2026-11-10', value: 1, isReset: false }]))
       .rejects.toThrow('This reading is on an issued bill. Cancel that bill first.');
   });
+  it('saves a month’s bill amount, correcting one already there', async () => {
+    const U = '00000000-0000-0000-0000-000000000001';
+    const update = result({ id: 'ub' });
+    mock.from.mockReturnValueOnce(result([{ id: 'ub', unit_id: U, kind: 'electric', period: '2026-11' }])).mockReturnValue(update);
+    await new BillRepository().saveUtilityBills('p', [{ unitId: U, kind: 'electric', period: '2026-11', amountCentavos: 234500 }]);
+    expect(update.insert).not.toHaveBeenCalled();
+    expect(update.update).toHaveBeenCalledWith({ amount_centavos: 234500 });
+  });
+  it('maps utility bill rows', async () => {
+    mock.from.mockReturnValue(result([{ id: 'ub', property_id: 'p', unit_id: 'u', kind: 'electric', period: '2026-11', amount_centavos: 234500 }]));
+    expect(await new BillRepository().findUtilityBills()).toEqual([{ id: 'ub', propertyId: 'p', unitId: 'u', kind: 'electric', period: '2026-11', amountCentavos: 234500 }]);
+  });
   it('explains a second reading on the same day', async () => {
     mock.from.mockReturnValueOnce(result([])).mockReturnValue(result(null, { code: '23505', message: 'dup' }));
     await expect(new BillRepository().saveReadings('p', [{ unitId: '00000000-0000-0000-0000-000000000001', kind: 'electric',

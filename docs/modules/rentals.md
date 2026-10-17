@@ -90,6 +90,11 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
 - Web Vitest: 263/263 (rentals: billing 22, repository, flows, Bills view, page).
 
 ## Deploy order
+- Apply `20261018000000_add_rental_utility_bills.sql` before deploying the web build that reads `rental_utility_bills`
+  (the page loads it on start and fails without the table). Adds utility mode `monthly` ("Actual bill amount each month":
+  the month's bill per room, typed in Bills → Bill amounts, split between tenants present on the due date, line `billMonth`).
+  Applied to remote 2026-10-17 with `supabase db query --linked` in one transaction + `migration repair`; verified RLS on,
+  4 policies, no anon access, new unit checks, existing bills still valid.
 - Done 2026-10-17: `20261017000000` applied alone to the linked Himan project (`db query --linked -f`, one transaction)
   and recorded with `migration repair --status applied 20261017000000`. Verified: both tables with RLS, 7 policies,
   both RPCs, no anon EXECUTE, `rental_start_tenancy` issues move-in bills, new columns present, 0 bills.

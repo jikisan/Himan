@@ -1,9 +1,13 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { formatPesos } from './money.js';
 import type { BillLine, MeterKind } from './schemas.js';
-import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit } from './types.js';
+import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from './types.js';
 
-export interface BillingContext { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[] }
+export interface BillingContext {
+  property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[];
+  /** Monthly utility bill amounts, for utilities set to 'monthly'. */
+  utilityBills?: UtilityBill[];
+}
 export type Pending = { state: 'issued'; bill: RentalBill } | { state: 'covered' } | { state: 'none' }
   | { state: 'needs-reading'; kinds: MeterKind[] } | { state: 'ready'; dueOn: string; lines: BillLine[] };
 export interface Segment { from: MeterReading; to: MeterReading; usageHundredths: number }
@@ -73,15 +77,29 @@ const present = (t: RentalTenancy, end: string) => t.moveIn < end && (t.moveOut 
 const UTILITY_LABEL: Record<MeterKind, string> = { electric: 'Electricity', water: 'Water' };
 
 /** This tenancy's unbilled share of a utility, as one line; null when there is nothing to bill. */
-export function utilityLine({ unit, kind, tenancy, tenancies, readings, bills, upTo }: {
+export function utilityLine({ unit, kind, tenancy, tenancies, readings, bills, upTo, period, dueOn: due, utilityBills = [] }: {
   unit: RentalUnit; kind: MeterKind; tenancy: RentalTenancy; tenancies: RentalTenancy[];
   readings: MeterReading[]; bills: RentalBill[]; upTo?: string;
+  /** For 'monthly' utilities: the SOA's month and due date, and the amounts entered. */
+  period?: string; dueOn?: string; utilityBills?: UtilityBill[];
 }): BillLine | null {
   const mode = kind === 'electric' ? unit.electricMode : unit.waterMode;
   const rate = kind === 'electric' ? unit.electricAmountCentavos : unit.waterAmountCentavos;
   const label = UTILITY_LABEL[kind];
   if (mode === 'none') return null;
   if (mode === 'fixed') return { kind, label, amount: rate };
+  if (mode === 'monthly') {
+    // The month's actual bill goes on that month's SOA, split between whoever lives in the room on the due date.
+    const bill = period && utilityBills.find((b) => b.unitId === unit.id && b.kind === kind && b.period === period);
+    if (!bill) return null;
+    const on = due ?? `${period}-28`;
+    const sharing = tenancies.filter((t) => t.unitId === unit.id && t.moveIn <= on && (t.moveOut === null || t.moveOut >= on))
+      .sort((a, b) => a.moveIn.localeCompare(b.moveIn) || a.id.localeCompare(b.id));
+    const count = Math.max(sharing.length, 1);
+    const share = Math.floor(bill.amountCentavos / count);
+    const amount = share + (!sharing.length || sharing[0].id === tenancy.id ? bill.amountCentavos - share * count : 0);
+    return { kind, label: count > 1 ? `${label} (1/${count} share)` : label, amount, billMonth: period };
+  }
   const billed = new Set(bills.filter((b) => b.tenancyId === tenancy.id && b.status === 'issued')
     .flatMap((b) => b.lines.flatMap((l) => l.meter?.readings ?? [])));
   const mine = meterSegments(readings.filter((r) => r.unitId === unit.id && r.kind === kind))
@@ -103,6 +121,8 @@ export function utilityLine({ unit, kind, tenancy, tenancies, readings, bills, u
 }
 
 const isMetered = (unit: RentalUnit, kind: MeterKind) => (kind === 'electric' ? unit.electricMode : unit.waterMode) === 'submeter';
+/** Utilities that wait for something each month: a meter reading, or the month's bill amount. */
+const needsInput = (unit: RentalUnit, kind: MeterKind) => isMetered(unit, kind) || (kind === 'electric' ? unit.electricMode : unit.waterMode) === 'monthly';
 
 // ── Bills ───────────────────────────────────────────────────────────────────
 
@@ -122,9 +142,10 @@ export function pendingBill(ctx: BillingContext, tenancyId: string, period: stri
     ...tenancy.charges.map((c) => ({ kind: 'charge' as const, label: c.label, amount: c.amount }))];
   const missing: MeterKind[] = [];
   for (const kind of ['water', 'electric'] as const) {
-    const line = unit && utilityLine({ unit, kind, tenancy, tenancies: ctx.tenancies, readings: ctx.readings, bills: ctx.bills });
+    const line = unit && utilityLine({ unit, kind, tenancy, tenancies: ctx.tenancies, readings: ctx.readings, bills: ctx.bills,
+      period, dueOn: due, utilityBills: ctx.utilityBills });
     if (line) lines.push(line);
-    else if (unit && isMetered(unit, kind)) missing.push(kind);
+    else if (unit && needsInput(unit, kind)) missing.push(kind);
   }
   if (missing.length && !opts.skipUtilities) return { state: 'needs-reading', kinds: missing.sort() };
   return { state: 'ready', dueOn: due, lines };
@@ -167,6 +188,7 @@ export function lineTitle(line: BillLine): string {
 }
 /** Usage detail for a metered line, e.g. "150 kWh × ₱16 (Oct 15: 1,200 → Nov 10: 1,350)". */
 export function meterDetail(line: BillLine): string {
+  if (line.billMonth && !line.meter) return `${periodLabel(line.billMonth)} bill`;
   const m = line.meter;
   if (!m || (line.kind !== 'electric' && line.kind !== 'water')) return '';
   return `${num(m.usage)} ${UNIT_OF[line.kind]} × ${formatBillPesos(m.rate)} (${short(m.fromDate)}: ${num(m.fromValue)} → ${short(m.toDate)}: ${num(m.toValue)})`

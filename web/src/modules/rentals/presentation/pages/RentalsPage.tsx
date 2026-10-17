@@ -47,6 +47,7 @@ function RentalsContent(state: RentalsState) {
   const [view, setView] = useState<'home' | 'rooms' | 'tenants' | 'bills'>('home');
   const [metersFromHome, setMetersFromHome] = useState(false);
   const [cancelledPeriod, setCancelledPeriod] = useState<string | null>(null);
+  const [amountsFromHome, setAmountsFromHome] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
@@ -64,10 +65,11 @@ function RentalsContent(state: RentalsState) {
   const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Tenant';
   const propertyBills = state.bills.filter((b) => b.propertyId === property?.id);
   const propertyReadings = state.readings.filter((r) => r.propertyId === property?.id);
-  const billTodo = property ? monthTodo(monthRows({ property, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills }, periodOf(manilaToday())),
+  const propertyUtilityBills = state.utilityBills.filter((b) => b.propertyId === property?.id);
+  const billTodo = property ? monthTodo(monthRows({ property, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills, utilityBills: propertyUtilityBills }, periodOf(manilaToday())),
     propertyBills, manilaToday()) : null;
   const billBadge = billTodo && isManager ? billTodo.waiting.length + billTodo.ready.length
-    + unreplacedCancelled({ property: property!, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills }).length : 0;
+    + unreplacedCancelled({ property: property!, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills, utilityBills: propertyUtilityBills }).length : 0;
   const movingOut = propertyTenancies.find((t) => t.id === movingOutId) ?? null;
   const canCreate = online && !!userId && !busy;
   const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} className="h-11 sm:h-9" onClick={() => setDialog({ type: 'setup' })} disabled={!canCreate}>
@@ -149,7 +151,7 @@ function RentalsContent(state: RentalsState) {
         <div className="space-y-3">
           <div role="group" aria-label="View" className="flex w-full gap-1 border-b sm:gap-6">
             {(['home', 'rooms', 'tenants', 'bills'] as const).map((v) => <button key={v} type="button" aria-pressed={view === v}
-              onClick={() => { setView(v); setMetersFromHome(false); setCancelledPeriod(null); }}
+              onClick={() => { setView(v); setMetersFromHome(false); setCancelledPeriod(null); setAmountsFromHome(false); }}
               className="-mb-px inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 border-transparent px-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-primary aria-pressed:font-semibold aria-pressed:text-primary sm:flex-none sm:text-base">
               {v === 'home' ? 'Home' : v === 'rooms' ? 'Rooms' : v === 'tenants' ? 'Tenants' : 'Bills'}
               {v === 'bills' && billBadge > 0 && <span aria-hidden className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold leading-5 text-white">{billBadge}</span>}
@@ -164,7 +166,8 @@ function RentalsContent(state: RentalsState) {
               onReadMeters={() => { setView('bills'); setMetersFromHome(true); }} onOpenBills={() => setView('bills')}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
-              onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }} />
+              onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }}
+              onAddBillAmounts={() => { setAmountsFromHome(true); setView('bills'); }} utilityBills={propertyUtilityBills} />
           : view === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
               <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
@@ -178,7 +181,7 @@ function RentalsContent(state: RentalsState) {
           : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName}
               onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
           : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
-              readings={propertyReadings} bills={propertyBills} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
+              readings={propertyReadings} bills={propertyBills} utilityBills={propertyUtilityBills} startWithAmounts={amountsFromHome} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })}
               onOpenPending={(tenancyId, period, skip) => setDialog({ type: 'pending', tenancyId, period, skip })} />}
       </>}
@@ -284,7 +287,7 @@ function RentalsContent(state: RentalsState) {
               action: { type: 'voidBill', id: bill.id, reason: '' },
               description: 'It stays in the list, marked cancelled, and this month can be billed again.' })} />;
           if (dialog.type !== 'pending') return null;
-          const pending = pendingBill({ property, tenancies: propertyTenancies, bills,
+          const pending = pendingBill({ property, tenancies: propertyTenancies, bills, utilityBills: propertyUtilityBills,
             readings: state.readings.filter((r) => r.propertyId === property.id) }, tenancy.id, dialog.period, { skipUtilities: dialog.skip });
           if (pending.state !== 'ready') return null;
           const draft = { period: dialog.period, dueOn: pending.dueOn, lines: pending.lines };

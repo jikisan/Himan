@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const UNIT_KINDS = ['whole', 'room', 'bedspace'] as const;
-export const UTILITY_MODES = ['none', 'submeter', 'fixed'] as const;
+export const UTILITY_MODES = ['none', 'submeter', 'fixed', 'monthly'] as const;
 export const LESSOR_CAPACITIES = ['owner', 'representative'] as const;
 export const RENTAL_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const;
 export const RENTAL_FILE_LIMIT = 10 * 1024 * 1024;
@@ -32,8 +32,9 @@ export const unitSchema = z.object({
   extraPersonRentCentavos: centavos(0).default(0),
 })
   .refine((u) => u.kind === 'bedspace' || u.capacity === 1, { message: 'Only shared rooms hold more than one tenant', path: ['capacity'] })
-  .refine((u) => (u.electricMode === 'none') === (u.electricAmountCentavos === 0), { message: 'Enter the electricity rate or amount', path: ['electricAmountCentavos'] })
-  .refine((u) => (u.waterMode === 'none') === (u.waterAmountCentavos === 0), { message: 'Enter the water rate or amount', path: ['waterAmountCentavos'] });
+  // 'monthly' takes the month's actual bill instead of a price on the room.
+  .refine((u) => (u.electricMode === 'none' || u.electricMode === 'monthly') === (u.electricAmountCentavos === 0), { message: 'Enter the electricity rate or amount', path: ['electricAmountCentavos'] })
+  .refine((u) => (u.waterMode === 'none' || u.waterMode === 'monthly') === (u.waterAmountCentavos === 0), { message: 'Enter the water rate or amount', path: ['waterAmountCentavos'] });
 
 export const renterSchema = z.object({
   fullName: z.string().trim().min(1, 'Enter the tenant’s name').max(160),
@@ -77,6 +78,8 @@ export const billLineSchema = z.object({
   label: z.string().trim().min(1, 'Enter a name for each line').max(80),
   amount: z.number().int().min(-2_000_000_000).max(2_000_000_000),
   period: z.object({ from: isoDate, to: isoDate }).optional(),
+  /** For a utility billed by the month's actual bill: which month's bill, e.g. "2026-10". */
+  billMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
   meter: z.object({
     readings: z.array(z.string()), fromDate: isoDate, fromValue: z.number(), toDate: isoDate, toValue: z.number(),
     usage: z.number(), rate: z.number().int(), sharedWith: z.number().int().min(1),
@@ -98,6 +101,12 @@ export const storedBillLineSchema = billLineSchema.extend({
 export const storedChargeSchema = tenancyChargeSchema.extend({ label: z.string(), amount: z.number().int() });
 
 const twoDecimals = (v: number) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
+export const utilityBillInputSchema = z.object({
+  unitId: z.guid(), kind: z.enum(METER_KINDS), period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  amountCentavos: z.number('Enter the bill amount').int().min(1, 'Enter the bill amount').max(2_000_000_000, 'That amount is too high'),
+});
+export type UtilityBillInput = z.infer<typeof utilityBillInputSchema>;
+
 export const readingInputSchema = z.object({
   unitId: z.guid(), kind: z.enum(METER_KINDS), readOn: z.iso.date('Choose the reading date'),
   value: z.number('Enter the meter reading').min(0, 'Readings can’t be negative').max(9_999_999_999)

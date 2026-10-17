@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile } from '../domain/index.js';
-import { METER_KINDS, RENTAL_ROLES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
+import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
+import { METER_KINDS, RENTAL_ROLES, UTILITY_MODES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
 
 export const unitRow = z.object({
   id: z.string(), property_id: z.string(), name: z.string(), kind: z.enum(['whole', 'room', 'bedspace']),
-  capacity: z.number(), electric_mode: z.enum(['none', 'submeter', 'fixed']), electric_amount_centavos: z.number(),
-  water_mode: z.enum(['none', 'submeter', 'fixed']), water_amount_centavos: z.number(),
+  capacity: z.number(), electric_mode: z.enum(UTILITY_MODES), electric_amount_centavos: z.number(),
+  water_mode: z.enum(UTILITY_MODES), water_amount_centavos: z.number(),
   default_rent_centavos: z.number().default(0), extra_person_rent_centavos: z.number().default(0),
 }).transform((r): RentalUnit => ({
   id: r.id, propertyId: r.property_id, name: r.name, kind: r.kind, capacity: r.capacity,
@@ -73,6 +73,10 @@ export const readingRow = z.object({
 }).transform((r): MeterReading => ({
   id: r.id, propertyId: r.property_id, unitId: r.unit_id, kind: r.kind, readOn: r.read_on, value: r.value, isReset: r.is_reset,
 }));
+
+export const utilityBillRow = z.object({
+  id: z.string(), property_id: z.string(), unit_id: z.string(), kind: z.enum(METER_KINDS), period: z.string(), amount_centavos: z.number(),
+}).transform((r): UtilityBill => ({ id: r.id, propertyId: r.property_id, unitId: r.unit_id, kind: r.kind, period: r.period, amountCentavos: r.amount_centavos }));
 
 export const billRow = z.object({
   id: z.string(), property_id: z.string(), tenancy_id: z.string(), kind: z.enum(['move_in', 'monthly', 'final']),

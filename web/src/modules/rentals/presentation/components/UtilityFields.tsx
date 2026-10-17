@@ -7,7 +7,7 @@ export type UtilityState = { modes: Record<Utility, UnitInput['electricMode']>; 
 
 const NAME = { electric: 'Electricity', water: 'Water' } as const;
 const RATE = { electric: 'Price per kWh', water: 'Price per m³' } as const;
-const MODE_LABEL = { none: 'Not included in rent', submeter: 'By meter reading', fixed: 'Fixed amount monthly' } as const;
+const MODE_LABEL = { none: 'Not included in rent', submeter: 'By meter reading', fixed: 'Fixed amount monthly', monthly: 'Actual bill amount each month' } as const;
 
 /** Electricity and water: how the tenant is charged, and the price. Shared by the room form and the setup wizard. */
 export function UtilityFields({ idPrefix, value, onChange }: { idPrefix: string; value: UtilityState; onChange(next: UtilityState): void }) {
@@ -18,7 +18,8 @@ export function UtilityFields({ idPrefix, value, onChange }: { idPrefix: string;
         {UTILITY_MODES.map((mode) => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
       </select>
     </Field>
-    {value.modes[key] === 'none' ? <div className="hidden sm:block" />
+    {value.modes[key] === 'monthly' ? <p className="self-end pb-2 text-xs text-muted-foreground">You type the amount from the {NAME[key].toLowerCase()} bill each month, in Bills.</p>
+      : value.modes[key] === 'none' ? <div className="hidden sm:block" />
       : <Field id={`${idPrefix}-${key}-amount`} label={value.modes[key] === 'submeter' ? RATE[key] : `${NAME[key]} per month`}>
         <MoneyInput id={`${idPrefix}-${key}-amount`} value={value.amounts[key]} placeholder="0.00"
           onChange={(e) => onChange({ ...value, amounts: { ...value.amounts, [key]: e.target.value } })} />

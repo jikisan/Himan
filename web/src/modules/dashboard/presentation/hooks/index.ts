@@ -1,4 +1,3 @@
 // Dashboard hooks
-// useDashboard, useStats, useChartData, etc.
 
-export {};
+export { useDashboardApps } from './useDashboardApps';

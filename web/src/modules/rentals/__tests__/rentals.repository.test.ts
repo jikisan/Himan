@@ -222,3 +222,15 @@ describe('PropertyRepository bill settings', () => {
     expect(save.update).toHaveBeenCalledWith(expect.objectContaining({ late_fee_centavos: 50000, rent_due_day: null }));
   });
 });
+
+describe('Malformed rows', () => {
+  it('skips a malformed bill instead of failing every bill', async () => {
+    mock.from.mockReturnValueOnce(result([billRow, { ...billRow, id: 'bad', lines: [{ kind: 'bribe', label: '', amount: 'x' }] }]));
+    expect((await new BillRepository().findAll()).map((b) => b.id)).toEqual(['b']);
+  });
+  it('treats malformed extra charges as none', async () => {
+    mock.from.mockReturnValueOnce(result([{ id: 't', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01',
+      move_out: null, charges: [{ label: 'Parking', amount: 'x' }] }]));
+    expect((await new TenancyRepository().findAll())[0].charges).toEqual([]);
+  });
+});

@@ -47,7 +47,10 @@ Renter ID files: bucket `rental-files` (private), managers only, 60-second signe
 - One active tenancy per renter per unit; one active contract per tenancy.
 - Tenancies never deleted; ending one sets `move_out` and ends its active contract.
 - Property with tenancy history can't be deleted → archive.
-- Bill numbers `PREFIX-YYYY-NNNN` per property, assigned only in `rental_issue_bill` under an advisory lock; unique.
+- Bill numbers `PREFIX-YYYY-NNNN` per property (format CHECK), assigned only in `rental_issue_bill` (SECURITY DEFINER,
+  checks manager role itself) under an advisory lock; unique. No direct INSERT on `rental_bills` (`20261017100000`).
+- Bill lines and extra charges are validated per item in the database (`rental_valid_bill_lines`,
+  `rental_valid_charges`); the client also skips a malformed bill row instead of failing the whole load.
 - One issued monthly bill per tenancy per month; one issued move-in bill per tenancy. Cancelled bills can't change.
 - Advance/deposit locked once a move-in bill exists; rent locked once a monthly bill exists (renew via `rental_change_rent`).
 - A reading on an issued bill can't be edited or deleted.
@@ -84,6 +87,8 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   and recorded with `migration repair --status applied 20261017000000`. Verified: both tables with RLS, 7 policies,
   both RPCs, no anon EXECUTE, `rental_start_tenancy` issues move-in bills, new columns present, 0 bills.
   Browser: Bills tab loads real data; preview of a skip-utilities bill shows rent + fixed water; nothing issued.
+- Done 2026-10-17: `20261017100000` (hardening) applied the same way and recorded. Verified: no INSERT grant or policy on
+  `rental_bills`, `rental_issue_bill` is SECURITY DEFINER, the three validation CHECKs exist, no anon EXECUTE.
 - `20261017000000_add_rental_bills.sql` must be applied to the hosted DB **before** deploying the bills web build:
   loading `/rentals` reads `rental_bills` and `rental_meter_readings`.
 - Done 2026-10-16: `20261016100000` applied alone to the linked Himan project (`db query --linked -f`, one

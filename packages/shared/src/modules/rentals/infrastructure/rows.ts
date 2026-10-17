@@ -60,7 +60,8 @@ const contractRow = z.object({
 export const tenancyRow = z.object({
   id: z.string(), property_id: z.string(), unit_id: z.string(), renter_id: z.string(),
   move_in: z.string(), move_out: z.string().nullable(), contracts: z.array(contractRow).default([]),
-  charges: z.array(tenancyChargeSchema).default([]),
+  // One bad charge must not hide the tenant; the database validates them too.
+  charges: z.array(tenancyChargeSchema).default([]).catch([]),
 }).transform((r): RentalTenancy => ({
   id: r.id, propertyId: r.property_id, unitId: r.unit_id, renterId: r.renter_id,
   moveIn: r.move_in, moveOut: r.move_out, charges: r.charges,

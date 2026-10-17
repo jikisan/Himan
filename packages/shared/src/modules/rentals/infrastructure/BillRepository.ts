@@ -12,7 +12,11 @@ export class BillRepository {
     const { data, error } = await getSupabase().from('rental_bills').select('*')
       .order('issued_on', { ascending: false }).order('number', { ascending: false });
     if (error) throw rentalError(error, 'Could not load bills');
-    return z.array(billRow).parse(data);
+    // A malformed row is skipped so it can't stop every other bill from loading.
+    return z.array(z.unknown()).parse(data).flatMap((row) => {
+      const parsed = billRow.safeParse(row);
+      return parsed.success ? [parsed.data] : [];
+    });
   }
 
   async findReadings(): Promise<MeterReading[]> {

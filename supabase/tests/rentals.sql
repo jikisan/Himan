@@ -280,7 +280,8 @@ BEGIN
   VALUES ('00000000-0000-0000-0000-0000000ab009', '00000000-0000-0000-0000-0000000ac091', 'electric', '2026-11-01', 100)
   RETURNING id INTO v_r;
   PERFORM public.rental_issue_bill(v_t, 'final', '2026-11', '2026-11-30', jsonb_build_array(jsonb_build_object(
-    'kind', 'electric', 'label', 'Electricity', 'amount', 1000, 'meter', jsonb_build_object('readings', jsonb_build_array(v_r)))));
+    'kind', 'electric', 'label', 'Electricity', 'amount', 1000, 'meter', jsonb_build_object('readings', jsonb_build_array(v_r),
+    'fromDate', '2026-10-05', 'fromValue', 0, 'toDate', '2026-11-01', 'toValue', 100, 'usage', 100, 'rate', 10, 'sharedWith', 1))));
   BEGIN
     DELETE FROM public.rental_meter_readings WHERE id = v_r;
     RAISE EXCEPTION 'A billed reading was deleted';
@@ -305,6 +306,37 @@ BEGIN
     UPDATE public.rental_properties SET rent_due_day = 32 WHERE id = '00000000-0000-0000-0000-0000000ab009';
     RAISE EXCEPTION 'Due day 32 accepted';
   EXCEPTION WHEN check_violation THEN NULL; END;
+
+  -- 6b. Hardening: no direct inserts, numbers and lines are validated.
+  BEGIN
+    INSERT INTO public.rental_bills (property_id, tenancy_id, kind, period, number, issued_on, due_on, lines)
+    VALUES ('00000000-0000-0000-0000-0000000ab009', v_t, 'final', '2026-12', 'INV-' || v_year || '-abc', '2026-12-01', '2026-12-01',
+      '[{"kind":"rent","label":"Rent","amount":1}]');
+    RAISE EXCEPTION 'A bill was inserted directly';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  SELECT id INTO v_id FROM public.rental_bills WHERE tenancy_id = v_t AND status = 'issued' AND kind = 'monthly';
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":"x"}]' WHERE id = v_id;
+    RAISE EXCEPTION 'A line with a text amount was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"bribe","label":"Rent","amount":1}]' WHERE id = v_id;
+    RAISE EXCEPTION 'A line with an unknown kind was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"electric","label":"E","amount":1,"meter":{"readings":[1]}}]' WHERE id = v_id;
+    RAISE EXCEPTION 'A half-filled meter line was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":500000},{"kind":"other","label":"Discount","amount":-5000}]' WHERE id = v_id;
+  BEGIN
+    UPDATE public.rental_tenancies SET charges = '[{"label":"Parking","amount":0}]' WHERE id = v_t;
+    RAISE EXCEPTION 'A zero charge was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_tenancies SET charges = '[{"label":"","amount":100}]' WHERE id = v_t;
+    RAISE EXCEPTION 'A nameless charge was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  UPDATE public.rental_tenancies SET charges = '[{"label":"Parking","amount":100000}]' WHERE id = v_t;
 
   -- 7. Viewers can't issue.
   PERFORM public.rental_add_member('00000000-0000-0000-0000-0000000ab009', '00000000-0000-0000-0000-0000000aa002', 'viewer');

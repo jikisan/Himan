@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import type { ReactNode, RefObject } from 'react';
+import { format, parseISO } from 'date-fns';
+import { ChevronRight, Minus, Plus } from 'lucide-react';
 import { centavosToInput, formatPesos, manilaToday, moveInDefaults, parsePesos, proratedRent, renterSchema, roomRent, tenancyTermsSchema } from '@himan/shared/rentals';
 import type { MeterKind } from '@himan/shared/rentals';
 import type { RentalUnit, Renter, RenterInput } from '@himan/shared/rentals';
@@ -30,10 +32,15 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
   // Contract fields follow move-in and rent until the user types their own value.
   const [own, setOwn] = useState<{ endDate?: string; dueDay?: string; advance?: string; deposit?: string }>({});
   const [error, setError] = useState('');
-  const details = useRef<HTMLDetailsElement>(null);
-  // A problem in a field inside the collapsed section opens it so the field is visible.
+  const contractRef = useRef<HTMLDetailsElement>(null);
+  const metersRef = useRef<HTMLDetailsElement>(null);
+  const contactRef = useRef<HTMLDetailsElement>(null);
+  // A problem in a field inside a collapsed section opens that section so the field is visible.
   const fail = (message: string, path: PropertyKey | undefined) => {
-    if (details.current && !['fullName', 'phone', 'moveIn', 'monthlyRentCentavos', 'advanceMonths', 'depositCentavos'].includes(String(path))) details.current.open = true;
+    const key = String(path);
+    const section = ['dueDay', 'endDate', 'startDate'].includes(key) ? contractRef : ['readings', 'charges'].includes(key) ? metersRef
+      : ['facebook', 'email', 'address', 'emergencyName', 'emergencyPhone', 'notes', 'occupants'].includes(key) ? contactRef : null;
+    if (section?.current) section.current.open = true;
     setError(message);
   };
   const [readings, setReadings] = useState<Partial<Record<MeterKind, string>>>({});
@@ -100,61 +107,72 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
         <Field id="add-move-in" label="Move-in date" className="sm:col-span-2">
           <input id="add-move-in" type="date" className={inputClass} value={moveIn} onChange={(e) => setMoveIn(e.target.value)} />
         </Field>
-        {unit.kind !== 'bedspace' && <Field id="add-occupants" label="People living in the room" hint="including them">
-          <div className="flex h-11 overflow-hidden rounded-lg border border-input sm:h-10">
-            <button type="button" aria-label="One fewer person" disabled={people <= 1} onClick={() => setPeople(people - 1)}
-              className="flex w-11 items-center justify-center bg-muted/40 hover:bg-muted disabled:opacity-40"><Minus className="h-4 w-4" /></button>
-            <input id="add-occupants" type="number" min={1} max={50} value={person.occupants} onChange={setP('occupants')}
-              className="min-w-0 flex-1 bg-background text-center font-semibold tabular-nums focus-visible:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
-            <button type="button" aria-label="One more person" disabled={people >= 50} onClick={() => setPeople(people + 1)}
-              className="flex w-11 items-center justify-center bg-muted/40 hover:bg-muted disabled:opacity-40"><Plus className="h-4 w-4" /></button>
-          </div>
-        </Field>}
+        {unit.kind !== 'bedspace' && <div className="space-y-1.5">
+          <label htmlFor="add-occupants" className="text-sm font-medium">People in the room</label>
+          <Stepper id="add-occupants" value={person.occupants} min={1} max={50} less="One fewer person" more="One more person"
+            onChange={setPeople} onType={setP('occupants')} />
+          <p className="text-xs text-muted-foreground">Including the tenant</p>
+        </div>}
         <Field id="add-rent" label="Monthly rent" hint={unit.kind === 'bedspace' ? 'per bed' : undefined}>
           <MoneyInput id="add-rent" value={rent} placeholder="0.00" onChange={(e) => setOwnRent(e.target.value)} />
-          {perPerson && ownRent === null && <span className="mt-1 block text-xs text-muted-foreground">
-            {people > 1 ? `${formatPesos(unit.defaultRentCentavos)} + ${formatPesos(unit.extraPersonRentCentavos)} × ${people - 1} extra`
-              : `${formatPesos(unit.extraPersonRentCentavos)} more for each extra person`}</span>}
+          {perPerson && ownRent === null && <p className="text-xs text-muted-foreground">
+            {people > 1 ? `${formatPesos(unit.defaultRentCentavos)} + ${formatPesos(unit.extraPersonRentCentavos)} × ${people - 1} extra person${people === 2 ? '' : 's'}`
+              : `+${formatPesos(unit.extraPersonRentCentavos)} for each extra person`}</p>}
         </Field>
-        <Field id="add-advance" label="Advance months">
-          <input id="add-advance" type="number" min={0} max={12} className={inputClass} value={advance}
-            onChange={(e) => setOwn((o) => ({ ...o, advance: e.target.value }))} />
-        </Field>
+        <div className="space-y-1.5">
+          <label htmlFor="add-advance" className="text-sm font-medium">Advance months</label>
+          <Stepper id="add-advance" value={Number(advance) || 0} min={0} max={12} less="One month less" more="One month more"
+            onChange={(n) => setOwn((o) => ({ ...o, advance: String(n) }))} onType={(e) => setOwn((o) => ({ ...o, advance: e.target.value }))} />
+          <p className="text-xs text-muted-foreground">Rent paid ahead, used for the first months</p>
+        </div>
         <Field id="add-deposit" label="Deposit">
           <MoneyInput id="add-deposit" value={deposit} onChange={(e) => setOwn((o) => ({ ...o, deposit: e.target.value }))} />
+          <p className="text-xs text-muted-foreground">Kept until they move out</p>
         </Field>
-        <div aria-live="polite" className="flex items-center justify-between gap-3 rounded-xl bg-primary/10 px-4 py-3 sm:col-span-2">
-          <span className="text-sm"><span className="block font-medium">Collect on move-in</span>
-            <span className="block text-xs text-muted-foreground">{days ? `${days.days} day${days.days === 1 ? '' : 's'} rent + ` : ''}{advance || 0} month{advance === '1' ? '' : 's'} advance + deposit</span></span>
-          <span className="text-2xl font-bold tabular-nums text-primary">{total === null ? '—' : formatPesos(total)}</span>
+        <div aria-live="polite" className="rounded-xl bg-primary/10 px-4 py-3 text-sm sm:col-span-2">
+          <p className="font-semibold">Collect on move-in</p>
+          <dl className="mt-2 space-y-1 tabular-nums">
+            {days && days.amount > 0 && <Line label={`Rent for ${days.days} day${days.days === 1 ? '' : 's'} before the first due date`} amount={days.amount} />}
+            {rentValue !== null && Number(advance) > 0 && <Line label={`Advance · ${advance} month${advance === '1' ? '' : 's'}`} amount={rentValue * Number(advance)} />}
+            {depositValue !== null && depositValue > 0 && <Line label="Deposit" amount={depositValue} />}
+          </dl>
+          <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-primary/20 pt-2">
+            <span className="font-semibold">Total</span>
+            <span className="text-2xl font-bold tabular-nums text-primary">{total === null ? '—' : formatPesos(total)}</span>
+          </div>
         </div>
       </FormSection>
-      <details ref={details} className="group rounded-lg border p-4 [&_summary::-webkit-details-marker]:hidden">
-        <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between text-sm font-semibold">
-          <span>Contract and contact <span className="font-normal text-muted-foreground">(optional)</span></span><span aria-hidden className="text-muted-foreground transition-transform group-open:rotate-90">›</span>
-        </summary>
-        <div className="mt-4 space-y-6">
-          <FormSection title="Contract" description="Filled in for you. Change only if your agreement is different.">
-            <Field id="add-due" label="Due day" hint="31 = month end">
-              <input id="add-due" type="number" min={1} max={31} className={inputClass} value={dueDay}
-                onChange={(e) => setOwn((o) => ({ ...o, dueDay: e.target.value }))} />
-            </Field>
-            <Field id="add-end" label="Contract ends">
-              <input id="add-end" type="date" className={inputClass} value={endDate} onChange={(e) => setOwn((o) => ({ ...o, endDate: e.target.value }))} />
-            </Field>
-          </FormSection>
-          {meters.length > 0 && <FormSection title="Starting meter readings" description="Optional. The number on the meter today, so the first bill has usage.">
-            {meters.map((kind) => <Field key={kind} id={`add-reading-${kind}`} label={kind === 'electric' ? 'Electricity reading' : 'Water reading'}>
-              <input id={`add-reading-${kind}`} type="number" inputMode="decimal" min={0} step="any" className={inputClass}
-                value={readings[kind] ?? ''} onChange={(e) => setReadings((r) => ({ ...r, [kind]: e.target.value }))} />
-            </Field>)}
-          </FormSection>}
-          <section className="space-y-3">
-            <div><h3 className="text-sm font-semibold">Extra monthly charges</h3>
-              <p className="text-xs text-muted-foreground">Optional, e.g. parking. Added to every bill.</p></div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">More details <span className="font-normal text-muted-foreground">(optional, filled in for you)</span></p>
+        <Collapsible refEl={contractRef} title="Contract"
+          summary={`Due every ${dueNumber >= 1 && dueNumber <= 31 ? (dueNumber === 31 ? 'month end' : ordinal(dueNumber)) : '—'} · ends ${endDate ? format(parseISO(endDate), 'MMM d, yyyy') : '—'}`}>
+          <p className="text-xs text-muted-foreground sm:col-span-2">Change only if your agreement is different.</p>
+          <Field id="add-due" label="Due day" hint="31 = month end">
+            <input id="add-due" type="number" min={1} max={31} className={inputClass} value={dueDay}
+              onChange={(e) => setOwn((o) => ({ ...o, dueDay: e.target.value }))} />
+          </Field>
+          <Field id="add-end" label="Contract ends">
+            <input id="add-end" type="date" className={inputClass} value={endDate} onChange={(e) => setOwn((o) => ({ ...o, endDate: e.target.value }))} />
+          </Field>
+        </Collapsible>
+        <Collapsible refEl={metersRef} title={meters.length ? 'Meters and extra charges' : 'Extra charges'}
+          summary={[meters.length ? (meters.some((k) => readings[k]?.trim()) ? 'Starting reading added' : 'No starting reading') : '',
+            charges.length ? `${charges.length} extra charge${charges.length === 1 ? '' : 's'}` : 'No extra charges'].filter(Boolean).join(' · ')}>
+          {meters.map((kind) => <Field key={kind} id={`add-reading-${kind}`} label={kind === 'electric' ? 'Electricity reading today' : 'Water reading today'}>
+            <input id={`add-reading-${kind}`} type="number" inputMode="decimal" min={0} step="any" className={inputClass}
+              value={readings[kind] ?? ''} onChange={(e) => setReadings((r) => ({ ...r, [kind]: e.target.value }))} />
+          </Field>)}
+          {meters.length > 0 && <p className="text-xs text-muted-foreground sm:col-span-2">The number on the meter today, so their first SOA counts usage from here.</p>}
+          <div className="space-y-2 sm:col-span-2">
+            <p className="text-sm font-medium">Extra monthly charges <span className="font-normal text-muted-foreground">e.g. parking, added to every SOA</span></p>
             <ChargesEditor idPrefix="add" value={charges} onChange={setCharges} />
-          </section>
-          {existingId === null && <FormSection title="Contact and household">
+          </div>
+        </Collapsible>
+        <Collapsible refEl={contactRef} title="Contact and emergency"
+          summary={existingId !== null ? 'Already on file' : [person.facebook, person.emergencyName].filter(Boolean).join(' · ') || 'Messenger, email, emergency contact'}>
+          {existingId !== null ? <p className="text-sm text-muted-foreground sm:col-span-2">
+            Their contact details are already on file. Change them from their tenant sheet after moving them in.</p> : <>
             {text('facebook', 'Facebook / Messenger')}
             {text('email', 'Email', { type: 'email', autoComplete: 'email' })}
             {text('address', 'Home address', { autoComplete: 'street-address', wide: true })}
@@ -166,12 +184,49 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
             <Field id="add-notes" label="Notes" className="sm:col-span-2">
               <textarea id="add-notes" className={cn(inputClass, 'h-20 py-2 sm:h-20')} value={person.notes} onChange={setP('notes')} />
             </Field>
-          </FormSection>}
-          <p className="text-xs text-muted-foreground">Attach their valid ID after moving them in, from their tenant sheet.</p>
-        </div>
-      </details>
+            <p className="text-xs text-muted-foreground sm:col-span-2">Attach their valid ID after moving them in, from their tenant sheet.</p>
+          </>}
+        </Collapsible>
+      </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <FormActions submit="Move in" onCancel={onCancel} />
     </fieldset>
   </form>;
+}
+
+const ordinal = (n: number) => {
+  const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${tail}`;
+};
+
+/** − value + box; the number can also be typed. */
+function Stepper({ id, value, min, max, less, more, onChange, onType }: {
+  id: string; value: number; min: number; max: number; less: string; more: string;
+  onChange(n: number): void; onType(e: { target: { value: string } }): void;
+}) {
+  const btn = 'flex w-11 items-center justify-center bg-muted/40 transition-colors hover:bg-muted disabled:opacity-40';
+  return <div className="flex h-11 overflow-hidden rounded-lg border border-input sm:h-10">
+    <button type="button" aria-label={less} disabled={value <= min} onClick={() => onChange(value - 1)} className={btn}><Minus className="h-4 w-4" /></button>
+    <input id={id} type="number" min={min} max={max} value={value} onChange={onType}
+      className="min-w-0 flex-1 bg-background text-center font-semibold tabular-nums focus-visible:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+    <button type="button" aria-label={more} disabled={value >= max} onClick={() => onChange(value + 1)} className={btn}><Plus className="h-4 w-4" /></button>
+  </div>;
+}
+
+function Line({ label, amount }: { label: string; amount: number }) {
+  return <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{label}</dt><dd>{formatPesos(amount)}</dd></div>;
+}
+
+/** A closed-by-default section that still shows what's in it. */
+function Collapsible({ refEl, title, summary, children }: {
+  refEl: RefObject<HTMLDetailsElement | null>; title: string; summary: string; children: ReactNode;
+}) {
+  return <details ref={refEl} className="group rounded-lg border [&_summary::-webkit-details-marker]:hidden">
+    <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{title}</span>
+        <span className="block truncate text-xs text-muted-foreground">{summary}</span></span>
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+    </summary>
+    <div className="grid gap-3 border-t px-4 py-4 sm:grid-cols-2">{children}</div>
+  </details>;
 }

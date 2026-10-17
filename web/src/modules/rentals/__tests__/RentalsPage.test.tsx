@@ -43,7 +43,13 @@ beforeEach(() => {
   state.bills = [];
   state.run.mockResolvedValue(undefined);
 });
-const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+// Opens on a tab (Rooms by default) when the property screen is showing.
+const page = (tab = 'Rooms') => {
+  const view = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+  const button = screen.queryByRole('button', { name: tab });
+  if (button) fireEvent.click(button);
+  return view;
+};
 const card = (name: string) => within(screen.getByRole('region', { name }));
 
 describe('Rooms board', () => {
@@ -156,6 +162,19 @@ describe('Add tenant', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter the monthly rent');
   });
+  it('keeps contact in its own section, and explains it for someone already on file', () => {
+    openAdd();
+    expect(screen.getByLabelText('Emergency contact name').closest('details')).toHaveTextContent('Contact and emergency');
+    fireEvent.click(screen.getByRole('button', { name: 'Already a tenant' }));
+    expect(screen.getByText('Their contact details are already on file. Change them from their tenant sheet after moving them in.')).toBeInTheDocument();
+  });
+  it('breaks down what to collect on move-in', () => {
+    openAdd();
+    expect(screen.getByText('Advance · 1 month').nextElementSibling).toHaveTextContent('₱3,500.00');
+    expect(screen.getByText('Deposit', { selector: 'dt' }).nextElementSibling).toHaveTextContent('₱3,500.00');
+    fireEvent.click(screen.getByRole('button', { name: 'One month more' }));
+    expect(screen.getByText('Advance · 2 months')).toBeInTheDocument();
+  });
   it('opens More details when the problem is hidden inside it', async () => {
     openAdd();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
@@ -163,7 +182,7 @@ describe('Add tenant', () => {
     fireEvent.change(screen.getByLabelText('Contract ends'), { target: { value: '2020-01-01' } });
     fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Contract must end after it starts');
-    expect(screen.getByText('Contract and contact').closest('details')).toHaveAttribute('open');
+    expect(screen.getByText('Contract').closest('details')).toHaveAttribute('open');
   });
   it('asks for a name before saving', async () => {
     openAdd();
@@ -191,6 +210,22 @@ describe('Tenant sheet and move out', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateTerms', contractId: 'c-t3',
       input: { monthlyRentCentavos: 400000, dueDay: 5, advanceMonths: 2, depositCentavos: 800000 } }));
+  });
+  it('links Messenger from the sheet', () => {
+    state.renters = state.renters.map((r) => (r.id === 'r3' ? { ...r, facebook: 'carlo.lim' } : r));
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    const sheet = within(screen.getByRole('dialog'));
+    expect(sheet.getByRole('link', { name: 'Messenger' })).toHaveAttribute('href', 'https://m.me/carlo.lim');
+    expect(sheet.getByRole('link', { name: 'carlo.lim (opens Facebook)' })).toHaveAttribute('target', '_blank');
+  });
+  it('shows a short label for a long Messenger link', () => {
+    const long = 'https://www.messenger.com/e2ee/t/7493840129384712/?ref=abc&tracking=xyz';
+    state.renters = state.renters.map((r) => (r.id === 'r3' ? { ...r, facebook: long } : r));
+    page();
+    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    const link = within(screen.getByRole('dialog')).getByRole('link', { name: 'Messenger chat (opens Facebook)' });
+    expect(link).toHaveAttribute('href', long);
   });
   it('moves a tenant out from their sheet', async () => {
     page();
@@ -233,11 +268,11 @@ describe('Per-person room price', () => {
     expect(card('Room C').getByText('Private room · +₱500.00 per extra person')).toBeInTheDocument();
     fireEvent.click(card('Room C').getByRole('button', { name: 'Add tenant' }));
     expect(screen.getByLabelText('Monthly rent')).toHaveValue('3000.00');
-    fireEvent.change(screen.getByLabelText('People living in the room'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('People in the room'), { target: { value: '2' } });
     expect(screen.getByLabelText('Monthly rent')).toHaveValue('3500.00');
-    expect(screen.getByText('₱3,000.00 + ₱500.00 × 1 extra')).toBeInTheDocument();
+    expect(screen.getByText('₱3,000.00 + ₱500.00 × 1 extra person')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Monthly rent'), { target: { value: '3,200' } });
-    fireEvent.change(screen.getByLabelText('People living in the room'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('People in the room'), { target: { value: '3' } });
     expect(screen.getByLabelText('Monthly rent')).toHaveValue('3,200');
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
@@ -260,20 +295,21 @@ describe('Per-person room price', () => {
 describe('Overview', () => {
   it('lists rent due in the next 7 days', () => {
     vi.setSystemTime(new Date('2026-10-26T02:00:00Z'));
-    page();
+    page('Home');
     const due = within(screen.getByRole('region', { name: 'Rent due in the next 7 days' }));
-    expect(due.getByRole('button', { name: /Ana Cruz.*Room A · in 4 days/ })).toBeInTheDocument();
+    expect(due.getByRole('button', { name: /Ana Cruz.*Room A.*in 4 days/ })).toBeInTheDocument();
     expect(due.getAllByRole('button')).toHaveLength(3);
   });
   it('hides rent due later than a week', () => {
-    page();
+    page('Home');
     expect(screen.queryByRole('region', { name: 'Rent due in the next 7 days' })).not.toBeInTheDocument();
   });
-  it('switches property from the side list', () => {
+  it('switches property from the dropdown by the name', () => {
     state.properties = [property, { ...property, id: 'p2', name: 'Mabolo Studio', units: [] }];
     page();
-    fireEvent.click(screen.getByRole('button', { name: /^Mabolo Studio/ }));
-    expect(screen.getByRole('heading', { name: 'Mabolo Studio' })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole('button', { name: /switch property/ }), { button: 0, ctrlKey: false });
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Mabolo Studio/ }));
+    expect(screen.getByRole('heading', { name: /^Mabolo Studio/ })).toBeInTheDocument();
     expect(screen.getByText('No rooms yet')).toBeInTheDocument();
   });
 });
@@ -370,18 +406,18 @@ describe('Property and room forms', () => {
 });
 
 describe('Property summary edge cases', () => {
-  it('does not claim every bed is taken when there are no rooms', () => {
+  it('asks for a first room on Home when there are no rooms', () => {
     state.properties = [{ ...property, units: [] }];
     state.tenancies = [];
-    page();
-    expect(screen.queryByText('Every bed is taken')).not.toBeInTheDocument();
-    expect(screen.getByText('Add a room first')).toBeInTheDocument();
+    page('Home');
+    expect(screen.getByText('Add your first room')).toBeInTheDocument();
+    expect(screen.queryByText(/free bed/)).not.toBeInTheDocument();
   });
 });
 
 describe('Bills in the existing screens', () => {
   const metered = (u: RentalUnit) => ({ ...u, electricMode: 'submeter' as const, electricAmountCentavos: 1600 });
-  const openDetails = () => fireEvent.click(screen.getByText(/Contract and contact/));
+  const openDetails = () => fireEvent.click(screen.getByText('Meters and extra charges'));
   it('takes starting readings and extra charges when moving someone in', async () => {
     state.run.mockResolvedValue({ renterId: 'r9', warnings: [] });
     state.properties = [{ ...property, units: [metered(property.units[0]), property.units[1]] }];
@@ -390,7 +426,7 @@ describe('Bills in the existing screens', () => {
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     openDetails();
-    fireEvent.change(screen.getByLabelText('Electricity reading'), { target: { value: '1200' } });
+    fireEvent.change(screen.getByLabelText('Electricity reading today'), { target: { value: '1200' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
     fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Parking' } });
     fireEvent.change(screen.getByLabelText('Charge amount'), { target: { value: '1,000' } });
@@ -406,7 +442,8 @@ describe('Bills in the existing screens', () => {
     fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]);
     fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-10-15' } });
     expect(screen.getByText('₱9,450.00')).toBeInTheDocument();
-    expect(screen.getByText('21 days rent + 1 month advance + deposit')).toBeInTheDocument();
+    expect(screen.getByText('Rent for 21 days before the first due date')).toBeInTheDocument();
+    expect(screen.getByText('Advance · 1 month')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
@@ -421,7 +458,7 @@ describe('Bills in the existing screens', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'moveOut', tenancyId: 't3', moveOut: '2026-10-10',
       readings: [{ kind: 'electric', value: 900 }] }));
-    expect(toasts.success).toHaveBeenCalledWith('Moved out. Final bill issued.');
+    expect(toasts.success).toHaveBeenCalledWith('Moved out. Final SOA generated.');
   });
   it('saves extra monthly charges from the tenant sheet', async () => {
     page();

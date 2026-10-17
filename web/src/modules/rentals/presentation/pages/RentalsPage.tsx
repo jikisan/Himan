@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowLeft, Building2, DoorClosed, House, KeyRound, MoreHorizontal, Pencil, Plus,
+import { Archive, ArchiveRestore, ArrowLeft, Building2, Check, ChevronDown, DoorClosed, House, KeyRound, MoreHorizontal, Pencil, Plus,
   Share2, Trash2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { formatPesos, hasRentalRole, manilaToday, nextDueDate, pendingBill } from '@himan/shared/rentals';
+import { formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf } from '@himan/shared/rentals';
 import type { RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
@@ -25,6 +24,8 @@ import { TenantSheet } from '../components/TenantSheet';
 import { MoveOutDialog } from '../components/MoveOutDialog';
 import { SetupWizard } from '../components/SetupWizard';
 import { BillsView } from '../components/BillsView';
+import { HomeView } from '../components/HomeView';
+import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { BillSheet } from '../components/BillSheet';
 import { cn } from '@core/presentation/utils';
 import { errorMessage } from '../utils/errorMessage';
@@ -43,7 +44,9 @@ export function RentalsPage() {
 function RentalsContent(state: RentalsState) {
   const { properties, tenancies, loading, error, online, userId, busy, run, refetch, fileUrl } = state;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [view, setView] = useState<'rooms' | 'tenants' | 'bills'>('rooms');
+  const [view, setView] = useState<'home' | 'rooms' | 'tenants' | 'bills'>('home');
+  const [metersFromHome, setMetersFromHome] = useState(false);
+  const [cancelledPeriod, setCancelledPeriod] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
@@ -59,18 +62,12 @@ function RentalsContent(state: RentalsState) {
   const activeTenancies = propertyTenancies.filter((t) => t.moveOut === null);
   const unitName = (id: string) => property?.units.find((u) => u.id === id)?.name ?? 'Room';
   const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Tenant';
-  const beds = property?.units.reduce((sum, u) => sum + u.capacity, 0) ?? 0;
-  const rentRoll = activeTenancies.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
-  const tenantCount = new Set(activeTenancies.map((t) => t.renterId)).size;
-  const freeRooms = (property?.units ?? []).filter((u) => activeTenancies.filter((t) => t.unitId === u.id).length < u.capacity).map((u) => u.name);
-  const today = manilaToday();
-  const dueSoon = activeTenancies.flatMap((tenancy) => {
-    const contract = tenancy.contracts.find((c) => c.status === 'active');
-    if (!contract) return [];
-    const date = nextDueDate(contract.dueDay, today);
-    const inDays = differenceInCalendarDays(parseISO(date), parseISO(today));
-    return inDays <= 7 ? [{ tenancy, rent: contract.monthlyRentCentavos, date, inDays }] : [];
-  }).sort((a, b) => a.inDays - b.inDays);
+  const propertyBills = state.bills.filter((b) => b.propertyId === property?.id);
+  const propertyReadings = state.readings.filter((r) => r.propertyId === property?.id);
+  const billTodo = property ? monthTodo(monthRows({ property, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills }, periodOf(manilaToday())),
+    propertyBills, manilaToday()) : null;
+  const billBadge = billTodo && isManager ? billTodo.waiting.length + billTodo.ready.length
+    + unreplacedCancelled({ property: property!, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills }).length : 0;
   const movingOut = propertyTenancies.find((t) => t.id === movingOutId) ?? null;
   const canCreate = online && !!userId && !busy;
   const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} className="h-11 sm:h-9" onClick={() => setDialog({ type: 'setup' })} disabled={!canCreate}>
@@ -84,33 +81,8 @@ function RentalsContent(state: RentalsState) {
   return <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <Link to="/dashboard" className="mb-4 inline-flex items-center gap-2 rounded text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ArrowLeft size={16} />Dashboard</Link>
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-      <aside aria-label="Properties" className="min-w-0 lg:w-60 lg:shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">Rentals</h1>
-        {online && userId && !loading && !error && property && <>
-          <p className="mt-4 mb-1 hidden px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground lg:block">Properties</p>
-          <ul className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:mt-0 lg:flex-col lg:gap-1 lg:overflow-visible">
-            {ordered.map((p) => {
-              const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
-              const total = p.units.reduce((sum, u) => sum + u.capacity, 0);
-              return <li key={p.id} className="shrink-0 lg:shrink">
-                <button type="button" aria-pressed={p.id === property.id} onClick={() => setSelectedId(p.id)}
-                  className={cn('flex w-44 flex-col gap-2 rounded-lg border border-transparent p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-full',
-                    'aria-pressed:border-primary/50 aria-pressed:bg-muted aria-pressed:shadow-sm', p.archivedAt && 'opacity-60')}>
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-semibold">{p.name}{p.archivedAt && <span className="sr-only"> (archived)</span>}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{taken}/{total}</span>
-                  </span>
-                  <Meter value={taken} max={total} />
-                </button>
-              </li>;
-            })}
-          </ul>
-          <div className="mt-2">{newProperty(false)}</div>
-        </>}
-      </aside>
-
-      <main className="min-w-0 flex-1 space-y-5">
+    <h1 className="mb-4 text-2xl font-bold tracking-tight">Rentals</h1>
+      <main className="space-y-5">
     {!online ? <Empty icon={WifiOff} title="You’re offline">Connect to the internet to manage rentals.</Empty>
       : !userId ? <Empty icon={KeyRound} title="Signed out">Sign in to manage rentals.</Empty>
       : loading ? <div role="status" aria-label="Loading rentals" className="space-y-4">
@@ -125,7 +97,33 @@ function RentalsContent(state: RentalsState) {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-bold tracking-tight">{property.name}</h2>
+                <h2 className="min-w-0 text-2xl font-bold tracking-tight">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="inline-flex max-w-full items-center gap-2 rounded-md text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <span className="truncate">{property.name}</span>
+                        <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
+                        <span className="sr-only"> (switch property)</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-72">
+                      {ordered.map((p) => {
+                        const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
+                        const total = p.units.reduce((sum, u) => sum + u.capacity, 0);
+                        return <DropdownMenuItem key={p.id} className="gap-3 py-2" onSelect={() => setSelectedId(p.id)}>
+                          <Check aria-hidden className={cn('h-4 w-4 shrink-0', p.id !== property.id && 'invisible')} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{p.name}</span>
+                            <span className="block text-xs text-muted-foreground">{taken} of {total} beds taken{p.archivedAt && ' · Archived'}</span>
+                          </span>
+                        </DropdownMenuItem>;
+                      })}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="gap-3 py-2" disabled={!canCreate} onSelect={() => setDialog({ type: 'setup' })}>
+                        <Plus aria-hidden className="h-4 w-4" />New property</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </h2>
                 {role && <RoleBadge role={role} />}
                 {property.archivedAt && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Archived</span>}
               </div>
@@ -145,46 +143,29 @@ function RentalsContent(state: RentalsState) {
               </DropdownMenu>
             </div>}
           </div>
-          <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-            <Stat label="Monthly rent" value={formatPesos(rentRoll)} className="col-span-2 sm:col-span-1">
-              {tenantCount} {tenantCount === 1 ? 'tenant' : 'tenants'}</Stat>
-            <Stat label="Beds taken" value={<>{activeTenancies.length} <span className="text-xs font-medium text-muted-foreground sm:text-base">of {beds}</span></>}>
-              <Meter value={activeTenancies.length} max={beds} /></Stat>
-            <Stat label="Free beds" value={beds - activeTenancies.length}>{beds === 0 ? 'Add a room first' : freeRooms.join(' · ') || 'Every bed is taken'}</Stat>
-          </dl>
         </section>
 
-        {dueSoon.length > 0 && <section aria-labelledby="rentals-due" className="rounded-xl border bg-card p-4 shadow-sm sm:p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 id="rentals-due" className="font-semibold">Rent due in the next 7 days</h3>
-            <span className="text-xs text-muted-foreground">From each tenant’s due day</span>
-          </div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {dueSoon.map(({ tenancy, rent, date, inDays }) => <li key={tenancy.id}>
-              <button type="button" onClick={() => setDialog({ type: 'tenant', renterId: tenancy.renterId })}
-                className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span aria-hidden className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                  <span className="text-[10px] font-bold uppercase leading-none">{format(parseISO(date), 'MMM')}</span>
-                  <span className="text-base font-bold leading-tight">{format(parseISO(date), 'd')}</span></span>
-                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{renterName(tenancy.renterId)}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{unitName(tenancy.unitId)} · {inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`}</span></span>
-                <span className="shrink-0 text-sm font-semibold tabular-nums">{formatPesos(rent)}</span>
-              </button>
-            </li>)}
-          </ul>
-        </section>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="group" aria-label="View" className="flex w-full rounded-lg bg-muted p-1 sm:inline-flex sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none">
-            {(['rooms', 'tenants', 'bills'] as const).map((v) => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
-              className="min-h-11 rounded-md px-4 sm:min-h-9 text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              {v === 'rooms' ? 'Rooms' : v === 'tenants' ? 'Tenants' : 'Bills'}</button>)}
+        <div className="space-y-3">
+          <div role="group" aria-label="View" className="flex w-full gap-1 border-b sm:gap-6">
+            {(['home', 'rooms', 'tenants', 'bills'] as const).map((v) => <button key={v} type="button" aria-pressed={view === v}
+              onClick={() => { setView(v); setMetersFromHome(false); setCancelledPeriod(null); }}
+              className="-mb-px inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 border-transparent px-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-primary aria-pressed:font-semibold aria-pressed:text-primary sm:flex-none sm:text-base">
+              {v === 'home' ? 'Home' : v === 'rooms' ? 'Rooms' : v === 'tenants' ? 'Tenants' : 'Bills'}
+              {v === 'bills' && billBadge > 0 && <span aria-hidden className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold leading-5 text-white">{billBadge}</span>}
+            </button>)}
           </div>
           {view === 'rooms' && isOwner && property.units.length > 0 && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'room', id: null })}>
             <Plus className="h-4 w-4" />Add room</Button>}
         </div>
 
-        {view === 'rooms' ? property.units.length === 0
+        {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills}
+              readings={propertyReadings} canManage={isManager} canEdit={isOwner}
+              onReadMeters={() => { setView('bills'); setMetersFromHome(true); }} onOpenBills={() => setView('bills')}
+              onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
+              onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
+              onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }} />
+          : view === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
               <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
           : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner}
@@ -197,12 +178,11 @@ function RentalsContent(state: RentalsState) {
           : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName}
               onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
           : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
-              readings={state.readings.filter((r) => r.propertyId === property.id)} bills={state.bills.filter((b) => b.propertyId === property.id)}
+              readings={propertyReadings} bills={propertyBills} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })}
               onOpenPending={(tenancyId, period, skip) => setDialog({ type: 'pending', tenancyId, period, skip })} />}
       </>}
       </main>
-    </div>
 
     <ConfirmDialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)} confirmText={confirm?.confirmText ?? ''}
       title={confirm?.title ?? ''} description={confirm?.description ?? ''}
@@ -213,7 +193,7 @@ function RentalsContent(state: RentalsState) {
       onConfirm={(moveOut, readings) => {
         if (movingOut) void run({ type: 'moveOut', tenancyId: movingOut.id, moveOut, readings }).then((result) => {
           const { warnings, finalBillId } = result as { warnings: string[]; finalBillId: string | null };
-          toast.success(finalBillId ? 'Moved out. Final bill issued.' : 'Moved out');
+          toast.success(finalBillId ? 'Moved out. Final SOA generated.' : 'Moved out');
           warnings.forEach((w) => toast.warning(w));
           setDialog(null);
         }, (e) => toast.error(errorMessage(e)));
@@ -300,7 +280,7 @@ function RentalsContent(state: RentalsState) {
           const info = billInfo(tenancy);
           if (bill) return <BillSheet bill={bill} info={info} canManage={isManager} busy={busy}
             onSaveLines={async (lines) => { await run({ type: 'updateBillLines', id: bill.id, lines }); }}
-            onCancelBill={() => setConfirm({ title: `Cancel ${bill.number}?`, confirmText: 'Cancel this bill', done: 'Bill cancelled',
+            onCancelBill={() => setConfirm({ title: `Cancel ${bill.number}?`, confirmText: 'Cancel this SOA', done: 'SOA cancelled',
               action: { type: 'voidBill', id: bill.id, reason: '' },
               description: 'It stays in the list, marked cancelled, and this month can be billed again.' })} />;
           if (dialog.type !== 'pending') return null;
@@ -311,7 +291,7 @@ function RentalsContent(state: RentalsState) {
           return <BillSheet bill={draft} info={info} canManage={isManager} busy={busy} onSaveLines={async () => undefined}
             onIssue={async () => {
               const { issued } = await run({ type: 'issueBills', inputs: [{ tenancyId: tenancy.id, kind: 'monthly', ...draft }] }) as { issued: number };
-              if (issued) { toast.success('Bill issued'); setDialog(null); } else toast.error('Couldn’t issue this bill. Try again.');
+              if (issued) { toast.success('SOA generated'); setDialog(null); } else toast.error('Couldn’t generate this SOA. Try again.');
             }} />;
         })()}
       </SheetContent>
@@ -319,18 +299,7 @@ function RentalsContent(state: RentalsState) {
   </div>;
 }
 
-function Stat({ label, value, className, children }: { label: string; value: ReactNode; className?: string; children: ReactNode }) {
-  return <div className={cn('min-w-0 rounded-lg bg-muted/30 px-3 py-2.5 sm:px-4 sm:py-3', className)}>
-    <dt className="truncate text-xs text-muted-foreground sm:text-sm">{label}</dt>
-    <dd className="mt-0.5 truncate text-lg font-bold tabular-nums sm:text-2xl">{value}</dd>
-    <dd className="mt-1.5 truncate text-xs text-muted-foreground sm:text-sm">{children}</dd>
-  </div>;
-}
 
-function Meter({ value, max }: { value: number; max: number }) {
-  return <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-muted">
-    <span className="block h-full rounded-full bg-primary" style={{ width: `${max ? Math.min(value / max, 1) * 100 : 0}%` }} /></span>;
-}
 
 function Empty({ icon: Icon, title, action, children }: { icon: typeof House; title: string; action?: ReactNode; children: ReactNode }) {
   return <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-12 text-center">

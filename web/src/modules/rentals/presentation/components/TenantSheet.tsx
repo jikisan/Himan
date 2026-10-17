@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { LogOut, MessageSquare, Phone } from 'lucide-react';
+import { ExternalLink, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { addPeriods, centavosToInput, contractTermsSchema, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf } from '@himan/shared/rentals';
@@ -12,6 +12,7 @@ import { Initials } from './Badges';
 import { RenterForm } from './RenterForm';
 import { RenterFiles } from './RenterFiles';
 import { errorMessage } from '../utils/errorMessage';
+import { messengerLabel, messengerUrl } from '../utils/messenger';
 import { ChargesEditor } from './ChargesEditor';
 import { parseCharges, toChargeRows } from '../utils/charges';
 
@@ -34,6 +35,7 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
   const history = mine.flatMap((t) => [{ key: `${t.id}-in`, text: `Moved into ${unitName(t.unitId)}`, date: t.moveIn },
     ...(t.moveOut ? [{ key: `${t.id}-out`, text: `Moved out of ${unitName(t.unitId)}`, date: t.moveOut }] : [])])
     .sort((a, b) => b.date.localeCompare(a.date));
+  const chat = messengerUrl(renter.facebook);
   const contact: [string, string][] = [['Mobile', renter.phone], ['Messenger', renter.facebook], ['Email', renter.email],
     ['Home address', renter.address], ['Emergency', [renter.emergencyName, renter.emergencyPhone].filter(Boolean).join(' · ')],
     ['Living with them', `${renter.occupants} ${renter.occupants === 1 ? 'person' : 'people'}`], ['Notes', renter.notes]];
@@ -50,9 +52,10 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
           </SheetDescription>
         </div>
       </div>
-      {(renter.phone || (canManage && active.length > 0)) && <div className="flex gap-2">
+      {(renter.phone || chat || (canManage && active.length > 0)) && <div className="flex gap-2">
         {renter.phone && <a href={`tel:${renter.phone}`} className={action}><Phone className="h-4 w-4" />Call</a>}
         {renter.phone && <a href={`sms:${renter.phone}`} className={action}><MessageSquare className="h-4 w-4" />Text</a>}
+        {chat && <a href={chat} target="_blank" rel="noopener noreferrer" className={action}><MessageCircle className="h-4 w-4" />Messenger</a>}
         {canManage && active.map((t) => <button key={t.id} type="button" className={action} onClick={() => onMoveOut(t.id)}
           aria-label={`Move ${renter.fullName} out of ${unitName(t.unitId)}`}><LogOut className="h-4 w-4" />Move out</button>)}
       </div>}
@@ -106,7 +109,11 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
               onSave={async (input) => { await onSaveDetails(input); setEditing(null); }} />
           : <dl className="divide-y rounded-lg border text-sm">
             {contact.filter(([, value]) => value).map(([label, value]) => <div key={label} className="flex justify-between gap-4 px-3 py-2.5">
-              <dt className="shrink-0 text-muted-foreground">{label}</dt><dd className="min-w-0 whitespace-pre-line break-words text-right font-medium">{value}</dd>
+              <dt className="shrink-0 text-muted-foreground">{label}</dt><dd className="min-w-0 whitespace-pre-line break-words text-right font-medium">
+                {label === 'Messenger' && chat ? <a href={chat} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex max-w-full items-center gap-1 rounded text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="truncate">{messengerLabel(value)}</span><ExternalLink aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                  <span className="sr-only"> (opens Facebook)</span></a> : value}</dd>
             </div>)}
           </dl>}
       </section>

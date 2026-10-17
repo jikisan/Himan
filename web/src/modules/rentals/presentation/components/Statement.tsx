@@ -34,7 +34,7 @@ export function Statement({ bill, info }: { bill: StatementBill; info: Statement
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
         <Item label="Tenant">{info.renterName}</Item>
         <Item label="Room">{info.roomName}</Item>
-        <Item label="Bill No.">{bill.number ?? <span className="text-muted-foreground">Not issued yet</span>}</Item>
+        <Item label="Bill No.">{bill.number ?? <span className="text-muted-foreground">Not generated yet</span>}</Item>
         <Item label="Date">{bill.issuedOn ? long(bill.issuedOn) : '—'}</Item>
       </dl>
     </header>

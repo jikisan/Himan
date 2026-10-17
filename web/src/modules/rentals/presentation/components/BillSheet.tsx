@@ -32,13 +32,13 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
 
   return <>
     <SheetHeader className="border-b p-5 pr-12 text-left">
-      <SheetTitle>{bill.number ? `Bill ${bill.number}` : 'Bill preview'}</SheetTitle>
+      <SheetTitle>{bill.number ? `SOA ${bill.number}` : 'SOA preview'}</SheetTitle>
       <SheetDescription>{info.renterName} · {info.roomName}</SheetDescription>
     </SheetHeader>
     <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
       {editing
         ? <EditLines lines={bill.lines} busy={busy} onCancel={() => setEditing(false)}
-            onSave={async (lines) => { await onSaveLines(lines); setEditing(false); toast.success('Bill saved'); }} />
+            onSave={async (lines) => { await onSaveLines(lines); setEditing(false); toast.success('SOA saved'); }} />
         : <Statement bill={bill} info={info} />}
     </div>
     {!editing && <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
@@ -47,10 +47,10 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
         onClick={() => void onSaveLines([...bill.lines, { kind: 'penalty', label: 'Late payment penalty', amount: info.lateFeeCentavos }])
           .then(() => toast.success('Late fee added'), (e) => toast.error(errorMessage(e)))}>
         Add late fee {formatBillPesos(info.lateFeeCentavos)}</Button>}
-      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Edit bill</Button>}
-      {canManage && !bill.number && onIssue && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void onIssue()}>Issue this bill</Button>}
+      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Edit SOA</Button>}
+      {canManage && !bill.number && onIssue && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void onIssue()}>Generate SOA</Button>}
       {canManage && issued && onCancelBill && <Button variant="ghost" className="ml-auto h-11 px-2 text-destructive hover:text-destructive sm:h-9"
-        onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel bill</Button>}
+        onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel SOA</Button>}
     </div>}
   </>;
 }
@@ -99,7 +99,7 @@ function EditLines({ lines, busy, onSave, onCancel }: {
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 border-t pt-3">
         <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={onCancel}>Back</Button>
-        <Button type="submit" className="h-11 sm:h-9">Save bill</Button>
+        <Button type="submit" className="h-11 sm:h-9">Save SOA</Button>
       </div>
     </fieldset>
   </form>;

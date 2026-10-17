@@ -14,8 +14,11 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plans: [[202
   move-in fails) and `setupProperty` (property + rooms, reports failed room names). Domain `flow.ts`:
   `moveInDefaults`, `roomSpots`.
 - Web: `web/src/modules/rentals/` — `/rentals` page, flow v2 (plain words for non-technical users):
-  Property side list with bed meters · stats (beds taken, monthly rent, free beds) · "Rent due in the next 7 days"
-  (domain `nextDueDate`, Manila today) · Rooms board (`RoomsBoard`, one line per bed, Full / N free pill,
+  Property side list with bed meters · tabs Home / Rooms / Tenants / Bills (Bills badge = bills waiting + ready).
+  Home (`HomeView`): "To do for <month>" tasks (read meters, issue bills, recent bills past due, free beds) + at a glance
+  + "Rent due in the next 7 days" (`nextDueDate`). Bills (`BillsView`): grouped waiting for reading / ready to issue /
+  issued (Copy for Messenger) / no monthly bill; `MeterReadings` is a side panel ≥1024px, a full-screen sheet below
+  (`utils/billingMonth.ts`: `monthRows`, `monthTodo`, `useWide`). Past due ≠ unpaid: no payment tracking yet · Rooms board (`RoomsBoard`, one line per bed, Full / N free pill,
   "+ Add tenant" on free beds) · Tenants view (`TenantsList`, table: room, rent, since).
   Dialogs: `SetupWizard` (new property, 3 steps), `AddTenantForm`, `TenantSheet` (right side panel: call/text/move out, rent + next due, contract, ID, read-only contact with Edit, history),
   `MoveOutDialog` (dated), `UnitForm` (room), `PropertyForm` (edit; contract details collapsed), `ShareDialog`.

@@ -1,7 +1,7 @@
 ---
 type: module
 area: rentals
-status: phase-3-contracts
+status: phase-4-settlement
 ---
 
 # Rentals
@@ -172,4 +172,22 @@ because the live build still runs `select('*')` on `rental_properties` and the l
 - Verified in a real browser against a local stack: details + ID upload (anon storage), signing, Accept (ID copied, uploads
   cleaned), countersign. Privacy-notice wording needs the owner's legal review (`TODO owner` in `DetailsForm`).
 - Not yet: deposit settlement (Step D).
+
+## Deposit settlement (Step D, 2026-10-19)
+Plan: [[2026-10-18-rentals-settlement]]. Migration `20261018300000_add_rental_settlements.sql` (applied to hosted 2026-10-19).
+- After move-out, Home shows "Deposit to return". `rental_settle_deposit` (manager, SECURITY DEFINER) recomputes everything in SQL
+  (deposit = move-in bill's deposit line; unpaid issued bills; tenant credit) and never trusts client numbers. Needs a moved-out
+  tenancy whose move-in bill is fully paid; one settlement per tenancy.
+- `deductions = unpaid + extra lines`; `owed = max(deductions − deposit − credit, 0)`; refund = `max(deposit + credit − deductions, 0)`,
+  or for a forfeit (early termination, deposit kept) `max(credit − max(deductions − deposit, 0), 0)`. Mirrored in shared `settlementPreview`.
+- Bills covered by the deposit are marked paid by one "Taken from the deposit" payment (pinned allocations), so nothing stays open.
+- After settlement the move-in bill and the payments recorded before it are frozen; later bills and payments still work.
+- Refund proofs: `rental_settlement_proofs` (managers only, bucket `rental-files`). Settlement PDF (lazy, no proof images).
+- Known limits: leftover ledger credit on a settled tenancy is not zeroed in SQL, so a final bill issued afterwards would be
+  auto-paid from credit that was already refunded. The renter link does not show settlements. Advance months are not refunded by settlement.
+
+## Deploy order for the whole payments → settlement run (2026-10-19)
+Applied to hosted: `20261018100000`, `20261018150000`, `20261018200000`, `20261018300000` (all additive).
+**Not applied:** `20261018210000_lock_rental_lessor_signature.sql` — apply it only after the web build from these branches is live
+(the live build runs `select('*')` on `rental_properties`). Branches are stacked: payments → pdfs → contracts → settlement.
 

@@ -5,3 +5,4 @@ export * from './types.js';
 export * from './flow.js';
 export * from './billing.js';
 export * from './payments.js';
+export * from './words.js';

@@ -3,12 +3,13 @@ import { createElement } from 'react';
 import type { ReactElement } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import type { DocumentProps } from '@react-pdf/renderer';
-import { billDocument, receiptDocument } from '@himan/shared/rentals';
-import type { ReceiptContext, RentalBill, RentalPayment, StatementInfo } from '@himan/shared/rentals';
+import { billDocument, receiptDocument, settlementDocument } from '@himan/shared/rentals';
+import type { ReceiptContext, RentalBill, RentalPayment, RentalSettlement, SettlementContext, StatementInfo } from '@himan/shared/rentals';
 import { BillPdf } from './BillPdf';
 import { ContractPdf } from './ContractPdf';
 import type { ContractPdfData } from '../utils/contract';
 import { ReceiptPdf } from './ReceiptPdf';
+import { SettlementPdf } from './SettlementPdf';
 import { loadQrImages } from './qr';
 
 // BillPdf and ReceiptPdf each return a <Document>; react-pdf's types only see their own props.
@@ -33,10 +34,16 @@ export async function downloadReceiptPdf(payment: RentalPayment, ctx: ReceiptCon
   save(await toBlob(createElement(ReceiptPdf, { doc })), `Receipt-${doc.number}.pdf`);
 }
 
+const slug = (name: string, fallback: string) => name.trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || fallback;
+
 /** Downloads the contract of lease as `Contract-<tenant name>.pdf`. */
 export async function downloadContractPdf(doc: ContractPdfData): Promise<void> {
-  const name = doc.tenantName.trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'Lease';
-  save(await toBlob(createElement(ContractPdf, { doc })), `Contract-${name}.pdf`);
+  save(await toBlob(createElement(ContractPdf, { doc })), `Contract-${slug(doc.tenantName, 'Lease')}.pdf`);
+}
+
+/** Downloads the deposit settlement as `Settlement-<tenant name>.pdf`. */
+export async function downloadSettlementPdf(settlement: RentalSettlement, ctx: SettlementContext): Promise<void> {
+  save(await toBlob(createElement(SettlementPdf, { doc: settlementDocument(settlement, ctx) })), `Settlement-${slug(ctx.renterName, 'Tenant')}.pdf`);
 }
 
 function save(blob: Blob, name: string) {

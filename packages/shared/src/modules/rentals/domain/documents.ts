@@ -4,6 +4,7 @@ import { accountTitle, amountDueNow, billTotal, formatBillPesos, lineTitle, peri
 import { billBalance } from './payments.js';
 import type { PaymentAccount, PaymentMethod, RentalPayment } from './payments.js';
 import type { RentalBill } from './types.js';
+import type { RentalSettlement } from './settlement.js';
 import { pesosInWords } from './words.js';
 
 // What goes on each PDF, already worded and formatted; the web renders it as is.
@@ -118,5 +119,38 @@ export function receiptDocument(payment: RentalPayment, ctx: ReceiptContext): Re
     receivedBy: ctx.ownerName || ctx.propertyName,
     voided: active ? null : `VOID — ${payment.voidReason}`,
     asOf: snap ? null : `Figures as of ${long(ctx.today ?? manilaToday())}`,
+  };
+}
+
+export type SettlementContext = ReceiptParty & { moveOut: string };
+export interface SettlementDocument {
+  from: { name: string; address: string }; fields: [string, string][]; deposit: string;
+  /** Unpaid bills as one line, then the landlord's lines. */
+  deductions: { label: string; amount: string }[]; totalDeductions: string;
+  /** The refund (in words, with how and when), or the deposit kept. */
+  result: { title: string; amount: string; words: string | null; details: [string, string][] };
+  owed: string | null; notes: string; lessor: string; tenant: string;
+}
+
+/** The deposit settlement as printed. Never includes proof images. */
+export function settlementDocument(s: RentalSettlement, ctx: SettlementContext): SettlementDocument {
+  const deductions = [...(s.unpaidBillsCentavos > 0 ? [{ label: 'Unpaid bills', amount: s.unpaidBillsCentavos }] : []), ...s.lines];
+  const from = ctx.ownerName || ctx.propertyName;
+  const settledOn = s.settledAt ? manilaToday(new Date(s.settledAt)) : s.refundedOn;
+  return {
+    from: { name: from, address: ctx.ownerAddress },
+    fields: [['Tenant', ctx.renterName], ['Room', ctx.roomName], ['Moved out', long(ctx.moveOut)], ...(settledOn ? [['Settled on', long(settledOn)] as [string, string]] : [])],
+    deposit: formatBillPesos(s.depositCentavos),
+    deductions: deductions.map((d) => ({ label: d.label, amount: formatBillPesos(d.amount) })),
+    totalDeductions: formatBillPesos(deductions.reduce((sum, d) => sum + d.amount, 0)),
+    result: s.refundCentavos > 0
+      ? { title: 'Refund to tenant', amount: formatBillPesos(s.refundCentavos), words: pesosInWords(s.refundCentavos), details: [
+        ...(s.refundMethod ? [['Method', METHOD_LABEL[s.refundMethod]] as [string, string]] : []),
+        ...(s.refundedOn ? [['Date', long(s.refundedOn)] as [string, string]] : []),
+        ...(s.refundReference ? [['Reference no.', s.refundReference] as [string, string]] : [])] }
+      : { title: 'Deposit kept', amount: formatBillPesos(s.depositCentavos), words: null,
+        details: [['Reason', s.forfeit ? 'Kept in full (early termination)' : 'Used up by the deductions']] },
+    owed: s.owedCentavos > 0 ? `Tenant still owes ${formatBillPesos(s.owedCentavos)}` : null,
+    notes: s.notes, lessor: from, tenant: ctx.renterName,
   };
 }

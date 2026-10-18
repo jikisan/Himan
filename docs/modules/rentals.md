@@ -1,7 +1,7 @@
 ---
 type: module
 area: rentals
-status: phase-2-pdfs
+status: phase-3-contracts
 ---
 
 # Rentals
@@ -152,4 +152,24 @@ Plan: [[2026-10-18-rentals-pdfs]]. Migration `20261018150000_snapshot_rental_pay
   figures labelled "Figures as of <date>".
 - Applied to the hosted project 2026-10-18 (one transaction, `migration repair`).
 - Not yet: contract and deposit-settlement PDFs (Steps C, D); downloads from the renter link (Step C).
+
+## Contracts, tenant link, e-sign (Step C, 2026-10-18)
+Plan: [[2026-10-18-rentals-contracts]]. Migrations `20261018200000_add_rental_contracts.sql` (applied to hosted 2026-10-19) and
+`20261018210000_lock_rental_lessor_signature.sql` (**NOT yet applied: apply after the web build from this branch is deployed**,
+because the live build still runs `select('*')` on `rental_properties` and the lock makes `lessor_signature` unreadable to it).
+- Tables: `rental_contract_templates` (per property clauses), `rental_contract_texts` (rendered body, special terms, tenant and
+  lessor signatures, SHA-256 `content_hash`; frozen once the tenant signs), `rental_tenancy_links` (one private token per tenancy,
+  kind `new` / `existing`, status open / submitted / accepted). Bucket `rental-link-uploads` (private) takes ID photos from the link.
+- The only anonymous surface: RPCs `rental_link_get`, `rental_link_submit_details`, `rental_link_sign` (+ `rental_link_can_upload` for
+  the storage policy). One uniform "This link isn't valid anymore" for invalid, revoked, regenerated or expired (move-out + 90 days)
+  tokens. Signing requires the hash of the text the tenant read (a contract edited after sending can't be signed unseen).
+  Tenant details wait for the landlord's **Accept** (`rental_accept_details`, then the client copies the ID photos into `rental-files`).
+- Landlord UI: contract panel in the tenant sheet, template editor and "My signature" in Edit property (owner), Add tenant
+  "Send details link", Home to-dos (review details, countersign, contract ends in 30 days). Saved signature is read only by the owner
+  (`rental_get_lessor_signature`); a non-owner manager draws their own to countersign.
+- Public page: `/r/:token` (`web/src/RenterApp.tsx`, `presentation/renter/*`), outside every auth guard. Contract text, bills,
+  payments, payment accounts with QR, PDFs for contract, bills and receipts. Never IDs, proofs or other tenants.
+- Verified in a real browser against a local stack: details + ID upload (anon storage), signing, Accept (ID copied, uploads
+  cleaned), countersign. Privacy-notice wording needs the owner's legal review (`TODO owner` in `DetailsForm`).
+- Not yet: deposit settlement (Step D).
 

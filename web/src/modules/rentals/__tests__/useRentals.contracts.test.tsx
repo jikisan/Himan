@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_CLAUSES } from '@himan/shared/rentals';
 import { useRentals } from '../presentation/hooks/useRentals';
 
-const calls = vi.hoisted(() => ({ contracts: {} as Record<string, ReturnType<typeof vi.fn>>, links: {} as Record<string, ReturnType<typeof vi.fn>> }));
+const calls = vi.hoisted(() => ({ contracts: {} as Record<string, ReturnType<typeof vi.fn>>, links: {} as Record<string, ReturnType<typeof vi.fn>>,
+  settlements: {} as Record<string, ReturnType<typeof vi.fn>> }));
 vi.mock('@auth/index', () => ({ useAuth: () => ({ user: { id: 'u' } }) }));
 vi.mock('@himan/shared/friends', () => ({ FriendRepository: class { getFriends = vi.fn(async () => []); } }));
 vi.mock('@himan/shared/profile', () => ({ ProfileRepository: class { get = vi.fn(async () => ({ fullName: 'Maria' })); } }));
@@ -14,7 +15,7 @@ vi.mock('../infrastructure', () => {
   return {
     PropertyRepository: class { findAll = vi.fn(async () => [{ id: 'p1', role: 'owner' }, { id: 'p2', role: 'manager' }]); },
     RenterRepository: class { findAll = list(); fileUrl = vi.fn(); },
-    TenancyRepository: class { findAll = list(); },
+    TenancyRepository: class { findAll = vi.fn(async () => [{ id: 't', propertyId: 'p1' }]); },
     BillRepository: class { findAll = list(); findReadings = list(); findUtilityBills = list(); },
     PaymentRepository: class { findAll = list(); proofUrl = vi.fn(); },
     PaymentAccountRepository: class { findAll = list(); qrUrl = vi.fn(); },
@@ -24,6 +25,14 @@ vi.mock('../infrastructure', () => {
           createText: vi.fn(async () => 'new-id'), updateText: vi.fn(), send: vi.fn(), countersign: vi.fn(), setNotarizedScan: vi.fn(),
           saveTemplate: vi.fn(), saveLessorSignature: vi.fn(), getLessorSignature: vi.fn(async () => 'data:image/png;base64,SIG') };
         Object.assign(this, calls.contracts);
+      }
+    },
+    SettlementRepository: class {
+      constructor() {
+        calls.settlements = { findAll: vi.fn(async () => [{ id: 's', tenancyId: 't' }]), settle: vi.fn(async () => 's'),
+          uploadProof: vi.fn(async (_id: string, _p: string, f: { name: string }) => { if (f.name === 'bad.png') throw new Error('no'); }),
+          removeProof: vi.fn(), proofUrl: vi.fn(async () => 'https://signed') };
+        Object.assign(this, calls.settlements);
       }
     },
     LinkRepository: class {
@@ -94,5 +103,21 @@ describe('useRentals contracts', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.properties).toHaveLength(2);
     warn.mockRestore();
+  });
+
+  it('loads settlements and settles a deposit, attaching each proof and reporting the ones that failed', async () => {
+    const { result } = renderHook(() => useRentals(), { wrapper });
+    await waitFor(() => expect(result.current.settlements).toEqual([{ id: 's', tenancyId: 't' }]));
+    const input = { lines: [], forfeit: false, refundedOn: '2027-04-02', refundMethod: 'gcash' as const, refundReference: '', notes: '' };
+    const good = { name: 'good.png', mimeType: 'image/png', bytes: new ArrayBuffer(1) };
+    const bad = { ...good, name: 'bad.png' };
+    expect(await result.current.run({ type: 'settleDeposit', tenancyId: 't', input, proofs: [good, bad] })).toEqual({ id: 's', failed: ['bad.png'] });
+    const s = calls.settlements;
+    expect(s.settle).toHaveBeenCalledWith('t', input);
+    expect(s.uploadProof).toHaveBeenCalledWith('s', 'p1', good);
+    await result.current.run({ type: 'uploadSettlementProof', settlementId: 's', propertyId: 'p1', file: good });
+    await result.current.run({ type: 'removeSettlementProof', id: 'f' });
+    expect(s.removeProof).toHaveBeenCalledWith('f');
+    expect(await result.current.settlementProofUrl('f')).toBe('https://signed');
   });
 });

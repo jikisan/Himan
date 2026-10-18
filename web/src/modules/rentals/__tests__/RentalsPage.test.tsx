@@ -22,7 +22,7 @@ const stay = (id: string, unitId: string, renterId: string, moveIn: string, move
 
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
-  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[], payments: [], accounts: [],
+  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[], payments: [], accounts: [], settlements: [],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []), contractTexts: [], links: [], templates: {},
 }));

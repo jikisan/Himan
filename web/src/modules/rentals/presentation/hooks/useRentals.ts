@@ -6,8 +6,8 @@ import { ProfileRepository } from '@himan/shared/profile';
 import { DEFAULT_CLAUSES, addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
 import { Logger } from '@core/infrastructure/services';
 import type { AddTenantInput, BillLine, Clause, LinkKind, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
-  ReadingInput, RenterInput, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
-import { BillRepository, ContractRepository, LinkRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
+  ReadingInput, RenterInput, SettlementInput, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
+import { BillRepository, ContractRepository, LinkRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, SettlementRepository, TenancyRepository } from '../../infrastructure';
 
 type FileInput = { name: string; mimeType?: string | null; bytes: ArrayBuffer };
 
@@ -44,6 +44,10 @@ export type RentalAction =
   | { type: 'markEarlierPaid'; propertyId: string }
   | { type: 'uploadPaymentProof'; paymentId: string; propertyId: string; file: FileInput }
   | { type: 'removePaymentProof'; id: string }
+  /** Settles the deposit (the database recomputes every figure), then attaches each proof; resolves to { id, failed }. */
+  | { type: 'settleDeposit'; tenancyId: string; input: SettlementInput; proofs?: FileInput[] }
+  | { type: 'uploadSettlementProof'; settlementId: string; propertyId: string; file: FileInput }
+  | { type: 'removeSettlementProof'; id: string }
   | { type: 'saveAccount'; propertyId: string; id: string | null; input: PaymentAccountInput }
   | { type: 'removeAccount'; id: string }
   | { type: 'uploadQr'; propertyId: string; accountId: string; file: FileInput }
@@ -68,18 +72,19 @@ export function useRentals() {
   const userId = user?.id;
   const client = useQueryClient();
   const repos = useMemo(() => ({ properties: new PropertyRepository(), renters: new RenterRepository(),
-    tenancies: new TenancyRepository(), bills: new BillRepository(), payments: new PaymentRepository(), accounts: new PaymentAccountRepository(),
+    tenancies: new TenancyRepository(), bills: new BillRepository(), payments: new PaymentRepository(), accounts: new PaymentAccountRepository(), settlements: new SettlementRepository(),
     contracts: new ContractRepository(), links: new LinkRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
   // Stable, so components can sign a file link once (e.g. ID thumbnails) instead of on every render.
   const fileUrl = useCallback((id: string, download = false) => repos.renters.fileUrl(id, download), [repos]);
   const paymentProofUrl = useCallback((id: string, download = false) => repos.payments.proofUrl(id, download), [repos]);
+  const settlementProofUrl = useCallback((id: string, download = false) => repos.settlements.proofUrl(id, download), [repos]);
   const qrUrl = useCallback((path: string) => repos.accounts.qrUrl(path), [repos]);
   const online = useSyncExternalStore(onlineManager.subscribe, () => onlineManager.isOnline());
   const query = useQuery({
     queryKey: ['rentals', userId], enabled: !!userId && online,
     meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false, refetchOnMount: 'always', networkMode: 'always',
     queryFn: async () => {
-      const [[properties, templates], renters, tenancies, bills, readings, utilityBills, payments, accounts, contractTexts, links, profile] = await Promise.all([
+      const [[properties, templates], renters, tenancies, bills, readings, utilityBills, payments, accounts, settlements, contractTexts, links, profile] = await Promise.all([
         // Each property's contract template (the default one when the owner hasn't edited it), keyed by property id.
         // Owners also get their saved signature, which only they can read (one-tap countersign).
         repos.properties.findAll(userId!).then((list) => Promise.all(list.map(async (p) => p.role !== 'owner' ? p
@@ -94,9 +99,9 @@ export function useRentals() {
             return DEFAULT_CLAUSES;
           })] as const)))] as const),
         repos.renters.findAll(), repos.tenancies.findAll(),
-        repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.payments.findAll(), repos.accounts.findAll(),
+        repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.payments.findAll(), repos.accounts.findAll(), repos.settlements.findAll(),
         repos.contracts.findTexts(), repos.links.findAll(), repos.profile.get(userId!).catch(() => null)]);
-      return { properties, templates: templates as Record<string, Clause[]>, renters, tenancies, bills, readings, utilityBills, payments, accounts,
+      return { properties, templates: templates as Record<string, Clause[]>, renters, tenancies, bills, readings, utilityBills, payments, accounts, settlements,
         contractTexts, links, myName: profile?.fullName?.trim() ?? '' };
     },
   });
@@ -147,6 +152,17 @@ export function useRentals() {
           }
           return { id, failed };
         }
+        case 'settleDeposit': {
+          const id = await repos.settlements.settle(a.tenancyId, a.input);
+          const propertyId = query.data?.tenancies.find((t) => t.id === a.tenancyId)?.propertyId;
+          const failed: string[] = [];
+          for (const file of a.proofs ?? []) {
+            try { await repos.settlements.uploadProof(id, propertyId!, file); } catch { failed.push(file.name); }
+          }
+          return { id, failed };
+        }
+        case 'uploadSettlementProof': return repos.settlements.uploadProof(a.settlementId, a.propertyId, a.file);
+        case 'removeSettlementProof': return repos.settlements.removeProof(a.id);
         case 'voidPayment': return repos.payments.void(a.id, a.reason);
         case 'markEarlierPaid': return repos.payments.markEarlierPaid(a.propertyId);
         case 'uploadPaymentProof': return repos.payments.uploadProof(a.paymentId, a.propertyId, a.file);
@@ -173,11 +189,11 @@ export function useRentals() {
   return {
     properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
     bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
-    payments: data?.payments ?? [], accounts: data?.accounts ?? [],
+    payments: data?.payments ?? [], accounts: data?.accounts ?? [], settlements: data?.settlements ?? [],
     contractTexts: data?.contractTexts ?? [], links: data?.links ?? [], templates: data?.templates ?? {},
     loading: query.isLoading, error: query.error, online, userId, busy: mutation.isPending,
     refetch: query.refetch, run: mutation.mutateAsync,
-    fileUrl, paymentProofUrl, qrUrl,
+    fileUrl, paymentProofUrl, settlementProofUrl, qrUrl,
     listMembers: (propertyId: string) => repos.properties.listMembers(propertyId),
     listFriends: () => repos.friends.getFriends(userId!),
   };

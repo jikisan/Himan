@@ -34,7 +34,7 @@ const gcash: PaymentAccount = { id: 'acc1', propertyId: 'p', kind: 'gcash', labe
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
   bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[],
-  payments: [] as RentalPayment[], accounts: [] as PaymentAccount[],
+  payments: [] as RentalPayment[], accounts: [] as PaymentAccount[], settlements: [],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), paymentProofUrl: vi.fn(), qrUrl: vi.fn((path: string) => `https://cdn/${path}`),
   listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []), contractTexts: [], links: [], templates: {},

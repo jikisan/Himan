@@ -38,7 +38,7 @@ const link = (extra: Partial<TenancyLink> = {}): TenancyLink => ({ tenancyId: 't
 
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[], bills: [], readings: [], utilityBills: [],
-  payments: [], accounts: [], contractTexts: [] as ContractText[], links: [] as TenancyLink[], templates: {} as Record<string, Clause[]>,
+  payments: [], accounts: [], settlements: [], contractTexts: [] as ContractText[], links: [] as TenancyLink[], templates: {} as Record<string, Clause[]>,
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
 }));

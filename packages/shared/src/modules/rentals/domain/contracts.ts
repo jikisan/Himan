@@ -28,6 +28,9 @@ export const clausesSchema = z.array(z.object({
   id: z.string().trim().min(1).max(80), text: z.string().trim().min(1, 'A clause can’t be empty').max(4000, 'Keep each clause under 4,000 characters'),
 })).min(1, 'Keep at least one clause').max(80, 'A contract can have up to 80 clauses');
 
+/** `{token}/{file}.{pdf|jpg|jpeg|png}`: one plain file directly inside the link's folder. */
+export const ID_PATH = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(pdf|jpe?g|png)$/;
+
 const required = (message: string, max: number) => z.string().trim().min(1, message).max(max);
 /** The new-tenant form on the link; `idPaths` are the files `LinkRepository.uploadId` returned. */
 export const linkDetailsSchema = z.object({
@@ -36,7 +39,7 @@ export const linkDetailsSchema = z.object({
   emergencyPhone: required('Enter the emergency contact’s number', 40),
   facebook: z.string().trim().max(200), email: z.union([z.literal(''), z.email('Enter a valid email')]),
   occupants: z.number().int().min(1).max(50),
-  idPaths: z.array(z.string()).min(1, 'Add a photo of a valid ID').max(3, 'Add up to 3 ID files'),
+  idPaths: z.array(z.string().regex(ID_PATH, 'That file can’t be used')).min(1, 'Add a photo of a valid ID').max(3, 'Add up to 3 ID files'),
 });
 
 /** What a new tenant types into the link form; nothing reaches the renter record until a manager accepts it. */

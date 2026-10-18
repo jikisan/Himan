@@ -273,7 +273,7 @@ BEGIN
   END IF;
   IF coalesce(cardinality(v_paths), 0) NOT BETWEEN 1 AND 3
     OR cardinality(v_paths) <> (SELECT count(DISTINCT e) FROM unnest(v_paths) e)
-    OR EXISTS (SELECT 1 FROM unnest(v_paths) e WHERE NOT starts_with(e, v_link.token || '/') OR NOT EXISTS (
+    OR EXISTS (SELECT 1 FROM unnest(v_paths) e WHERE e !~ ('^' || v_link.token || '/[A-Za-z0-9_-]+[.](pdf|jpe?g|png)$') OR NOT EXISTS (
       SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'rental-link-uploads' AND o.name = e)) THEN
     RAISE EXCEPTION 'Upload a photo of your valid ID (up to 3)';
   END IF;
@@ -287,7 +287,7 @@ BEGIN
 END;
 $$;
 
--- p_content_hash (optional): the hash of the text the tenant read. When given and the landlord has edited the
+-- p_content_hash (required): the hash of the text the tenant read. When missing or when the landlord has edited the
 -- text since, signing is refused instead of binding the tenant to text they never saw.
 CREATE FUNCTION public.rental_link_sign(p_token text, p_name text, p_sign_mode text, p_signature text,
   p_user_agent text, p_content_hash text DEFAULT NULL) RETURNS void
@@ -304,7 +304,7 @@ BEGIN
   IF p_sign_mode IS NULL OR p_sign_mode NOT IN ('esign', 'notarize') THEN RAISE EXCEPTION 'Choose how to sign'; END IF;
   IF NOT coalesce(public.rental_valid_signature(p_signature), false) THEN RAISE EXCEPTION 'Draw your signature again'; END IF;
   v_hash := public.rental_contract_hash(v_ct.body, v_ct.special_terms);
-  IF p_content_hash IS NOT NULL AND p_content_hash <> v_hash THEN
+  IF p_content_hash IS DISTINCT FROM v_hash THEN
     RAISE EXCEPTION 'The contract changed. Reload the page to read the latest version';
   END IF;
   UPDATE public.rental_contract_texts SET status = 'signed', sign_mode = p_sign_mode, content_hash = v_hash,

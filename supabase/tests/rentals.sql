@@ -1094,6 +1094,11 @@ BEGIN
     v_old || '/' || gen_random_uuid() || '.png'), '42501');
   PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-files',
     v_house || '/renters/x/y'), '42501');
+  -- Nested or traversal-looking names are refused at upload time, even inside an open link's folder.
+  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads',
+    v_tok1 || '/sub/' || gen_random_uuid() || '.png'), '42501');
+  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads',
+    v_tok1 || '/../' || v_house || '/' || gen_random_uuid() || '.png'), '42501');
   INSERT INTO storage.objects (bucket_id, name) VALUES ('rental-link-uploads', v_id1), ('rental-link-uploads', v_id2);
   IF EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id IN ('rental-link-uploads', 'rental-files'))
   THEN RAISE EXCEPTION 'anon can read or list uploads'; END IF;
@@ -1149,6 +1154,11 @@ BEGIN
   IF public.rental_link_get(v_tok3)->>'tenantName' <> 'Gone Tenant' THEN RAISE EXCEPTION 'A link 80 days after move-out stopped working'; END IF;
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L, %L)', v_tok1, 'N', 'notarize', v_png_t, 'UA', v_hash1),
     'The contract changed. Reload the page to read the latest version');
+  -- The hash of the text the tenant read is mandatory: without it (or with a wrong one) nothing is signed.
+  PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'New Tenant Full', 'notarize', v_png_t, 'UA'),
+    'The contract changed. Reload the page to read the latest version');
+  PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L, %L)', v_tok1, 'New Tenant Full', 'notarize', v_png_t, 'UA',
+    repeat('0', 64)), 'The contract changed. Reload the page to read the latest version');
   PERFORM public.rental_link_sign(v_tok1, '  New Tenant Full ', 'notarize', v_png_t, repeat('U', 600), v_hash2);
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'esign', v_png_t, 'UA'),
     'You already signed this contract');
@@ -1170,7 +1180,7 @@ BEGIN
   SET LOCAL ROLE anon;
   PERFORM set_config('request.jwt.claim.sub', '', true);
   PERFORM pg_temp.refused(format('SELECT public.rental_link_get(%L)', v_old), v_invalid);
-  PERFORM public.rental_link_sign(v_tok2, 'Old Tenant', 'esign', v_png_t, 'UA');
+  PERFORM public.rental_link_sign(v_tok2, 'Old Tenant', 'esign', v_png_t, 'UA', v_hash1);
   v_j := public.rental_link_get(v_tok2);
   IF v_j->'contract'->>'id' <> v_x2::text OR v_j->'contract'->>'contentHash' <> v_hash1
   THEN RAISE EXCEPTION 'Existing tenant signed the wrong contract or hash: %', v_j->'contract'; END IF;

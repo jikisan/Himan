@@ -23,6 +23,7 @@ const details = { fullName: 'Ben Cruz', phone: '0917', address: 'Purok 2', emerg
 const linkRow = { tenancy_id: 't', property_id: 'p', token: 'tok', kind: 'new', status: 'submitted', submitted_details: details,
   submitted_at: '2026-10-18T00:00:00Z', accepted_at: null, revoked_at: null, created_at: '' };
 const png = 'data:image/png;base64,iVBORw0KGgo=';
+const HASH = 'a'.repeat(64);
 const INVALID = 'This link isn\'t valid anymore';
 
 beforeEach(() => { mock.from.mockReset(); mock.rpc.mockReset(); mock.storage.from.mockReset(); });
@@ -130,6 +131,21 @@ describe('LinkRepository manager side', () => {
     expect(mock.rpc).toHaveBeenCalledWith('rental_accept_details', { p_tenancy_id: 't' });
     expect(remove).toHaveBeenCalledWith(['tok/a.png']);
   });
+  it('refuses submitted ID paths outside the link folder before downloading anything', async () => {
+    // 'other/a.png' is a plain file in someone else's folder; the rest are not plain files at all (read as "no details").
+    for (const [bad, message] of [['other/a.png', 'These details can’t be accepted'], ['tok/../x/a.png', 'There are no details to review'],
+      ['tok/sub/a.png', 'There are no details to review'], ['tok/a.exe', 'There are no details to review'],
+      ['../tok/a.png', 'There are no details to review']]) {
+      mock.from.mockImplementation((table: string) => result(table === 'rental_tenancy_links'
+        ? { ...linkRow, submitted_details: { ...(linkRow.submitted_details as object), idPaths: [bad] } } : { renter_id: 'r', property_id: 'p' }));
+      const download = vi.fn();
+      mock.storage.from.mockReturnValue({ download, remove: vi.fn() });
+      mock.rpc.mockReset();
+      await expect(new LinkRepository().acceptDetails('t')).rejects.toThrow(message);
+      expect(download).not.toHaveBeenCalled();
+      expect(mock.rpc).not.toHaveBeenCalled();
+    }
+  });
   it('does not accept when an ID file can’t be copied', async () => {
     mock.from.mockImplementation((table: string) => result(table === 'rental_tenancy_links' ? linkRow : { renter_id: 'r', property_id: 'p' }));
     mock.storage.from.mockReturnValue({ download: vi.fn(async () => ({ data: null, error: { __isStorageError: true, message: 'Object not found' } })) });
@@ -172,13 +188,18 @@ describe('LinkRepository public side', () => {
   });
   it('signs with a PNG signature and passes refusals through', async () => {
     mock.rpc.mockResolvedValue({ data: null, error: null });
-    await new LinkRepository().sign('tok', { name: ' Ben Cruz ', signMode: 'notarize', signature: png, userAgent: 'ua' });
+    await new LinkRepository().sign('tok', { name: ' Ben Cruz ', signMode: 'notarize', signature: png, userAgent: 'ua', contentHash: HASH });
     expect(mock.rpc).toHaveBeenCalledWith('rental_link_sign', { p_token: 'tok', p_name: 'Ben Cruz', p_sign_mode: 'notarize',
-      p_signature: png, p_user_agent: 'ua' });
-    await expect(new LinkRepository().sign('tok', { name: 'Ben', signMode: 'esign', signature: 'x', userAgent: '' })).rejects.toThrow('signature');
-    await expect(new LinkRepository().sign('tok', { name: ' ', signMode: 'esign', signature: png, userAgent: '' })).rejects.toThrow('full name');
+      p_signature: png, p_user_agent: 'ua', p_content_hash: HASH });
+    // Without the hash of the text that was read, nothing is sent at all.
+    mock.rpc.mockClear();
+    await expect(new LinkRepository().sign('tok', { name: 'Ben', signMode: 'esign', signature: png, userAgent: '', contentHash: '' }))
+      .rejects.toThrow('reload');
+    expect(mock.rpc).not.toHaveBeenCalled();
+    await expect(new LinkRepository().sign('tok', { name: 'Ben', signMode: 'esign', signature: 'x', userAgent: '', contentHash: HASH })).rejects.toThrow('signature');
+    await expect(new LinkRepository().sign('tok', { name: ' ', signMode: 'esign', signature: png, userAgent: '', contentHash: HASH })).rejects.toThrow('full name');
     mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'This contract is already signed' } });
-    await expect(new LinkRepository().sign('tok', { name: 'Ben', signMode: 'esign', signature: png, userAgent: '' }))
+    await expect(new LinkRepository().sign('tok', { name: 'Ben', signMode: 'esign', signature: png, userAgent: '', contentHash: HASH }))
       .rejects.toThrow('This contract is already signed');
   });
 });

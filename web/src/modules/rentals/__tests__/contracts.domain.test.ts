@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_FIELDS, DEFAULT_CLAUSES, NOTARY_ACKNOWLEDGMENT, canonicalText, contractStatusLabel, contractValues, linkMessage,
-  ordinal, renderClauses, sha256Hex,
+  linkDetailsSchema, ordinal, renderClauses, sha256Hex,
 } from '@himan/shared/rentals';
 import type { RentalContract, RentalProperty, Renter } from '@himan/shared/rentals';
 
@@ -102,5 +102,15 @@ describe('wording helpers', () => {
     const forExisting = linkMessage('https://x/r/abc', 'Ben Cruz', 'existing');
     expect(forExisting).not.toContain('details');
     expect(forExisting).toContain('sign');
+  });
+});
+
+describe('linkDetailsSchema ID paths', () => {
+  const base = { fullName: 'A', phone: '1', address: 'x', emergencyName: 'B', emergencyPhone: '2', facebook: '', email: '', occupants: 1 };
+  it('accepts plain files and rejects traversal, nesting and odd extensions', () => {
+    expect(linkDetailsSchema.safeParse({ ...base, idPaths: ['tok_1-A/0123abcd.png'] }).success).toBe(true);
+    for (const bad of ['../x/a.png', 'tok/../a.png', 'tok/sub/a.png', 'tok/a.exe', '/tok/a.png', 'tok/a.png/']) {
+      expect(linkDetailsSchema.safeParse({ ...base, idPaths: [bad] }).success).toBe(false);
+    }
   });
 });

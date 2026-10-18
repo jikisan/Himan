@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
-import { linkDetailsSchema, signatureSchema, validateRentalFile } from '../domain/index.js';
+import { ID_PATH, linkDetailsSchema, signatureSchema, validateRentalFile } from '../domain/index.js';
 import type { LinkDetails, LinkKind, SignMode, TenancyLink } from '../domain/index.js';
 import { fileName, linkRow, publicLinkSchema, rentalError } from './rows.js';
 import type { PublicLink } from './rows.js';
@@ -47,6 +47,10 @@ export class LinkRepository {
     const { renter_id: renterId, property_id: propertyId } = z.object({ renter_id: z.string(), property_id: z.string() }).parse(tenancy);
     const uploads = getSupabase().storage.from(UPLOADS);
     const paths = link.submittedDetails.idPaths;
+    // The tenant chose these strings: only plain files in this link's own folder are ever downloaded.
+    if (paths.some((path) => !ID_PATH.test(path) || !path.startsWith(`${link.token}/`))) {
+      throw new Error('These details can’t be accepted. Ask the tenant to send them again.');
+    }
     // Copy before accepting: a failed copy leaves the details waiting, so Accept can be tried again.
     // ponytail: a retry after a partial copy can attach an ID twice; the manager removes the extra file.
     try {
@@ -86,10 +90,13 @@ export class LinkRepository {
     if (error) throw rentalError(error, 'Could not send your details');
   }
 
-  async sign(token: string, input: { name: string; signMode: SignMode; signature: string; userAgent: string }): Promise<void> {
+  /** `contentHash` = `sha256Hex(canonicalText(body, specialTerms))` of the text the tenant was shown; the database refuses a stale one. */
+  async sign(token: string, input: { name: string; signMode: SignMode; signature: string; userAgent: string; contentHash: string }): Promise<void> {
+    if (!/^[0-9a-f]{64}$/.test(input.contentHash)) throw new Error('Please reload the page to read the latest contract');
     const name = z.string().trim().min(1, 'Type your full name').max(160).parse(input.name);
     const { error } = await getSupabase().rpc('rental_link_sign', { p_token: token, p_name: name, p_sign_mode: input.signMode,
-      p_signature: signatureSchema.parse(input.signature), p_user_agent: input.userAgent.slice(0, 500) });
+      p_signature: signatureSchema.parse(input.signature), p_user_agent: input.userAgent.slice(0, 500),
+      p_content_hash: input.contentHash });
     if (error) throw rentalError(error, 'Could not sign the contract');
   }
 }

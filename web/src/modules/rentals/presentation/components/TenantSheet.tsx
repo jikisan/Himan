@@ -4,9 +4,9 @@ import { format, parseISO } from 'date-fns';
 import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, centavosToInput, contractTermsSchema, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
+import { addPeriods, centavosToInput, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
-import type { ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import type { ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalSettlement, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
 import { PaymentsList } from './PaymentsList';
 import { ContractPanel } from './ContractPanel';
 import type { ContractInfo } from './ContractPanel';
@@ -27,11 +27,13 @@ const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 
   + 'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
-export function TenantSheet({ renter, tenancies, bills = [], payments = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
-  onMoveOut, onRecordPayment, receipt, deleteAction, contractInfo }: {
+export function TenantSheet({ renter, tenancies, bills = [], payments = [], settlements = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
+  onMoveOut, onRecordPayment, onOpenSettlement, receipt, deleteAction, contractInfo }: {
   renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; payments?: RentalPayment[]; unitName(id: string): string; canManage: boolean;
   deleteAction?: ReactNode; onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void; onRecordPayment?(tenancyId: string): void;
   receipt?(payment: RentalPayment): ReceiptContext;
+  /** Moved-out tenancies: settle the deposit (managers) or view the settlement (everyone). */
+  settlements?: RentalSettlement[]; onOpenSettlement?(tenancyId: string): void;
   /** The property's contract texts, template and links; without it the sheet shows the terms only. */
   contractInfo?: ContractInfo;
 } & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
@@ -49,6 +51,9 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
   const owed = mine.reduce((sum, t) => sum + tenancyOwed(t.id, bills, payments), 0);
   const credit = mine.reduce((sum, t) => sum + tenancyCredit(t.id, payments), 0);
   const chat = messengerUrl(renter.facebook);
+  const deposits = mine.filter((t) => t.moveOut).map((t) => ({ t, settlement: settlements.find((x) => x.tenancyId === t.id) }))
+    .map(({ t, settlement }) => ({ t, settlement, deposit: depositToReturn(t, bills, payments, settlement) }))
+    .filter(({ deposit }) => deposit.state !== 'none');
   const links = contractInfo?.links ?? [];
   const linkOf = (t: RentalTenancy) => links.find((l) => l.tenancyId === t.id);
   const waiting = active.map((t) => detailsStatus(links, t.id)).find(Boolean);
@@ -119,6 +124,17 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
             <HandCoins className="h-4 w-4" />Record payment{active.length > 1 && <span> · {unitName(t.unitId)}</span>}</Button>)}</div>}
         <PaymentsList payments={myPayments} bills={bills} canManage={canManage} busy={busy} run={run} proofUrl={paymentProofUrl}
           empty="No payments recorded yet." receipt={receipt} />
+      </section>}
+
+      {onOpenSettlement && deposits.length > 0 && <section aria-labelledby="sheet-deposit" className="space-y-2">
+        <h3 id="sheet-deposit" className="text-sm font-semibold">Deposit</h3>
+        {deposits.map(({ t, settlement, deposit }) => <div key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="min-w-0 flex-1">{mine.length > 1 && `${unitName(t.unitId)} · `}{settlement
+            ? settlement.refundCentavos > 0 ? `Settled · ${formatBillPesos(settlement.refundCentavos)} refunded` : 'Settled · deposit kept'
+            : `${formatBillPesos(deposit.depositCentavos)} to return`}</span>
+          {settlement ? <Button variant="outline" className="h-11 sm:h-9" onClick={() => onOpenSettlement(t.id)}>View settlement</Button>
+            : canManage && <Button className="h-11 sm:h-9" onClick={() => onOpenSettlement(t.id)}>Settle deposit</Button>}
+        </div>)}
       </section>}
 
       {contracts.map((c) => <section key={c.id} aria-label="Contract">

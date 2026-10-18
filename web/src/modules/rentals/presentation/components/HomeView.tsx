@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CalendarClock, CircleCheck, DoorOpen, Gauge, History, PenLine, ReceiptText, UserCheck } from 'lucide-react';
+import { BedDouble, CalendarClock, CircleCheck, DoorOpen, Gauge, HandCoins, History, PenLine, ReceiptText, UserCheck } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { billBalance, depositHeld, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
-import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
+import { billBalance, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
+import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
 
@@ -12,11 +12,13 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
-  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [], links = [] }: {
+  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [], links = [],
+  settlements = [], onSettleDeposit }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
   utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void; contractTexts?: ContractText[]; links?: TenancyLink[];
+  settlements?: RentalSettlement[]; onSettleDeposit?(tenancyId: string): void;
 }) {
   const [confirmEarlier, setConfirmEarlier] = useState(false);
   const today = manilaToday();
@@ -31,7 +33,9 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
   const overdue = todo.overdue.filter((b) => !isEarlier(b, property.paymentsTrackedFrom));
   const earlier = earlierUnpaid(property, bills, payments);
   const trackedSince = property.paymentsTrackedFrom ? format(parseISO(property.paymentsTrackedFrom), 'MMM d, yyyy') : '';
-  const deposits = active.map((t) => depositHeld(t, bills, payments));
+  const settlementOf = (t: RentalTenancy) => settlements.find((s) => s.tenancyId === t.id);
+  // Moved-out tenants' deposits stay held until settled.
+  const deposits = tenancies.map((t) => depositHeld(t, bills, payments, settlementOf(t)));
   const held = deposits.reduce((sum, d) => sum + (d.state === 'held' ? d.amountCentavos : 0), 0);
   const pending = deposits.reduce((sum, d) => sum + (d.state === 'pending' ? d.amountCentavos : 0), 0);
   const meterRooms = [...new Set([...todo.meters].map((key) => roomName(key.split(':')[0])))];
@@ -91,6 +95,12 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
       title={left > 1 ? `Contract ends in ${left} days` : left === 1 ? 'Contract ends tomorrow' : left === 0 ? 'Contract ends today' : 'Contract has ended'}
       detail={`${name(t)} · ${roomName(t.unitId)} · ${format(parseISO(contract!.endDate), 'MMM d, yyyy')}`} action="Open"
       label={`Open ${name(t)}’s contract`} onAction={() => onOpenTenant(t.renterId)} />);
+  }
+  if (canManage && onSettleDeposit) for (const t of tenancies) {
+    const deposit = depositToReturn(t, bills, payments, settlementOf(t));
+    if (deposit.state === 'to_settle') tasks.push(<Task key={`deposit-${t.id}`} icon={HandCoins} tone="amber" title="Deposit to return"
+      detail={`${name(t)} · ${roomName(t.unitId)} · ${formatBillPesos(deposit.depositCentavos)}`} action="Settle"
+      label={`Settle ${name(t)}’s deposit`} onAction={() => onSettleDeposit(t.id)} />);
   }
   if (canManage && freeBeds > 0) tasks.push(<Task key="free" icon={BedDouble} tone="emerald"
     title={`${freeBeds} free bed${freeBeds === 1 ? '' : 's'}`} detail={freeUnits.map((u) => u.name).join(' · ')}

@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { DEFAULT_CLAUSES, billPaid, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit } from '@himan/shared/rentals';
+import { DEFAULT_CLAUSES, billPaid, depositToReturn, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit,
+  tenancyOwed } from '@himan/shared/rentals';
 import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
@@ -28,6 +29,7 @@ import { HomeView } from '../components/HomeView';
 import { monthRows, monthTodo, paidChangeWarning, unreplacedCancelled } from '../utils/billingMonth';
 import { BillSheet } from '../components/BillSheet';
 import { RecordPaymentDialog } from '../components/RecordPaymentDialog';
+import { SettleDepositDialog } from '../components/SettleDepositDialog';
 import { PaymentsList } from '../components/PaymentsList';
 import { PaymentAccountsEditor } from '../components/PaymentAccountsEditor';
 import { ContractTemplateEditor, LessorSignatureEditor } from '../components/ContractTemplateEditor';
@@ -58,6 +60,7 @@ function RentalsContent(state: RentalsState) {
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
   const [paying, setPaying] = useState<{ tenancyId: string; billId?: string } | null>(null);
+  const [settlingId, setSettlingId] = useState<string | null>(null);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -97,6 +100,15 @@ function RentalsContent(state: RentalsState) {
     return { propertyName, ownerName, ownerAddress, renterName, roomName, bills: propertyBills, payments: propertyPayments };
   };
   const payingTenancy = propertyTenancies.find((t) => t.id === paying?.tenancyId);
+  const settling = propertyTenancies.find((t) => t.id === settlingId && t.moveOut);
+  const settlement = state.settlements.find((s) => s.tenancyId === settling?.id);
+  const settlingTarget = settling && (() => {
+    const { propertyName, ownerName, ownerAddress, renterName, roomName } = billInfo(settling);
+    return { tenancyId: settling.id, name: renterName, room: roomName,
+      depositCentavos: depositToReturn(settling, propertyBills, propertyPayments, settlement).depositCentavos,
+      unpaidCentavos: tenancyOwed(settling.id, propertyBills, propertyPayments),
+      ctx: { propertyName, ownerName, ownerAddress, renterName, roomName, moveOut: settling.moveOut! } };
+  })();
   const hasFooter = dialog && dialog.type !== 'share' && dialog.type !== 'linkReady' && !inSheet;
   // People from the owner's other properties, once each (by name and mobile), most recently moved in first.
   const others = (() => {
@@ -198,6 +210,7 @@ function RentalsContent(state: RentalsState) {
               onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
               onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }}
               onAddBillAmounts={() => { setAmountsFromHome(true); setView('bills'); }} utilityBills={propertyUtilityBills}
+              settlements={state.settlements} onSettleDeposit={setSettlingId}
               onMarkEarlierPaid={() => void tryAct({ type: 'markEarlierPaid', propertyId: property.id }, 'Earlier SOAs marked paid')} />
           : view === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
@@ -243,6 +256,9 @@ function RentalsContent(state: RentalsState) {
         if (failed.length) toast.warning(`Couldn’t attach ${failed.join(', ')}. Add it again from the payment.`);
         setPaying(null);
       }} />}
+
+    <SettleDepositDialog target={settlingTarget ?? null} settlement={settlement} canManage={isManager} busy={busy} run={run}
+      proofUrl={state.settlementProofUrl} onClose={() => setSettlingId(null)} />
 
     <Dialog open={!!dialog && !inSheet} onOpenChange={(open) => !open && setDialog(null)}>
       <DialogContent className={cn('max-h-[90dvh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--muted-foreground)_transparent]',
@@ -320,7 +336,7 @@ function RentalsContent(state: RentalsState) {
         {dialog?.type === 'tenant' && property && (() => {
           const renter = propertyRenters.find((r) => r.id === dialog.renterId);
           return renter && <TenantSheet renter={renter} tenancies={propertyTenancies}
-            bills={propertyBills} payments={propertyPayments} unitName={unitName} canManage={isManager} busy={busy} run={run}
+            bills={propertyBills} payments={propertyPayments} settlements={state.settlements} onOpenSettlement={setSettlingId} unitName={unitName} canManage={isManager} busy={busy} run={run}
             fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} receipt={receipt}
             contractInfo={{ property, texts: state.contractTexts, template: state.templates[property.id] ?? DEFAULT_CLAUSES, links: state.links }} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
             onSaveDetails={async (input) => { await run({ type: 'saveRenter', propertyId: property.id, id: renter.id, input }); toast.success('Tenant saved'); }}

@@ -59,6 +59,19 @@ export function PaymentsList({ payments, bills, canManage, busy, run, proofUrl, 
 }
 
 function Proofs({ payment, busy, run, proofUrl }: { payment: RentalPayment; proofUrl: RentalsState['paymentProofUrl'] } & Pick<RentalsState, 'busy' | 'run'>) {
+  return <ProofFiles files={payment.proofs} busy={busy} proofUrl={proofUrl} canAdd={payment.status === 'active'}
+    onUpload={(file) => run({ type: 'uploadPaymentProof', paymentId: payment.id, propertyId: payment.propertyId, file })}
+    onRemove={(id) => run({ type: 'removePaymentProof', id })} />;
+}
+
+type ProofFile = { id: string; name: string; ready: boolean };
+type FileInput = { name: string; mimeType: string; bytes: ArrayBuffer };
+
+/** Proof screenshots: view through a short-lived link, remove after a second tap, add more. Managers only. */
+export function ProofFiles({ files, busy, proofUrl, canAdd, onUpload, onRemove }: {
+  files: ProofFile[]; busy: boolean; proofUrl(id: string): Promise<string>; canAdd: boolean;
+  onUpload(file: FileInput): Promise<unknown>; onRemove(id: string): Promise<unknown>;
+}) {
   const [removing, setRemoving] = useState<string | null>(null);
   const open = async (id: string) => {
     const tab = window.open('about:blank', '_blank');
@@ -66,20 +79,19 @@ function Proofs({ payment, busy, run, proofUrl }: { payment: RentalPayment; proo
     tab.opener = null;
     try { tab.location.replace(await proofUrl(id)); } catch (e) { tab.close(); toast.error(errorMessage(e)); }
   };
-  const upload = async (files: File[]) => {
+  const upload = async (chosen: File[]) => {
     try {
-      for (const f of files) validateRentalFile(f.name, f.type, f.size);
-      for (const f of files) await run({ type: 'uploadPaymentProof', paymentId: payment.id, propertyId: payment.propertyId,
-        file: { name: f.name, mimeType: f.type, bytes: await f.arrayBuffer() } });
-      if (files.length) toast.success(files.length === 1 ? 'Proof attached' : `${files.length} proofs attached`);
+      for (const f of chosen) validateRentalFile(f.name, f.type, f.size);
+      for (const f of chosen) await onUpload({ name: f.name, mimeType: f.type, bytes: await f.arrayBuffer() });
+      if (chosen.length) toast.success(chosen.length === 1 ? 'Proof attached' : `${chosen.length} proofs attached`);
     } catch (e) { toast.error(errorMessage(e)); }
   };
   return <div className="flex flex-wrap items-center gap-1.5">
     <span className="text-xs text-muted-foreground">Proof:</span>
-    {payment.proofs.map((f) => removing === f.id
+    {files.map((f) => removing === f.id
       ? <span key={f.id} className="flex gap-1">
         <Button variant="destructive" size="sm" className="h-9 sm:h-7" disabled={busy}
-          onClick={() => void run({ type: 'removePaymentProof', id: f.id }).then(() => toast.success('Proof removed'), (e) => toast.error(errorMessage(e)))
+          onClick={() => void onRemove(f.id).then(() => toast.success('Proof removed'), (e) => toast.error(errorMessage(e)))
             .finally(() => setRemoving(null))}>Remove</Button>
         <Button variant="outline" size="sm" className="h-9 sm:h-7" onClick={() => setRemoving(null)}>Keep</Button>
       </span>
@@ -89,7 +101,7 @@ function Proofs({ payment, busy, run, proofUrl }: { payment: RentalPayment; proo
         <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive sm:size-7" disabled={busy}
           aria-label={`Remove ${f.name}`} onClick={() => setRemoving(f.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
       </span>)}
-    {payment.status === 'active' && <label className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed px-2 text-xs font-medium hover:border-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:opacity-60 sm:h-7">
+    {canAdd && <label className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed px-2 text-xs font-medium hover:border-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:opacity-60 sm:h-7">
       <Upload aria-hidden className="h-3.5 w-3.5" />Add
       <input type="file" className="sr-only" multiple accept="image/jpeg,image/png" disabled={busy} aria-label="Add proof"
         onChange={(e) => { void upload([...(e.target.files ?? [])]); e.target.value = ''; }} />

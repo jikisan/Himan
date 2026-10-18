@@ -4,9 +4,9 @@ import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
 import { ProfileRepository } from '@himan/shared/profile';
 import { addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
-import type { AddTenantInput, BillLine, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
+import type { AddTenantInput, BillLine, Clause, LinkKind, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
   ReadingInput, RenterInput, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
-import { BillRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
+import { BillRepository, ContractRepository, LinkRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
 
 type FileInput = { name: string; mimeType?: string | null; bytes: ArrayBuffer };
 
@@ -45,14 +45,28 @@ export type RentalAction =
   | { type: 'removePaymentProof'; id: string }
   | { type: 'saveAccount'; propertyId: string; id: string | null; input: PaymentAccountInput }
   | { type: 'removeAccount'; id: string }
-  | { type: 'uploadQr'; propertyId: string; accountId: string; file: FileInput };
+  | { type: 'uploadQr'; propertyId: string; accountId: string; file: FileInput }
+  /** Resolves to the new contract text's id. */
+  | { type: 'createContractText'; contractId: string; propertyId: string; body: string[]; specialTerms: string }
+  | { type: 'updateContractText'; id: string; changes: { body?: string[]; specialTerms?: string } }
+  | { type: 'sendContract'; id: string }
+  /** Without a signature, the property's saved one is used. */
+  | { type: 'countersign'; id: string; signature?: string }
+  | { type: 'setNotarizedScan'; id: string; file: FileInput }
+  | { type: 'saveTemplate'; propertyId: string; clauses: Clause[] }
+  | { type: 'saveLessorSignature'; propertyId: string; png: string }
+  /** Resolves to the link's token; replaces (and turns off) an existing link for the tenancy. */
+  | { type: 'createLink'; tenancyId: string; kind: LinkKind }
+  | { type: 'revokeLink'; tenancyId: string }
+  | { type: 'reopenLink'; tenancyId: string };
 
 export function useRentals() {
   const { user } = useAuth();
   const userId = user?.id;
   const client = useQueryClient();
   const repos = useMemo(() => ({ properties: new PropertyRepository(), renters: new RenterRepository(),
-    tenancies: new TenancyRepository(), bills: new BillRepository(), payments: new PaymentRepository(), accounts: new PaymentAccountRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
+    tenancies: new TenancyRepository(), bills: new BillRepository(), payments: new PaymentRepository(), accounts: new PaymentAccountRepository(),
+    contracts: new ContractRepository(), links: new LinkRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
   // Stable, so components can sign a file link once (e.g. ID thumbnails) instead of on every render.
   const fileUrl = useCallback((id: string, download = false) => repos.renters.fileUrl(id, download), [repos]);
   const paymentProofUrl = useCallback((id: string, download = false) => repos.payments.proofUrl(id, download), [repos]);
@@ -62,11 +76,15 @@ export function useRentals() {
     queryKey: ['rentals', userId], enabled: !!userId && online,
     meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false, refetchOnMount: 'always', networkMode: 'always',
     queryFn: async () => {
-      const [properties, renters, tenancies, bills, readings, utilityBills, payments, accounts, profile] = await Promise.all([
-        repos.properties.findAll(userId!), repos.renters.findAll(), repos.tenancies.findAll(),
+      const [[properties, templates], renters, tenancies, bills, readings, utilityBills, payments, accounts, contractTexts, links, profile] = await Promise.all([
+        // Each property's contract template (the default one when the owner hasn't edited it), keyed by property id.
+        repos.properties.findAll(userId!).then(async (list) => [list, Object.fromEntries(
+          await Promise.all(list.map(async (p) => [p.id, await repos.contracts.getTemplate(p.id)] as const)))] as const),
+        repos.renters.findAll(), repos.tenancies.findAll(),
         repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.payments.findAll(), repos.accounts.findAll(),
-        repos.profile.get(userId!).catch(() => null)]);
-      return { properties, renters, tenancies, bills, readings, utilityBills, payments, accounts, myName: profile?.fullName?.trim() ?? '' };
+        repos.contracts.findTexts(), repos.links.findAll(), repos.profile.get(userId!).catch(() => null)]);
+      return { properties, templates: templates as Record<string, Clause[]>, renters, tenancies, bills, readings, utilityBills, payments, accounts,
+        contractTexts, links, myName: profile?.fullName?.trim() ?? '' };
     },
   });
   const mutation = useMutation({
@@ -123,6 +141,16 @@ export function useRentals() {
         case 'saveAccount': return repos.accounts.save(a.propertyId, a.id, a.input);
         case 'removeAccount': return repos.accounts.remove(a.id);
         case 'uploadQr': return repos.accounts.uploadQr(a.propertyId, a.accountId, a.file);
+        case 'createContractText': return repos.contracts.createText(a.contractId, a.propertyId, a.body, a.specialTerms);
+        case 'updateContractText': return repos.contracts.updateText(a.id, a.changes);
+        case 'sendContract': return repos.contracts.send(a.id);
+        case 'countersign': return repos.contracts.countersign(a.id, a.signature);
+        case 'setNotarizedScan': return repos.contracts.setNotarizedScan(a.id, a.file);
+        case 'saveTemplate': return repos.contracts.saveTemplate(a.propertyId, a.clauses);
+        case 'saveLessorSignature': return repos.contracts.saveLessorSignature(a.propertyId, a.png);
+        case 'createLink': return repos.links.createLink(a.tenancyId, a.kind);
+        case 'revokeLink': return repos.links.revoke(a.tenancyId);
+        case 'reopenLink': return repos.links.reopen(a.tenancyId);
       }
     },
     onSettled: () => client.invalidateQueries({ queryKey: ['rentals'] }),
@@ -132,6 +160,7 @@ export function useRentals() {
     properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
     bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
     payments: data?.payments ?? [], accounts: data?.accounts ?? [],
+    contractTexts: data?.contractTexts ?? [], links: data?.links ?? [], templates: data?.templates ?? {},
     loading: query.isLoading, error: query.error, online, userId, busy: mutation.isPending,
     refetch: query.refetch, run: mutation.mutateAsync,
     fileUrl, paymentProofUrl, qrUrl,

@@ -4,9 +4,11 @@ import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
 import { ProfileRepository } from '@himan/shared/profile';
 import { addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
-import type { AddTenantInput, BillLine, ContractTermsInput, IssueBillInput, MeterKind, PropertyInput, ReadingInput, RenterInput,
-  StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
-import { BillRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
+import type { AddTenantInput, BillLine, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
+  ReadingInput, RenterInput, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
+import { BillRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
+
+type FileInput = { name: string; mimeType?: string | null; bytes: ArrayBuffer };
 
 export type RentalAction =
   | { type: 'saveProperty'; id: string | null; input: PropertyInput }
@@ -16,7 +18,7 @@ export type RentalAction =
   | { type: 'removeUnit'; id: string }
   | { type: 'saveRenter'; propertyId: string; id: string | null; input: RenterInput }
   | { type: 'removeRenter'; id: string }
-  | { type: 'uploadRenterFile'; renterId: string; propertyId: string; file: { name: string; mimeType?: string | null; bytes: ArrayBuffer } }
+  | { type: 'uploadRenterFile'; renterId: string; propertyId: string; file: FileInput }
   | { type: 'removeRenterFile'; id: string }
   | { type: 'startTenancy'; input: StartTenancyInput }
   | { type: 'endTenancy'; id: string; moveOut: string }
@@ -33,25 +35,36 @@ export type RentalAction =
   | { type: 'changeRent'; contractId: string; from: string; rentCentavos: number }
   | { type: 'moveOut'; tenancyId: string; moveOut: string; readings: { kind: MeterKind; value: number }[] }
   | { type: 'addMember'; propertyId: string; userId: string; role: 'manager' | 'viewer' }
-  | { type: 'removeMember'; propertyId: string; userId: string };
+  | { type: 'removeMember'; propertyId: string; userId: string }
+  /** Records the payment, then attaches each proof; resolves to { id, failed: proof names that didn't upload }. */
+  | { type: 'recordPayment'; tenancyId: string; input: PaymentInput; proofs?: FileInput[] }
+  | { type: 'voidPayment'; id: string; reason: string }
+  | { type: 'uploadPaymentProof'; paymentId: string; propertyId: string; file: FileInput }
+  | { type: 'removePaymentProof'; id: string }
+  | { type: 'saveAccount'; propertyId: string; id: string | null; input: PaymentAccountInput }
+  | { type: 'removeAccount'; id: string }
+  | { type: 'uploadQr'; propertyId: string; accountId: string; file: FileInput };
 
 export function useRentals() {
   const { user } = useAuth();
   const userId = user?.id;
   const client = useQueryClient();
   const repos = useMemo(() => ({ properties: new PropertyRepository(), renters: new RenterRepository(),
-    tenancies: new TenancyRepository(), bills: new BillRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
+    tenancies: new TenancyRepository(), bills: new BillRepository(), payments: new PaymentRepository(), accounts: new PaymentAccountRepository(), friends: new FriendRepository(), profile: new ProfileRepository() }), []);
   // Stable, so components can sign a file link once (e.g. ID thumbnails) instead of on every render.
   const fileUrl = useCallback((id: string, download = false) => repos.renters.fileUrl(id, download), [repos]);
+  const paymentProofUrl = useCallback((id: string, download = false) => repos.payments.proofUrl(id, download), [repos]);
+  const qrUrl = useCallback((path: string) => repos.accounts.qrUrl(path), [repos]);
   const online = useSyncExternalStore(onlineManager.subscribe, () => onlineManager.isOnline());
   const query = useQuery({
     queryKey: ['rentals', userId], enabled: !!userId && online,
     meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false, refetchOnMount: 'always', networkMode: 'always',
     queryFn: async () => {
-      const [properties, renters, tenancies, bills, readings, utilityBills, profile] = await Promise.all([
+      const [properties, renters, tenancies, bills, readings, utilityBills, payments, accounts, profile] = await Promise.all([
         repos.properties.findAll(userId!), repos.renters.findAll(), repos.tenancies.findAll(),
-        repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.profile.get(userId!).catch(() => null)]);
-      return { properties, renters, tenancies, bills, readings, utilityBills, myName: profile?.fullName?.trim() ?? '' };
+        repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.payments.findAll(), repos.accounts.findAll(),
+        repos.profile.get(userId!).catch(() => null)]);
+      return { properties, renters, tenancies, bills, readings, utilityBills, payments, accounts, myName: profile?.fullName?.trim() ?? '' };
     },
   });
   const mutation = useMutation({
@@ -92,6 +105,21 @@ export function useRentals() {
         }
         case 'addMember': return repos.properties.addMember(a.propertyId, a.userId, a.role);
         case 'removeMember': return repos.properties.removeMember(a.propertyId, a.userId);
+        case 'recordPayment': {
+          const id = await repos.payments.record({ ...a.input, tenancyId: a.tenancyId });
+          const propertyId = query.data?.tenancies.find((t) => t.id === a.tenancyId)?.propertyId;
+          const failed: string[] = [];
+          for (const file of a.proofs ?? []) {
+            try { await repos.payments.uploadProof(id, propertyId!, file); } catch { failed.push(file.name); }
+          }
+          return { id, failed };
+        }
+        case 'voidPayment': return repos.payments.void(a.id, a.reason);
+        case 'uploadPaymentProof': return repos.payments.uploadProof(a.paymentId, a.propertyId, a.file);
+        case 'removePaymentProof': return repos.payments.removeProof(a.id);
+        case 'saveAccount': return repos.accounts.save(a.propertyId, a.id, a.input);
+        case 'removeAccount': return repos.accounts.remove(a.id);
+        case 'uploadQr': return repos.accounts.uploadQr(a.propertyId, a.accountId, a.file);
       }
     },
     onSettled: () => client.invalidateQueries({ queryKey: ['rentals'] }),
@@ -100,9 +128,10 @@ export function useRentals() {
   return {
     properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
     bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
+    payments: data?.payments ?? [], accounts: data?.accounts ?? [],
     loading: query.isLoading, error: query.error, online, userId, busy: mutation.isPending,
     refetch: query.refetch, run: mutation.mutateAsync,
-    fileUrl,
+    fileUrl, paymentProofUrl, qrUrl,
     listMembers: (propertyId: string) => repos.properties.listMembers(propertyId),
     listFriends: () => repos.friends.getFriends(userId!),
   };

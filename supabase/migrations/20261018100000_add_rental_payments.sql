@@ -3,6 +3,12 @@
 -- rental_reallocate rebuilds the automatic (oldest bill first) allocations whenever a bill or payment changes.
 -- Bill state (paid / partial / unpaid / overdue) is derived in the app, never stored.
 
+-- Bills issued before this ships have no payments recorded, so they would all show as overdue. Existing properties
+-- remember when tracking started; their earlier bills can be marked paid in one step (rental_mark_earlier_paid).
+-- New properties stay NULL: everything is tracked. Not client-editable.
+ALTER TABLE public.rental_properties ADD COLUMN payments_tracked_from date;
+UPDATE public.rental_properties SET payments_tracked_from = (now() AT TIME ZONE 'Asia/Manila')::date;
+
 -- ── Payment accounts ────────────────────────────────────────────────────────
 
 CREATE TABLE public.rental_payment_accounts (
@@ -36,7 +42,8 @@ CREATE TABLE public.rental_payments (
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'void')),
   void_reason text NOT NULL DEFAULT '' CHECK (char_length(void_reason) <= 300),
   created_by uuid DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
+  -- Allocation order: clock time, so payments recorded in one transaction still have a stable order.
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE (id, property_id),
   FOREIGN KEY (tenancy_id, property_id) REFERENCES public.rental_tenancies(id, property_id) ON DELETE RESTRICT
 );
@@ -100,7 +107,7 @@ BEGIN
     FROM public.rental_payment_allocations a
     JOIN public.rental_payments p ON p.id = a.payment_id JOIN public.rental_bills b ON b.id = a.bill_id
     WHERE p.tenancy_id = p_tenancy_id
-    ORDER BY a.bill_id, p.paid_on, p.created_at, p.id
+    ORDER BY a.bill_id, p.created_at, p.id
   LOOP
     IF v_bill IS DISTINCT FROM r.bill_id THEN v_bill := r.bill_id; v_left := r.total; END IF;
     v_amount := least(r.amount_centavos, v_left);
@@ -112,12 +119,13 @@ BEGIN
     v_left := v_left - v_amount;
   END LOOP;
 
-  -- Oldest payment pays the oldest bill first.
+  -- The first payment recorded pays the oldest bill first. Recording order, not paid_on, so back-dating a
+  -- payment never reshuffles what earlier payments already paid.
   FOR r IN SELECT p.id, p.property_id, p.amount_centavos - coalesce((SELECT sum(a.amount_centavos)
       FROM public.rental_payment_allocations a WHERE a.payment_id = p.id), 0) AS left_over
     FROM public.rental_payments p
     WHERE p.tenancy_id = p_tenancy_id AND p.status = 'active'
-    ORDER BY p.paid_on, p.created_at, p.id
+    ORDER BY p.created_at, p.id
   LOOP
     v_left := r.left_over;
     CONTINUE WHEN v_left <= 0;
@@ -145,26 +153,13 @@ BEGIN
   RETURN NULL;
 END;
 $$;
-CREATE TRIGGER rental_bills_reallocate AFTER INSERT OR UPDATE OF lines, status ON public.rental_bills
+CREATE TRIGGER rental_bills_reallocate AFTER INSERT OR UPDATE OF lines, status, due_on ON public.rental_bills
   FOR EACH ROW EXECUTE FUNCTION public.rental_reallocate_trigger();
 CREATE TRIGGER rental_payments_reallocate AFTER UPDATE OF status ON public.rental_payments
   FOR EACH ROW EXECUTE FUNCTION public.rental_reallocate_trigger();
 
--- A bill that an active payment pays can't be edited or cancelled; the lock makes the check race-free
--- against a payment being recorded for the same tenant.
-CREATE FUNCTION public.rental_bill_payment_guard() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-BEGIN
-  IF (NEW.lines, NEW.status) IS NOT DISTINCT FROM (OLD.lines, OLD.status) THEN RETURN NEW; END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended('rental_tenancy:' || OLD.tenancy_id::text, 0));
-  IF EXISTS (SELECT 1 FROM public.rental_payment_allocations a JOIN public.rental_payments p ON p.id = a.payment_id
-    WHERE a.bill_id = OLD.id AND p.status = 'active')
-  THEN RAISE EXCEPTION 'This bill has payments. Void the payment first.'; END IF;
-  RETURN NEW;
-END;
-$$;
-CREATE TRIGGER rental_bill_payment_guard BEFORE UPDATE OF lines, status ON public.rental_bills
-  FOR EACH ROW EXECUTE FUNCTION public.rental_bill_payment_guard();
+-- A paid bill can still be edited or cancelled: reallocation clamps or drops its allocations and the money
+-- goes back to the tenant's credit (or on to their next bill).
 
 CREATE FUNCTION public.rental_payment_proof_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
@@ -221,9 +216,9 @@ CREATE FUNCTION public.rental_void_payment(p_payment_id uuid, p_reason text) RET
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_property uuid;
 BEGIN
+  -- Same answer for an unknown id as for someone else's payment, so ids can't be probed.
   SELECT property_id INTO v_property FROM public.rental_payments WHERE id = p_payment_id;
-  IF v_property IS NULL THEN RAISE EXCEPTION 'Payment not found or already voided'; END IF;
-  IF NOT public.rental_has_role(v_property, 'manager') THEN
+  IF v_property IS NULL OR NOT public.rental_has_role(v_property, 'manager') THEN
     RAISE EXCEPTION 'Only managers can record payments' USING ERRCODE = '42501';
   END IF;
   IF char_length(btrim(coalesce(p_reason, ''))) NOT BETWEEN 1 AND 300 THEN
@@ -233,6 +228,46 @@ BEGIN
   UPDATE public.rental_payments SET status = 'void', void_reason = btrim(p_reason)
   WHERE id = p_payment_id AND status = 'active';
   IF NOT FOUND THEN RAISE EXCEPTION 'Payment not found or already voided'; END IF;
+END;
+$$;
+
+-- What a tenancy still owes on each bill issued before a date. Internal; not granted.
+CREATE FUNCTION public.rental_earlier_owed(p_tenancy_id uuid, p_before date)
+RETURNS TABLE (bill_id uuid, owed bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT b.id, public.rental_bill_total(b.lines) - coalesce((SELECT sum(a.amount_centavos)
+    FROM public.rental_payment_allocations a JOIN public.rental_payments p ON p.id = a.payment_id
+    WHERE a.bill_id = b.id AND p.status = 'active'), 0)
+  FROM public.rental_bills b
+  WHERE b.tenancy_id = p_tenancy_id AND b.status = 'issued' AND b.issued_on < p_before
+$$;
+
+-- One payment per tenant for what is still owed on bills issued before payment tracking started, pinned to
+-- those bills. Returns how many payments it created.
+CREATE FUNCTION public.rental_mark_earlier_paid(p_property_id uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_from date; v_tenancy uuid; v_id uuid; v_total bigint; v_count integer := 0;
+BEGIN
+  IF NOT public.rental_has_role(p_property_id, 'manager') THEN
+    RAISE EXCEPTION 'Only managers can record payments' USING ERRCODE = '42501';
+  END IF;
+  SELECT payments_tracked_from INTO v_from FROM public.rental_properties WHERE id = p_property_id;
+  IF v_from IS NULL THEN RETURN 0; END IF;
+  FOR v_tenancy IN SELECT DISTINCT b.tenancy_id FROM public.rental_bills b
+    WHERE b.property_id = p_property_id AND b.status = 'issued' AND b.issued_on < v_from ORDER BY b.tenancy_id
+  LOOP
+    PERFORM pg_advisory_xact_lock(hashtextextended('rental_tenancy:' || v_tenancy::text, 0));
+    SELECT coalesce(sum(e.owed), 0) INTO v_total FROM public.rental_earlier_owed(v_tenancy, v_from) e WHERE e.owed > 0;
+    CONTINUE WHEN v_total <= 0;
+    INSERT INTO public.rental_payments (property_id, tenancy_id, amount_centavos, paid_on, method, notes)
+    VALUES (p_property_id, v_tenancy, v_total, v_from, 'other', 'Paid before payment tracking')
+    RETURNING id INTO v_id;
+    -- Pinned, so the money lands on exactly these bills whatever their due dates.
+    INSERT INTO public.rental_payment_allocations (payment_id, bill_id, property_id, amount_centavos, pinned)
+      SELECT v_id, e.bill_id, p_property_id, e.owed, true FROM public.rental_earlier_owed(v_tenancy, v_from) e WHERE e.owed > 0;
+    PERFORM public.rental_reallocate(v_tenancy);
+    v_count := v_count + 1;
+  END LOOP;
+  RETURN v_count;
 END;
 $$;
 
@@ -273,12 +308,13 @@ CREATE POLICY "Managers delete payment proofs" ON public.rental_payment_proofs F
   USING (public.rental_has_role(property_id, 'manager'));
 
 REVOKE ALL ON FUNCTION public.rental_bill_total(jsonb), public.rental_reallocate(uuid),
-  public.rental_reallocate_trigger(), public.rental_bill_payment_guard(), public.rental_payment_proof_guard(),
+  public.rental_reallocate_trigger(), public.rental_payment_proof_guard(),
   public.rental_record_payment(uuid, integer, date, text, text, text, uuid),
-  public.rental_void_payment(uuid, text) FROM PUBLIC, anon, authenticated;
+  public.rental_void_payment(uuid, text), public.rental_earlier_owed(uuid, date), public.rental_mark_earlier_paid(uuid)
+  FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.rental_bill_total(jsonb),
   public.rental_record_payment(uuid, integer, date, text, text, text, uuid),
-  public.rental_void_payment(uuid, text) TO authenticated;
+  public.rental_void_payment(uuid, text), public.rental_mark_earlier_paid(uuid) TO authenticated;
 
 -- ── Storage ─────────────────────────────────────────────────────────────────
 

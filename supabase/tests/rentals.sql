@@ -420,6 +420,11 @@ RESET ROLE;
 CREATE FUNCTION pg_temp.paid(p_bill uuid) RETURNS bigint LANGUAGE sql AS $$
   SELECT coalesce(sum(amount_centavos), 0) FROM public.rental_payment_allocations WHERE bill_id = p_bill
 $$;
+CREATE FUNCTION pg_temp.credit(p_tenancy uuid) RETURNS bigint LANGUAGE sql AS $$
+  SELECT coalesce(sum(p.amount_centavos - (SELECT coalesce(sum(a.amount_centavos), 0)
+    FROM public.rental_payment_allocations a WHERE a.payment_id = p.id)), 0)
+  FROM public.rental_payments p WHERE p.tenancy_id = p_tenancy AND p.status = 'active'
+$$;
 -- Never over-allocated: no bill beyond its total, no payment beyond its amount, nothing on void rows.
 CREATE FUNCTION pg_temp.check_allocations() RETURNS void LANGUAGE plpgsql AS $$ BEGIN
   IF EXISTS (SELECT 1 FROM public.rental_bills b
@@ -480,19 +485,24 @@ BEGIN
   IF pg_temp.paid(b4) <> 50000 THEN RAISE EXCEPTION 'Credit did not apply to the next bill: %', pg_temp.paid(b4); END IF;
   PERFORM pg_temp.check_allocations();
 
-  -- Review Focus 3: a bill with payments can't be edited or cancelled.
-  BEGIN
-    UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":90000}]' WHERE id = b1;
-    RAISE EXCEPTION 'A paid bill was edited';
-  EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM <> 'This bill has payments. Void the payment first.' THEN RAISE; END IF;
-  END;
-  BEGIN
-    UPDATE public.rental_bills SET status = 'void', void_reason = 'x' WHERE id = b4;
-    RAISE EXCEPTION 'A part-paid bill was cancelled';
-  EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM <> 'This bill has payments. Void the payment first.' THEN RAISE; END IF;
-  END;
+  -- Review Focus 3: a paid bill can still be edited or cancelled; what no longer fits goes to credit or other bills.
+  UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":90000}]' WHERE id = b1;
+  IF pg_temp.paid(b1) <> 90000 OR pg_temp.paid(b4) <> 60000
+  THEN RAISE EXCEPTION 'Shrinking a paid bill did not move the money on: b1 % b4 %', pg_temp.paid(b1), pg_temp.paid(b4); END IF;
+  PERFORM pg_temp.check_allocations();
+  UPDATE public.rental_bills SET lines = v_rent WHERE id = b1;
+  UPDATE public.rental_bills SET status = 'void', void_reason = 'x' WHERE id = b4;
+  IF pg_temp.paid(b4) <> 0 OR pg_temp.credit(v_t) <> 50000
+  THEN RAISE EXCEPTION 'Cancelling a part-paid bill did not return its money to credit: %', pg_temp.credit(v_t); END IF;
+  b4 := public.rental_issue_bill(v_t, 'monthly', '2026-11', '2026-11-05', v_rent);
+  IF pg_temp.paid(b4) <> 50000 THEN RAISE EXCEPTION 'Credit did not pay the replacement bill'; END IF;
+  -- Moving a due date reorders who gets paid first.
+  UPDATE public.rental_bills SET due_on = '2026-08-01' WHERE id = b4;
+  IF pg_temp.paid(b4) <> 100000 OR pg_temp.paid(b3) <> 50000
+  THEN RAISE EXCEPTION 'A due date change did not reallocate: b3 % b4 %', pg_temp.paid(b3), pg_temp.paid(b4); END IF;
+  UPDATE public.rental_bills SET due_on = '2026-11-05' WHERE id = b4;
+  IF pg_temp.paid(b4) <> 50000 OR pg_temp.paid(b3) <> 100000 THEN RAISE EXCEPTION 'Restoring the due date did not reallocate'; END IF;
+  PERFORM pg_temp.check_allocations();
   UPDATE public.rental_bills SET due_on = '2026-08-06' WHERE id = b1;
 
   -- Review Focus 2: voiding the latest payment returns exactly the bills it paid.
@@ -512,7 +522,6 @@ BEGIN
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM <> 'Payment not found or already voided' THEN RAISE; END IF;
   END;
-  -- Unpaid again, so editable again.
   UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":120000}]' WHERE id = b4;
 
   -- Pinned allocation: "pay this bill first", capped at what the bill still needs; the rest goes oldest first.
@@ -696,14 +705,21 @@ BEGIN
   BEGIN
     PERFORM public.rental_void_payment(p1, 'No');
     RAISE EXCEPTION 'Stranger voided a payment';
-  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'Only managers can record payments' THEN RAISE; END IF;
+  END;
+  -- Review Focus 4: an unknown id answers like a real one, so ids can't be probed.
+  BEGIN
+    PERFORM public.rental_void_payment(gen_random_uuid(), 'No');
+    RAISE EXCEPTION 'Voiding an unknown payment did not fail';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'Only managers can record payments' THEN RAISE; END IF;
+  END;
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
 END $$;
 
--- Review Focus 2 (defensive): a pinned allocation whose bill shrinks is clamped, and dropped when the bill is cancelled.
--- The payment guard normally refuses both, so it is switched off here to reach reallocation directly.
+-- Review Focus 2: a pinned allocation whose bill shrinks is clamped, and dropped when the bill is cancelled.
 RESET ROLE;
-ALTER TABLE public.rental_bills DISABLE TRIGGER rental_bill_payment_guard;
 DO $$ DECLARE v_t uuid := (SELECT id FROM public.rental_tenancies WHERE renter_id = '00000000-0000-0000-0000-0000000ad021');
   b3 uuid; v_paid bigint; v_owed bigint;
 BEGIN
@@ -729,7 +745,79 @@ BEGIN
     OR (SELECT file_size_limit FROM storage.buckets WHERE id = 'rental-qr') <> 2097152
   THEN RAISE EXCEPTION 'QR bucket is not public or has the wrong size limit'; END IF;
 END $$;
-ALTER TABLE public.rental_bills ENABLE TRIGGER rental_bill_payment_guard;
+
+-- Bills issued before payment tracking started: one "paid before tracking" payment per tenant clears them.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab031', 'Old House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity)
+VALUES ('00000000-0000-0000-0000-0000000ac031', '00000000-0000-0000-0000-0000000ab031', 'O1', 'room', 1);
+INSERT INTO public.rental_renters (id, property_id, full_name)
+VALUES ('00000000-0000-0000-0000-0000000ad031', '00000000-0000-0000-0000-0000000ab031', 'Old Tenant');
+SELECT public.rental_add_member('00000000-0000-0000-0000-0000000ab031', '00000000-0000-0000-0000-0000000aa002', 'viewer');
+DO $$ DECLARE v_today date := (now() AT TIME ZONE 'Asia/Manila')::date; v_t uuid; e1 uuid; e2 uuid; n1 uuid;
+  px uuid; py uuid; pz uuid; v_marked uuid; v_rent jsonb := '[{"kind":"rent","label":"Rent","amount":100000}]';
+  v_house uuid := '00000000-0000-0000-0000-0000000ab031';
+BEGIN
+  -- New properties track everything; the start date is not client-editable.
+  IF (SELECT payments_tracked_from FROM public.rental_properties WHERE id = v_house) IS NOT NULL
+  THEN RAISE EXCEPTION 'A new property has a payment tracking start'; END IF;
+  BEGIN
+    UPDATE public.rental_properties SET payments_tracked_from = v_today WHERE id = v_house;
+    RAISE EXCEPTION 'A client set the payment tracking start';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  IF public.rental_mark_earlier_paid(v_house) <> 0 THEN RAISE EXCEPTION 'Marked bills paid with no tracking start'; END IF;
+
+  v_t := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac031', '00000000-0000-0000-0000-0000000ad031',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 0);
+  e1 := public.rental_issue_bill(v_t, 'monthly', '2026-08', '2026-08-05', v_rent);
+  e2 := public.rental_issue_bill(v_t, 'monthly', '2026-09', '2026-09-05', v_rent);
+  n1 := public.rental_issue_bill(v_t, 'monthly', '2026-10', '2026-10-05', v_rent);
+  -- As if the property existed when tracking shipped: e1 and e2 were issued before it.
+  RESET ROLE;
+  UPDATE public.rental_properties SET payments_tracked_from = v_today - 10 WHERE id = v_house;
+  UPDATE public.rental_bills SET issued_on = v_today - 40 WHERE id IN (e1, e2);
+  SET LOCAL ROLE authenticated;
+
+  px := public.rental_record_payment(v_t, 30000, v_today, 'cash', '', '');
+  IF pg_temp.paid(e1) <> 30000 THEN RAISE EXCEPTION 'Tracked payment did not pay the oldest bill'; END IF;
+
+  -- A viewer or stranger can't mark bills paid, and gets the same message either way.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa002', true);
+  BEGIN
+    PERFORM public.rental_mark_earlier_paid(v_house);
+    RAISE EXCEPTION 'Viewer marked earlier bills paid';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'Only managers can record payments' THEN RAISE; END IF;
+  END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa003', true);
+  BEGIN
+    PERFORM public.rental_mark_earlier_paid(v_house);
+    RAISE EXCEPTION 'Stranger marked earlier bills paid';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'Only managers can record payments' THEN RAISE; END IF;
+  END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+
+  IF public.rental_mark_earlier_paid(v_house) <> 1 THEN RAISE EXCEPTION 'Expected one payment for one tenant'; END IF;
+  SELECT id INTO v_marked FROM public.rental_payments WHERE tenancy_id = v_t AND notes = 'Paid before payment tracking';
+  IF (SELECT amount_centavos || ':' || method || ':' || paid_on FROM public.rental_payments WHERE id = v_marked)
+    <> '170000:other:' || (v_today - 10)
+  THEN RAISE EXCEPTION 'Earlier-bills payment has the wrong amount, method or date'; END IF;
+  IF pg_temp.paid(e1) <> 100000 OR pg_temp.paid(e2) <> 100000 OR pg_temp.paid(n1) <> 0
+  THEN RAISE EXCEPTION 'Earlier bills not paid exactly: e1 % e2 % n1 %', pg_temp.paid(e1), pg_temp.paid(e2), pg_temp.paid(n1); END IF;
+  IF public.rental_mark_earlier_paid(v_house) <> 0 THEN RAISE EXCEPTION 'Marked earlier bills paid twice'; END IF;
+  PERFORM pg_temp.check_allocations();
+
+  -- Automatic allocation follows the order payments were recorded, not their dates: a back-dated payment goes last.
+  py := public.rental_record_payment(v_t, 60000, v_today, 'cash', '', '');
+  pz := public.rental_record_payment(v_t, 60000, v_today - 20, 'cash', '', '');
+  IF (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE payment_id = px AND bill_id = e1) <> 30000
+    OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE payment_id = py AND bill_id = n1) <> 60000
+    OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE payment_id = pz) <> 40000
+  THEN RAISE EXCEPTION 'Allocation did not follow the recording order'; END IF;
+  PERFORM pg_temp.check_allocations();
+END $$;
 
 RESET ROLE;
 DO $$ BEGIN

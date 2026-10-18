@@ -3,7 +3,7 @@ import { Copy, Link2, Link2Off, RefreshCw, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import type { LinkDetails, TenancyLink } from '@himan/shared/rentals';
+import type { SubmittedDetails, TenancyLink } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { tenantLinkMessage } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
@@ -70,12 +70,12 @@ export function TenantLinkPanel({ link, name, busy, run }: { link: TenancyLink; 
 }
 
 /** Managers only: what a new tenant sent through the link. Nothing reaches the tenant record until Accept. */
-export function DetailsReview({ tenancyId, details, busy, run }: { tenancyId: string; details: LinkDetails } & Pick<RentalsState, 'busy' | 'run'>) {
+export function DetailsReview({ tenancyId, details, busy, run }: { tenancyId: string; details: SubmittedDetails } & Pick<RentalsState, 'busy' | 'run'>) {
   const [error, setError] = useState('');
   const ids = details.idPaths.length;
   const rows: [string, string][] = [['Full name', details.fullName], ['Mobile', details.phone], ['Home address', details.address],
     ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Messenger', details.facebook],
-    ['Email', details.email], ['Living with them', `${details.occupants} ${details.occupants === 1 ? 'person' : 'people'}`],
+    ['Email', details.email], ['Living with them', details.occupants ? `${details.occupants} ${details.occupants === 1 ? 'person' : 'people'}` : ''],
     ['Valid ID', `${ids} ID photo${ids === 1 ? '' : 's'}`]];
   const act = async (action: Parameters<RentalsState['run']>[0], done: string) => {
     setError('');

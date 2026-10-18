@@ -81,7 +81,13 @@ export function useRentals() {
     queryFn: async () => {
       const [[properties, templates], renters, tenancies, bills, readings, utilityBills, payments, accounts, contractTexts, links, profile] = await Promise.all([
         // Each property's contract template (the default one when the owner hasn't edited it), keyed by property id.
-        repos.properties.findAll(userId!).then(async (list) => [list, Object.fromEntries(
+        // Owners also get their saved signature, which only they can read (one-tap countersign).
+        repos.properties.findAll(userId!).then((list) => Promise.all(list.map(async (p) => p.role !== 'owner' ? p
+          : { ...p, lessorSignature: await repos.contracts.getLessorSignature(p.id).catch((e: unknown) => {
+            Logger.warn(`Could not load the saved signature for property ${p.id}`, e);
+            return null;
+          }) })))
+          .then(async (list) => [list, Object.fromEntries(
           await Promise.all(list.map(async (p) => [p.id, await repos.contracts.getTemplate(p.id).catch((e: unknown) => {
             // One unreadable template must not stop the whole page; contracts for that property start from the default.
             Logger.warn(`Could not load the contract template for property ${p.id}`, e);

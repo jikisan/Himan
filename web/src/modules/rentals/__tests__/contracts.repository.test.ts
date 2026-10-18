@@ -93,7 +93,33 @@ describe('ContractRepository', () => {
 });
 
 describe('LinkRepository manager side', () => {
+  it('reads the saved signature through the owner-only RPC', async () => {
+    mock.rpc.mockResolvedValue({ data: png, error: null });
+    expect(await new ContractRepository().getLessorSignature('p')).toBe(png);
+    expect(mock.rpc).toHaveBeenCalledWith('rental_get_lessor_signature', { p_property_id: 'p' });
+    mock.rpc.mockResolvedValue({ data: null, error: null });
+    expect(await new ContractRepository().getLessorSignature('p')).toBeNull();
+  });
+  it('deletes the old ID uploads before reopening, even if the cleanup fails', async () => {
+    mock.from.mockReturnValue(result(linkRow));
+    const remove = vi.fn(async () => ({ data: null, error: null }));
+    mock.storage.from.mockReturnValue({ remove });
+    mock.rpc.mockResolvedValue({ data: null, error: null });
+    await new LinkRepository().reopen('t');
+    expect(mock.storage.from).toHaveBeenCalledWith('rental-link-uploads');
+    expect(remove).toHaveBeenCalledWith(['tok/a.png']);
+    expect(mock.rpc).toHaveBeenCalledWith('rental_reopen_link', { p_tenancy_id: 't' });
+    remove.mockRejectedValueOnce(new Error('offline'));
+    await new LinkRepository().reopen('t');
+    expect(mock.rpc).toHaveBeenCalledTimes(2);
+  });
+  it('keeps submitted details without a people count', async () => {
+    mock.from.mockReturnValue(result([{ ...linkRow, submitted_details: { ...details, occupants: null } }]));
+    const [link] = await new LinkRepository().findAll();
+    expect(link.submittedDetails).toMatchObject({ fullName: 'Ben Cruz', occupants: null });
+  });
   it('creates, revokes and reopens links through RPCs', async () => {
+    mock.from.mockReturnValue(result({ ...linkRow, status: 'open', submitted_details: null }));
     mock.rpc.mockResolvedValue({ data: 'tok', error: null });
     expect(await new LinkRepository().createLink('t', 'new')).toBe('tok');
     await new LinkRepository().revoke('t');

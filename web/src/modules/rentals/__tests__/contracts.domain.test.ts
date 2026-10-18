@@ -22,6 +22,9 @@ describe('contract template', () => {
     expect(body).toContain('Ana Reyes');
     expect(renderClauses(NOTARY_ACKNOWLEDGMENT, full).join('\n')).not.toMatch(/\{\{|undefined/);
   });
+  it('prints a blank for placeholders that are not fields, even object built-ins', () => {
+    expect(renderClauses([{ id: 'preamble', text: '{{constructor}} {{toString}} {{nope}}' }], full)).toEqual(['__________ __________ __________']);
+  });
   it('only uses fields offered in the Insert field menu', () => {
     const keys = new Set(CONTRACT_FIELDS.map((f) => f.key));
     for (const clause of [...DEFAULT_CLAUSES, ...NOTARY_ACKNOWLEDGMENT]) {

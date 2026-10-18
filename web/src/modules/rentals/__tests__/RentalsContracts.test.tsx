@@ -127,6 +127,29 @@ describe('Contract on the tenant sheet', () => {
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'countersign', id: 'ct' }));
   });
 
+  it('has a manager who isn’t the owner draw their own signature', async () => {
+    state.properties = [{ ...property, role: 'manager', lessorSignature: undefined }];
+    state.contractTexts = [text({ status: 'signed', signMode: 'esign', tenantSignedAt: '2026-10-09T01:00:00Z' })];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Countersign' }));
+    expect(state.run).not.toHaveBeenCalled();
+    expect(contract.getByText('Draw your signature to countersign.')).toBeInTheDocument();
+    act(() => pad.fire());
+    fireEvent.click(contract.getByRole('button', { name: 'Sign and countersign' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'countersign', id: 'ct', signature: PNG }));
+  });
+
+  it('makes a new link of the same kind when the old one was turned off', async () => {
+    state.contractTexts = [text({ status: 'sent' })];
+    state.links = [link({ kind: 'new', status: 'accepted', revokedAt: '2026-10-01T00:00:00Z' })];
+    state.run.mockImplementation(async (a: { type: string }) => (a.type === 'createLink' ? 'tok123' : undefined));
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Copy link for Messenger' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'new' }));
+  });
+
   it('asks for a drawn signature first when none is saved', async () => {
     state.properties = [{ ...property, lessorSignature: null }];
     state.contractTexts = [text({ status: 'signed', signMode: 'esign', tenantSignedAt: '2026-10-09T01:00:00Z' })];

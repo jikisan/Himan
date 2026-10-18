@@ -30,9 +30,10 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
   const body = () => renderClauses(info.template, contractValues({ property, renter, contract, signingDate: manilaToday() }));
   const fail = (e: unknown) => toast.error(errorMessage(e));
 
-  // Reuses the open link; makes one (kind "existing": they're already a tenant) when there is none.
-  const linkToken = async () => token ?? link?.token ?? await run({ type: 'createLink', tenancyId: contract.tenancyId, kind: 'existing' }) as string;
-  const message = (t: string) => linkMessage(`${location.origin}/r/${t}`, renter.fullName, link?.kind ?? 'existing');
+  // Reuses the open link; replaces a turned-off one with the same kind; else makes one (kind "existing": they're already a tenant).
+  const kind = info.links.find((l) => l.tenancyId === contract.tenancyId)?.kind ?? 'existing';
+  const linkToken = async () => token ?? link?.token ?? await run({ type: 'createLink', tenancyId: contract.tenancyId, kind }) as string;
+  const message = (t: string) => linkMessage(`${location.origin}/r/${t}`, renter.fullName, kind);
   const copy = async () => {
     try {
       const t = await linkToken();
@@ -76,6 +77,8 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
 
   const editable = canManage && (text.status === 'draft' || text.status === 'sent');
   const notarize = text.signMode === 'notarize' && !!text.tenantSignedAt;
+  // The saved signature is the owner's: other managers draw their own.
+  const saved = property.role === 'owner' && !!property.lessorSignature;
   return <div className="space-y-3">
     <p className="rounded-md bg-muted/50 px-3 py-2 text-sm font-medium" role="status">{contractStatusLabel(text.status, text.signMode)}</p>
     {text.notarizedScanPath && <p className="text-xs text-muted-foreground">Notarized copy attached.</p>}
@@ -94,7 +97,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
       </>}
       {editable && <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => setEditing(true)}><PenLine className="h-4 w-4" />Edit</Button>}
       {text.status === 'signed' && drawing === undefined && <Button className="h-11 sm:h-9" disabled={busy}
-        onClick={() => (property.lessorSignature ? void countersign() : setDrawing(null))}><PenLine className="h-4 w-4" />Countersign</Button>}
+        onClick={() => (saved ? void countersign() : setDrawing(null))}><PenLine className="h-4 w-4" />Countersign</Button>}
       {notarize && <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted/50 focus-within:ring-2 focus-within:ring-ring sm:min-h-9">
         <Upload className="h-4 w-4" />{text.notarizedScanPath ? 'Replace notarized copy' : 'Upload notarized copy'}
         <input ref={scanInput} type="file" aria-label="Upload notarized copy" accept="application/pdf,image/jpeg,image/png" className="sr-only" disabled={busy}
@@ -107,7 +110,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
     </div>}
     {notarize && canManage && <p className="text-xs text-muted-foreground">PDF, JPEG or PNG, up to 10 MB.</p>}
     {drawing !== undefined && <div className="space-y-2 rounded-lg border p-3">
-      <p className="text-sm">You haven’t saved a signature yet. Sign here to countersign.</p>
+      <p className="text-sm">{property.role === 'owner' ? 'You haven’t saved a signature yet. Sign here to countersign.' : 'Draw your signature to countersign.'}</p>
       <SignaturePad label="Draw your signature" onChange={setDrawing} disabled={busy} />
       <div className="flex justify-end gap-2">
         <Button variant="ghost" className="h-11 sm:h-9" onClick={() => setDrawing(undefined)}>Cancel</Button>

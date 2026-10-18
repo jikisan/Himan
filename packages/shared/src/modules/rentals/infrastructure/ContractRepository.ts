@@ -49,7 +49,7 @@ export class ContractRepository {
     if (error) throw rentalError(error, 'Could not send the contract');
   }
 
-  /** Without a signature, the property's saved one is used. */
+  /** Without a signature, the property's saved one is used (owners only; others must draw one). */
   async countersign(id: string, signature?: string): Promise<void> {
     const { error } = await getSupabase().rpc('rental_countersign',
       { p_contract_text_id: id, p_signature: signature === undefined ? null : signatureSchema.parse(signature) });
@@ -69,6 +69,13 @@ export class ContractRepository {
       await bucket.remove([path]).catch(() => undefined);
       throw rentalError(rpcError, 'Could not attach the notarized copy');
     }
+  }
+
+  /** Owner only; members can't read the saved signature. */
+  async getLessorSignature(propertyId: string): Promise<string | null> {
+    const { data, error } = await getSupabase().rpc('rental_get_lessor_signature', { p_property_id: propertyId });
+    if (error) throw rentalError(error, 'Could not load your signature');
+    return z.string().nullable().parse(data);
   }
 
   async saveLessorSignature(propertyId: string, png: string): Promise<void> {

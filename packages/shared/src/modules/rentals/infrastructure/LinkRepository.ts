@@ -24,7 +24,11 @@ export class LinkRepository {
     if (error) throw rentalError(error, 'Could not turn off the link');
   }
 
+  /** Deletes the tenant's old ID uploads (best effort; the database restarts the 3-file count anyway), then reopens. */
   async reopen(tenancyId: string): Promise<void> {
+    const { data } = await getSupabase().from(LINKS).select('*').eq('tenancy_id', tenancyId).maybeSingle();
+    const paths = data ? linkRow.parse(data).submittedDetails?.idPaths ?? [] : [];
+    if (paths.length) await getSupabase().storage.from(UPLOADS).remove(paths).catch(() => undefined);
     const { error } = await getSupabase().rpc('rental_reopen_link', { p_tenancy_id: tenancyId });
     if (error) throw rentalError(error, 'Could not reopen the link');
   }

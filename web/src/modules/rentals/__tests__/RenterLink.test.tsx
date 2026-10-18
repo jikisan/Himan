@@ -36,7 +36,7 @@ const sent = { id: 'ct1', status: 'sent' as const, body: ['KNOW ALL MEN BY THESE
 const base = (extra: Partial<PublicLink> = {}): PublicLink => ({
   kind: 'existing', status: 'open', tenantName: 'Ben Cruz', roomName: 'Room A',
   property: { name: 'Bakilid House', address: 'Lot 1, Mandaue', lessorName: 'Maria Santos', lessorCapacity: 'owner', signingCity: 'Cebu City',
-    invoicePrefix: 'BAK', ownerName: 'Maria Santos', ownerAddress: 'Banilad', lateFeeCentavos: 0 },
+    invoicePrefix: 'BAK', ownerName: 'Maria Santos', ownerAddress: 'Banilad', lessorAddress: 'Talamban, Cebu City', lateFeeCentavos: 0 },
   contract: sent, bills: [], payments: [], accounts: [], ...extra });
 
 const fill = (label: string | RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -188,7 +188,7 @@ describe('renter link page', () => {
     expect(screen.getByRole('img', { name: 'Your signature' })).toHaveAttribute('src', PNG);
     fireEvent.click(screen.getByRole('button', { name: /Download PDF/ }));
     await waitFor(() => expect(pdfs.downloadContractPdf).toHaveBeenCalledWith(expect.objectContaining({
-      signMode: 'notarize', tenantName: 'Ben Cruz', tenantSignature: PNG, lessorSignature: PNG,
+      signMode: 'notarize', tenantName: 'Ben Cruz', tenantSignature: PNG, lessorSignature: PNG, lessorAddress: 'Talamban, Cebu City',
       lines: contractLines(sent.body, sent.specialTerms) })));
   });
 

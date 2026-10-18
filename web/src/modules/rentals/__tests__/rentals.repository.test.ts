@@ -30,6 +30,9 @@ describe('PropertyRepository', () => {
     mock.from.mockReturnValue(query);
     const [property] = await new PropertyRepository().findAll('me');
     expect(query.eq).toHaveBeenCalledWith('members.user_id', 'me');
+    // Members can't select the saved signature: no `*`, and the column isn't listed.
+    const columns = (query.select.mock.calls[0] as unknown[])[0] as string;
+    expect(columns.split(', units:')[0]).not.toMatch(/\*|lessor_signature/);
     expect(property.role).toBe('manager');
     expect(property.units[0]).toMatchObject({ propertyId: 'p', electricMode: 'submeter', electricAmountCentavos: 1250 });
   });

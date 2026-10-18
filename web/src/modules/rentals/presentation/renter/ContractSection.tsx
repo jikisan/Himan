@@ -94,8 +94,8 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
 
 function SignedView({ contract: c, data }: { contract: Contract; data: PublicLink }) {
   const pdf: ContractPdfData = {
-    // ponytail: rental_link_get has no lessor address; the property address stands in (as on the landlord's PDF when none is set).
-    lessorName: data.property.lessorName, lessorAddress: data.property.address, signingCity: data.property.signingCity,
+    // Same address as the landlord's PDF (rental_link_get already falls back to the property address).
+    lessorName: data.property.lessorName, lessorAddress: data.property.lessorAddress || data.property.address, signingCity: data.property.signingCity,
     lines: contractLines(c.body, c.specialTerms), signMode: c.signMode, tenantName: c.tenantName || data.tenantName,
     tenantSignature: c.tenantSignature, tenantSignedAt: c.tenantSignedAt, lessorSignature: c.lessorSignature ?? null,
     lessorSignedAt: c.lessorSignedAt ?? null, contentHash: c.contentHash,

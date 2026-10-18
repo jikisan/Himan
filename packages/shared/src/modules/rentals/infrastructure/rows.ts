@@ -14,19 +14,24 @@ export const unitRow = z.object({
   extraPersonRentCentavos: r.extra_person_rent_centavos,
 }));
 
+// Every column but lessor_signature, which only the owner reads (rental_get_lessor_signature).
+export const PROPERTY_COLUMNS = 'id, created_by, name, address, owner_name, owner_address, lessor_name, lessor_civil_status, '
+  + 'lessor_address, lessor_capacity, signing_city, invoice_prefix, archived_at, created_at, updated_at, late_fee_centavos, '
+  + 'rent_due_day, payments_tracked_from';
+
 export const propertyRow = z.object({
   id: z.string(), created_by: z.string(), name: z.string(), address: z.string(), owner_name: z.string(),
   owner_address: z.string(), lessor_name: z.string(), lessor_civil_status: z.string(), lessor_address: z.string(),
   lessor_capacity: z.enum(['owner', 'representative']), signing_city: z.string(), invoice_prefix: z.string(),
   archived_at: z.string().nullable(), created_at: z.string(), updated_at: z.string(),
   late_fee_centavos: z.number().default(0), rent_due_day: z.number().nullable().default(null),
-  payments_tracked_from: z.string().nullable().default(null), lessor_signature: z.string().nullable().default(null),
+  payments_tracked_from: z.string().nullable().default(null),
   units: z.array(unitRow).default([]), members: z.array(z.object({ role: z.enum(RENTAL_ROLES) })).min(1),
 }).transform((r): RentalProperty => ({
   id: r.id, createdBy: r.created_by, name: r.name, address: r.address, ownerName: r.owner_name,
   ownerAddress: r.owner_address, lessorName: r.lessor_name, lessorCivilStatus: r.lessor_civil_status,
   lessorAddress: r.lessor_address, lessorCapacity: r.lessor_capacity, signingCity: r.signing_city,
-  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, lessorSignature: r.lessor_signature, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
+  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
   role: r.members[0].role, units: [...r.units].sort((a, b) => a.name.localeCompare(b.name)),
 }));
 
@@ -143,7 +148,7 @@ export const linkRow = z.object({
   tenancy_id: z.string(), property_id: z.string(), token: z.string(), kind: z.enum(['new', 'existing']),
   status: z.enum(['open', 'submitted', 'accepted']),
   // Tenant-typed: one that doesn't fit the form shows as nothing to review rather than breaking the list.
-  submitted_details: linkDetailsSchema.nullable().catch(null),
+  submitted_details: linkDetailsSchema.extend({ occupants: z.number().int().nullable() }).nullable().catch(null),
   submitted_at: z.string().nullable(), accepted_at: z.string().nullable(), revoked_at: z.string().nullable(), created_at: z.string(),
 }).transform((r): TenancyLink => ({
   tenancyId: r.tenancy_id, propertyId: r.property_id, token: r.token, kind: r.kind, status: r.status,
@@ -157,6 +162,8 @@ export const publicLinkSchema = z.object({
   roomName: z.string().nullable().default(null),
   property: z.object({ name: z.string(), address: z.string(), lessorName: z.string(), lessorCapacity: z.enum(LESSOR_CAPACITIES),
     signingCity: z.string(), invoicePrefix: z.string(), ownerName: z.string().default(''), ownerAddress: z.string().default(''),
+    // What the landlord's contract PDF prints: the lessor's address, else the property address.
+    lessorAddress: z.string().default(''),
     lateFeeCentavos: z.number().default(0) }),
   contract: z.object({
     id: z.string(), status: z.enum(CONTRACT_STATUSES), body: z.array(z.string()), specialTerms: z.string(),

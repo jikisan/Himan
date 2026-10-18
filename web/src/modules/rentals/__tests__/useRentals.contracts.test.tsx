@@ -12,7 +12,7 @@ vi.mock('@himan/shared/profile', () => ({ ProfileRepository: class { get = vi.fn
 vi.mock('../infrastructure', () => {
   const list = () => vi.fn(async () => []);
   return {
-    PropertyRepository: class { findAll = vi.fn(async () => [{ id: 'p1' }, { id: 'p2' }]); },
+    PropertyRepository: class { findAll = vi.fn(async () => [{ id: 'p1', role: 'owner' }, { id: 'p2', role: 'manager' }]); },
     RenterRepository: class { findAll = list(); fileUrl = vi.fn(); },
     TenancyRepository: class { findAll = list(); },
     BillRepository: class { findAll = list(); findReadings = list(); findUtilityBills = list(); },
@@ -22,7 +22,7 @@ vi.mock('../infrastructure', () => {
       constructor() {
         calls.contracts = { findTexts: vi.fn(async () => [{ id: 'ct' }]), getTemplate: vi.fn(async () => DEFAULT_CLAUSES),
           createText: vi.fn(async () => 'new-id'), updateText: vi.fn(), send: vi.fn(), countersign: vi.fn(), setNotarizedScan: vi.fn(),
-          saveTemplate: vi.fn(), saveLessorSignature: vi.fn() };
+          saveTemplate: vi.fn(), saveLessorSignature: vi.fn(), getLessorSignature: vi.fn(async () => 'data:image/png;base64,SIG') };
         Object.assign(this, calls.contracts);
       }
     },
@@ -46,6 +46,15 @@ describe('useRentals contracts', () => {
     expect(result.current.links).toEqual([{ tenancyId: 't' }]);
     expect(result.current.templates).toEqual({ p1: DEFAULT_CLAUSES, p2: DEFAULT_CLAUSES });
     expect(calls.contracts.getTemplate).toHaveBeenCalledWith('p2');
+  });
+
+  it('loads the saved signature only for properties the user owns', async () => {
+    const { result } = renderHook(() => useRentals(), { wrapper });
+    await waitFor(() => expect(result.current.properties).toHaveLength(2));
+    expect(result.current.properties[0].lessorSignature).toBe('data:image/png;base64,SIG');
+    expect(result.current.properties[1].lessorSignature).toBeUndefined();
+    expect(calls.contracts.getLessorSignature).toHaveBeenCalledTimes(1);
+    expect(calls.contracts.getLessorSignature).toHaveBeenCalledWith('p1');
   });
 
   it('runs the contract and link actions', async () => {

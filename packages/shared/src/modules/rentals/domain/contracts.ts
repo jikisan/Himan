@@ -44,9 +44,11 @@ export const linkDetailsSchema = z.object({
 
 /** What a new tenant types into the link form; nothing reaches the renter record until a manager accepts it. */
 export type LinkDetails = z.infer<typeof linkDetailsSchema>;
+/** As stored for review: `occupants` is null when the tenant didn't give it (Accept keeps the renter's). */
+export type SubmittedDetails = Omit<LinkDetails, 'occupants'> & { occupants: number | null };
 export interface TenancyLink {
   tenancyId: string; propertyId: string; token: string; kind: LinkKind; status: 'open' | 'submitted' | 'accepted';
-  submittedDetails: LinkDetails | null; submittedAt: string | null; acceptedAt: string | null; revokedAt: string | null; createdAt: string;
+  submittedDetails: SubmittedDetails | null; submittedAt: string | null; acceptedAt: string | null; revokedAt: string | null; createdAt: string;
 }
 
 export const CONTRACT_FIELDS = [
@@ -130,7 +132,8 @@ export const NOTARY_ACKNOWLEDGMENT: Clause[] = [
 export function renderClauses(clauses: Clause[], values: ContractValues): string[] {
   let n = 0;
   return clauses.map(({ id, text }) => {
-    const filled = text.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key as ContractField]?.trim() || BLANK);
+    const filled = text.replace(/\{\{(\w+)\}\}/g, (_, key: string) =>
+      (Object.hasOwn(values, key) ? values[key as ContractField]?.trim() : '') || BLANK);
     return UNNUMBERED.has(id) ? filled : `${++n}. ${filled}`;
   });
 }

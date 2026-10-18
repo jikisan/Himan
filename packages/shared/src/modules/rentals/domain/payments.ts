@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { billTotal } from './billing.js';
 import type { RentalBill, RentalProperty, RentalTenancy } from './types.js';
+import type { RentalSettlement } from './settlement.js';
 
 export const PAYMENT_METHODS = ['gcash', 'maya', 'bank', 'cash', 'other'] as const;
 export const ACCOUNT_KINDS = ['gcash', 'maya', 'bank', 'other'] as const;
@@ -73,9 +74,10 @@ export function tenancyCredit(tenancyId: string, payments: RentalPayment[]): num
     .map((p) => p.amountCentavos - sum(p.allocations.map((a) => a.amountCentavos))));
 }
 
-/** The deposit on the issued move-in bill; it counts as held only once that bill is fully paid. */
-export function depositHeld(tenancy: RentalTenancy, bills: RentalBill[], payments: RentalPayment[]):
+/** The deposit on the issued move-in bill; it counts as held only once that bill is fully paid, and no longer once settled. */
+export function depositHeld(tenancy: RentalTenancy, bills: RentalBill[], payments: RentalPayment[], settlement?: RentalSettlement):
   { state: 'none' | 'pending' | 'held'; amountCentavos: number } {
+  if (settlement?.tenancyId === tenancy.id && settlement.status === 'settled') return { state: 'none', amountCentavos: 0 };
   const bill = bills.find((b) => b.tenancyId === tenancy.id && b.kind === 'move_in' && b.status === 'issued');
   const amountCentavos = bill ? sum(bill.lines.filter((l) => l.kind === 'deposit').map((l) => l.amount)) : 0;
   if (!bill || amountCentavos <= 0) return { state: 'none', amountCentavos: 0 };

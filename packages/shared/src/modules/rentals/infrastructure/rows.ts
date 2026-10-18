@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ContractText, MeterReading, TenancyLink, PaymentAccount, PaymentAllocation, PaymentProof, RentalBill, RentalPayment, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
+import type { ContractText, MeterReading, TenancyLink, PaymentAccount, PaymentAllocation, PaymentProof, RentalBill, RentalPayment, RentalContract, RentalProperty, RentalSettlement, RentalTenancy, SettlementProof, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
 import { ACCOUNT_KINDS, LESSOR_CAPACITIES, METER_KINDS, linkDetailsSchema, PAYMENT_METHODS, RENTAL_ROLES, UTILITY_MODES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
 
 export const unitRow = z.object({
@@ -99,6 +99,27 @@ export const paymentProofRow = z.object({
 }).transform((r): PaymentProof => ({
   id: r.id, paymentId: r.payment_id, propertyId: r.property_id, name: r.name, mimeType: r.mime_type,
   size: r.size, storagePath: r.storage_path, ready: r.ready,
+}));
+
+export const settlementProofRow = z.object({
+  id: z.string(), settlement_id: z.string(), property_id: z.string(), name: z.string(), mime_type: z.string(),
+  size: z.number(), storage_path: z.string(), ready: z.boolean(),
+}).transform((r): SettlementProof => ({
+  id: r.id, settlementId: r.settlement_id, propertyId: r.property_id, name: r.name, mimeType: r.mime_type,
+  size: r.size, storagePath: r.storage_path, ready: r.ready,
+}));
+
+export const settlementRow = z.object({
+  id: z.string(), property_id: z.string(), tenancy_id: z.string(), deposit_centavos: z.number(), unpaid_bills_centavos: z.number(),
+  lines: z.array(z.object({ label: z.string(), amount: z.number() })), forfeit: z.boolean(), refund_centavos: z.number(),
+  owed_centavos: z.number(), refunded_on: z.string().nullable(), refund_method: z.enum(PAYMENT_METHODS).nullable(),
+  refund_reference: z.string(), notes: z.string(), status: z.enum(['draft', 'settled']), settled_at: z.string().nullable(),
+  proofs: z.array(settlementProofRow).default([]),
+}).transform((r): RentalSettlement => ({
+  id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, depositCentavos: r.deposit_centavos,
+  unpaidBillsCentavos: r.unpaid_bills_centavos, lines: r.lines, forfeit: r.forfeit, refundCentavos: r.refund_centavos,
+  owedCentavos: r.owed_centavos, refundedOn: r.refunded_on, refundMethod: r.refund_method, refundReference: r.refund_reference,
+  notes: r.notes, status: r.status, settledAt: r.settled_at, proofs: r.proofs,
 }));
 
 const allocationRow = z.object({

@@ -4,3 +4,5 @@ export { TenancyRepository } from './TenancyRepository.js';
 export { BillRepository } from './BillRepository.js';
 export type { IssueBillInput } from './BillRepository.js';
 export * from './flows.js';
+export { PaymentRepository } from './PaymentRepository.js';
+export { PaymentAccountRepository } from './PaymentAccountRepository.js';

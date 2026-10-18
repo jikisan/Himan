@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
-import { METER_KINDS, RENTAL_ROLES, UTILITY_MODES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
+import type { MeterReading, PaymentAccount, PaymentAllocation, PaymentProof, RentalBill, RentalPayment, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
+import { ACCOUNT_KINDS, METER_KINDS, PAYMENT_METHODS, RENTAL_ROLES, UTILITY_MODES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
 
 export const unitRow = z.object({
   id: z.string(), property_id: z.string(), name: z.string(), kind: z.enum(['whole', 'room', 'bedspace']),
@@ -85,6 +85,37 @@ export const billRow = z.object({
 }).transform((r): RentalBill => ({
   id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, kind: r.kind, period: r.period, number: r.number,
   issuedOn: r.issued_on, dueOn: r.due_on, lines: r.lines, status: r.status, voidReason: r.void_reason,
+}));
+
+export const paymentProofRow = z.object({
+  id: z.string(), payment_id: z.string(), property_id: z.string(), name: z.string(), mime_type: z.string(),
+  size: z.number(), storage_path: z.string(), ready: z.boolean(),
+}).transform((r): PaymentProof => ({
+  id: r.id, paymentId: r.payment_id, propertyId: r.property_id, name: r.name, mimeType: r.mime_type,
+  size: r.size, storagePath: r.storage_path, ready: r.ready,
+}));
+
+const allocationRow = z.object({
+  id: z.string(), payment_id: z.string(), bill_id: z.string(), amount_centavos: z.number(), pinned: z.boolean(),
+}).transform((r): PaymentAllocation => ({ id: r.id, paymentId: r.payment_id, billId: r.bill_id, amountCentavos: r.amount_centavos, pinned: r.pinned }));
+
+export const paymentRow = z.object({
+  id: z.string(), property_id: z.string(), tenancy_id: z.string(), amount_centavos: z.number(), paid_on: z.string(),
+  method: z.enum(PAYMENT_METHODS), reference: z.string(), notes: z.string(), status: z.enum(['active', 'void']),
+  void_reason: z.string(), created_at: z.string(),
+  proofs: z.array(paymentProofRow).default([]), allocations: z.array(allocationRow).default([]),
+}).transform((r): RentalPayment => ({
+  id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, amountCentavos: r.amount_centavos, paidOn: r.paid_on,
+  method: r.method, reference: r.reference, notes: r.notes, status: r.status, voidReason: r.void_reason,
+  createdAt: r.created_at, proofs: r.proofs, allocations: r.allocations,
+}));
+
+export const paymentAccountRow = z.object({
+  id: z.string(), property_id: z.string(), kind: z.enum(ACCOUNT_KINDS), label: z.string(), account_name: z.string(),
+  account_number: z.string(), qr_path: z.string().nullable(), position: z.number(),
+}).transform((r): PaymentAccount => ({
+  id: r.id, propertyId: r.property_id, kind: r.kind, label: r.label, accountName: r.account_name,
+  accountNumber: r.account_number, qrPath: r.qr_path, position: r.position,
 }));
 
 // RAISE EXCEPTION (P0001) messages are written for people; pass them through.

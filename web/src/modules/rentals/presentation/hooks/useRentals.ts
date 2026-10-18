@@ -3,7 +3,8 @@ import { onlineManager, useMutation, useQuery, useQueryClient } from '@tanstack/
 import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
 import { ProfileRepository } from '@himan/shared/profile';
-import { addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
+import { DEFAULT_CLAUSES, addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
+import { Logger } from '@core/infrastructure/services';
 import type { AddTenantInput, BillLine, Clause, LinkKind, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
   ReadingInput, RenterInput, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
 import { BillRepository, ContractRepository, LinkRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, TenancyRepository } from '../../infrastructure';
@@ -58,7 +59,9 @@ export type RentalAction =
   /** Resolves to the link's token; replaces (and turns off) an existing link for the tenancy. */
   | { type: 'createLink'; tenancyId: string; kind: LinkKind }
   | { type: 'revokeLink'; tenancyId: string }
-  | { type: 'reopenLink'; tenancyId: string };
+  | { type: 'reopenLink'; tenancyId: string }
+  /** Copies the submitted ID photos into the tenant's files, then the details onto the tenant. Safe to retry. */
+  | { type: 'acceptDetails'; tenancyId: string };
 
 export function useRentals() {
   const { user } = useAuth();
@@ -79,7 +82,11 @@ export function useRentals() {
       const [[properties, templates], renters, tenancies, bills, readings, utilityBills, payments, accounts, contractTexts, links, profile] = await Promise.all([
         // Each property's contract template (the default one when the owner hasn't edited it), keyed by property id.
         repos.properties.findAll(userId!).then(async (list) => [list, Object.fromEntries(
-          await Promise.all(list.map(async (p) => [p.id, await repos.contracts.getTemplate(p.id)] as const)))] as const),
+          await Promise.all(list.map(async (p) => [p.id, await repos.contracts.getTemplate(p.id).catch((e: unknown) => {
+            // One unreadable template must not stop the whole page; contracts for that property start from the default.
+            Logger.warn(`Could not load the contract template for property ${p.id}`, e);
+            return DEFAULT_CLAUSES;
+          })] as const)))] as const),
         repos.renters.findAll(), repos.tenancies.findAll(),
         repos.bills.findAll(), repos.bills.findReadings(), repos.bills.findUtilityBills(), repos.payments.findAll(), repos.accounts.findAll(),
         repos.contracts.findTexts(), repos.links.findAll(), repos.profile.get(userId!).catch(() => null)]);
@@ -151,6 +158,7 @@ export function useRentals() {
         case 'createLink': return repos.links.createLink(a.tenancyId, a.kind);
         case 'revokeLink': return repos.links.revoke(a.tenancyId);
         case 'reopenLink': return repos.links.reopen(a.tenancyId);
+        case 'acceptDetails': return repos.links.acceptDetails(a.tenancyId);
       }
     },
     onSettled: () => client.invalidateQueries({ queryKey: ['rentals'] }),

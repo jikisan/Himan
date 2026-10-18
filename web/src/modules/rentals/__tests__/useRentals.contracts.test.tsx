@@ -28,7 +28,8 @@ vi.mock('../infrastructure', () => {
     },
     LinkRepository: class {
       constructor() {
-        calls.links = { findAll: vi.fn(async () => [{ tenancyId: 't' }]), createLink: vi.fn(async () => 'tok'), revoke: vi.fn(), reopen: vi.fn() };
+        calls.links = { findAll: vi.fn(async () => [{ tenancyId: 't' }]), createLink: vi.fn(async () => 'tok'), revoke: vi.fn(), reopen: vi.fn(),
+          acceptDetails: vi.fn() };
         Object.assign(this, calls.links);
       }
     },
@@ -71,5 +72,18 @@ describe('useRentals contracts', () => {
     expect(c.saveLessorSignature).toHaveBeenCalledWith('p1', 'data:image/png;base64,A');
     expect(calls.links.revoke).toHaveBeenCalledWith('t');
     expect(calls.links.reopen).toHaveBeenCalledWith('t');
+    await result.current.run({ type: 'acceptDetails', tenancyId: 't' });
+    expect(calls.links.acceptDetails).toHaveBeenCalledWith('t');
+  });
+
+  it('still loads when one property’s template fails, using the default for it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { result } = renderHook(() => useRentals(), { wrapper });
+    calls.contracts.getTemplate.mockImplementation(async (id: string) => { if (id === 'p2') throw new Error('boom'); return []; });
+    await result.current.refetch();
+    await waitFor(() => expect(result.current.templates).toEqual({ p1: [], p2: DEFAULT_CLAUSES }));
+    expect(result.current.error).toBeNull();
+    expect(result.current.properties).toHaveLength(2);
+    warn.mockRestore();
   });
 });

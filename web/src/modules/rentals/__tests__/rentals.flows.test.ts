@@ -25,7 +25,7 @@ describe('addTenant', () => {
   it('creates the person, then moves them in', async () => {
     const r = repos();
     const result = await addTenant(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms });
-    expect(result).toEqual({ renterId: 'new-renter', warnings: [] });
+    expect(result).toEqual({ renterId: 'new-renter', tenancyId: 't', warnings: [] });
     expect(r.tenancies.start).toHaveBeenCalledWith({ unitId: 'u', renterId: 'new-renter', moveIn: '2026-10-01', ...terms });
   });
   it('removes the new person again when the move-in fails, and keeps the original error', async () => {

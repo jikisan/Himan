@@ -18,11 +18,17 @@ const blankPerson: RenterInput = { fullName: '', phone: '', facebook: '', email:
   emergencyPhone: '', occupants: 1, notes: '' };
 const peso = (value: string) => { try { return value.trim() ? parsePesos(value) : null; } catch { return null; } };
 
-export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, onCancel }: {
-  unit: RentalUnit; renters: Renter[]; rentDueDay?: number | null; busy: boolean; onSave(action: AddTenant): Promise<void>; onCancel(): void;
+/** `others`: people from the owner's other properties; picking one copies their contact details (not their ID) into a new tenant here. */
+export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, busy, onSave, onCancel }: {
+  unit: RentalUnit; renters: Renter[]; others?: { renter: Renter; propertyName: string }[]; rentDueDay?: number | null; busy: boolean;
+  /** `sendLink`: the tenant fills in their own details through a link made after saving. */
+  onSave(action: AddTenant, sendLink: boolean): Promise<void>; onCancel(): void;
 }) {
   const [person, setPerson] = useState(blankPerson);
+  // A renter id of this property, or `other:<id>` for someone from another property.
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [sendLink, setSendLink] = useState(false);
+  const other = existingId?.startsWith('other:') ? others.find((o) => `other:${o.renter.id}` === existingId)?.renter : undefined;
   const [moveIn, setMoveIn] = useState(manilaToday());
   // Rent follows the room's price for the headcount until the user types their own amount.
   const [ownRent, setOwnRent] = useState<string | null>(null);
@@ -59,8 +65,8 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
   const setPeople = (n: number) => setPerson((p) => ({ ...p, occupants: n }));
   const setP = (key: keyof RenterInput) => (e: { target: { value: string } }) =>
     setPerson((p) => ({ ...p, [key]: key === 'occupants' ? Number(e.target.value) : e.target.value }));
-  const text = (key: Exclude<keyof RenterInput, 'occupants'>, label: string, extra?: { type?: string; autoComplete?: string; wide?: boolean }) =>
-    <Field id={`add-${key}`} label={label} className={extra?.wide ? 'sm:col-span-2' : ''}>
+  const text = (key: Exclude<keyof RenterInput, 'occupants'>, label: string, extra?: { type?: string; autoComplete?: string; wide?: boolean; hint?: string }) =>
+    <Field id={`add-${key}`} label={label} hint={extra?.hint} className={extra?.wide ? 'sm:col-span-2' : ''}>
       <input id={`add-${key}`} type={extra?.type ?? 'text'} autoComplete={extra?.autoComplete ?? 'off'} className={inputClass}
         value={person[key]} onChange={setP(key)} />
     </Field>;
@@ -68,9 +74,11 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
   return <form noValidate className="space-y-6" onSubmit={async (event) => {
     event.preventDefault();
     try {
-      const renter = existingId ? null : renterSchema.safeParse(person);
+      const copied = other && { fullName: other.fullName, phone: other.phone, facebook: other.facebook, email: other.email, address: other.address,
+        emergencyName: other.emergencyName, emergencyPhone: other.emergencyPhone, occupants: other.occupants, notes: '' };
+      const renter = copied ? renterSchema.safeParse(copied) : existingId ? null : renterSchema.safeParse(person);
       if (renter && !renter.success) { fail(renter.error.issues[0].message, renter.error.issues[0].path[0]); return; }
-      if (renter && !renter.data.phone) { fail('Enter the tenant’s mobile number', 'phone'); return; }
+      if (renter && !copied && !sendLink && !renter.data.phone) { fail('Enter the tenant’s mobile number', 'phone'); return; }
       const monthlyRentCentavos = parsePesos(rent);
       const terms = tenancyTermsSchema.safeParse({ moveIn, startDate: moveIn, endDate, monthlyRentCentavos, dueDay: Number(dueDay), advanceMonths: Number(advance),
         depositCentavos: deposit.trim() ? parsePesos(deposit) : 0 });
@@ -81,14 +89,14 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
       const starting = meters.flatMap((kind) => readings[kind]?.trim() ? [{ kind, value: Number(readings[kind]) }] : []);
       if (starting.some((r) => !Number.isFinite(r.value) || r.value < 0)) { fail('Meter readings must be 0 or more', 'readings'); return; }
       const { moveIn: date, ...rest } = terms.data;
-      await onSave({ type: 'addTenant', propertyId: unit.propertyId, unitId: unit.id, renterId: existingId,
-        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra });
+      await onSave({ type: 'addTenant', propertyId: unit.propertyId, unitId: unit.id, renterId: renter ? null : existingId,
+        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra }, !existingId && sendLink);
     } catch (failure) { setError(errorMessage(failure)); }
   }}>
     <fieldset disabled={busy} className="space-y-6">
       <FormSection title="Who is moving in?">
-        {renters.length > 0 && <div role="group" aria-label="New or existing tenant" className="flex rounded-lg bg-muted p-1 sm:col-span-2">
-          {([['New person', null], ['Already a tenant', renters[0].id]] as const).map(([label, id]) =>
+        {(renters.length > 0 || others.length > 0) && <div role="group" aria-label="New or existing tenant" className="flex rounded-lg bg-muted p-1 sm:col-span-2">
+          {([['New person', null], ['Already a tenant', renters[0]?.id ?? `other:${others[0].renter.id}`]] as const).map(([label, id]) =>
             <button key={label} type="button" aria-pressed={(existingId === null) === (id === null)}
               onClick={() => setExistingId(id === null ? null : existingId ?? id)}
               className="min-h-11 flex-1 rounded-md text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9">
@@ -96,11 +104,20 @@ export function AddTenantForm({ unit, renters, rentDueDay = null, busy, onSave, 
         </div>}
         {existingId === null ? <>
           {text('fullName', 'Full name', { autoComplete: 'name', wide: true })}
-          {text('phone', 'Mobile number', { type: 'tel', autoComplete: 'tel', wide: true })}
+          {text('phone', 'Mobile number', { type: 'tel', autoComplete: 'tel', wide: true, hint: sendLink ? 'optional' : undefined })}
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm sm:col-span-2">
+            <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={sendLink} onChange={(e) => setSendLink(e.target.checked)} />
+            <span><span className="block font-medium">Send details link</span>
+              <span className="block text-xs text-muted-foreground">They fill in their mobile, address, emergency contact and ID themselves. You review it before it’s saved.</span></span>
+          </label>
         </> : <Field id="add-existing" label="Tenant" className="sm:col-span-2">
           <select id="add-existing" className={inputClass} value={existingId} onChange={(e) => setExistingId(e.target.value)}>
             {renters.map((r) => <option key={r.id} value={r.id}>{r.fullName}</option>)}
+            {others.length > 0 && <optgroup label="From my other properties">
+              {others.map((o) => <option key={o.renter.id} value={`other:${o.renter.id}`}>{`${o.renter.fullName} · ${o.propertyName}`}</option>)}
+            </optgroup>}
           </select>
+          {other && <p className="text-xs text-muted-foreground">Their contact details are copied. Ask for a new ID photo.</p>}
         </Field>}
       </FormSection>
       <FormSection title="Move-in">

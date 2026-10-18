@@ -10,6 +10,8 @@ import type { ContractTermsInput, ReceiptContext, RentalBill, RentalContract, Re
 import { PaymentsList } from './PaymentsList';
 import { ContractPanel } from './ContractPanel';
 import type { ContractInfo } from './ContractPanel';
+import { DetailsReview, TenantLinkPanel } from './TenantLink';
+import { detailsStatus } from '../utils/contract';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
 import { Initials } from './Badges';
@@ -47,6 +49,9 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
   const owed = mine.reduce((sum, t) => sum + tenancyOwed(t.id, bills, payments), 0);
   const credit = mine.reduce((sum, t) => sum + tenancyCredit(t.id, payments), 0);
   const chat = messengerUrl(renter.facebook);
+  const links = contractInfo?.links ?? [];
+  const linkOf = (t: RentalTenancy) => links.find((l) => l.tenancyId === t.id);
+  const waiting = active.map((t) => detailsStatus(links, t.id)).find(Boolean);
   const contact: [string, string][] = [['Mobile', renter.phone], ['Messenger', renter.facebook], ['Email', renter.email],
     ['Home address', renter.address], ['Emergency', [renter.emergencyName, renter.emergencyPhone].filter(Boolean).join(' · ')],
     ['Living with them', `${renter.occupants} ${renter.occupants === 1 ? 'person' : 'people'}`], ['Notes', renter.notes]];
@@ -61,6 +66,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
             {active.length ? active.map((t) => `Lives in ${unitName(t.unitId)} since ${day(t.moveIn)}`).join(' · ')
               : last?.moveOut ? `Moved out of ${unitName(last.unitId)} on ${day(last.moveOut)}` : 'Not renting a room right now'}
           </SheetDescription>
+          {waiting && <p className="mt-1.5 w-fit rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">{waiting}</p>}
         </div>
       </div>
       {(renter.phone || chat || (canManage && active.length > 0)) && <div className="flex gap-2">
@@ -74,6 +80,11 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
 
     {/* Every section gets a line above it: same spacing around each line. */}
     <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+      {canManage && active.map((t) => {
+        const link = linkOf(t);
+        return link?.status === 'submitted' && link.submittedDetails
+          && <DetailsReview key={`review-${t.id}`} tenancyId={t.id} details={link.submittedDetails} busy={busy} run={run} />;
+      })}
       {nextDue && <section aria-labelledby="sheet-rent" className="rounded-xl border p-4">
         <div className="flex items-center justify-between">
           <h3 id="sheet-rent" className="text-sm font-semibold">Rent</h3>
@@ -120,6 +131,11 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
         </dl>
         {contractInfo && <div className="mt-4"><ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} /></div>}
       </section>)}
+
+      {canManage && active.map((t) => {
+        const link = linkOf(t);
+        return link && <TenantLinkPanel key={`link-${t.id}`} link={link} name={renter.fullName} busy={busy} run={run} />;
+      })}
 
       {active.map((t) => <Charges key={t.id} tenancy={t} room={unitName(t.unitId)} showRoom={active.length > 1} canManage={canManage} busy={busy}
         onSave={(charges) => run({ type: 'setCharges', tenancyId: t.id, charges })} />)}

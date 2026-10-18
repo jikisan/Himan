@@ -1,4 +1,5 @@
-import type { ContractText, RentalProperty, SignMode } from '@himan/shared/rentals';
+import { linkMessage } from '@himan/shared/rentals';
+import type { ContractText, LinkKind, RentalProperty, SignMode, TenancyLink } from '@himan/shared/rentals';
 
 /**
  * The contract as printed and shown: the frozen `body`, with the special terms as the last numbered clause, placed before
@@ -31,3 +32,14 @@ export function contractPdfData(text: ContractText,
 /** "Oct 19, 2026" in Manila time for a timestamp. */
 export const manilaDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(iso));
+
+/** Where a new tenant's details link stands, in plain words; null when there is nothing to wait for or review. */
+export function detailsStatus(links: TenancyLink[], tenancyId: string): 'Waiting for details' | 'Details to review' | null {
+  const link = links.find((l) => l.tenancyId === tenancyId && l.kind === 'new');
+  if (link?.status === 'submitted') return 'Details to review';
+  return link?.status === 'open' && !link.revokedAt ? 'Waiting for details' : null;
+}
+
+/** The ready-to-send message for a link token (the page lives at /r/:token). */
+export const tenantLinkMessage = (token: string, tenantName: string, kind: LinkKind) =>
+  linkMessage(`${location.origin}/r/${token}`, tenantName, kind);

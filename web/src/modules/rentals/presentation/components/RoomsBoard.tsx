@@ -2,7 +2,8 @@ import { ChevronRight, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatPesos, roomSpots } from '@himan/shared/rentals';
-import type { RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
+import type { RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
+import { detailsStatus } from '../utils/contract';
 import { Initials } from './Badges';
 import { cn } from '@core/presentation/utils';
 
@@ -19,10 +20,10 @@ const rentLine = (t: RentalTenancy) => {
 };
 
 export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, onAddTenant, onOpenTenant, onMoveOut,
-  onEditRoom, onDeleteRoom }: {
+  onEditRoom, onDeleteRoom, links = [] }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; canManage: boolean; canEdit: boolean;
   onAddTenant(unitId: string): void; onOpenTenant(renterId: string): void; onMoveOut(tenancyId: string): void;
-  onEditRoom(unitId: string): void; onDeleteRoom(unitId: string): void;
+  onEditRoom(unitId: string): void; onDeleteRoom(unitId: string): void; links?: TenancyLink[];
 }) {
   const name = (renterId: string) => renters.find((r) => r.id === renterId)?.fullName ?? 'Tenant';
   return <div className="grid gap-4 md:grid-cols-2">
@@ -57,7 +58,8 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
                   className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Initials name={name(t.renterId)} />
                   <span className="min-w-0"><span className="block truncate font-medium">{name(t.renterId)}</span>
-                    <span className="block truncate text-sm tabular-nums text-muted-foreground">{rentLine(t)}</span></span>
+                    <span className="block truncate text-sm tabular-nums text-muted-foreground">{rentLine(t)}</span>
+                    {detailsStatus(links, t.id) && <span className="block truncate text-xs font-medium text-amber-700 dark:text-amber-300">{detailsStatus(links, t.id)}</span>}</span>
                   <ChevronRight aria-hidden className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
                 </button>
                 {canManage && <Button variant="outline" size="sm" className="hidden h-9 shrink-0 sm:inline-flex" aria-label={`Move out ${name(t.renterId)}`}

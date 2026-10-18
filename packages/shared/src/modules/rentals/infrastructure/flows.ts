@@ -22,7 +22,7 @@ export async function addTenant(repos: {
   renters: { save(propertyId: string, id: null, input: RenterInput): Promise<string>; remove(id: string): Promise<void> };
   tenancies: { start(input: StartTenancyInput): Promise<string>; setCharges?(tenancyId: string, charges: TenancyCharge[]): Promise<void> };
   bills?: SaveReadings;
-}, a: AddTenantInput): Promise<{ renterId: string; warnings: string[] }> {
+}, a: AddTenantInput): Promise<{ renterId: string; tenancyId: string; warnings: string[] }> {
   if (!a.renterId && !a.renter) throw new Error('Enter the tenant’s details');
   const renterId = a.renterId ?? await repos.renters.save(a.propertyId, null, a.renter!);
   let tenancyId: string;
@@ -40,7 +40,7 @@ export async function addTenant(repos: {
   if (a.charges?.length && repos.tenancies.setCharges) {
     await repos.tenancies.setCharges(tenancyId, a.charges).catch(() => { warnings.push('Moved in, but the extra charges weren’t saved'); });
   }
-  return { renterId, warnings };
+  return { renterId, tenancyId, warnings };
 }
 
 /** Saves final readings, records the move-out, then issues a final bill for the leaver's unbilled usage. */

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CircleCheck, DoorOpen, Gauge, History, PenLine, ReceiptText } from 'lucide-react';
+import { BedDouble, CalendarClock, CircleCheck, DoorOpen, Gauge, History, PenLine, ReceiptText, UserCheck } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { billBalance, depositHeld, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
-import type { ContractText, MeterReading, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
+import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
 
@@ -12,11 +12,11 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
-  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [] }: {
+  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [], links = [] }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
-  utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void; contractTexts?: ContractText[];
+  utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void; contractTexts?: ContractText[]; links?: TenancyLink[];
 }) {
   const [confirmEarlier, setConfirmEarlier] = useState(false);
   const today = manilaToday();
@@ -76,10 +76,21 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
       detail={names(cancelled.map(what))} action="See cancelled" onAction={() => onReviewCancelled(cancelled[0].period)} />);
   }
   if (canManage) for (const t of active) {
+    if (links.some((l) => l.tenancyId === t.id && l.status === 'submitted')) tasks.push(<Task key={`review-${t.id}`} icon={UserCheck} tone="primary"
+      title={`Review details from ${name(t)}`} detail={`${roomName(t.unitId)} · sent through their link`} action="Review"
+      label={`Review details from ${name(t)}`} onAction={() => onOpenTenant(t.renterId)} />);
     const signed = t.contracts.some((c) => contractTexts.some((x) => x.contractId === c.id && x.status === 'signed'));
     if (signed) tasks.push(<Task key={`sign-${t.id}`} icon={PenLine} tone="primary" title={`Countersign contract for ${name(t)}`}
       detail={`${roomName(t.unitId)} · the tenant signed`} action="Countersign" label={`Countersign contract for ${name(t)}`}
       onAction={() => onOpenTenant(t.renterId)} />);
+  }
+  if (canManage) for (const t of active) {
+    const contract = t.contracts.find((c) => c.status === 'active');
+    const left = contract ? differenceInCalendarDays(parseISO(contract.endDate), parseISO(today)) : Infinity;
+    if (left <= 30) tasks.push(<Task key={`ends-${t.id}`} icon={CalendarClock} tone="amber"
+      title={left > 1 ? `Contract ends in ${left} days` : left === 1 ? 'Contract ends tomorrow' : left === 0 ? 'Contract ends today' : 'Contract has ended'}
+      detail={`${name(t)} · ${roomName(t.unitId)} · ${format(parseISO(contract!.endDate), 'MMM d, yyyy')}`} action="Open"
+      label={`Open ${name(t)}’s contract`} onAction={() => onOpenTenant(t.renterId)} />);
   }
   if (canManage && freeBeds > 0) tasks.push(<Task key="free" icon={BedDouble} tone="emerald"
     title={`${freeBeds} free bed${freeBeds === 1 ? '' : 's'}`} detail={freeUnits.map((u) => u.name).join(' · ')}

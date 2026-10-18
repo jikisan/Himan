@@ -47,15 +47,11 @@ $$;
 -- ── Tables ──────────────────────────────────────────────────────────────────
 
 -- The owner's saved signature, used for one-tap countersigning. Only the owner reads it (rental_get_lessor_signature):
--- SELECT becomes column-level so members can't read this column. A column added to rental_properties later needs
--- its own GRANT SELECT.
 ALTER TABLE public.rental_properties
   ADD COLUMN lessor_signature text CHECK (public.rental_valid_signature(lessor_signature));
 GRANT UPDATE (lessor_signature) ON public.rental_properties TO authenticated;
-REVOKE SELECT ON public.rental_properties FROM authenticated;
-GRANT SELECT (id, created_by, name, address, owner_name, owner_address, lessor_name, lessor_civil_status, lessor_address,
-  lessor_capacity, signing_city, invoice_prefix, archived_at, created_at, updated_at, late_fee_centavos, rent_due_day,
-  payments_tracked_from) ON public.rental_properties TO authenticated;
+-- The column-level SELECT lock that keeps this column owner-only is the next migration (20261018210000), applied after the
+-- web build that no longer runs select('*') on this table is deployed.
 
 -- Contract texts reference (contract, property) so a text can never sit under another property.
 ALTER TABLE public.rental_contracts ADD CONSTRAINT rental_contracts_id_property_key UNIQUE (id, property_id);

@@ -412,6 +412,325 @@ DO $$ BEGIN
   PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
 END $$;
 
+
+-- ── Step A: payments, allocations and payment accounts ─────────────────────
+-- Owner aa001 owns Pay House (ab021); friend aa002 owns Friend House (ab022) and is a manager, later a viewer, of
+-- Pay House; stranger aa003 has nothing.
+RESET ROLE;
+CREATE FUNCTION pg_temp.paid(p_bill uuid) RETURNS bigint LANGUAGE sql AS $$
+  SELECT coalesce(sum(amount_centavos), 0) FROM public.rental_payment_allocations WHERE bill_id = p_bill
+$$;
+-- Never over-allocated: no bill beyond its total, no payment beyond its amount, nothing on void rows.
+CREATE FUNCTION pg_temp.check_allocations() RETURNS void LANGUAGE plpgsql AS $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.rental_bills b
+    WHERE (SELECT coalesce(sum(a.amount_centavos), 0) FROM public.rental_payment_allocations a WHERE a.bill_id = b.id)
+      > greatest(public.rental_bill_total(b.lines), 0))
+  THEN RAISE EXCEPTION 'A bill is over-allocated'; END IF;
+  IF EXISTS (SELECT 1 FROM public.rental_payments p
+    WHERE (SELECT coalesce(sum(a.amount_centavos), 0) FROM public.rental_payment_allocations a WHERE a.payment_id = p.id)
+      > p.amount_centavos)
+  THEN RAISE EXCEPTION 'A payment is over-allocated'; END IF;
+  IF EXISTS (SELECT 1 FROM public.rental_payment_allocations a
+    JOIN public.rental_payments p ON p.id = a.payment_id JOIN public.rental_bills b ON b.id = a.bill_id
+    WHERE p.status = 'void' OR b.status = 'void')
+  THEN RAISE EXCEPTION 'A void payment or bill keeps allocations'; END IF;
+END $$;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab021', 'Pay House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity) VALUES
+  ('00000000-0000-0000-0000-0000000ac021', '00000000-0000-0000-0000-0000000ab021', 'P1', 'room', 1),
+  ('00000000-0000-0000-0000-0000000ac022', '00000000-0000-0000-0000-0000000ab021', 'P2', 'room', 1);
+INSERT INTO public.rental_renters (id, property_id, full_name) VALUES
+  ('00000000-0000-0000-0000-0000000ad021', '00000000-0000-0000-0000-0000000ab021', 'Payer One'),
+  ('00000000-0000-0000-0000-0000000ad022', '00000000-0000-0000-0000-0000000ab021', 'Payer Two');
+SELECT public.rental_add_member('00000000-0000-0000-0000-0000000ab021', '00000000-0000-0000-0000-0000000aa002', 'manager');
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa002', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab022', 'Friend House');
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+
+DO $$ DECLARE v_today date := (now() AT TIME ZONE 'Asia/Manila')::date; v_t uuid; v_t2 uuid;
+  b1 uuid; b2 uuid; b3 uuid; b4 uuid; b9 uuid; p1 uuid; p2 uuid; p3 uuid; p4 uuid; v_rent jsonb := '[{"kind":"rent","label":"Rent","amount":100000}]';
+BEGIN
+  -- No move-in bill: move-in on the due day with no advance or deposit.
+  v_t := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac021', '00000000-0000-0000-0000-0000000ad021',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 0);
+  v_t2 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac022', '00000000-0000-0000-0000-0000000ad022',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 0);
+  b1 := public.rental_issue_bill(v_t, 'monthly', '2026-08', '2026-08-05', v_rent);
+  b2 := public.rental_issue_bill(v_t, 'monthly', '2026-09', '2026-09-05', v_rent);
+  b3 := public.rental_issue_bill(v_t, 'monthly', '2026-10', '2026-10-05', v_rent);
+  b9 := public.rental_issue_bill(v_t2, 'monthly', '2026-08', '2026-08-05', v_rent);
+
+  -- FIFO and partial: 1,500 pesos pays August in full and half of September.
+  p1 := public.rental_record_payment(v_t, 150000, v_today - 1, 'gcash', 'REF-1', '');
+  IF pg_temp.paid(b1) <> 100000 OR pg_temp.paid(b2) <> 50000 OR pg_temp.paid(b3) <> 0 OR pg_temp.paid(b9) <> 0
+  THEN RAISE EXCEPTION 'FIFO allocation is wrong: % % %', pg_temp.paid(b1), pg_temp.paid(b2), pg_temp.paid(b3); END IF;
+  -- Review Focus 5: the tenancy's advisory lock is held for the rest of the transaction.
+  IF NOT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND granted
+    AND ((classid::bigint << 32) | objid::bigint) = hashtextextended('rental_tenancy:' || v_t::text, 0))
+  THEN RAISE EXCEPTION 'Recording a payment did not lock the tenancy'; END IF;
+
+  -- Review Focus 1: overpayment is credit, not refused, and pays the next issued bill.
+  p2 := public.rental_record_payment(v_t, 200000, v_today, 'cash', '', 'extra');
+  IF pg_temp.paid(b2) <> 100000 OR pg_temp.paid(b3) <> 100000
+    OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE payment_id = p2) <> 150000
+  THEN RAISE EXCEPTION 'Overpayment allocation is wrong'; END IF;
+  b4 := public.rental_issue_bill(v_t, 'monthly', '2026-11', '2026-11-05', v_rent);
+  IF pg_temp.paid(b4) <> 50000 THEN RAISE EXCEPTION 'Credit did not apply to the next bill: %', pg_temp.paid(b4); END IF;
+  PERFORM pg_temp.check_allocations();
+
+  -- Review Focus 3: a bill with payments can't be edited or cancelled.
+  BEGIN
+    UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":90000}]' WHERE id = b1;
+    RAISE EXCEPTION 'A paid bill was edited';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'This bill has payments. Void the payment first.' THEN RAISE; END IF;
+  END;
+  BEGIN
+    UPDATE public.rental_bills SET status = 'void', void_reason = 'x' WHERE id = b4;
+    RAISE EXCEPTION 'A part-paid bill was cancelled';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'This bill has payments. Void the payment first.' THEN RAISE; END IF;
+  END;
+  UPDATE public.rental_bills SET due_on = '2026-08-06' WHERE id = b1;
+
+  -- Review Focus 2: voiding the latest payment returns exactly the bills it paid.
+  BEGIN
+    PERFORM public.rental_void_payment(p2, '   ');
+    RAISE EXCEPTION 'A payment was voided without a reason';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'A payment was voided without a reason' THEN RAISE; END IF;
+  END;
+  PERFORM public.rental_void_payment(p2, 'Bounced');
+  IF pg_temp.paid(b1) <> 100000 OR pg_temp.paid(b2) <> 50000 OR pg_temp.paid(b3) <> 0 OR pg_temp.paid(b4) <> 0
+    OR (SELECT status || ':' || void_reason FROM public.rental_payments WHERE id = p2) <> 'void:Bounced'
+  THEN RAISE EXCEPTION 'Void did not return the bills to unpaid'; END IF;
+  BEGIN
+    PERFORM public.rental_void_payment(p2, 'Again');
+    RAISE EXCEPTION 'A payment was voided twice';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Payment not found or already voided' THEN RAISE; END IF;
+  END;
+  -- Unpaid again, so editable again.
+  UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":120000}]' WHERE id = b4;
+
+  -- Pinned allocation: "pay this bill first", capped at what the bill still needs; the rest goes oldest first.
+  p3 := public.rental_record_payment(v_t, 30000, v_today, 'bank', 'B-3', '', b3);
+  IF pg_temp.paid(b3) <> 30000 OR pg_temp.paid(b2) <> 50000
+    OR NOT (SELECT bool_and(pinned) FROM public.rental_payment_allocations WHERE payment_id = p3)
+  THEN RAISE EXCEPTION 'Pinned payment went to the wrong bill'; END IF;
+  p4 := public.rental_record_payment(v_t, 100000, v_today + 1, 'maya', '', '', b3);
+  IF pg_temp.paid(b3) <> 100000 OR pg_temp.paid(b2) <> 80000
+    OR (SELECT amount_centavos FROM public.rental_payment_allocations WHERE payment_id = p4 AND pinned) <> 70000
+  THEN RAISE EXCEPTION 'Pinned remainder is wrong: b2 % b3 %', pg_temp.paid(b2), pg_temp.paid(b3); END IF;
+  PERFORM pg_temp.check_allocations();
+
+  -- Refusals with the messages the app shows.
+  BEGIN
+    PERFORM public.rental_record_payment(v_t, 1000, v_today, 'cash', '', '', b9);
+    RAISE EXCEPTION 'Paid another tenant''s bill';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Bill not found for this tenant' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.rental_record_payment(v_t, 0, v_today, 'cash', '', '');
+    RAISE EXCEPTION 'A zero payment was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Amount must be more than zero' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.rental_record_payment(v_t, 1000, v_today + 2, 'cash', '', '');
+    RAISE EXCEPTION 'A payment dated two days ahead was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Payment date is too far ahead' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.rental_record_payment(v_t, 1000, v_today, 'cheque', '', '');
+    RAISE EXCEPTION 'An unknown method was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+
+  -- No client writes on payments or allocations; reallocation is internal.
+  BEGIN
+    INSERT INTO public.rental_payments (property_id, tenancy_id, amount_centavos, paid_on, method)
+    VALUES ('00000000-0000-0000-0000-0000000ab021', v_t, 1, v_today, 'cash');
+    RAISE EXCEPTION 'A payment was inserted directly';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_payments SET status = 'void' WHERE id = p1;
+    RAISE EXCEPTION 'A payment was updated directly';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    DELETE FROM public.rental_payment_allocations WHERE payment_id = p1;
+    RAISE EXCEPTION 'An allocation was deleted directly';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    INSERT INTO public.rental_payment_allocations (payment_id, bill_id, property_id, amount_centavos)
+    VALUES (p1, b4, '00000000-0000-0000-0000-0000000ab021', 1);
+    RAISE EXCEPTION 'An allocation was inserted directly';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    PERFORM public.rental_reallocate(v_t);
+    RAISE EXCEPTION 'A client ran rental_reallocate';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  IF has_function_privilege('anon', 'public.rental_record_payment(uuid, integer, date, text, text, text, uuid)', 'EXECUTE')
+    OR has_function_privilege('anon', 'public.rental_void_payment(uuid, text)', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.rental_reallocate(uuid)', 'EXECUTE')
+  THEN RAISE EXCEPTION 'Payment functions are executable by the wrong roles'; END IF;
+
+  -- Payment proofs: reserve, upload only to a reserved path, metadata guard.
+  INSERT INTO public.rental_payment_proofs (id, payment_id, property_id, name, mime_type, size)
+  VALUES ('00000000-0000-0000-0000-0000000a7021', p1, '00000000-0000-0000-0000-0000000ab021', 'gcash.png', 'image/png', 100);
+  IF (SELECT storage_path FROM public.rental_payment_proofs WHERE id = '00000000-0000-0000-0000-0000000a7021')
+    <> '00000000-0000-0000-0000-0000000ab021/payments/' || p1 || '/00000000-0000-0000-0000-0000000a7021'
+  THEN RAISE EXCEPTION 'Proof storage path is wrong'; END IF;
+  BEGIN
+    INSERT INTO public.rental_payment_proofs (payment_id, property_id, name, mime_type, size)
+    VALUES (p1, '00000000-0000-0000-0000-0000000ab022', 'x.png', 'image/png', 1);
+    RAISE EXCEPTION 'A proof was filed under another property';
+  EXCEPTION WHEN insufficient_privilege OR foreign_key_violation THEN NULL; END;
+  INSERT INTO storage.objects (bucket_id, name)
+  VALUES ('rental-files', '00000000-0000-0000-0000-0000000ab021/payments/' || p1 || '/00000000-0000-0000-0000-0000000a7021');
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name)
+    VALUES ('rental-files', '00000000-0000-0000-0000-0000000ab021/payments/' || p1 || '/00000000-0000-0000-0000-0000000a7999');
+    RAISE EXCEPTION 'An unreserved proof path was uploaded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  UPDATE public.rental_payment_proofs SET ready = true WHERE id = '00000000-0000-0000-0000-0000000a7021';
+  BEGIN
+    UPDATE public.rental_payment_proofs SET name = 'other.png' WHERE id = '00000000-0000-0000-0000-0000000a7021';
+    RAISE EXCEPTION 'Proof metadata was changed';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    DELETE FROM public.rental_payment_proofs WHERE id = '00000000-0000-0000-0000-0000000a7021';
+    RAISE EXCEPTION 'Proof metadata was deleted while the file is stored';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Remove the stored payment proof before deleting its metadata' THEN RAISE; END IF;
+  END;
+
+  -- Payment accounts: owner writes; qr_path must sit under the property's folder.
+  INSERT INTO public.rental_payment_accounts (id, property_id, kind, label, account_name, account_number)
+  VALUES ('00000000-0000-0000-0000-0000000af021', '00000000-0000-0000-0000-0000000ab021', 'gcash', 'GCash', 'Owner P.', '0917');
+  UPDATE public.rental_payment_accounts SET qr_path = '00000000-0000-0000-0000-0000000ab021/00000000-0000-0000-0000-0000000af021-1.png'
+  WHERE id = '00000000-0000-0000-0000-0000000af021';
+  BEGIN
+    UPDATE public.rental_payment_accounts SET qr_path = '00000000-0000-0000-0000-0000000ab022/x.png'
+    WHERE id = '00000000-0000-0000-0000-0000000af021';
+    RAISE EXCEPTION 'A QR path outside the property was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN
+    UPDATE public.rental_payment_accounts SET property_id = '00000000-0000-0000-0000-0000000ab022'
+    WHERE id = '00000000-0000-0000-0000-0000000af021';
+    RAISE EXCEPTION 'An account moved property';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    INSERT INTO public.rental_payment_accounts (property_id, kind, label)
+    VALUES ('00000000-0000-0000-0000-0000000ab021', 'paypal', 'PayPal');
+    RAISE EXCEPTION 'An unknown account kind was accepted';
+  EXCEPTION WHEN check_violation THEN NULL; END;
+  INSERT INTO storage.objects (bucket_id, name)
+  VALUES ('rental-qr', '00000000-0000-0000-0000-0000000ab021/00000000-0000-0000-0000-0000000af021-1.png');
+
+  -- As the manager friend: records and reads proofs, but can't touch accounts or the QR bucket.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa002', true);
+  PERFORM public.rental_record_payment(v_t2, 5000, v_today, 'cash', '', '');
+  IF pg_temp.paid(b9) <> 5000 THEN RAISE EXCEPTION 'Manager could not record a payment'; END IF;
+  IF (SELECT count(*) FROM public.rental_payment_proofs) <> 1 THEN RAISE EXCEPTION 'Manager cannot read proofs'; END IF;
+  BEGIN
+    INSERT INTO public.rental_payment_accounts (property_id, kind, label)
+    VALUES ('00000000-0000-0000-0000-0000000ab021', 'maya', 'Maya');
+    RAISE EXCEPTION 'Manager added a payment account';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  UPDATE public.rental_payment_accounts SET label = 'Hacked' WHERE id = '00000000-0000-0000-0000-0000000af021';
+  DELETE FROM public.rental_payment_accounts WHERE id = '00000000-0000-0000-0000-0000000af021';
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name) VALUES ('rental-qr', '00000000-0000-0000-0000-0000000ab021/m-1.png');
+    RAISE EXCEPTION 'Manager uploaded a QR image';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  -- Cross-property: a tenancy of Pay House can't be paid as if it were Friend House's (friend owns Friend House).
+  BEGIN
+    INSERT INTO public.rental_payment_proofs (payment_id, property_id, name, mime_type, size)
+    VALUES (p1, '00000000-0000-0000-0000-0000000ab022', 'x.png', 'image/png', 1);
+    RAISE EXCEPTION 'A proof was attached across properties';
+  EXCEPTION WHEN foreign_key_violation THEN NULL; END;
+
+  -- As a viewer: reads payments and allocations, never proofs; can't record or void.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+  IF (SELECT label FROM public.rental_payment_accounts WHERE id = '00000000-0000-0000-0000-0000000af021') <> 'GCash'
+  THEN RAISE EXCEPTION 'Manager changed or removed a payment account'; END IF;
+  UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = '00000000-0000-0000-0000-0000000aa002'
+    AND property_id = '00000000-0000-0000-0000-0000000ab021';
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa002', true);
+  IF (SELECT count(*) FROM public.rental_payments) = 0 OR (SELECT count(*) FROM public.rental_payment_allocations) = 0
+    OR (SELECT count(*) FROM public.rental_payment_accounts) <> 1
+  THEN RAISE EXCEPTION 'Viewer cannot read payments, allocations or accounts'; END IF;
+  IF (SELECT count(*) FROM public.rental_payment_proofs) <> 0 THEN RAISE EXCEPTION 'Viewer can read payment proofs'; END IF;
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'rental-files') THEN RAISE EXCEPTION 'Viewer can read proof files'; END IF;
+  BEGIN
+    PERFORM public.rental_record_payment(v_t, 1000, v_today, 'cash', '', '');
+    RAISE EXCEPTION 'Viewer recorded a payment';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'Only managers can record payments' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.rental_void_payment(p1, 'No');
+    RAISE EXCEPTION 'Viewer voided a payment';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'Only managers can record payments' THEN RAISE; END IF;
+  END;
+  BEGIN
+    INSERT INTO public.rental_payment_proofs (payment_id, property_id, name, mime_type, size)
+    VALUES (p1, '00000000-0000-0000-0000-0000000ab021', 'x.png', 'image/png', 1);
+    RAISE EXCEPTION 'Viewer reserved a proof';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+
+  -- As a stranger: sees nothing, can't record or void.
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa003', true);
+  IF EXISTS (SELECT 1 FROM public.rental_payments) OR EXISTS (SELECT 1 FROM public.rental_payment_allocations)
+    OR EXISTS (SELECT 1 FROM public.rental_payment_accounts) OR EXISTS (SELECT 1 FROM public.rental_payment_proofs)
+  THEN RAISE EXCEPTION 'A stranger can read payments'; END IF;
+  BEGIN
+    PERFORM public.rental_record_payment(v_t, 1000, v_today, 'cash', '', '');
+    RAISE EXCEPTION 'Stranger recorded a payment';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN
+    PERFORM public.rental_void_payment(p1, 'No');
+    RAISE EXCEPTION 'Stranger voided a payment';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+END $$;
+
+-- Review Focus 2 (defensive): a pinned allocation whose bill shrinks is clamped, and dropped when the bill is cancelled.
+-- The payment guard normally refuses both, so it is switched off here to reach reallocation directly.
+RESET ROLE;
+ALTER TABLE public.rental_bills DISABLE TRIGGER rental_bill_payment_guard;
+DO $$ DECLARE v_t uuid := (SELECT id FROM public.rental_tenancies WHERE renter_id = '00000000-0000-0000-0000-0000000ad021');
+  b3 uuid; v_paid bigint; v_owed bigint;
+BEGIN
+  SELECT id INTO b3 FROM public.rental_bills WHERE tenancy_id = v_t AND period = '2026-10' AND status = 'issued';
+  UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":60000}]' WHERE id = b3;
+  IF pg_temp.paid(b3) <> 60000 OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE bill_id = b3 AND pinned) <> 60000
+  THEN RAISE EXCEPTION 'Pinned allocations were not clamped: %', pg_temp.paid(b3); END IF;
+  PERFORM pg_temp.check_allocations();
+  UPDATE public.rental_bills SET status = 'void', void_reason = 'test' WHERE id = b3;
+  IF pg_temp.paid(b3) <> 0 THEN RAISE EXCEPTION 'Allocations stayed on a cancelled bill'; END IF;
+  PERFORM pg_temp.check_allocations();
+  -- Everything paid (2,800) still lands somewhere: owed 1,000 + 1,000 + 1,200 = 3,200.
+  SELECT sum(a.amount_centavos) INTO v_paid FROM public.rental_payment_allocations a
+    JOIN public.rental_payments p ON p.id = a.payment_id WHERE p.tenancy_id = v_t;
+  IF v_paid <> 280000 THEN RAISE EXCEPTION 'Payments were lost after the bill was cancelled: %', v_paid; END IF;
+  -- Composite FK: a payment's tenancy must belong to its property.
+  BEGIN
+    INSERT INTO public.rental_payments (property_id, tenancy_id, amount_centavos, paid_on, method)
+    VALUES ('00000000-0000-0000-0000-0000000ab022', v_t, 1, '2026-10-01', 'cash');
+    RAISE EXCEPTION 'A payment was filed under another property';
+  EXCEPTION WHEN foreign_key_violation THEN NULL; END;
+  IF NOT (SELECT public FROM storage.buckets WHERE id = 'rental-qr')
+    OR (SELECT file_size_limit FROM storage.buckets WHERE id = 'rental-qr') <> 2097152
+  THEN RAISE EXCEPTION 'QR bucket is not public or has the wrong size limit'; END IF;
+END $$;
+ALTER TABLE public.rental_bills ENABLE TRIGGER rental_bill_payment_guard;
+
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

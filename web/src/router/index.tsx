@@ -25,6 +25,8 @@ import { RentalsPage } from '@rentals';
 // Public and lazy: recruiters open this cold, so it must not pull in the
 // app shell, auth guards, or editor code.
 const PortfolioPage = lazy(() => import('@career/presentation/portfolio/PortfolioPage'));
+// Same for a tenant's rental link: no guard, no dashboard shell.
+const RenterLinkPage = lazy(() => import('@rentals/presentation/renter/RenterLinkPage'));
 
 export const Router = () => {
   return (
@@ -41,6 +43,8 @@ export const Router = () => {
           }
         />
       ))}
+
+      <Route path="/r/:token" element={<Suspense fallback={<div className="min-h-dvh bg-background" />}><RenterLinkPage /></Suspense>} />
 
       {/* Root Layout - wraps everything */}
       <Route element={<RootLayout />}>

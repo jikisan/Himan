@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { MeterReading, PaymentAccount, PaymentAllocation, PaymentProof, RentalBill, RentalPayment, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
-import { ACCOUNT_KINDS, METER_KINDS, PAYMENT_METHODS, RENTAL_ROLES, UTILITY_MODES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
+import type { ContractText, MeterReading, TenancyLink, PaymentAccount, PaymentAllocation, PaymentProof, RentalBill, RentalPayment, RentalContract, RentalProperty, RentalTenancy, RentalUnit, Renter, RenterFile, UtilityBill } from '../domain/index.js';
+import { ACCOUNT_KINDS, LESSOR_CAPACITIES, METER_KINDS, linkDetailsSchema, PAYMENT_METHODS, RENTAL_ROLES, UTILITY_MODES, storedBillLineSchema, storedChargeSchema } from '../domain/index.js';
 
 export const unitRow = z.object({
   id: z.string(), property_id: z.string(), name: z.string(), kind: z.enum(['whole', 'room', 'bedspace']),
@@ -20,13 +20,13 @@ export const propertyRow = z.object({
   lessor_capacity: z.enum(['owner', 'representative']), signing_city: z.string(), invoice_prefix: z.string(),
   archived_at: z.string().nullable(), created_at: z.string(), updated_at: z.string(),
   late_fee_centavos: z.number().default(0), rent_due_day: z.number().nullable().default(null),
-  payments_tracked_from: z.string().nullable().default(null),
+  payments_tracked_from: z.string().nullable().default(null), lessor_signature: z.string().nullable().default(null),
   units: z.array(unitRow).default([]), members: z.array(z.object({ role: z.enum(RENTAL_ROLES) })).min(1),
 }).transform((r): RentalProperty => ({
   id: r.id, createdBy: r.created_by, name: r.name, address: r.address, ownerName: r.owner_name,
   ownerAddress: r.owner_address, lessorName: r.lessor_name, lessorCivilStatus: r.lessor_civil_status,
   lessorAddress: r.lessor_address, lessorCapacity: r.lessor_capacity, signingCity: r.signing_city,
-  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
+  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, lessorSignature: r.lessor_signature, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
   role: r.members[0].role, units: [...r.units].sort((a, b) => a.name.localeCompare(b.name)),
 }));
 
@@ -122,6 +122,64 @@ export const paymentAccountRow = z.object({
   id: r.id, propertyId: r.property_id, kind: r.kind, label: r.label, accountName: r.account_name,
   accountNumber: r.account_number, qrPath: r.qr_path, position: r.position,
 }));
+
+const CONTRACT_STATUSES = ['draft', 'sent', 'signed', 'countersigned'] as const;
+const SIGN_MODES = ['esign', 'notarize'] as const;
+
+export const contractTextRow = z.object({
+  id: z.string(), property_id: z.string(), contract_id: z.string(), body: z.array(z.string()), special_terms: z.string(),
+  status: z.enum(CONTRACT_STATUSES), sign_mode: z.enum(SIGN_MODES).nullable(), content_hash: z.string().nullable(),
+  tenant_name: z.string().nullable(), tenant_signature: z.string().nullable(), tenant_signed_at: z.string().nullable(),
+  lessor_signed_at: z.string().nullable(), lessor_signature: z.string().nullable(), notarized_scan_path: z.string().nullable(),
+  created_at: z.string(), updated_at: z.string(),
+}).transform((r): ContractText => ({
+  id: r.id, propertyId: r.property_id, contractId: r.contract_id, body: r.body, specialTerms: r.special_terms, status: r.status,
+  signMode: r.sign_mode, contentHash: r.content_hash, tenantName: r.tenant_name, tenantSignature: r.tenant_signature,
+  tenantSignedAt: r.tenant_signed_at, lessorSignedAt: r.lessor_signed_at, lessorSignature: r.lessor_signature,
+  notarizedScanPath: r.notarized_scan_path, createdAt: r.created_at, updatedAt: r.updated_at,
+}));
+
+export const linkRow = z.object({
+  tenancy_id: z.string(), property_id: z.string(), token: z.string(), kind: z.enum(['new', 'existing']),
+  status: z.enum(['open', 'submitted', 'accepted']),
+  // Tenant-typed: one that doesn't fit the form shows as nothing to review rather than breaking the list.
+  submitted_details: linkDetailsSchema.nullable().catch(null),
+  submitted_at: z.string().nullable(), accepted_at: z.string().nullable(), revoked_at: z.string().nullable(), created_at: z.string(),
+}).transform((r): TenancyLink => ({
+  tenancyId: r.tenancy_id, propertyId: r.property_id, token: r.token, kind: r.kind, status: r.status,
+  submittedDetails: r.submitted_details, submittedAt: r.submitted_at, acceptedAt: r.accepted_at, revokedAt: r.revoked_at,
+  createdAt: r.created_at,
+}));
+
+/** `rental_link_get`: everything the tenant's page shows, already limited by the database to this tenancy. */
+export const publicLinkSchema = z.object({
+  kind: z.enum(['new', 'existing']), status: z.enum(['open', 'submitted', 'accepted']), tenantName: z.string(),
+  property: z.object({ name: z.string(), address: z.string(), lessorName: z.string(), lessorCapacity: z.enum(LESSOR_CAPACITIES),
+    signingCity: z.string(), invoicePrefix: z.string() }),
+  contract: z.object({
+    id: z.string(), status: z.enum(CONTRACT_STATUSES), body: z.array(z.string()), specialTerms: z.string(),
+    signMode: z.enum(SIGN_MODES).nullable(), tenantSignedAt: z.string().nullable(), lessorSigned: z.boolean(),
+    contentHash: z.string().nullable(),
+    // The landlord's signature image only once countersigned.
+    lessorSignature: z.string().nullable().optional(),
+  }).nullable(),
+  bills: z.array(z.object({
+    number: z.string(), kind: z.enum(['move_in', 'monthly', 'final']).optional(), period: z.string(), issuedOn: z.string(),
+    dueOn: z.string(), lines: z.array(storedBillLineSchema), paid: z.number(), balance: z.number(),
+  })).default([]),
+  payments: z.array(z.object({
+    paidOn: z.string(), amount: z.number(), method: z.enum(PAYMENT_METHODS), reference: z.string(), billNumbers: z.array(z.string()),
+  })).default([]),
+  accounts: z.array(z.object({
+    kind: z.enum(ACCOUNT_KINDS), label: z.string(), accountName: z.string(), accountNumber: z.string(), qrPath: z.string().nullable(),
+  })).default([]),
+});
+export type PublicLink = z.infer<typeof publicLinkSchema>;
+
+const EXTENSIONS: Record<string, string> = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
+/** A random, unguessable object name for an uploaded file. */
+export const fileName = (mimeType: string): string =>
+  `${Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')}.${EXTENSIONS[mimeType]}`;
 
 // RAISE EXCEPTION (P0001) messages are written for people; pass them through.
 export function rentalError(error: unknown, fallback: string,

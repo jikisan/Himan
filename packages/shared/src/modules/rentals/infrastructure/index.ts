@@ -6,3 +6,6 @@ export type { IssueBillInput } from './BillRepository.js';
 export * from './flows.js';
 export { PaymentRepository } from './PaymentRepository.js';
 export { PaymentAccountRepository } from './PaymentAccountRepository.js';
+export { ContractRepository } from './ContractRepository.js';
+export { LinkRepository } from './LinkRepository.js';
+export type { PublicLink } from './rows.js';

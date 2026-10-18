@@ -6,6 +6,8 @@ export interface RentalProperty extends PropertyInput {
   id: string; createdBy: string; role: RentalRole; archivedAt: string | null;
   /** Bills issued before this date predate payment tracking (null: everything is tracked). */
   paymentsTrackedFrom: string | null;
+  /** The owner's saved signature (PNG data URL) used to countersign in one tap. */
+  lessorSignature?: string | null;
   units: RentalUnit[]; createdAt: string; updatedAt: string;
 }
 export interface RenterFile {

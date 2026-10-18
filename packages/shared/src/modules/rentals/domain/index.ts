@@ -7,3 +7,4 @@ export * from './billing.js';
 export * from './payments.js';
 export * from './words.js';
 export * from './documents.js';
+export * from './contracts.js';

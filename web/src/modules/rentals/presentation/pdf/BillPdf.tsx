@@ -8,6 +8,8 @@ registerPdfFonts();
 /** The Statement of Account on A4. `qr` maps an account id to its QR image (a data URL); accounts without one print as text only. */
 export function BillPdf({ doc, qr }: { doc: BillDocument; qr: Record<string, string> }) {
   const number = doc.fields.find(([k]) => k === 'Bill No.')?.[1];
+  // A cancelled bill asks for nothing.
+  const summary = doc.cancelled ? doc.summary.filter(([k]) => k !== 'Amount due now' && k !== 'Paid in full') : doc.summary;
   return <Document title={`Statement of Account ${number ?? ''}`.trim()} author={doc.from.name}>
     <Page size="A4" style={styles.page}>
       {doc.cancelled && <Text style={styles.stamp}>Cancelled</Text>}
@@ -22,7 +24,7 @@ export function BillPdf({ doc, qr }: { doc: BillDocument; qr: Record<string, str
           <Text style={styles.muted}>{k}: </Text><Text style={styles.bold}>{v}</Text></Text>)}
       </View>
 
-      {doc.charges.length > 0 && <Text style={styles.heading}>Rent and charges</Text>}
+      {doc.charges.length > 0 && <Text style={styles.heading} minPresenceAhead={24}>Rent and charges</Text>}
       {doc.charges.map((c, i) => <Amount key={i} label={c.label} amount={c.amount} />)}
 
       {doc.utilities.map((u, i) => <View key={i} wrap={false}>
@@ -38,12 +40,12 @@ export function BillPdf({ doc, qr }: { doc: BillDocument; qr: Record<string, str
           <Text style={[styles.bold, { textTransform: 'uppercase' }]}>Total amount payable</Text>
           <Text style={[styles.bold, { fontSize: 14 }]}>{doc.total}</Text>
         </View>
-        {doc.summary.map(([k, v]) => <View key={k} style={styles.row}>
+        {summary.map(([k, v]) => <View key={k} style={styles.row}>
           <Text style={v ? styles.muted : styles.bold}>{k}</Text><Text style={styles.bold}>{v}</Text></View>)}
         <View style={styles.row}><Text style={styles.muted}>Due date</Text><Text style={styles.bold}>{doc.due}</Text></View>
       </View>
 
-      {doc.accounts.length > 0 && <Text style={styles.heading} minPresenceAhead={40}>Pay to</Text>}
+      {doc.accounts.length > 0 && <Text style={styles.heading} minPresenceAhead={96}>Pay to</Text>}
       {doc.accounts.map((a) => <View key={a.id} wrap={false} style={[styles.row, { alignItems: 'center', marginBottom: 6 }]}>
         <Text style={styles.label}><Text style={styles.bold}>{a.name}</Text> — {a.detail}</Text>
         {qr[a.id] && <Image src={qr[a.id]} style={{ width: 84, height: 84 }} />}

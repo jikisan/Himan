@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { isValidElement } from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { billDocument } from '@himan/shared/rentals';
 import type { BillLine, PaymentAccount, RentalBill } from '@himan/shared/rentals';
@@ -35,8 +36,25 @@ describe('bill pdf', () => {
     expect(text).not.toContain('±');
   });
 
-  it('marks a cancelled bill', async () => {
+  it('marks a cancelled bill and asks for nothing on it', async () => {
     const text = await pdfText(await renderToBuffer(<BillPdf doc={billDocument({ ...bill, status: 'void', lines: lines.slice(0, 3) }, info)} qr={{}} />));
-    if (text !== null) expect(text).toContain('CANCELLED');
+    if (text === null) return;
+    expect(text).toContain('CANCELLED');
+    expect(text).toContain('Previous balance');
+    expect(text).not.toContain('Amount due now');
+  });
+
+  it('keeps headings with what follows them at a page foot', () => {
+    const found: Record<string, number | undefined> = {};
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) return node.forEach(walk);
+      if (!isValidElement(node)) return;
+      const { children, minPresenceAhead } = node.props as { children?: unknown; minPresenceAhead?: number };
+      if (typeof children === 'string') found[children] = minPresenceAhead;
+      walk(children);
+    };
+    walk(BillPdf({ doc: billDocument(bill, info), qr: {} }));
+    expect(found['Rent and charges']).toBeGreaterThanOrEqual(24);
+    expect(found['Pay to']).toBeGreaterThanOrEqual(96);
   });
 });

@@ -299,10 +299,15 @@ describe('PDF downloads', () => {
     finish();
     await waitFor(() => expect(sheet.getByRole('button', { name: 'Download PDF' })).toBeEnabled());
   });
-  it('says so plainly when the PDF can’t be made', async () => {
-    pdfs.downloadBillPdf.mockRejectedValue(new Error('Failed to fetch dynamically imported module'));
+  it('blames the connection only when the PDF code couldn’t be loaded', async () => {
+    pdfs.downloadBillPdf.mockRejectedValue(new TypeError('Failed to fetch dynamically imported module'));
     fireEvent.click(openBill().getByRole('button', { name: 'Download PDF' }));
     await waitFor(() => expect(toasts.error).toHaveBeenCalledWith('Couldn’t make the PDF. Check your connection and try again.'));
+  });
+  it.each([new Error('Bad image'), new TypeError('Cannot read properties of undefined')])('says so plainly when the PDF can’t be made (%s)', async (error) => {
+    pdfs.downloadBillPdf.mockRejectedValue(error);
+    fireEvent.click(openBill().getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledWith('Couldn’t make the PDF. Try again.'));
   });
   it('downloads a receipt for each active payment, for viewers too', async () => {
     state.properties = [{ ...property, role: 'viewer' }];

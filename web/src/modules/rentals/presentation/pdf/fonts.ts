@@ -1,5 +1,5 @@
 import { Font } from '@react-pdf/renderer';
-// Noto Sans (OFL). The latin subset has the text; ₱ (U+20B1) is only in latin-ext, so it is the fallback family.
+// Noto Sans (SIL OFL 1.1, text shipped at /assets/fonts/OFL-NotoSans.txt). The latin subset has the text; ₱ (U+20B1) is only in latin-ext, so it is the fallback family.
 // WOFF, not WOFF2: react-pdf can’t read WOFF2. Inlined (data URLs in the PDF chunk) so a PDF still renders offline.
 import regular from '@fontsource/noto-sans/files/noto-sans-latin-400-normal.woff?inline';
 import bold from '@fontsource/noto-sans/files/noto-sans-latin-700-normal.woff?inline';

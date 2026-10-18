@@ -32,4 +32,24 @@ describe('loadQrImages', () => {
     vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new Error('decode'); }));
     expect(await loadQrImages([accounts[0]], url)).toEqual({});
   });
+
+  it('shrinks a large QR to at most 512 pixels', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['png']))));
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 4000, height: 2000, close: vi.fn() })));
+    const drawImage = vi.fn();
+    let size: number[] = [];
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation(function (this: HTMLCanvasElement) {
+      size = [this.width, this.height]; return 'data:image/png;base64,QQ==';
+    });
+    expect(await loadQrImages([accounts[0]], url)).toEqual({ a1: 'data:image/png;base64,QQ==' });
+    expect(size).toEqual([512, 256]);
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 512, 256);
+  });
+
+  it('gives up on an image that takes too long to decode', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['png']))));
+    vi.stubGlobal('createImageBitmap', vi.fn(() => new Promise(() => {})));
+    expect(await loadQrImages([accounts[0]], url, 10)).toEqual({});
+  });
 });

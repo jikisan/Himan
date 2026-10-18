@@ -22,7 +22,10 @@ vi.mock('signature_pad', () => ({
 
 const small = 'data:image/png;base64,AAAA';
 
-beforeEach(() => { pad.dataUrl = small; pad.cleared = 0; });
+beforeEach(() => {
+  pad.dataUrl = small; pad.cleared = 0;
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn(), scale: vi.fn() } as never);
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe('SignaturePad', () => {
@@ -39,7 +42,6 @@ describe('SignaturePad', () => {
 
   it('shrinks a signature larger than 150 KB', () => {
     pad.dataUrl = `data:image/png;base64,${'A'.repeat(200_000)}`;
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn(), scale: vi.fn() } as never);
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(small);
     const onChange = vi.fn();
     render(<SignaturePad label="Your signature" onChange={onChange} />);
@@ -49,11 +51,18 @@ describe('SignaturePad', () => {
 
   it('asks to draw again when it can’t be made small enough', () => {
     pad.dataUrl = `data:image/png;base64,${'A'.repeat(200_000)}`;
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(pad.dataUrl);
     const onChange = vi.fn();
     render(<SignaturePad label="Your signature" onChange={onChange} />);
     act(() => pad.instance!.fire());
     expect(onChange).toHaveBeenLastCalledWith(null);
     expect(screen.getByRole('alert')).toHaveTextContent('Draw your signature again');
+  });
+
+  it('says so when the browser can’t draw', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    render(<SignaturePad label="Your signature" onChange={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('can’t draw a signature');
+    expect(screen.queryByLabelText('Your signature')).not.toBeInTheDocument();
   });
 });

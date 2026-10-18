@@ -37,7 +37,7 @@ const state = vi.hoisted(() => ({
   payments: [] as RentalPayment[], accounts: [] as PaymentAccount[],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), paymentProofUrl: vi.fn(), qrUrl: vi.fn((path: string) => `https://cdn/${path}`),
-  listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
+  listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []), contractTexts: [], links: [], templates: {},
 }));
 vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));

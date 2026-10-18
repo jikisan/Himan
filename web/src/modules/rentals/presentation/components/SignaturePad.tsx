@@ -28,10 +28,12 @@ export function SignaturePad({ label, onChange, disabled }: { label: string; onC
   const changeRef = useRef(onChange);
   useEffect(() => { changeRef.current = onChange; }, [onChange]);
   const [error, setError] = useState('');
+  const [supported] = useState(() => !!document.createElement('canvas').getContext('2d'));
   const hintId = useId();
 
   useEffect(() => {
-    const canvas = canvasRef.current!;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     const pad = new SignaturePadLib(canvas, { penColor: '#111', minWidth: 0.8, maxWidth: 2.4 });
     padRef.current = pad;
     // Sharp lines on high-density screens; resizing clears a canvas, so the strokes are redrawn.
@@ -55,6 +57,7 @@ export function SignaturePad({ label, onChange, disabled }: { label: string; onC
 
   useEffect(() => { if (padRef.current) { if (disabled) padRef.current.off(); else padRef.current.on(); } }, [disabled]);
 
+  if (!supported) return <p role="alert" className="text-sm text-destructive">This browser can’t draw a signature. Try another browser or phone.</p>;
   return <div className="space-y-2">
     <canvas ref={canvasRef} aria-label={label} aria-describedby={hintId} role="img"
       className="block h-40 w-full touch-none rounded-lg border bg-white" />

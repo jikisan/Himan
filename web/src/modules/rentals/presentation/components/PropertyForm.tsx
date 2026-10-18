@@ -12,9 +12,10 @@ const empty: PropertyInput = { name: '', address: '', ownerName: '', ownerAddres
 type TextKey = Exclude<keyof PropertyInput, 'lessorCapacity' | 'lateFeeCentavos' | 'rentDueDay'>;
 type NameKey = 'ownerName' | 'lessorName';
 
-/** `accounts` is the owner's payment-accounts section, shown after Bills. */
-export function PropertyForm({ property, myName, busy, onSave, onCancel, accounts }: {
-  property?: RentalProperty; myName: string; busy: boolean; onSave: (value: PropertyInput) => Promise<void>; onCancel: () => void; accounts?: ReactNode;
+/** `accounts` is the owner's payment-accounts section, shown after Bills; `contract` (template and signature) follows the contract details. */
+export function PropertyForm({ property, myName, busy, onSave, onCancel, accounts, contract }: {
+  property?: RentalProperty; myName: string; busy: boolean; onSave: (value: PropertyInput) => Promise<void>; onCancel: () => void;
+  accounts?: ReactNode; contract?: ReactNode;
 }) {
   const [form, setForm] = useState<PropertyInput>(() => property ? { ...empty, ...pick(property) } : empty);
   // null = not touched yet: new properties default to "me", saved ones to "me" only when the name already matches.
@@ -101,6 +102,7 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel, account
           </FormSection>
         </div>
       </details>
+      {contract}
       {!myName && <p className="text-xs text-muted-foreground">
         Add your full name in <Link to="/profile" className="underline underline-offset-2">Profile</Link> to fill the owner and signer with one tick.</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

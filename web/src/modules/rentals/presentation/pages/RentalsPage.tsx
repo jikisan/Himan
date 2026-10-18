@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { billPaid, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit } from '@himan/shared/rentals';
+import { DEFAULT_CLAUSES, billPaid, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit } from '@himan/shared/rentals';
 import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
@@ -30,6 +30,7 @@ import { BillSheet } from '../components/BillSheet';
 import { RecordPaymentDialog } from '../components/RecordPaymentDialog';
 import { PaymentsList } from '../components/PaymentsList';
 import { PaymentAccountsEditor } from '../components/PaymentAccountsEditor';
+import { ContractTemplateEditor, LessorSignatureEditor } from '../components/ContractTemplateEditor';
 import { cn } from '@core/presentation/utils';
 import { errorMessage } from '../utils/errorMessage';
 
@@ -178,7 +179,7 @@ function RentalsContent(state: RentalsState) {
         </div>
 
         {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
-              readings={propertyReadings} canManage={isManager} canEdit={isOwner}
+              readings={propertyReadings} canManage={isManager} canEdit={isOwner} contractTexts={state.contractTexts}
               onReadMeters={() => { setView('bills'); setMetersFromHome(true); }} onOpenBills={() => setView('bills')}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
@@ -252,6 +253,10 @@ function RentalsContent(state: RentalsState) {
             <DialogDescription>Owner and signer details are printed on contracts.</DialogDescription></DialogHeader>
           <PropertyForm property={property} myName={state.myName ?? ''} busy={busy} onCancel={() => setDialog(null)}
             accounts={isOwner && <PaymentAccountsEditor propertyId={property.id} accounts={propertyAccounts} busy={busy} run={run} qrUrl={state.qrUrl} />}
+            contract={isOwner && <>
+              <ContractTemplateEditor propertyId={property.id} template={state.templates[property.id] ?? DEFAULT_CLAUSES} busy={busy} run={run} />
+              <LessorSignatureEditor property={property} busy={busy} run={run} />
+            </>}
             onSave={async (input) => { await act({ type: 'saveProperty', id: dialog.id, input }, 'Property saved'); }} />
         </>}
         {dialog?.type === 'room' && property && (() => {
@@ -296,7 +301,8 @@ function RentalsContent(state: RentalsState) {
           const renter = propertyRenters.find((r) => r.id === dialog.renterId);
           return renter && <TenantSheet renter={renter} tenancies={propertyTenancies}
             bills={propertyBills} payments={propertyPayments} unitName={unitName} canManage={isManager} busy={busy} run={run}
-            fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} receipt={receipt} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
+            fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} receipt={receipt}
+            contractInfo={{ property, texts: state.contractTexts, template: state.templates[property.id] ?? DEFAULT_CLAUSES, links: state.links }} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
             onSaveDetails={async (input) => { await run({ type: 'saveRenter', propertyId: property.id, id: renter.id, input }); toast.success('Tenant saved'); }}
             deleteAction={<Button type="button" variant="ghost" className="px-2 text-destructive hover:text-destructive" onClick={() => setConfirm({
               title: `Delete ${renter.fullName}?`, confirmText: 'Delete', done: 'Tenant deleted', action: { type: 'removeRenter', id: renter.id },

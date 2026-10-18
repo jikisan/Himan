@@ -1,7 +1,7 @@
 ---
 type: module
 area: rentals
-status: phase-2-bills
+status: phase-2-payments
 ---
 
 # Rentals
@@ -118,3 +118,23 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   on a fresh database, so `supabase db reset` fails on a clean machine.
 - `public.initialize_user_subscription()` has no `search_path`; locally, creating an auth user
   fails with `relation "user_subscriptions" does not exist`.
+
+## Payments and payment accounts (Step A, 2026-10-18)
+Plan: [[2026-10-18-rentals-payments]]. Migration `20261018100000_add_rental_payments.sql`.
+- Tables: `rental_payments`, `rental_payment_allocations`, `rental_payment_proofs` (bucket `rental-files`, managers only),
+  `rental_payment_accounts` (per property; QR images in the public bucket `rental-qr`, owner writes). Clients never write
+  payments or allocations directly: RPCs `rental_record_payment` / `rental_void_payment` / `rental_mark_earlier_paid`.
+- `rental_reallocate(tenancy)` (trigger-only, not executable by clients) rebuilds the automatic allocations: payments by
+  `created_at`, bills by `due_on, created_at, id`; landlord-picked ("pinned") allocations are kept and clamped. Leftover = credit,
+  applied to later bills automatically. Bill state (Paid / Partial / Unpaid / Overdue) is derived in `domain/payments.ts`, never stored.
+- Ruling: editing or cancelling a bill that has payments is **allowed** (with a confirm in the UI); the money flows back to
+  credit or other bills. The earlier "locked once paid" rule made every credit-covered new bill uneditable.
+- `rental_properties.payments_tracked_from` was set to the migration day for existing properties. Bills issued before it
+  that are unpaid show in a Home banner "Bills from before payment tracking" with **Mark all as paid**
+  (records one "Paid before payment tracking" payment per tenant); the Overdue list excludes them.
+- Deposit held: counts once the move-in bill is fully paid (`depositHeld`); until then "pending".
+- Applied to the hosted project 2026-10-18 (one transaction, `migration repair`); verified RLS on all four tables,
+  `rental-qr` public, `rental-files` private, no `anon`/`authenticated` EXECUTE on `rental_reallocate`, `anon` cannot
+  record payments. Earlier migrations through `20261018000000` were already applied (this supersedes the older
+  "apply before deploying" note above).
+- Not in this step: PDFs (Step B), contract and renter link (Step C), deposit settlement (Step D).

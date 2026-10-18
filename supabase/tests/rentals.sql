@@ -1491,6 +1491,110 @@ BEGIN
   THEN RAISE EXCEPTION 'A stranger can read settlements'; END IF;
   PERFORM set_config('request.jwt.claim.sub', v_owner, true);
 END $$;
+
+-- Step D review fixes: bills taken from the deposit become paid, tenant credit counts, the move-in side freezes.
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity)
+  SELECT ('00000000-0000-0000-0000-0000000ac07' || n)::uuid, '00000000-0000-0000-0000-0000000ab061', 'R' || n, 'room', 1
+  FROM generate_series(1, 6) n;
+INSERT INTO public.rental_renters (id, property_id, full_name)
+  SELECT ('00000000-0000-0000-0000-0000000ad07' || n)::uuid, '00000000-0000-0000-0000-0000000ab061', 'Mover ' || n
+  FROM generate_series(1, 6) n;
+CREATE FUNCTION pg_temp.balance(p_bill uuid) RETURNS bigint LANGUAGE sql AS $$
+  SELECT public.rental_bill_total(b.lines) - coalesce((SELECT sum(a.amount_centavos) FROM public.rental_payment_allocations a
+    JOIN public.rental_payments p ON p.id = a.payment_id WHERE a.bill_id = b.id AND p.status = 'active'), 0)
+  FROM public.rental_bills b WHERE b.id = p_bill
+$$;
+CREATE FUNCTION pg_temp.owed(p_tenancy uuid) RETURNS bigint LANGUAGE sql AS $$
+  SELECT coalesce(sum(greatest(pg_temp.balance(b.id), 0)), 0) FROM public.rental_bills b
+  WHERE b.tenancy_id = p_tenancy AND b.status = 'issued'
+$$;
+
+DO $$ DECLARE
+  v_today date := (now() AT TIME ZONE 'Asia/Manila')::date;
+  v_t uuid[] := '{}'; v_b uuid[] := '{}'; v_s uuid; v_r public.rental_settlements; v_p public.rental_payments;
+  v_move_in uuid; v_later uuid; v_later_pay uuid; v_n integer;
+  v_final text := '[{"kind":"other","label":"Final bill","amount":%s}]';
+  v_frozen_pay text := 'This deposit is already settled, so its payments can''t be voided';
+  v_frozen_bill text := 'This deposit is already settled, so the move-in bill can''t change';
+BEGIN
+  -- R1–R3: deposit 5,000 / 1,000 / 5,000 paid, then a final bill of 1,200 / 1,500 / 1,200 left unpaid.
+  -- R4–R6: deposit 1,000 paid with 1,300, so 300 sits as credit.
+  FOR n IN 1..6 LOOP
+    v_t := v_t || public.rental_start_tenancy(('00000000-0000-0000-0000-0000000ac07' || n)::uuid,
+      ('00000000-0000-0000-0000-0000000ad07' || n)::uuid, '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0,
+      CASE WHEN n IN (1, 3) THEN 500000 ELSE 100000 END);
+    PERFORM public.rental_record_payment(v_t[n], CASE WHEN n IN (1, 3) THEN 500000 WHEN n = 2 THEN 100000 ELSE 130000 END,
+      v_today, 'cash', '', '');
+    IF n <= 3 THEN
+      v_b := v_b || public.rental_issue_bill(v_t[n], 'final', '2026-10', v_today,
+        format(v_final, CASE WHEN n = 2 THEN 150000 ELSE 120000 END)::jsonb);
+    END IF;
+  END LOOP;
+  UPDATE public.rental_tenancies SET move_out = v_today WHERE id = ANY (v_t);
+
+  -- Unpaid 1,200 from a 5,000 deposit: the final bill is paid from the deposit, nothing is owed, 3,800 comes back.
+  v_s := public.rental_settle_deposit(v_t[1], '[]', false, v_today, 'cash', '', '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s;
+  IF (v_r.deposit_centavos, v_r.unpaid_bills_centavos, v_r.credit_centavos, v_r.refund_centavos, v_r.owed_centavos)
+    IS DISTINCT FROM (500000, 120000, 0, 380000, 0) THEN RAISE EXCEPTION 'Unpaid-bill settlement is wrong: %', row_to_json(v_r); END IF;
+  IF pg_temp.balance(v_b[1]) <> 0 OR pg_temp.owed(v_t[1]) <> 0 THEN RAISE EXCEPTION 'The final bill was not paid from the deposit'; END IF;
+  SELECT * INTO v_p FROM public.rental_payments WHERE tenancy_id = v_t[1] AND notes = 'Taken from the deposit';
+  IF (v_p.amount_centavos, v_p.method, v_p.paid_on, v_p.status) IS DISTINCT FROM (120000, 'other', v_today, 'active')
+    OR jsonb_array_length(v_p.receipt->'applied') <> 1 OR (v_p.receipt->>'balanceCentavos')::bigint <> 0
+    OR NOT EXISTS (SELECT 1 FROM public.rental_payment_allocations WHERE payment_id = v_p.id AND bill_id = v_b[1] AND pinned)
+  THEN RAISE EXCEPTION 'Deposit payment is wrong: %', row_to_json(v_p); END IF;
+
+  -- Over-deduction: the deposit pays 1,000 of the 1,500 bill; exactly 500 stays open and owed.
+  v_s := public.rental_settle_deposit(v_t[2], '[]', false, NULL, NULL, NULL, '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s;
+  IF (v_r.refund_centavos, v_r.owed_centavos) IS DISTINCT FROM (0, 50000) OR pg_temp.balance(v_b[2]) <> 50000
+    OR pg_temp.owed(v_t[2]) <> 50000 THEN RAISE EXCEPTION 'Over-deduction left the wrong amount open: %', row_to_json(v_r); END IF;
+
+  -- Forfeit still pays the bills from the deposit.
+  v_s := public.rental_settle_deposit(v_t[3], '[]', true, NULL, NULL, NULL, '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s;
+  IF (v_r.refund_centavos, v_r.owed_centavos) IS DISTINCT FROM (0, 0) OR pg_temp.balance(v_b[3]) <> 0
+  THEN RAISE EXCEPTION 'Forfeit did not settle the bills: %', row_to_json(v_r); END IF;
+
+  -- Credit adds to the refund: 1,000 deposit + 300 credit.
+  v_s := public.rental_settle_deposit(v_t[4], '[]', false, v_today, 'cash', '', '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s;
+  IF (v_r.credit_centavos, v_r.refund_centavos, v_r.owed_centavos) IS DISTINCT FROM (30000, 130000, 0)
+  THEN RAISE EXCEPTION 'Credit did not add to the refund: %', row_to_json(v_r); END IF;
+  -- Credit offsets deductions: 1,000 + 300 − 1,200 = 100 back.
+  v_s := public.rental_settle_deposit(v_t[5], '[{"label":"Damage","amount":120000}]', false, v_today, 'cash', '', '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s;
+  IF (v_r.credit_centavos, v_r.refund_centavos, v_r.owed_centavos) IS DISTINCT FROM (30000, 10000, 0)
+  THEN RAISE EXCEPTION 'Credit did not offset deductions: %', row_to_json(v_r); END IF;
+  -- Forfeit keeps the deposit but returns the credit less what the deductions exceed it by: 300 − 100 = 200.
+  v_s := public.rental_settle_deposit(v_t[6], '[{"label":"Damage","amount":110000}]', true, v_today, 'cash', '', '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s;
+  IF (v_r.credit_centavos, v_r.refund_centavos, v_r.owed_centavos) IS DISTINCT FROM (30000, 20000, 0)
+  THEN RAISE EXCEPTION 'Forfeit with credit is wrong: %', row_to_json(v_r); END IF;
+
+  -- Once settled, the move-in side is frozen: no voiding its payments, no changing or cancelling the move-in bill.
+  FOR v_p IN SELECT * FROM public.rental_payments WHERE tenancy_id = v_t[1] LOOP
+    PERFORM pg_temp.refused(format('SELECT public.rental_void_payment(%L, %L)', v_p.id, 'Oops'), v_frozen_pay);
+  END LOOP;
+  SELECT id INTO v_move_in FROM public.rental_bills WHERE tenancy_id = v_t[1] AND kind = 'move_in';
+  PERFORM pg_temp.refused(format('UPDATE public.rental_bills SET lines = %L WHERE id = %L',
+    '[{"kind":"deposit","label":"Deposit","amount":100}]', v_move_in), v_frozen_bill);
+  PERFORM pg_temp.refused(format('UPDATE public.rental_bills SET status = %L, void_reason = %L WHERE id = %L', 'void', 'x', v_move_in),
+    v_frozen_bill);
+  -- A later final bill still issues, takes a payment, can be edited, and that payment can be voided.
+  v_later := public.rental_issue_bill(v_t[1], 'final', '2026-11', v_today, format(v_final, 20000)::jsonb);
+  v_later_pay := public.rental_record_payment(v_t[1], 20000, v_today, 'cash', '', '', v_later);
+  IF pg_temp.balance(v_later) <> 0 THEN RAISE EXCEPTION 'Later final bill was not paid'; END IF;
+  UPDATE public.rental_bills SET due_on = v_today + 3 WHERE id = v_later;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n <> 1 THEN RAISE EXCEPTION 'Later final bill could not be edited'; END IF;
+  PERFORM public.rental_void_payment(v_later_pay, 'Wrong amount');
+
+  -- The table re-asserts the credit formulas.
+  RESET ROLE;
+  PERFORM pg_temp.refused(format('UPDATE public.rental_settlements SET credit_centavos = 1 WHERE id = %L', v_s), '23514');
+  SET LOCAL ROLE authenticated;
+END $$;
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

@@ -46,4 +46,29 @@ describe('receiptDocument', () => {
   it('never carries proof images', () => {
     expect(JSON.stringify(receiptDocument(p, { ...party, bills, payments: [p] }))).not.toContain('proof');
   });
+
+  it('prints from the snapshot taken when the payment was recorded, whatever the allocations say now', () => {
+    const snap = pay('33333333-0000', 600050, [['b2', 600050]], { receipt: { applied: [{ billId: 'mi', number: 'LU-2026-0001', amount: 200000 },
+      { billId: 'gone', number: 'LU-2026-0009', amount: 200000 }], creditCentavos: 200050, balanceCentavos: 0 } });
+    expect(receiptDocument(snap, { ...party, bills, payments: [snap] })).toMatchObject({
+      appliedTo: [{ bill: 'LU-2026-0001 · Move-in SOA', amount: '₱2,000' }, { bill: 'LU-2026-0009', amount: '₱2,000' }],
+      balanceLabel: 'Balance after this payment', balance: 'Fully paid', credit: '₱2,000.50', asOf: null });
+    const owing = { ...snap, receipt: { applied: [], creditCentavos: 0, balanceCentavos: 150000 } };
+    expect(receiptDocument(owing, { ...party, bills, payments: [owing] })).toMatchObject({ appliedTo: [], balance: '₱1,500', credit: null });
+  });
+
+  it('says the figures are live for payments recorded before snapshots', () => {
+    const doc = receiptDocument(p, { ...party, bills, payments: [earlier, p, later], today: '2026-12-01' });
+    expect(doc).toMatchObject({ balanceLabel: 'Left on these bills', asOf: 'Figures as of Dec 1, 2026' });
+    expect(receiptDocument({ ...p, receipt: {} }, { ...party, bills, payments: [p], today: '2026-12-01' }).asOf).toBe('Figures as of Dec 1, 2026');
+  });
+
+  it('counts a payment recorded at the same moment as earlier only when its id sorts first', () => {
+    const at = '2026-11-05T01:00:00Z';
+    const twin = (id: string) => pay(id, 100000, [['b2', 100000]], { createdAt: at });
+    const a = twin('aaaaaaaa-0000'); const z = twin('zzzzzzzz-0000');
+    // b2 is 3,500: a sees only itself (2,500 left); z also counts a (1,500 left).
+    expect(receiptDocument(a, { ...party, bills, payments: [a, z] }).balance).toBe('₱2,500');
+    expect(receiptDocument(z, { ...party, bills, payments: [a, z] }).balance).toBe('₱1,500');
+  });
 });

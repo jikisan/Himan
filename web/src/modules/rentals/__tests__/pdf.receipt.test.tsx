@@ -30,4 +30,15 @@ describe('receipt pdf', () => {
     const text = await pdfText(await renderToBuffer(<ReceiptPdf doc={receiptDocument(voided, { ...ctx, payments: [voided] })} />), 'receipt-void');
     if (text !== null) expect(text).toContain('VOID — Transfer bounced');
   });
+
+  it('prints the snapshot balance, and dates live figures on older receipts', async () => {
+    const snap = { ...payment, receipt: { applied: [{ billId: 'b2', number: 'LU-2026-0002', amount: 350000 }], creditCentavos: 1_650_050, balanceCentavos: 120000 } };
+    const text = await pdfText(await renderToBuffer(<ReceiptPdf doc={receiptDocument(snap, { ...ctx, payments: [snap] })} />), 'receipt-snapshot');
+    if (text !== null) {
+      expect(text.replace(/\s+/g, ' ')).toContain('Balance after this payment ₱1,200');
+      expect(text).not.toContain('Figures as of');
+    }
+    const live = await pdfText(await renderToBuffer(<ReceiptPdf doc={receiptDocument(payment, { ...ctx, today: '2026-12-01' })} />), 'receipt-live');
+    if (live !== null) expect(live).toContain('Figures as of Dec 1, 2026');
+  });
 });

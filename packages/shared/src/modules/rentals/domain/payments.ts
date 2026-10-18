@@ -12,6 +12,13 @@ export interface RentalPayment {
   id: string; propertyId: string; tenancyId: string; amountCentavos: number; paidOn: string; method: PaymentMethod;
   reference: string; notes: string; status: 'active' | 'void'; voidReason: string; createdAt: string;
   proofs: PaymentProof[]; allocations: PaymentAllocation[];
+  /** What the receipt says, stored when the payment was recorded; `{}` for payments recorded before snapshots. */
+  receipt?: ReceiptSnapshot;
+}
+export interface ReceiptSnapshot {
+  applied?: { billId: string; number: string; amount: number }[];
+  /** Left unallocated by this payment, and the tenant's total still owed on issued bills, right after it. */
+  creditCentavos?: number; balanceCentavos?: number;
 }
 export interface PaymentAccount {
   id: string; propertyId: string; kind: (typeof ACCOUNT_KINDS)[number]; label: string; accountName: string;

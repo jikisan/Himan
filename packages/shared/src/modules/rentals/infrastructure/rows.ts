@@ -105,10 +105,14 @@ export const paymentRow = z.object({
   method: z.enum(PAYMENT_METHODS), reference: z.string(), notes: z.string(), status: z.enum(['active', 'void']),
   void_reason: z.string(), created_at: z.string(),
   proofs: z.array(paymentProofRow).default([]), allocations: z.array(allocationRow).default([]),
+  receipt: z.object({
+    applied: z.array(z.object({ billId: z.string(), number: z.string(), amount: z.number() })),
+    creditCentavos: z.number(), balanceCentavos: z.number(),
+  }).partial().default({}),
 }).transform((r): RentalPayment => ({
   id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, amountCentavos: r.amount_centavos, paidOn: r.paid_on,
   method: r.method, reference: r.reference, notes: r.notes, status: r.status, voidReason: r.void_reason,
-  createdAt: r.created_at, proofs: r.proofs, allocations: r.allocations,
+  createdAt: r.created_at, proofs: r.proofs, allocations: r.allocations, receipt: r.receipt,
 }));
 
 export const paymentAccountRow = z.object({

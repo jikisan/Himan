@@ -36,7 +36,14 @@ describe('PaymentRepository', () => {
     expect(query.order).toHaveBeenCalledWith('paid_on', { ascending: false });
     expect(p).toMatchObject({ tenancyId: 't', amountCentavos: 350000, paidOn: '2026-11-01', voidReason: '',
       proofs: [{ paymentId: 'pay', storagePath: 'p/payments/pay/f', ready: true }],
-      allocations: [{ id: 'a', paymentId: 'pay', billId: 'b', amountCentavos: 350000, pinned: true }] });
+      allocations: [{ id: 'a', paymentId: 'pay', billId: 'b', amountCentavos: 350000, pinned: true }], receipt: {} });
+  });
+
+  it('maps the receipt snapshot', async () => {
+    const receipt = { applied: [{ billId: 'b', number: 'LU-1', amount: 350000 }], creditCentavos: 0, balanceCentavos: 1000 };
+    mock.from.mockReturnValue(result([{ ...paymentRow, receipt }]));
+    const [p] = await new PaymentRepository().findAll();
+    expect(p.receipt).toEqual(receipt);
   });
   it('records through the RPC with the contract arguments', async () => {
     mock.rpc.mockResolvedValue({ data: 'pay', error: null });

@@ -27,9 +27,10 @@ export function ReceiptPdf({ doc }: { doc: ReceiptDocument }) {
       {doc.appliedTo.map((a, i) => <View key={i} style={styles.row} wrap={false}>
         <Text style={styles.label}>{a.bill}</Text><Text style={styles.amount}>{a.amount}</Text></View>)}
       {(doc.balance || doc.credit) && <View style={styles.rule} wrap={false}>
-        {doc.balance && <View style={styles.row}><Text style={styles.muted}>Left on these bills</Text><Text style={styles.bold}>{doc.balance}</Text></View>}
+        {doc.balance && <View style={styles.row}><Text style={styles.muted}>{doc.balanceLabel}</Text><Text style={styles.bold}>{doc.balance}</Text></View>}
         {doc.credit && <View style={styles.row}><Text style={styles.muted}>Kept as credit for the next SOA</Text><Text style={styles.bold}>{doc.credit}</Text></View>}
       </View>}
+      {doc.asOf && <Text style={[styles.muted, { fontSize: 8, marginTop: 4 }]}>{doc.asOf}</Text>}
 
       <View wrap={false} style={{ marginTop: 32 }}>
         <View style={styles.line} />

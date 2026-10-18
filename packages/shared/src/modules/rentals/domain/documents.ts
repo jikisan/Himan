@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { manilaToday } from './money.js';
 import { accountTitle, amountDueNow, billTotal, formatBillPesos, lineTitle, periodLabel } from './billing.js';
 import { billBalance } from './payments.js';
 import type { PaymentAccount, PaymentMethod, RentalPayment } from './payments.js';
@@ -66,25 +67,42 @@ export const billName = (b: Pick<RentalBill, 'kind' | 'period'>) =>
   b.kind === 'move_in' ? 'Move-in SOA' : b.kind === 'final' ? 'Final SOA' : `${periodLabel(b.period)} SOA`;
 
 export interface ReceiptParty { propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string }
-export type ReceiptContext = ReceiptParty & { bills: RentalBill[]; payments: RentalPayment[] };
+export type ReceiptContext = ReceiptParty & { bills: RentalBill[]; payments: RentalPayment[]; today?: string };
 export interface ReceiptDocument {
   number: string; date: string; from: { name: string; address: string }; receivedFrom: string; room: string;
   amount: string; amountInWords: string; method: string; reference: string;
   appliedTo: { bill: string; amount: string }[];
-  /** Left on the bills it paid right after this payment ("Fully paid" when nothing); null when it paid no bill. */
-  balance: string | null; credit: string | null; receivedBy: string; voided: string | null;
+  /** "Fully paid" when nothing is left; null when there is nothing to say (void, or a live receipt that paid no bill). */
+  balanceLabel: string; balance: string | null; credit: string | null; receivedBy: string; voided: string | null;
+  /** "Figures as of <today>" on receipts of payments recorded before snapshots, whose figures are live. */
+  asOf: string | null;
 }
+
+const before = (a: RentalPayment, b: RentalPayment) => a.createdAt < b.createdAt || (a.createdAt === b.createdAt && a.id <= b.id);
 
 /** The acknowledgment receipt for one payment. Proof images are never part of it. */
 export function receiptDocument(payment: RentalPayment, ctx: ReceiptContext): ReceiptDocument {
-  const paid = payment.allocations.flatMap((a) => {
-    const bill = ctx.bills.find((b) => b.id === a.billId);
-    return bill ? [{ bill, amount: a.amountCentavos }] : [];
-  });
-  // Allocations go to payments in created order, so the ones up to this payment are what it saw.
-  const upToThis = ctx.payments.filter((p) => p.createdAt <= payment.createdAt);
-  const left = paid.reduce((sum, { bill }) => sum + billBalance(bill, upToThis), 0);
-  const credit = payment.amountCentavos - payment.allocations.reduce((sum, a) => sum + a.amountCentavos, 0);
+  const snap = payment.receipt?.applied ? payment.receipt : null;
+  const label = (billId: string, number: string) => {
+    const bill = ctx.bills.find((b) => b.id === billId);
+    return bill ? `${bill.number} · ${billName(bill)}` : number;
+  };
+  let appliedTo: ReceiptDocument['appliedTo']; let left: number | null; let credit: number;
+  if (snap) {
+    appliedTo = (snap.applied ?? []).map((a) => ({ bill: label(a.billId, a.number), amount: formatBillPesos(a.amount) }));
+    left = snap.balanceCentavos ?? 0;
+    credit = snap.creditCentavos ?? 0;
+  } else {
+    // Legacy: live allocations; payments up to this one (recording order) are what it saw.
+    const paid = payment.allocations.flatMap((a) => {
+      const bill = ctx.bills.find((b) => b.id === a.billId);
+      return bill ? [{ bill, amount: a.amountCentavos }] : [];
+    });
+    const upToThis = ctx.payments.filter((p) => before(p, payment));
+    appliedTo = paid.map(({ bill, amount }) => ({ bill: label(bill.id, bill.number), amount: formatBillPesos(amount) }));
+    left = paid.length ? paid.reduce((sum, { bill }) => sum + billBalance(bill, upToThis), 0) : null;
+    credit = payment.amountCentavos - payment.allocations.reduce((sum, a) => sum + a.amountCentavos, 0);
+  }
   const active = payment.status === 'active';
   return {
     // ponytail: the payment id's first 8 characters, not a sequence; add real receipt numbering if a tenant needs one.
@@ -93,10 +111,12 @@ export function receiptDocument(payment: RentalPayment, ctx: ReceiptContext): Re
     receivedFrom: ctx.renterName, room: ctx.roomName,
     amount: formatBillPesos(payment.amountCentavos), amountInWords: pesosInWords(payment.amountCentavos),
     method: METHOD_LABEL[payment.method], reference: payment.reference,
-    appliedTo: paid.map(({ bill, amount }) => ({ bill: `${bill.number} · ${billName(bill)}`, amount: formatBillPesos(amount) })),
-    balance: active && paid.length ? (left > 0 ? formatBillPesos(left) : 'Fully paid') : null,
+    appliedTo,
+    balanceLabel: snap ? 'Balance after this payment' : 'Left on these bills',
+    balance: active && left !== null ? (left > 0 ? formatBillPesos(left) : 'Fully paid') : null,
     credit: active && credit > 0 ? formatBillPesos(credit) : null,
     receivedBy: ctx.ownerName || ctx.propertyName,
     voided: active ? null : `VOID — ${payment.voidReason}`,
+    asOf: snap ? null : `Figures as of ${long(ctx.today ?? manilaToday())}`,
   };
 }

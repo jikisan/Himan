@@ -1,17 +1,19 @@
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
 import { billTotal, formatBillPesos, lineTitle, periodLabel } from '@himan/shared/rentals';
-import type { RentalBill } from '@himan/shared/rentals';
+import type { PaymentAccount, RentalBill } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 
 export interface StatementInfo {
   propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string; lateFeeCentavos: number;
+  accounts?: PaymentAccount[]; previousBalanceCentavos?: number; paidCentavos?: number;
 }
 export type StatementBill = Pick<RentalBill, 'period' | 'dueOn' | 'lines'> & Partial<Pick<RentalBill, 'number' | 'issuedOn' | 'status'>>;
 
 const long = (date: string) => format(parseISO(date), 'MMM d, yyyy');
 const num = (n: number) => n.toLocaleString('en-PH', { maximumFractionDigits: 2 });
 const UNIT_OF = { electric: 'kWh', water: 'm³' } as const;
+const ACCOUNT: Partial<Record<PaymentAccount['kind'], string>> = { gcash: 'GCash', maya: 'Maya' };
 const heading = 'text-xs font-bold uppercase tracking-wider text-muted-foreground';
 
 /** The bill laid out like a paper Statement of Account. */
@@ -61,10 +63,18 @@ export function Statement({ bill, info }: { bill: StatementBill; info: Statement
         <span className="font-semibold uppercase tracking-wide">Total amount payable</span>
         <span className="text-xl font-bold tabular-nums">{formatBillPesos(billTotal(bill.lines))}</span>
       </div>
+      {!!info.previousBalanceCentavos && <Total label="Previous balance" amount={info.previousBalanceCentavos} />}
+      {!!info.paidCentavos && <Total label="Paid" amount={info.paidCentavos} />}
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-muted-foreground">Due date</span><span className="font-semibold">{long(bill.dueOn)}</span>
       </div>
     </div>
+
+    {!!info.accounts?.length && <section className="space-y-1">
+      <h5 className={heading}>Pay to</h5>
+      <ul>{info.accounts.map((a) => <li key={a.id}>
+        <span className="font-medium">{ACCOUNT[a.kind] ?? a.label}</span> — {[a.accountName, a.accountNumber].filter(Boolean).join(' ')}</li>)}</ul>
+    </section>}
 
     <footer className="space-y-3 text-xs text-muted-foreground">
       {info.lateFeeCentavos > 0 && <p>Late payment will have a penalty of {formatBillPesos(info.lateFeeCentavos)}.</p>}
@@ -75,6 +85,12 @@ export function Statement({ bill, info }: { bill: StatementBill; info: Statement
 
 function Item({ label, children }: { label: string; children: ReactNode }) {
   return <div className="flex gap-2"><dt className="text-muted-foreground">{label}:</dt><dd className="min-w-0 truncate font-medium">{children}</dd></div>;
+}
+
+function Total({ label, amount }: { label: string; amount: number }) {
+  return <div className="flex items-baseline justify-between gap-3">
+    <span className="text-muted-foreground">{label}</span><span className="font-semibold tabular-nums">{formatBillPesos(amount)}</span>
+  </div>;
 }
 
 function Row({ label, amount, note }: { label: string; amount: number; note?: string }) {

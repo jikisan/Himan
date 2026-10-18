@@ -1,0 +1,225 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import type { MeterReading, PaymentAccount, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
+import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { BillStateBadge } from '../presentation/components/Badges';
+
+const U1 = '00000000-0000-0000-0000-000000000001';
+const property: RentalProperty = {
+  id: 'p', createdBy: 'owner', name: 'Lahug Units', address: '', ownerName: 'Maria Santos', ownerAddress: 'Lahug, Cebu City',
+  lessorName: '', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'LU',
+  lateFeeCentavos: 0, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
+  units: [{ id: U1, propertyId: 'p', name: 'Room 1', kind: 'room', capacity: 1, electricMode: 'none', electricAmountCentavos: 0,
+    waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 0, extraPersonRentCentavos: 0 }],
+};
+const juan: Renter = { id: 'r1', propertyId: 'p', fullName: 'Juan Dela Cruz', phone: '0917', facebook: '', email: '',
+  address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '', files: [] };
+const tenancy: RentalTenancy = { id: 't1', propertyId: 'p', unitId: U1, renterId: 'r1', moveIn: '2026-10-15', moveOut: null, charges: [],
+  contracts: [{ id: 'c1', tenancyId: 't1', startDate: '2026-10-15', endDate: '2027-10-15', monthlyRentCentavos: 350000,
+    dueDay: 15, advanceMonths: 1, depositCentavos: 350000, status: 'active' }] };
+const BILL = '00000000-0000-0000-0000-0000000000b1';
+const bill = (extra: Partial<RentalBill> = {}): RentalBill => ({ id: BILL, propertyId: 'p', tenancyId: 't1', kind: 'monthly', period: '2026-11',
+  number: 'LU-2026-0002', issuedOn: '2026-11-01', dueOn: '2026-11-15', status: 'issued', voidReason: '',
+  lines: [{ kind: 'rent', label: 'Rent', amount: 350000, period: { from: '2026-11-15', to: '2026-12-14' } }], ...extra });
+const moveIn = (): RentalBill => bill({ id: 'mi', kind: 'move_in', number: 'LU-2026-0001', period: '2026-10', issuedOn: '2026-10-15', dueOn: '2026-10-15',
+  lines: [{ kind: 'advance', label: 'Advance', amount: 350000 }, { kind: 'deposit', label: 'Deposit', amount: 350000 }] });
+const pay = (id: string, amount: number, allocs: [string, number][], extra: Partial<RentalPayment> = {}): RentalPayment => ({
+  id, propertyId: 'p', tenancyId: 't1', amountCentavos: amount, paidOn: '2026-11-05', method: 'gcash', reference: 'GC-123',
+  notes: '', status: 'active', voidReason: '', createdAt: '2026-11-05T01:00:00Z', proofs: [],
+  allocations: allocs.map(([billId, amountCentavos], i) => ({ id: `${id}-a${i}`, paymentId: id, billId, amountCentavos, pinned: false })), ...extra });
+const gcash: PaymentAccount = { id: 'acc1', propertyId: 'p', kind: 'gcash', label: 'GCash', accountName: 'Maria Santos',
+  accountNumber: '0917 555 1234', qrPath: null, position: 0 };
+
+const state = vi.hoisted(() => ({
+  properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
+  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[],
+  payments: [] as RentalPayment[], accounts: [] as PaymentAccount[],
+  online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
+  run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), paymentProofUrl: vi.fn(), qrUrl: vi.fn((path: string) => `https://cdn/${path}`),
+  listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
+}));
+vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
+const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
+vi.mock('sonner', () => ({ toast: toasts }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-10T02:00:00Z'));
+  state.properties = [property];
+  state.renters = [juan];
+  state.tenancies = [tenancy];
+  state.bills = [bill()];
+  state.payments = [];
+  state.accounts = [];
+  state.run.mockResolvedValue({ id: 'new', failed: [] });
+});
+const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+const openBill = () => {
+  page();
+  fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
+  fireEvent.click(screen.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' }));
+  return within(screen.getByRole('dialog'));
+};
+const openTenant = () => {
+  page();
+  fireEvent.click(screen.getByRole('button', { name: 'Tenants' }));
+  fireEvent.click(screen.getByRole('button', { name: /Juan Dela Cruz/ }));
+  return within(screen.getByRole('dialog'));
+};
+const recordDialog = () => within(screen.getByRole('dialog', { name: /Record payment/ }));
+
+describe('Bill state badge', () => {
+  const badge = (b: RentalBill, payments: RentalPayment[]) => {
+    const { container } = render(<BillStateBadge bill={b} payments={payments} today="2026-11-10" />);
+    return container.textContent;
+  };
+  it('shows Unpaid, Partial with what is left, Paid and Overdue', () => {
+    expect(badge(bill(), [])).toBe('Unpaid');
+    expect(badge(bill(), [pay('x', 100000, [[BILL, 100000]])])).toBe('Partial · ₱2,500 left');
+    expect(badge(bill(), [pay('x', 350000, [[BILL, 350000]])])).toBe('Paid');
+    expect(badge(bill({ dueOn: '2026-11-03' }), [])).toBe('Overdue · 7 days');
+    expect(badge(bill({ dueOn: '2026-11-03' }), [pay('x', 100000, [[BILL, 100000]])])).toBe('Overdue · ₱2,500 left');
+  });
+});
+
+describe('Recording a payment', () => {
+  it('pre-fills what the tenant owes and records it against this bill', async () => {
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Record payment' }));
+    const dialog = recordDialog();
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('3500.00');
+    expect(dialog.getByLabelText('Date paid')).toHaveValue('2026-11-10');
+    fireEvent.change(dialog.getByRole('combobox', { name: 'How they paid' }), { target: { value: 'cash' } });
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Reference no.' }), { target: { value: 'OR-9' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save payment' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'recordPayment', tenancyId: 't1', proofs: [],
+      input: { amountCentavos: 350000, paidOn: '2026-11-10', method: 'cash', reference: 'OR-9', notes: '', billId: BILL } }));
+    expect(toasts.success).toHaveBeenCalledWith('Payment recorded');
+  });
+  it('warns when the reference number was used before', () => {
+    state.payments = [pay('old', 50000, [[BILL, 50000]], { reference: 'GC-123' })];
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Record payment' }));
+    const dialog = recordDialog();
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('3000.00');
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Reference no.' }), { target: { value: ' gc-123 ' } });
+    expect(dialog.getByText(/already used on a ₱500 payment from Juan Dela Cruz/)).toBeInTheDocument();
+  });
+  it('shows a tenant’s credit on their sheet', () => {
+    state.payments = [pay('over', 400000, [[BILL, 350000]])];
+    expect(openTenant().getByText('₱500 credit')).toBeInTheDocument();
+  });
+  it('records from the tenant sheet, oldest bill first', async () => {
+    const sheet = openTenant();
+    fireEvent.click(sheet.getByRole('button', { name: 'Record payment' }));
+    const dialog = recordDialog();
+    expect(dialog.getByRole('combobox', { name: 'Pay this bill first' })).toHaveValue('');
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Amount' }), { target: { value: '1,000' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save payment' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'recordPayment',
+      input: expect.objectContaining({ amountCentavos: 100000, billId: null }) })));
+  });
+});
+
+describe('Payments list', () => {
+  it('voids a payment only with a reason', async () => {
+    state.payments = [pay('p1', 350000, [[BILL, 350000]])];
+    state.run.mockResolvedValue(undefined);
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: /^Void payment of ₱3,500/ }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Void this payment?' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Void payment' }));
+    expect(dialog.getByRole('alert')).toHaveTextContent('Say why');
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Reason' }), { target: { value: 'Bounced transfer' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Void payment' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'voidPayment', id: 'p1', reason: 'Bounced transfer' }));
+  });
+  it('locks editing and cancelling a bill that has payments', () => {
+    state.payments = [pay('p1', 100000, [[BILL, 100000]])];
+    const sheet = openBill();
+    expect(sheet.getByRole('button', { name: 'Edit SOA' })).toBeDisabled();
+    expect(sheet.getByRole('button', { name: 'Cancel SOA' })).toBeDisabled();
+    expect(sheet.getByText(/void the payment first/i)).toBeInTheDocument();
+  });
+  it('opens a proof through a short-lived link', async () => {
+    state.payments = [pay('p1', 350000, [[BILL, 350000]], { proofs: [{ id: 'pr1', paymentId: 'p1', propertyId: 'p', name: 'gcash.png',
+      mimeType: 'image/png', size: 2048, storagePath: 'p/payments/p1/pr1', ready: true }] })];
+    state.paymentProofUrl.mockResolvedValue('https://signed/pr1');
+    const tab = { opener: {}, location: { replace: vi.fn() }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'View gcash.png' }));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith('https://signed/pr1'));
+    expect(state.paymentProofUrl).toHaveBeenCalledWith('pr1');
+  });
+  it('shows a viewer the payments but no record, void or proof controls', () => {
+    state.properties = [{ ...property, role: 'viewer' }];
+    state.payments = [pay('p1', 100000, [[BILL, 100000]])];
+    const sheet = openBill();
+    expect(sheet.getByText('Partial · ₱2,500 left')).toBeInTheDocument();
+    expect(sheet.getByText(/GC-123/)).toBeInTheDocument();
+    expect(sheet.queryByRole('button', { name: 'Record payment' })).not.toBeInTheDocument();
+    expect(sheet.queryByRole('button', { name: /^Void/ })).not.toBeInTheDocument();
+    expect(sheet.queryByText(/Proof/)).not.toBeInTheDocument();
+  });
+});
+
+describe('Home', () => {
+  it('lists overdue bills and the deposits held', () => {
+    state.bills = [moveIn(), bill({ dueOn: '2026-11-03' })];
+    state.payments = [pay('p1', 700000, [['mi', 700000]])];
+    page();
+    const overdue = within(screen.getByRole('region', { name: 'Overdue' }));
+    expect(overdue.getByText('Juan Dela Cruz')).toBeInTheDocument();
+    expect(overdue.getByText(/₱3,500 left · 7 days late/)).toBeInTheDocument();
+    expect(screen.getByText('Deposits held').nextElementSibling).toHaveTextContent('₱3,500');
+  });
+  it('shows a deposit as pending until the move-in bill is paid', () => {
+    state.bills = [moveIn()];
+    page();
+    expect(screen.getByText('Deposits held').nextElementSibling).toHaveTextContent('₱0');
+    expect(screen.getByText('₱3,500 pending')).toBeInTheDocument();
+  });
+});
+
+describe('Payment accounts', () => {
+  it('lets the owner add an account in Edit property', async () => {
+    state.run.mockResolvedValue('acc-new');
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit property' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Add payment account' }));
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Account name' }), { target: { value: 'Maria Santos' } });
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Account number' }), { target: { value: '0917 555 1234' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save account' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveAccount', propertyId: 'p', id: null,
+      input: { kind: 'gcash', label: 'GCash', accountName: 'Maria Santos', accountNumber: '0917 555 1234', position: 0 } }));
+  });
+  it('shows a saved QR and is hidden from managers', () => {
+    state.accounts = [{ ...gcash, qrPath: 'p/acc1-1.png' }];
+    const { unmount } = page();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('img', { name: 'GCash QR code' })).toHaveAttribute('src', 'https://cdn/p/acc1-1.png');
+    unmount();
+    state.properties = [{ ...property, role: 'manager' }];
+    page();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+  it('puts the accounts, previous balance and paid amount on the bill and its Messenger copy', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    state.accounts = [gcash];
+    state.bills = [bill({ id: 'oct', number: 'LU-2026-0001', period: '2026-10', dueOn: '2026-10-15' }), bill()];
+    state.payments = [pay('p1', 150000, [['oct', 150000]]), pay('p2', 50000, [[BILL, 50000]], { reference: 'GC-2' })];
+    const sheet = openBill();
+    expect(sheet.getByText('Pay to')).toBeInTheDocument();
+    expect(sheet.getByText('Previous balance').nextElementSibling).toHaveTextContent('₱2,000');
+    fireEvent.click(sheet.getByRole('button', { name: 'Copy for Messenger' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Pay to:\nGCash — Maria Santos 0917 555 1234')));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Previous balance ₱2,000'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Paid ₱500'));
+  });
+});

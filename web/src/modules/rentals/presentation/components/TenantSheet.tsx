@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ExternalLink, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
+import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, centavosToInput, contractTermsSchema, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf } from '@himan/shared/rentals';
-import type { ContractTermsInput, RentalBill, RentalContract, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import { addPeriods, centavosToInput, contractTermsSchema, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
+  tenancyOwed } from '@himan/shared/rentals';
+import type { ContractTermsInput, RentalBill, RentalContract, RentalPayment, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import { PaymentsList } from './PaymentsList';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
 import { Initials } from './Badges';
@@ -21,10 +23,11 @@ const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 
   + 'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
-export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage, busy, run, fileUrl, onSaveDetails, onMoveOut, deleteAction }: {
-  renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; unitName(id: string): string; canManage: boolean; deleteAction?: ReactNode;
-  onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void;
-} & Pick<RentalsState, 'busy' | 'run' | 'fileUrl'>) {
+export function TenantSheet({ renter, tenancies, bills = [], payments = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
+  onMoveOut, onRecordPayment, deleteAction }: {
+  renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; payments?: RentalPayment[]; unitName(id: string): string; canManage: boolean;
+  deleteAction?: ReactNode; onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void; onRecordPayment?(tenancyId: string): void;
+} & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
   const mine = tenancies.filter((t) => t.renterId === renter.id);
   const active = mine.filter((t) => t.moveOut === null);
@@ -35,6 +38,9 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
   const history = mine.flatMap((t) => [{ key: `${t.id}-in`, text: `Moved into ${unitName(t.unitId)}`, date: t.moveIn },
     ...(t.moveOut ? [{ key: `${t.id}-out`, text: `Moved out of ${unitName(t.unitId)}`, date: t.moveOut }] : [])])
     .sort((a, b) => b.date.localeCompare(a.date));
+  const myPayments = payments.filter((p) => mine.some((t) => t.id === p.tenancyId));
+  const owed = mine.reduce((sum, t) => sum + tenancyOwed(t.id, bills, payments), 0);
+  const credit = mine.reduce((sum, t) => sum + tenancyCredit(t.id, payments), 0);
   const chat = messengerUrl(renter.facebook);
   const contact: [string, string][] = [['Mobile', renter.phone], ['Messenger', renter.facebook], ['Email', renter.email],
     ['Home address', renter.address], ['Emergency', [renter.emergencyName, renter.emergencyPhone].filter(Boolean).join(' · ')],
@@ -82,6 +88,21 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
               if (newRent) await run({ type: 'changeRent', contractId: contract.id, from: newRent.from, rentCentavos: newRent.rentCentavos });
             }} />;
         })}</div>}
+      </section>}
+
+      {mine.length > 0 && <section aria-labelledby="sheet-money" className="space-y-2">
+        <h3 id="sheet-money" className="text-sm font-semibold">Money received</h3>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className={owed > 0 ? 'font-semibold' : 'text-muted-foreground'}>{owed > 0 ? `Owes ${formatBillPesos(owed)}` : 'Owes nothing'}</span>
+          {credit > 0 && <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+            {formatBillPesos(credit)} credit</span>}
+        </div>
+        {credit > 0 && <p className="text-xs text-muted-foreground">Credit is used on their next SOA automatically, so a new SOA may already be partly paid.</p>}
+        {canManage && onRecordPayment && <div className="flex flex-wrap gap-2">{(active.length ? active : [last]).map((t) =>
+          <Button key={t.id} variant="outline" className="h-11 sm:h-9" onClick={() => onRecordPayment(t.id)}>
+            <HandCoins className="h-4 w-4" />Record payment{active.length > 1 && <span> · {unitName(t.unitId)}</span>}</Button>)}</div>}
+        <PaymentsList payments={myPayments} bills={bills} canManage={canManage} busy={busy} run={run} proofUrl={paymentProofUrl}
+          empty="No payments recorded yet." />
       </section>}
 
       {contracts.map((c) => <section key={c.id} aria-label="Contract">

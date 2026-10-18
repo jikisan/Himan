@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf } from '@himan/shared/rentals';
-import type { RentalTenancy } from '@himan/shared/rentals';
+import { billPaid, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit } from '@himan/shared/rentals';
+import type { RentalBill, RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { PropertyForm } from '../components/PropertyForm';
@@ -27,6 +27,9 @@ import { BillsView } from '../components/BillsView';
 import { HomeView } from '../components/HomeView';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { BillSheet } from '../components/BillSheet';
+import { RecordPaymentDialog } from '../components/RecordPaymentDialog';
+import { PaymentsList } from '../components/PaymentsList';
+import { PaymentAccountsEditor } from '../components/PaymentAccountsEditor';
 import { cn } from '@core/presentation/utils';
 import { errorMessage } from '../utils/errorMessage';
 
@@ -42,7 +45,7 @@ export function RentalsPage() {
 }
 
 function RentalsContent(state: RentalsState) {
-  const { properties, tenancies, loading, error, online, userId, busy, run, refetch, fileUrl } = state;
+  const { properties, tenancies, loading, error, online, userId, busy, run, refetch, fileUrl, paymentProofUrl } = state;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<'home' | 'rooms' | 'tenants' | 'bills'>('home');
   const [metersFromHome, setMetersFromHome] = useState(false);
@@ -51,6 +54,7 @@ function RentalsContent(state: RentalsState) {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
+  const [paying, setPaying] = useState<{ tenancyId: string; billId?: string } | null>(null);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -66,6 +70,8 @@ function RentalsContent(state: RentalsState) {
   const propertyBills = state.bills.filter((b) => b.propertyId === property?.id);
   const propertyReadings = state.readings.filter((r) => r.propertyId === property?.id);
   const propertyUtilityBills = state.utilityBills.filter((b) => b.propertyId === property?.id);
+  const propertyPayments = state.payments.filter((p) => p.propertyId === property?.id);
+  const propertyAccounts = state.accounts.filter((a) => a.propertyId === property?.id);
   const billTodo = property ? monthTodo(monthRows({ property, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills, utilityBills: propertyUtilityBills }, periodOf(manilaToday())),
     propertyBills, manilaToday()) : null;
   const billBadge = billTodo && isManager ? billTodo.waiting.length + billTodo.ready.length
@@ -75,9 +81,14 @@ function RentalsContent(state: RentalsState) {
   const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} className="h-11 sm:h-9" onClick={() => setDialog({ type: 'setup' })} disabled={!canCreate}>
     <Plus className="h-4 w-4" />New property</Button>;
   const inSheet = dialog?.type === 'tenant' || dialog?.type === 'bill' || dialog?.type === 'pending';
-  const billInfo = (t: RentalTenancy) => ({ propertyName: property?.name ?? '', ownerName: property?.ownerName || property?.lessorName || state.myName || '',
+  // With a bill: what is still owed on earlier bills and what was paid on this one, for the SOA and its Messenger copy.
+  const billInfo = (t: RentalTenancy, bill?: Pick<RentalBill, 'dueOn'> & { id?: string }) => ({ propertyName: property?.name ?? '',
+    ownerName: property?.ownerName || property?.lessorName || state.myName || '',
     ownerAddress: property?.ownerAddress || property?.address || '', renterName: renterName(t.renterId), roomName: unitName(t.unitId),
-    lateFeeCentavos: property?.lateFeeCentavos ?? 0 });
+    lateFeeCentavos: property?.lateFeeCentavos ?? 0, accounts: propertyAccounts,
+    previousBalanceCentavos: bill ? previousBalance(t.id, { ...bill, id: bill.id ?? '' } as RentalBill, propertyBills, propertyPayments) : 0,
+    paidCentavos: bill?.id ? billPaid(bill.id, propertyPayments) : 0 });
+  const payingTenancy = propertyTenancies.find((t) => t.id === paying?.tenancyId);
   const hasFooter = dialog && dialog.type !== 'share' && !inSheet;
 
   return <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -161,7 +172,7 @@ function RentalsContent(state: RentalsState) {
             <Plus className="h-4 w-4" />Add room</Button>}
         </div>
 
-        {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills}
+        {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
               readings={propertyReadings} canManage={isManager} canEdit={isOwner}
               onReadMeters={() => { setView('bills'); setMetersFromHome(true); }} onOpenBills={() => setView('bills')}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
@@ -181,7 +192,7 @@ function RentalsContent(state: RentalsState) {
           : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName}
               onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
           : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
-              readings={propertyReadings} bills={propertyBills} utilityBills={propertyUtilityBills} startWithAmounts={amountsFromHome} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
+              readings={propertyReadings} bills={propertyBills} payments={propertyPayments} utilityBills={propertyUtilityBills} startWithAmounts={amountsFromHome} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })}
               onOpenPending={(tenancyId, period, skip) => setDialog({ type: 'pending', tenancyId, period, skip })} />}
       </>}
@@ -202,6 +213,16 @@ function RentalsContent(state: RentalsState) {
         }, (e) => toast.error(errorMessage(e)));
         setMovingOutId(null);
       }} />
+
+    {property && <RecordPaymentDialog target={payingTenancy ? paying : null} name={payingTenancy ? renterName(payingTenancy.renterId) : ''}
+      nameOf={(id) => renterName(propertyTenancies.find((t) => t.id === id)?.renterId ?? '')} propertyId={property.id}
+      bills={propertyBills} payments={propertyPayments} busy={busy} onClose={() => setPaying(null)}
+      onSave={async (input, proofs) => {
+        const { failed } = await run({ type: 'recordPayment', tenancyId: paying!.tenancyId, input, proofs }) as { failed: string[] };
+        toast.success('Payment recorded');
+        if (failed.length) toast.warning(`Couldn’t attach ${failed.join(', ')}. Add it again from the payment.`);
+        setPaying(null);
+      }} />}
 
     <Dialog open={!!dialog && !inSheet} onOpenChange={(open) => !open && setDialog(null)}>
       <DialogContent className={cn('max-h-[90dvh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--muted-foreground)_transparent]',
@@ -224,6 +245,7 @@ function RentalsContent(state: RentalsState) {
           <DialogHeader><DialogTitle>Edit property</DialogTitle>
             <DialogDescription>Owner and signer details are printed on contracts.</DialogDescription></DialogHeader>
           <PropertyForm property={property} myName={state.myName ?? ''} busy={busy} onCancel={() => setDialog(null)}
+            accounts={isOwner && <PaymentAccountsEditor propertyId={property.id} accounts={propertyAccounts} busy={busy} run={run} qrUrl={state.qrUrl} />}
             onSave={async (input) => { await act({ type: 'saveProperty', id: dialog.id, input }, 'Property saved'); }} />
         </>}
         {dialog?.type === 'room' && property && (() => {
@@ -267,8 +289,8 @@ function RentalsContent(state: RentalsState) {
         {dialog?.type === 'tenant' && property && (() => {
           const renter = propertyRenters.find((r) => r.id === dialog.renterId);
           return renter && <TenantSheet renter={renter} tenancies={propertyTenancies}
-            bills={state.bills.filter((b) => b.propertyId === property.id)} unitName={unitName} canManage={isManager} busy={busy} run={run}
-            fileUrl={fileUrl} onMoveOut={setMovingOutId}
+            bills={propertyBills} payments={propertyPayments} unitName={unitName} canManage={isManager} busy={busy} run={run}
+            fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
             onSaveDetails={async (input) => { await run({ type: 'saveRenter', propertyId: property.id, id: renter.id, input }); toast.success('Tenant saved'); }}
             deleteAction={<Button type="button" variant="ghost" className="px-2 text-destructive hover:text-destructive" onClick={() => setConfirm({
               title: `Delete ${renter.fullName}?`, confirmText: 'Delete', done: 'Tenant deleted', action: { type: 'removeRenter', id: renter.id },
@@ -280,18 +302,22 @@ function RentalsContent(state: RentalsState) {
           const bill = dialog.type === 'bill' ? bills.find((b) => b.id === dialog.billId) : undefined;
           const tenancy = propertyTenancies.find((t) => t.id === (bill?.tenancyId ?? (dialog.type === 'pending' ? dialog.tenancyId : '')));
           if (!tenancy) return null;
-          const info = billInfo(tenancy);
-          if (bill) return <BillSheet bill={bill} info={info} canManage={isManager} busy={busy}
+          if (bill) return <BillSheet bill={bill} info={billInfo(tenancy, bill)} canManage={isManager} busy={busy} payments={propertyPayments}
+            onRecordPayment={() => setPaying({ tenancyId: tenancy.id, billId: bill.id })}
             onSaveLines={async (lines) => { await run({ type: 'updateBillLines', id: bill.id, lines }); }}
             onCancelBill={() => setConfirm({ title: `Cancel ${bill.number}?`, confirmText: 'Cancel this SOA', done: 'SOA cancelled',
               action: { type: 'voidBill', id: bill.id, reason: '' },
-              description: 'It stays in the list, marked cancelled, and this month can be billed again.' })} />;
+              description: 'It stays in the list, marked cancelled, and this month can be billed again.' })}>
+            <PaymentsList payments={propertyPayments.filter((p) => p.allocations.some((a) => a.billId === bill.id))} bills={bills}
+              canManage={isManager} busy={busy} run={run} proofUrl={paymentProofUrl} empty="No payments on this SOA yet." />
+          </BillSheet>;
           if (dialog.type !== 'pending') return null;
           const pending = pendingBill({ property, tenancies: propertyTenancies, bills, utilityBills: propertyUtilityBills,
             readings: state.readings.filter((r) => r.propertyId === property.id) }, tenancy.id, dialog.period, { skipUtilities: dialog.skip });
           if (pending.state !== 'ready') return null;
           const draft = { period: dialog.period, dueOn: pending.dueOn, lines: pending.lines };
-          return <BillSheet bill={draft} info={info} canManage={isManager} busy={busy} onSaveLines={async () => undefined}
+          return <BillSheet bill={draft} info={billInfo(tenancy, draft)} canManage={isManager} busy={busy}
+            credit={tenancyCredit(tenancy.id, propertyPayments)} onSaveLines={async () => undefined}
             onIssue={async () => {
               const { issued } = await run({ type: 'issueBills', inputs: [{ tenancyId: tenancy.id, kind: 'monthly', ...draft }] }) as { issued: number };
               if (issued) { toast.success('SOA generated'); setDialog(null); } else toast.error('Couldn’t generate this SOA. Try again.');

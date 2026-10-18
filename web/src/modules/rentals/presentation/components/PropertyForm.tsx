@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { billPrefix, centavosToInput, manilaToday, parsePesos, propertySchema, LESSOR_CAPACITIES } from '@himan/shared/rentals';
 import type { PropertyInput, RentalProperty } from '@himan/shared/rentals';
@@ -11,8 +12,9 @@ const empty: PropertyInput = { name: '', address: '', ownerName: '', ownerAddres
 type TextKey = Exclude<keyof PropertyInput, 'lessorCapacity' | 'lateFeeCentavos' | 'rentDueDay'>;
 type NameKey = 'ownerName' | 'lessorName';
 
-export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
-  property?: RentalProperty; myName: string; busy: boolean; onSave: (value: PropertyInput) => Promise<void>; onCancel: () => void;
+/** `accounts` is the owner's payment-accounts section, shown after Bills. */
+export function PropertyForm({ property, myName, busy, onSave, onCancel, accounts }: {
+  property?: RentalProperty; myName: string; busy: boolean; onSave: (value: PropertyInput) => Promise<void>; onCancel: () => void; accounts?: ReactNode;
 }) {
   const [form, setForm] = useState<PropertyInput>(() => property ? { ...empty, ...pick(property) } : empty);
   // null = not touched yet: new properties default to "me", saved ones to "me" only when the name already matches.
@@ -71,6 +73,7 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel }: {
           New tenants get this date. Change existing tenants on their tenant sheet.</p>}
         {text('invoicePrefix', 'Bill numbers start with', { hint: `${form.invoicePrefix || 'INV'}-${manilaToday().slice(0, 4)}-0001` })}
       </FormSection>
+      {accounts}
       <details open={!!property && hasContractDetails(property)} className="group rounded-lg border p-4 [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold">
           <span><span className="block">Contract details – fill in later</span><span className="block text-xs font-normal text-muted-foreground">Only needed when you print a contract.</span></span>

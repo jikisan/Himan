@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { billTotal, contractFor, dueOn, isOverdue, pendingBill } from '@himan/shared/rentals';
-import type { MeterReading, Pending, RentalBill, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from '@himan/shared/rentals';
+import { billState, billTotal, contractFor, dueOn, pendingBill, periodLabel } from '@himan/shared/rentals';
+import type { MeterReading, PaymentMethod, Pending, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from '@himan/shared/rentals';
 
 type Ctx = { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[]; utilityBills?: UtilityBill[] };
 
@@ -21,8 +20,8 @@ export function monthRows(ctx: Ctx,
     .sort((a, b) => a.due.localeCompare(b.due) || room(a.t).localeCompare(room(b.t)));
 }
 
-/** What is left to do for a month: meters to read, bill amounts to type, SOAs to generate, and late ones. */
-export function monthTodo(rows: MonthRow[], bills: RentalBill[], today: string, units: RentalUnit[] = []) {
+/** What is left to do for a month: meters to read, bill amounts to type, SOAs to generate, and overdue (unpaid past due) bills. */
+export function monthTodo(rows: MonthRow[], bills: RentalBill[], today: string, units: RentalUnit[] = [], payments: RentalPayment[] = []) {
   const waiting = rows.filter((r) => r.pending.state === 'needs-reading');
   const ready = rows.filter((r) => r.pending.state === 'ready');
   const keys = waiting.flatMap(({ t, pending }) => pending.state === 'needs-reading' ? pending.kinds.map((k) => ({ unitId: t.unitId, kind: k })) : []);
@@ -37,10 +36,7 @@ export function monthTodo(rows: MonthRow[], bills: RentalBill[], today: string, 
     /** `${unitId}:${kind}` of utilities whose month's bill amount a waiting SOA needs. */
     amounts: new Set(keys.filter(byAmount).map((k) => `${k.unitId}:${k.kind}`)),
     readyTotal: ready.reduce((sum, r) => sum + (r.pending.state === 'ready' ? billTotal(r.pending.lines) : 0), 0),
-    // ponytail: no payment tracking yet, so "past due" can't know a bill was paid. Only recent monthly/final bills
-    // are raised (move-in bills are paid at move-in); swap for an unpaid check once payments are recorded.
-    overdue: bills.filter((b) => b.kind !== 'move_in' && isOverdue(b, today)
-      && differenceInCalendarDays(parseISO(today), parseISO(b.dueOn)) <= 31).sort((a, b) => a.dueOn.localeCompare(b.dueOn)),
+    overdue: bills.filter((b) => billState(b, payments, today) === 'overdue').sort((a, b) => a.dueOn.localeCompare(b.dueOn)),
   };
 }
 
@@ -76,3 +72,8 @@ export function useWide(): boolean {
     () => typeof window.matchMedia !== 'function' || window.matchMedia(wideQuery).matches,
   );
 }
+
+export const METHOD: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', bank: 'Bank transfer', cash: 'Cash', other: 'Other' };
+/** A bill's plain name: "November 2026 SOA", "Move-in SOA", "Final SOA". */
+export const billName = (b: Pick<RentalBill, 'kind' | 'period'>) =>
+  b.kind === 'move_in' ? 'Move-in SOA' : b.kind === 'final' ? 'Final SOA' : `${periodLabel(b.period)} SOA`;

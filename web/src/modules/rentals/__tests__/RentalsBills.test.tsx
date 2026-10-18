@@ -30,7 +30,7 @@ const issued = (tenancyId: string, extra: Partial<RentalBill> = {}): RentalBill 
 
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
-  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[],
+  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[], payments: [], accounts: [],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
   run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
 }));
@@ -235,10 +235,11 @@ describe('Issued bills', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('TOTAL ₱5,900')));
     expect(toasts.success).toHaveBeenCalledWith('Copied Juan Dela Cruz’s SOA as text. Paste it anywhere, like Messenger.');
   });
-  it('marks a late bill past due and lists it first', () => {
+  it('marks an unpaid late bill Overdue and lists it first', () => {
     state.bills = [issued('t2', { id: 'b2', number: 'LU-2026-0003', dueOn: '2026-11-15' }), issued('t1', { dueOn: '2026-11-03' })];
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Past due · 7 days')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('Overdue · 7 days')).toBeInTheDocument();
+    expect(row('Ana Reyes').getByText('Unpaid')).toBeInTheDocument();
     const names = within(screen.getByRole('region', { name: 'SOAs generated · 2' })).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'));
     expect(names).toEqual(['Monthly SOA LU-2026-0002 · Juan Dela Cruz · Room 1', 'Monthly SOA LU-2026-0003 · Ana Reyes · Room A']);
   });
@@ -357,12 +358,15 @@ describe('Home', () => {
     openHome();
     expect(screen.queryByText(/cancelled SOA/)).not.toBeInTheDocument();
   });
-  it('asks to check a recent bill past its due date, but not an old or move-in one', () => {
+  // Payments are recorded now, so every unpaid bill past its due date is Overdue, old and move-in ones included.
+  it('lists every unpaid bill past its due date under Overdue, oldest first', () => {
     state.bills = [issued('t1', { dueOn: '2026-11-03' }), issued('t2', { id: 'old', period: '2026-08', dueOn: '2026-08-15' }),
       issued('t3', { id: 'mi', kind: 'move_in', period: '2026-11', dueOn: '2026-11-01' })];
     openHome();
-    expect(screen.getByText('1 bill is past its due date')).toBeInTheDocument();
-    expect(screen.getByText('Juan Dela Cruz · ₱5,900 · 7 days late · check if paid')).toBeInTheDocument();
+    const overdue = within(screen.getByRole('region', { name: 'Overdue' }));
+    expect(overdue.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      expect.stringContaining('Ana Reyes'), expect.stringContaining('Ben Lim'), expect.stringContaining('Juan Dela Cruz')]);
+    expect(overdue.getByText('₱5,900 left · 7 days late')).toBeInTheDocument();
   });
 });
 

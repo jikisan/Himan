@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, Gauge, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, billTotal, finalBillLines, utilityLine, firstBillablePeriod, formatBillPesos, isOverdue, manilaToday, periodLabel, periodOf, statementText } from '@himan/shared/rentals';
-import type { BillLine, IssueBillInput, MeterReading, ReadingInput, UtilityBill, RentalBill, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
+import { addPeriods, billState, billTotal, finalBillLines, utilityLine, firstBillablePeriod, formatBillPesos, manilaToday, periodLabel, periodOf, statementText } from '@himan/shared/rentals';
+import type { BillLine, IssueBillInput, MeterReading, ReadingInput, UtilityBill, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { AddReadingsDialog, MeterReadings } from './MeterReadings';
 import { BillAmountsDialog } from './BillAmountsDialog';
 import type { ReadingSoa } from './MeterReadings';
-import { Initials } from './Badges';
+import { BillStateBadge, Initials } from './Badges';
 import type { StatementInfo } from './Statement';
 import { errorMessage } from '../utils/errorMessage';
 import { monthRows, monthTodo, unreplacedCancelled, useWide } from '../utils/billingMonth';
@@ -26,11 +26,11 @@ const short = (date: string) => format(parseISO(date), 'MMM d');
  * One month of bills, grouped by what to do next: waiting for a meter, ready to issue, issued, no bill.
  * Meter readings sit beside the list on a laptop and open as their own screen on a phone.
  */
-export function BillsView({ property, tenancies, renters, readings, bills, utilityBills, startWithAmounts, canManage, busy, run, statementInfo, startWithMeters, startOnCancelled,
+export function BillsView({ property, tenancies, renters, readings, bills, utilityBills, payments = [], startWithAmounts, canManage, busy, run, statementInfo, startWithMeters, startOnCancelled,
   onOpenBill, onOpenPending }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; readings: MeterReading[]; bills: RentalBill[];
-  utilityBills: UtilityBill[]; startWithAmounts?: boolean;
-  canManage: boolean; statementInfo(t: RentalTenancy): StatementInfo; startWithMeters?: boolean;
+  utilityBills: UtilityBill[]; payments?: RentalPayment[]; startWithAmounts?: boolean;
+  canManage: boolean; statementInfo(t: RentalTenancy, bill?: RentalBill): StatementInfo; startWithMeters?: boolean;
   /** Open on this month with the Cancelled filter (from Home's "not replaced" task). */
   startOnCancelled?: string;
   onOpenBill(billId: string): void; onOpenPending(tenancyId: string, period: string, skipUtilities: boolean): void;
@@ -55,15 +55,15 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     return (kind === 'electric' ? unit?.electricMode : unit?.waterMode) === 'monthly';
   };
   const hasMonthly = canManage && property.units.some((u) => u.electricMode === 'monthly' || u.waterMode === 'monthly');
-  // Every SOA that exists for this month (monthly, move-in, final, cancelled), past due first, cancelled last.
+  // Every SOA that exists for this month (monthly, move-in, final, cancelled), overdue first, cancelled last.
   const soas = rows.flatMap((r) => [...(r.pending.state === 'issued' ? [r.pending.bill] : []), ...r.others].map((bill) => ({ r, bill })));
-  const pastDue = (b: RentalBill) => isOverdue(b, today) && b.kind !== 'move_in';
-  const rank = (b: RentalBill) => (b.status === 'void' ? 2 : pastDue(b) ? 0 : 1);
+  const overdue = (b: RentalBill) => billState(b, payments, today) === 'overdue';
+  const rank = (b: RentalBill) => (b.status === 'void' ? 2 : overdue(b) ? 0 : 1);
   soas.sort((a, b) => rank(a.bill) - rank(b.bill) || a.bill.dueOn.localeCompare(b.bill.dueOn));
   const liveSoas = soas.filter((x) => x.bill.status !== 'void');
   const FILTERS = {
     active: { label: 'Active', keep: (b: RentalBill) => b.status !== 'void' },
-    pastDue: { label: 'Past due', keep: (b: RentalBill) => b.status !== 'void' && pastDue(b) },
+    overdue: { label: 'Overdue', keep: overdue },
     cancelled: { label: 'Cancelled', keep: (b: RentalBill) => b.status === 'void' },
     all: { label: 'All', keep: () => true },
   } as const;
@@ -105,7 +105,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
   };
   const copy = async (bill: RentalBill, t: RentalTenancy) => {
     try {
-      await navigator.clipboard.writeText(statementText(bill, statementInfo(t)));
+      await navigator.clipboard.writeText(statementText(bill, statementInfo(t, bill)));
       toast.success(`Copied ${name(t)}’s SOA as text. Paste it anywhere, like Messenger.`);
     } catch { toast.error('Couldn’t copy. Open the bill and copy it from there.'); }
   };
@@ -125,11 +125,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
 
   const btn = 'h-10 sm:h-8';
   const amount = (centavos: number) => <span className="text-base font-bold tabular-nums">{formatBillPesos(centavos)}</span>;
-  const due = (date: string, past = false) => {
-    if (!past) return <span className="inline-flex items-center gap-1 text-sm font-semibold"><CalendarClock aria-hidden className="h-4 w-4 text-muted-foreground" />Due {short(date)}</span>;
-    const late = differenceInCalendarDays(parseISO(today), parseISO(date));
-    return <span className={cn(chip, 'bg-destructive/10 text-destructive')}>Past due · {late} day{late === 1 ? '' : 's'}</span>;
-  };
+  const due = (date: string) =>
+    <span className="inline-flex items-center gap-1 text-sm font-semibold"><CalendarClock aria-hidden className="h-4 w-4 text-muted-foreground" />Due {short(date)}</span>;
   /** One tenant: details on the left (name, room, then the amount and due date that matter), buttons on the right. */
   const row = (r: MonthRow, { sub, facts, badge, note, actions, label, key, dim }: { sub: ReactNode; facts?: ReactNode; badge?: ReactNode;
     note?: ReactNode; actions?: ReactNode; label?: string; key?: string; dim?: boolean }) =>
@@ -240,7 +237,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
               {bill.kind !== 'monthly' && <span className={cn(chip, 'bg-primary/10 text-primary')}>{KIND[bill.kind]}</span>}
               {cancelled && <span className={cn(chip, 'bg-muted text-muted-foreground')}>Cancelled</span>}
             </>,
-            facts: !cancelled && <>{amount(billTotal(bill.lines))}{due(bill.dueOn, pastDue(bill))}</>,
+            facts: !cancelled && <>{amount(billTotal(bill.lines))}{!overdue(bill) && due(bill.dueOn)}
+              <BillStateBadge bill={bill} payments={payments} today={today} /></>,
             actions: <>
               {!cancelled && <Button variant="outline" size="sm" className={btn} aria-label={`Copy ${name(r.t)}’s ${kindOf(bill)} as text`}
                 onClick={() => void copy(bill, r.t)}><Copy className="h-4 w-4" />Copy as text</Button>}

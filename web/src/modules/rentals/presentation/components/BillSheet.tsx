@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Copy, Pencil, Plus, Trash2, X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Copy, HandCoins, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { centavosToInput, formatBillPesos, isOverdue, lineTitle, manilaToday, parsePesos, statementText } from '@himan/shared/rentals';
-import type { BillLine, RentalBill } from '@himan/shared/rentals';
+import { billBalance, billPaid, centavosToInput, formatBillPesos, isOverdue, lineTitle, manilaToday, parsePesos, statementText } from '@himan/shared/rentals';
+import type { BillLine, RentalBill, RentalPayment } from '@himan/shared/rentals';
+import { BillStateBadge } from './Badges';
 import { Statement } from './Statement';
 import type { StatementBill, StatementInfo } from './Statement';
 import { MoneyInput, inputClass } from './Field';
@@ -14,14 +16,23 @@ const isUtility = (l: BillLine) => l.kind === 'electric' || l.kind === 'water';
 /** Like parsePesos, but a leading minus makes a discount. */
 const signedPesos = (value: string) => (value.trim().startsWith('-') ? -parsePesos(value.trim().slice(1)) : parsePesos(value));
 
-/** Side-panel body for one bill (issued or still pending). Rendered inside a SheetContent. */
-export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, onCancelBill }: {
+/**
+ * Side-panel body for one bill (issued or still pending). Rendered inside a SheetContent.
+ * `children` is the bill's payments list; `credit` is the tenant's unused credit (it pays a pending bill once generated).
+ */
+export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, onCancelBill, payments = [], credit = 0, onRecordPayment, children }: {
   bill: (StatementBill & { id?: string }); info: StatementInfo; canManage: boolean; busy: boolean;
   onSaveLines(lines: BillLine[]): Promise<void>; onIssue?(): Promise<void>; onCancelBill?(): void;
+  payments?: RentalPayment[]; credit?: number; onRecordPayment?(): void; children?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const issued = !!bill.number && bill.status === 'issued';
-  const lateFee = canManage && issued && info.lateFeeCentavos > 0 && isOverdue(bill as RentalBill, manilaToday())
+  const saved = issued ? bill as RentalBill : null;
+  const paid = saved ? billPaid(saved.id, payments) : 0;
+  // The database refuses to change a bill with payments; say so up front instead of failing on save.
+  const locked = paid > 0;
+  const fromCredit = !!saved && payments.some((p) => p.status === 'active' && p.paidOn < saved.issuedOn && p.allocations.some((a) => a.billId === saved.id));
+  const lateFee = canManage && issued && !locked && info.lateFeeCentavos > 0 && isOverdue(bill as RentalBill, manilaToday())
     && !bill.lines.some((l) => l.kind === 'penalty');
   const copy = async () => {
     try {
@@ -39,18 +50,34 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
       {editing
         ? <EditLines lines={bill.lines} busy={busy} onCancel={() => setEditing(false)}
             onSave={async (lines) => { await onSaveLines(lines); setEditing(false); toast.success('SOA saved'); }} />
-        : <Statement bill={bill} info={info} />}
+        : <>
+          {saved && <div className="flex flex-wrap items-center gap-2 text-sm">
+            <BillStateBadge bill={saved} payments={payments} today={manilaToday()} />
+            {fromCredit && <span className="text-muted-foreground">Part of this SOA was paid from the tenant’s credit.</span>}
+          </div>}
+          {!bill.number && credit > 0 && <p className="rounded-md bg-muted px-3 py-2 text-sm">
+            {info.renterName} has {formatBillPesos(credit)} credit. It pays this SOA as soon as you generate it.</p>}
+          <Statement bill={bill} info={info} />
+          {saved && <section aria-labelledby="bill-payments" className="space-y-2">
+            <h3 id="bill-payments" className="text-sm font-semibold">Money received</h3>
+            {canManage && locked && <p className="text-xs text-muted-foreground">
+              This SOA has payments, so it can’t be edited or cancelled. If a payment was a mistake, void the payment first.</p>}
+            {children}
+          </section>}
+        </>}
     </div>
     {!editing && <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
+      {canManage && saved && onRecordPayment && billBalance(saved, payments) > 0 && <Button className="h-11 sm:h-9" onClick={onRecordPayment}>
+        <HandCoins className="h-4 w-4" />Record payment</Button>}
       <Button variant="outline" className="h-11 sm:h-9" onClick={() => void copy()}><Copy className="h-4 w-4" />Copy for Messenger</Button>
       {lateFee && <Button variant="outline" className="h-11 sm:h-9" disabled={busy}
         onClick={() => void onSaveLines([...bill.lines, { kind: 'penalty', label: 'Late payment penalty', amount: info.lateFeeCentavos }])
           .then(() => toast.success('Late fee added'), (e) => toast.error(errorMessage(e)))}>
         Add late fee {formatBillPesos(info.lateFeeCentavos)}</Button>}
-      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Edit SOA</Button>}
+      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" disabled={locked} onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Edit SOA</Button>}
       {canManage && !bill.number && onIssue && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void onIssue()}>Generate SOA</Button>}
       {canManage && issued && onCancelBill && <Button variant="ghost" className="ml-auto h-11 px-2 text-destructive hover:text-destructive sm:h-9"
-        onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel SOA</Button>}
+        disabled={locked} onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel SOA</Button>}
     </div>}
   </>;
 }

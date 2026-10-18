@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CircleCheck, Clock, DoorOpen, Gauge, ReceiptText } from 'lucide-react';
-import { billTotal, formatBillPesos, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
-import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
+import { BedDouble, CircleCheck, DoorOpen, Gauge, ReceiptText } from 'lucide-react';
+import { billBalance, depositHeld, formatBillPesos, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
+import type { MeterReading, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
 
@@ -10,8 +10,8 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
-  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts }: {
-  property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[];
+  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [] }: {
+  property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
   utilityBills: UtilityBill[]; onAddBillAmounts(): void;
@@ -23,7 +23,10 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
   const roomName = (unitId: string) => property.units.find((u) => u.id === unitId)?.name ?? 'Room';
   const active = tenancies.filter((t) => t.moveOut === null);
   const rows = monthRows({ property, tenancies, readings, bills, utilityBills }, period);
-  const todo = monthTodo(rows, bills, today, property.units);
+  const todo = monthTodo(rows, bills, today, property.units, payments);
+  const deposits = active.map((t) => depositHeld(t, bills, payments));
+  const held = deposits.reduce((sum, d) => sum + (d.state === 'held' ? d.amountCentavos : 0), 0);
+  const pending = deposits.reduce((sum, d) => sum + (d.state === 'pending' ? d.amountCentavos : 0), 0);
   const meterRooms = [...new Set([...todo.meters].map((key) => roomName(key.split(':')[0])))];
   const freeUnits = property.units.filter((u) => active.filter((t) => t.unitId === u.id).length < u.capacity);
   const freeBeds = freeUnits.reduce((sum, u) => sum + u.capacity - active.filter((t) => t.unitId === u.id).length, 0);
@@ -65,23 +68,13 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
       title={`${cancelled.length} cancelled SOA${cancelled.length === 1 ? '' : 's'} not replaced`}
       detail={names(cancelled.map(what))} action="See cancelled" onAction={() => onReviewCancelled(cancelled[0].period)} />);
   }
-  if (todo.overdue.length) {
-    const first = todo.overdue[0];
-    const late = differenceInCalendarDays(parseISO(today), parseISO(first.dueOn));
-    const t = tenancyOf(first);
-    tasks.push(<Task key="overdue" icon={Clock} tone="destructive"
-      title={todo.overdue.length === 1 ? '1 bill is past its due date' : `${todo.overdue.length} bills are past their due date`}
-      detail={`${todo.overdue.length === 1 ? `${t ? name(t) : 'Tenant'} · ${formatBillPesos(billTotal(first.lines))} · ${late} day${late === 1 ? '' : 's'} late`
-        : names(todo.overdue.map((b) => { const x = tenancyOf(b); return x ? name(x) : 'Tenant'; }))} · check if paid`}
-      action={todo.overdue.length === 1 ? 'Open bill' : 'See bills'}
-      onAction={() => (todo.overdue.length === 1 ? onOpenBill(first.id) : onOpenBills())} />);
-  }
   if (canManage && freeBeds > 0) tasks.push(<Task key="free" icon={BedDouble} tone="emerald"
     title={`${freeBeds} free bed${freeBeds === 1 ? '' : 's'}`} detail={freeUnits.map((u) => u.name).join(' · ')}
     action="Add tenant" onAction={() => onAddTenant(freeUnits[0].id)} />);
 
   return <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-    <section aria-labelledby="rentals-todo" className="min-w-0 flex-1 space-y-3">
+    <div className="min-w-0 flex-1 space-y-5">
+    <section aria-labelledby="rentals-todo" className="space-y-3">
       <h3 id="rentals-todo" className="text-lg font-semibold">To do for {month}</h3>
       {tasks.length ? <ul className="space-y-3">{tasks.map((task, i) => <li key={i}>{task}</li>)}</ul>
         : <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
@@ -89,6 +82,22 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
           <p><span className="font-medium">Nothing to do right now.</span> <span className="text-muted-foreground">New tasks show up here when bills come due.</span></p>
         </div>}
     </section>
+    {todo.overdue.length > 0 && <section aria-labelledby="rentals-overdue" className="rounded-xl border border-destructive/40 bg-card p-4 shadow-sm">
+      <h3 id="rentals-overdue" className="font-semibold text-destructive">Overdue</h3>
+      <p className="text-sm text-muted-foreground">Unpaid after the due date. Open one to record a payment.</p>
+      <ul className="mt-2 divide-y">{todo.overdue.map((b) => {
+        const t = tenancyOf(b);
+        const late = differenceInCalendarDays(parseISO(today), parseISO(b.dueOn));
+        return <li key={b.id}><button type="button" onClick={() => onOpenBill(b.id)}
+          className="flex w-full items-center gap-3 rounded-md py-2 text-left text-sm transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{t ? name(t) : 'Tenant'}</span>
+            <span className="block truncate text-xs text-muted-foreground">{t ? `${roomName(t.unitId)} · ` : ''}{b.number}</span></span>
+          <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-destructive">
+            {formatBillPesos(billBalance(b, payments))} left · {late} day{late === 1 ? '' : 's'} late</span>
+        </button></li>;
+      })}</ul>
+    </section>}
+    </div>
 
     <aside className="space-y-4 lg:w-80 lg:shrink-0">
       <section aria-labelledby="rentals-glance" className="rounded-xl border bg-card p-4 shadow-sm">
@@ -97,6 +106,8 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
           <Figure label="Monthly rent" value={formatPesos(rent)} className="col-span-2 lg:col-span-1" />
           <Figure label="Beds taken" value={<>{active.length} <span className="text-sm font-medium text-muted-foreground">of {beds}</span></>} />
           <Figure label={`${month} SOAs generated`} value={<>{issued} <span className="text-sm font-medium text-muted-foreground">of {toBill}</span></>} />
+          <Figure label="Deposits held" value={<>{formatBillPesos(held)}{pending > 0 && <span className="block text-xs font-medium text-muted-foreground">
+            {formatBillPesos(pending)} pending</span>}</>} />
         </dl>
       </section>
       {dueSoon.length > 0 && <section aria-labelledby="rentals-due" className="rounded-xl border bg-card p-4 shadow-sm">

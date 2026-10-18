@@ -5,10 +5,10 @@
 
 -- ── Validation helpers ──────────────────────────────────────────────────────
 
--- A drawn signature: a PNG data URL of at most 150 KB.
+-- A drawn signature: a PNG data URL of at most 150 KB whose data starts with the PNG header.
 CREATE FUNCTION public.rental_valid_signature(p text) RETURNS boolean
 LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
-  SELECT octet_length(p) <= 153600 AND p ~ '^data:image/png;base64,[A-Za-z0-9+/]+={0,2}$'
+  SELECT octet_length(p) <= 153600 AND p ~ '^data:image/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$'
 $$;
 
 -- Template clauses: 1..80 of {"id": text 1..80, "text": text ≤ 4000}.
@@ -46,10 +46,16 @@ $$;
 
 -- ── Tables ──────────────────────────────────────────────────────────────────
 
--- The owner's saved signature, used for one-tap countersigning.
+-- The owner's saved signature, used for one-tap countersigning. Only the owner reads it (rental_get_lessor_signature):
+-- SELECT becomes column-level so members can't read this column. A column added to rental_properties later needs
+-- its own GRANT SELECT.
 ALTER TABLE public.rental_properties
   ADD COLUMN lessor_signature text CHECK (public.rental_valid_signature(lessor_signature));
 GRANT UPDATE (lessor_signature) ON public.rental_properties TO authenticated;
+REVOKE SELECT ON public.rental_properties FROM authenticated;
+GRANT SELECT (id, created_by, name, address, owner_name, owner_address, lessor_name, lessor_civil_status, lessor_address,
+  lessor_capacity, signing_city, invoice_prefix, archived_at, created_at, updated_at, late_fee_centavos, rent_due_day,
+  payments_tracked_from) ON public.rental_properties TO authenticated;
 
 -- Contract texts reference (contract, property) so a text can never sit under another property.
 ALTER TABLE public.rental_contracts ADD CONSTRAINT rental_contracts_id_property_key UNIQUE (id, property_id);
@@ -99,6 +105,8 @@ CREATE TABLE public.rental_tenancy_links (
   submitted_at timestamptz,
   accepted_at timestamptz,
   revoked_at timestamptz,
+  -- Set on reopen and regenerate: uploads from before it no longer count toward the 3 files.
+  reopened_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   FOREIGN KEY (tenancy_id, property_id) REFERENCES public.rental_tenancies(id, property_id) ON DELETE CASCADE
 );
@@ -211,8 +219,9 @@ BEGIN
     'status', v_link.status,
     'tenantName', (SELECT r.full_name FROM public.rental_renters r WHERE r.id = v_t.renter_id),
     'roomName', (SELECT u.name FROM public.rental_units u WHERE u.id = v_t.unit_id),
+    -- lessorAddress: what the landlord's contract PDF prints (lessor address, else the property address).
     'property', (SELECT jsonb_build_object('name', p.name, 'address', p.address, 'ownerName', p.owner_name,
-        'ownerAddress', p.owner_address, 'lessorName', p.lessor_name, 'lessorCapacity', p.lessor_capacity,
+        'ownerAddress', p.owner_address, 'lessorName', p.lessor_name, 'lessorAddress', coalesce(nullif(p.lessor_address, ''), p.address), 'lessorCapacity', p.lessor_capacity,
         'signingCity', p.signing_city, 'invoicePrefix', p.invoice_prefix, 'lateFeeCentavos', p.late_fee_centavos)
       FROM public.rental_properties p WHERE p.id = v_t.property_id),
     'contract', CASE WHEN v_ct.id IS NOT NULL THEN jsonb_build_object(
@@ -245,7 +254,7 @@ $$;
 
 CREATE FUNCTION public.rental_link_submit_details(p_token text, p_details jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE v_link public.rental_tenancy_links; v_d jsonb; v_paths text[]; v_occupants integer := 1;
+DECLARE v_link public.rental_tenancy_links; v_d jsonb; v_paths text[]; v_occupants integer;
 BEGIN
   v_link := public.rental_lock_link(p_token);
   IF v_link.kind <> 'new' THEN RAISE EXCEPTION 'Your details are already on file'; END IF;
@@ -315,7 +324,7 @@ END;
 $$;
 
 -- Storage INSERT check for rental-link-uploads: {token}/{uuid}.{pdf|jpg|jpeg|png} under an open new-tenant link
--- with fewer than 3 files.
+-- with fewer than 3 files since the link was last reopened.
 -- ponytail: two uploads racing at 2 files can both pass (each counts committed rows); worst case 4 files. Lock per
 -- token if that ever matters.
 CREATE FUNCTION public.rental_link_can_upload(p_name text) RETURNS boolean
@@ -324,7 +333,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
     WHERE l.kind = 'new' AND l.status = 'open'
       AND p_name ~ '^[A-Za-z0-9_-]{43}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|jpe?g|png)$'
       AND (SELECT count(*) FROM storage.objects o
-        WHERE o.bucket_id = 'rental-link-uploads' AND starts_with(o.name, l.token || '/')) < 3)
+        WHERE o.bucket_id = 'rental-link-uploads' AND starts_with(o.name, l.token || '/')
+          AND o.created_at > coalesce(l.reopened_at, '-infinity')) < 3)
 $$;
 
 -- ── Manager RPCs ────────────────────────────────────────────────────────────
@@ -365,7 +375,7 @@ BEGIN
   INSERT INTO public.rental_tenancy_links AS l (tenancy_id, property_id, token, kind)
   VALUES (p_tenancy_id, v_property, v_token, p_kind)
   ON CONFLICT (tenancy_id) DO UPDATE SET token = EXCLUDED.token, kind = EXCLUDED.kind, revoked_at = NULL,
-    created_at = now(),
+    created_at = now(), reopened_at = clock_timestamp(),
     status = CASE WHEN l.status = 'accepted' AND l.kind = EXCLUDED.kind THEN 'accepted' ELSE 'open' END,
     submitted_details = CASE WHEN l.status = 'accepted' AND l.kind = EXCLUDED.kind THEN l.submitted_details END,
     submitted_at = CASE WHEN l.status = 'accepted' AND l.kind = EXCLUDED.kind THEN l.submitted_at END,
@@ -383,18 +393,21 @@ BEGIN
 END;
 $$;
 
+-- "Ask again": the tenant fills the form again with 3 fresh upload slots (LinkRepository.reopen deletes the old files).
+-- Clock time: an upload in the same transaction as the reopen would otherwise count.
 CREATE FUNCTION public.rental_reopen_link(p_tenancy_id uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   PERFORM public.rental_tenancy_manager(p_tenancy_id);
-  UPDATE public.rental_tenancy_links SET status = 'open', submitted_at = NULL, submitted_details = NULL, accepted_at = NULL
+  UPDATE public.rental_tenancy_links SET status = 'open', submitted_at = NULL, submitted_details = NULL, accepted_at = NULL,
+    reopened_at = clock_timestamp()
   WHERE tenancy_id = p_tenancy_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'This tenant has no link'; END IF;
 END;
 $$;
 
--- Copies the submitted details into the renter row; the client then copies the returned ID files into
--- rental-files (reserve-then-upload rental_renter_files rows).
+-- Copies the submitted details into the renter row (Messenger, email and people count only when the tenant gave
+-- them); the client copies the returned ID files into rental-files first (reserve-then-upload rental_renter_files rows).
 CREATE FUNCTION public.rental_accept_details(p_tenancy_id uuid) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_d jsonb;
@@ -404,8 +417,9 @@ BEGIN
   WHERE tenancy_id = p_tenancy_id AND status = 'submitted' FOR UPDATE;
   IF v_d IS NULL THEN RAISE EXCEPTION 'There are no details waiting to be accepted'; END IF;
   UPDATE public.rental_renters r SET full_name = v_d->>'fullName', phone = v_d->>'phone', address = v_d->>'address',
-    emergency_name = v_d->>'emergencyName', emergency_phone = v_d->>'emergencyPhone', facebook = v_d->>'facebook',
-    email = v_d->>'email', occupants = (v_d->>'occupants')::integer
+    emergency_name = v_d->>'emergencyName', emergency_phone = v_d->>'emergencyPhone',
+    facebook = coalesce(nullif(v_d->>'facebook', ''), r.facebook), email = coalesce(nullif(v_d->>'email', ''), r.email),
+    occupants = coalesce((v_d->>'occupants')::integer, r.occupants)
   FROM public.rental_tenancies t WHERE t.id = p_tenancy_id AND r.id = t.renter_id;
   UPDATE public.rental_tenancy_links SET status = 'accepted', accepted_at = now() WHERE tenancy_id = p_tenancy_id;
   RETURN jsonb_build_object('idPaths', v_d->'idPaths');
@@ -421,19 +435,34 @@ BEGIN
 END;
 $$;
 
--- Uses the property's saved signature when p_signature is NULL.
+-- Uses the property's saved signature when p_signature is NULL, for the owner only: it is the owner's signature.
 CREATE FUNCTION public.rental_countersign(p_contract_text_id uuid, p_signature text DEFAULT NULL) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v public.rental_contract_texts := public.rental_contract_text_for_manager(p_contract_text_id); v_sig text;
 BEGIN
   IF v.status = 'countersigned' THEN RAISE EXCEPTION 'This contract is already countersigned'; END IF;
   IF v.tenant_signed_at IS NULL THEN RAISE EXCEPTION 'The tenant hasn''t signed yet'; END IF;
-  v_sig := coalesce(p_signature, (SELECT p.lessor_signature FROM public.rental_properties p WHERE p.id = v.property_id));
+  v_sig := p_signature;
+  IF v_sig IS NULL THEN
+    IF NOT public.rental_has_role(v.property_id, 'owner') THEN RAISE EXCEPTION 'Draw your signature to countersign'; END IF;
+    SELECT p.lessor_signature INTO v_sig FROM public.rental_properties p WHERE p.id = v.property_id;
+  END IF;
   IF v_sig IS NULL THEN RAISE EXCEPTION 'Save your signature first'; END IF;
   IF NOT public.rental_valid_signature(v_sig) THEN RAISE EXCEPTION 'Draw your signature again'; END IF;
   UPDATE public.rental_contract_texts SET status = 'countersigned', lessor_signed_by = (SELECT auth.uid()),
     lessor_signed_at = now(), lessor_signature = v_sig
   WHERE id = v.id;
+END;
+$$;
+
+-- The owner's saved signature (members can't select the column). Same answer for an unknown id.
+CREATE FUNCTION public.rental_get_lessor_signature(p_property_id uuid) RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NOT public.rental_has_role(p_property_id, 'owner') THEN
+    RAISE EXCEPTION 'Only the owner can see the saved signature' USING ERRCODE = '42501';
+  END IF;
+  RETURN (SELECT p.lessor_signature FROM public.rental_properties p WHERE p.id = p_property_id);
 END;
 $$;
 
@@ -463,7 +492,7 @@ REVOKE ALL ON FUNCTION public.rental_valid_signature(text), public.rental_valid_
   public.rental_tenancy_manager(uuid), public.rental_contract_text_for_manager(uuid),
   public.rental_create_link(uuid, text), public.rental_revoke_link(uuid), public.rental_reopen_link(uuid),
   public.rental_accept_details(uuid), public.rental_send_contract(uuid), public.rental_countersign(uuid, text),
-  public.rental_set_notarized_scan(uuid, text)
+  public.rental_set_notarized_scan(uuid, text), public.rental_get_lessor_signature(uuid)
   FROM PUBLIC, anon, authenticated;
 -- CHECK constraints call these as the writing user.
 GRANT EXECUTE ON FUNCTION public.rental_valid_signature(text), public.rental_valid_clauses(jsonb),
@@ -473,7 +502,8 @@ GRANT EXECUTE ON FUNCTION public.rental_link_get(text), public.rental_link_submi
   TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.rental_create_link(uuid, text), public.rental_revoke_link(uuid),
   public.rental_reopen_link(uuid), public.rental_accept_details(uuid), public.rental_send_contract(uuid),
-  public.rental_countersign(uuid, text), public.rental_set_notarized_scan(uuid, text) TO authenticated;
+  public.rental_countersign(uuid, text), public.rental_set_notarized_scan(uuid, text),
+  public.rental_get_lessor_signature(uuid) TO authenticated;
 
 -- ── Storage ─────────────────────────────────────────────────────────────────
 

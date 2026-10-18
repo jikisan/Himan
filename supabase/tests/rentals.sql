@@ -938,12 +938,12 @@ DO $$ DECLARE
   v_house uuid := '00000000-0000-0000-0000-0000000ab051';
   v_owner text := '00000000-0000-0000-0000-0000000aa001'; v_friend text := '00000000-0000-0000-0000-0000000aa002';
   v_stranger text := '00000000-0000-0000-0000-0000000aa003';
-  v_png_t text := 'data:image/png;base64,VEVOQU5U'; v_png_l text := 'data:image/png;base64,TEVTU09S';
+  v_png_t text := 'data:image/png;base64,iVBORw0KGgoVEVOQU5U'; v_png_l text := 'data:image/png;base64,iVBORw0KGgoTEVTU09S';
   v_invalid text := 'This link isn''t valid anymore'; v_mgr text := 'Only managers can manage contracts';
   v_hash1 text := '0d705191a1408862c6cadb10d5fa6820b49b0d465ae884cf98db6c5e430760ba';
   v_hash2 text := '4a2e231ff47c3cda5552d51d909d179697fec17f7a69a1bd48f811a80bab0e13';
   v_t1 uuid; v_t2 uuid; v_t3 uuid; v_x1 uuid; v_x2 uuid; v_x3 uuid; v_b1 uuid;
-  v_tok1 text; v_tok2 text; v_tok3 text; v_old text; v_id1 text; v_id2 text; v_id3 text;
+  v_tok1 text; v_tok2 text; v_tok3 text; v_old text; v_id1 text; v_id2 text; v_id3 text; v_id4 text;
   v_j jsonb; v_details jsonb; v_n integer;
 BEGIN
   -- Owner: saved signature must be a small PNG data URL.
@@ -951,7 +951,11 @@ BEGIN
     'data:image/jpeg;base64,AAAA', v_house), '23514');
   PERFORM pg_temp.refused(format('UPDATE public.rental_properties SET lessor_signature = %L WHERE id = %L',
     'data:image/png;base64,' || repeat('A', 153600), v_house), '23514');
-  UPDATE public.rental_properties SET lessor_signature = v_png_l WHERE id = v_house;
+  -- Base64 that isn't a PNG (no PNG header) is refused too.
+  PERFORM pg_temp.refused(format('UPDATE public.rental_properties SET lessor_signature = %L WHERE id = %L',
+    'data:image/png;base64,QUJDRA==', v_house), '23514');
+  UPDATE public.rental_properties SET lessor_signature = v_png_l, address = '1 Main St', lessor_address = '' WHERE id = v_house;
+  IF public.rental_get_lessor_signature(v_house) IS DISTINCT FROM v_png_l THEN RAISE EXCEPTION 'Owner cannot read the saved signature'; END IF;
 
   -- Template: 1..80 clauses of {id, text ≤ 4000}.
   INSERT INTO public.rental_contract_templates (property_id, clauses)
@@ -1011,9 +1015,12 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', v_friend, true);
   IF (SELECT count(*) FROM public.rental_tenancy_links WHERE property_id = v_house) <> 3 THEN RAISE EXCEPTION 'Manager cannot read links'; END IF;
   UPDATE public.rental_properties SET lessor_signature = NULL WHERE id = v_house;
+  PERFORM pg_temp.refused(format('SELECT lessor_signature FROM public.rental_properties WHERE id = %L', v_house), '42501');
+  PERFORM pg_temp.refused(format('SELECT public.rental_get_lessor_signature(%L)', v_house), '42501');
+  IF (SELECT name FROM public.rental_properties WHERE id = v_house) <> 'Contract House' THEN RAISE EXCEPTION 'Manager cannot read the property'; END IF;
   UPDATE public.rental_contract_templates SET clauses = '[{"id":"x","text":"Hacked"}]' WHERE property_id = v_house;
   PERFORM set_config('request.jwt.claim.sub', v_owner, true);
-  IF (SELECT lessor_signature FROM public.rental_properties WHERE id = v_house) IS DISTINCT FROM v_png_l
+  IF public.rental_get_lessor_signature(v_house) IS DISTINCT FROM v_png_l
     OR (SELECT clauses->0->>'text' FROM public.rental_contract_templates WHERE property_id = v_house) <> 'Rent is {{monthly_rent}}.'
   THEN RAISE EXCEPTION 'A manager changed the saved signature or the template'; END IF;
 
@@ -1026,6 +1033,7 @@ BEGIN
   PERFORM pg_temp.refused(format('SELECT public.rental_accept_details(%L)', v_t1), v_mgr);
   PERFORM pg_temp.refused(format('SELECT public.rental_send_contract(%L)', v_x2), v_mgr);
   PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L)', v_x1), v_mgr);
+  PERFORM pg_temp.refused(format('SELECT public.rental_get_lessor_signature(%L)', v_house), '42501');
   PERFORM pg_temp.refused(format('SELECT public.rental_set_notarized_scan(%L, %L)', v_x1, 'x'), v_mgr);
   IF EXISTS (SELECT 1 FROM public.rental_tenancy_links) OR EXISTS (SELECT 1 FROM public.rental_contract_texts)
     OR EXISTS (SELECT 1 FROM public.rental_contract_templates)
@@ -1048,7 +1056,7 @@ BEGIN
   -- The page shows this tenancy's bills, payments and accounts; no notes, contacts, other tenants or saved signature.
   v_j := public.rental_link_get(v_tok1);
   IF v_j->>'kind' <> 'new' OR v_j->>'status' <> 'open' OR v_j->>'tenantName' <> 'New Tenant'
-    OR v_j->'property'->>'lessorName' <> 'Lessor Person' THEN RAISE EXCEPTION 'Link page header is wrong: %', v_j; END IF;
+    OR v_j->'property'->>'lessorName' <> 'Lessor Person' OR v_j->'property'->>'lessorAddress' <> '1 Main St' THEN RAISE EXCEPTION 'Link page header is wrong: %', v_j; END IF;
   IF v_j->'contract'->>'id' <> v_x1::text OR v_j->'contract'->>'status' <> 'sent' OR (v_j->'contract'->>'lessorSigned')::boolean
     OR v_j->'contract'->'body' <> '["Rent ₱1","Second"]' OR v_j->'contract'->>'specialTerms' <> 'No pets'
   THEN RAISE EXCEPTION 'Link page contract is wrong: %', v_j->'contract'; END IF;
@@ -1099,7 +1107,10 @@ BEGIN
     v_tok1 || '/sub/' || gen_random_uuid() || '.png'), '42501');
   PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads',
     v_tok1 || '/../' || v_house || '/' || gen_random_uuid() || '.png'), '42501');
-  INSERT INTO storage.objects (bucket_id, name) VALUES ('rental-link-uploads', v_id1), ('rental-link-uploads', v_id2);
+  INSERT INTO storage.objects (bucket_id, name) VALUES ('rental-link-uploads', v_id1), ('rental-link-uploads', v_id2),
+    ('rental-link-uploads', v_id3);
+  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads',
+    v_tok1 || '/' || gen_random_uuid() || '.png'), '42501');
   IF EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id IN ('rental-link-uploads', 'rental-files'))
   THEN RAISE EXCEPTION 'anon can read or list uploads'; END IF;
 
@@ -1114,10 +1125,11 @@ BEGIN
   PERFORM pg_temp.refused(format('SELECT public.rental_link_submit_details(%L, %L)', v_tok1,
     v_details || jsonb_build_object('idPaths', jsonb_build_array(v_house || '/renters/x/y'))),
     'Upload a photo of your valid ID (up to 3)');
-  PERFORM public.rental_link_submit_details(v_tok1, v_details || jsonb_build_object('idPaths', jsonb_build_array(v_id1, v_id2)));
+  PERFORM public.rental_link_submit_details(v_tok1, v_details || jsonb_build_object('idPaths', jsonb_build_array(v_id1, v_id2, v_id3)));
   PERFORM pg_temp.refused(format('SELECT public.rental_link_submit_details(%L, %L)', v_tok1,
     v_details || jsonb_build_object('idPaths', jsonb_build_array(v_id1))), 'Your details were already sent');
-  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads', v_id3), '42501');
+  v_id4 := v_tok1 || '/' || gen_random_uuid() || '.png';
+  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads', v_id4), '42501');
   v_j := public.rental_link_get(v_tok1);
   IF v_j->>'status' <> 'submitted' OR v_j::text LIKE '%0917 000 0000%' OR v_j::text LIKE '%' || v_id1 || '%'
   THEN RAISE EXCEPTION 'Submitted details leak back through the link: %', v_j; END IF;
@@ -1127,6 +1139,8 @@ BEGIN
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'wet', v_png_t, 'UA'), 'Choose how to sign');
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'esign',
     'data:image/jpeg;base64,AAAA', 'UA'), 'Draw your signature again');
+  PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'esign',
+    'data:image/png;base64,QUJDRA==', 'UA'), 'Draw your signature again');
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'esign',
     'data:image/png;base64,' || repeat('A', 153600), 'UA'), 'Draw your signature again');
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L, %L)', v_tok1, 'N', 'esign', v_png_t, 'UA',
@@ -1138,19 +1152,22 @@ BEGIN
   IF (SELECT phone || address || full_name FROM public.rental_renters WHERE id = '00000000-0000-0000-0000-0000000ad051') <> 'New Tenant'
   THEN RAISE EXCEPTION 'Submitted details reached the renter before Accept'; END IF;
   IF (SELECT submitted_details->>'phone' FROM public.rental_tenancy_links WHERE tenancy_id = v_t1) <> '0917 000 0000'
-    OR (SELECT submitted_details->'idPaths' FROM public.rental_tenancy_links WHERE tenancy_id = v_t1) <> jsonb_build_array(v_id1, v_id2)
+    OR (SELECT submitted_details->'idPaths' FROM public.rental_tenancy_links WHERE tenancy_id = v_t1) <> jsonb_build_array(v_id1, v_id2, v_id3)
   THEN RAISE EXCEPTION 'Submitted details were not kept for review'; END IF;
   UPDATE public.rental_contract_texts SET body = '["Rent ₱1","Second, edited"]' WHERE id = v_x1;
   IF NOT FOUND THEN RAISE EXCEPTION 'A sent contract could not be edited'; END IF;
   PERFORM public.rental_send_contract(v_x2);
   PERFORM public.rental_revoke_link(v_t2);
   UPDATE public.rental_tenancies SET move_out = v_today - 80 WHERE id = v_t3;
+  UPDATE public.rental_properties SET lessor_address = 'Lessor Home' WHERE id = v_house;
 
   -- Anonymous, round 2: revoked is invalid, 80 days after move-out is still valid; stale hash; sign once.
   SET LOCAL ROLE anon;
   PERFORM set_config('request.jwt.claim.sub', '', true);
   PERFORM pg_temp.refused(format('SELECT public.rental_link_get(%L)', v_tok2), v_invalid);
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok2, 'Old Tenant', 'esign', v_png_t, 'UA'), v_invalid);
+  IF public.rental_link_get(v_tok3)->'property'->>'lessorAddress' <> 'Lessor Home' THEN
+    RAISE EXCEPTION 'Link page lessor address is not the lessor''s'; END IF;
   IF public.rental_link_get(v_tok3)->>'tenantName' <> 'Gone Tenant' THEN RAISE EXCEPTION 'A link 80 days after move-out stopped working'; END IF;
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L, %L)', v_tok1, 'N', 'notarize', v_png_t, 'UA', v_hash1),
     'The contract changed. Reload the page to read the latest version');
@@ -1199,9 +1216,11 @@ BEGIN
   PERFORM public.rental_send_contract(v_x3);
   PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L)', v_x3), 'The tenant hasn''t signed yet');
   PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L, %L)', v_x2, 'data:image/gif;base64,AA'), 'Draw your signature again');
-  PERFORM public.rental_countersign(v_x2);
+  -- The saved signature is the owner's: a manager who isn't the owner draws their own.
+  PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L)', v_x2), 'Draw your signature to countersign');
+  PERFORM public.rental_countersign(v_x2, v_png_t);
   IF (SELECT status || lessor_signature || lessor_signed_by FROM public.rental_contract_texts WHERE id = v_x2)
-    <> 'countersigned' || v_png_l || v_friend THEN RAISE EXCEPTION 'Countersign did not use the saved signature'; END IF;
+    <> 'countersigned' || v_png_t || v_friend THEN RAISE EXCEPTION 'Countersign did not store the drawn signature'; END IF;
   PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L)', v_x2), 'This contract is already countersigned');
   PERFORM pg_temp.refused(format('SELECT public.rental_set_notarized_scan(%L, %L)', v_x2, v_house || '/contracts/' || v_x2 || '/s.pdf'),
     'Only contracts signed for notarizing take a scan');
@@ -1211,13 +1230,17 @@ BEGIN
   PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-files',
     v_house || '/contracts/' || v_x2 || '/s.pdf'), '42501');
   PERFORM public.rental_set_notarized_scan(v_x1, v_house || '/contracts/' || v_x1 || '/s.pdf');
-  PERFORM public.rental_countersign(v_x1, v_png_l);
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  PERFORM public.rental_countersign(v_x1);
+  IF (SELECT status || lessor_signature || lessor_signed_by FROM public.rental_contract_texts WHERE id = v_x1)
+    <> 'countersigned' || v_png_l || v_owner THEN RAISE EXCEPTION 'Owner countersign did not use the saved signature'; END IF;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
 
   -- Accept copies the details into the renter row and hands back the ID paths; once only. Managers see the uploads.
-  IF (SELECT count(*) FROM storage.objects WHERE bucket_id = 'rental-link-uploads' AND name LIKE v_tok1 || '/%') <> 2
+  IF (SELECT count(*) FROM storage.objects WHERE bucket_id = 'rental-link-uploads' AND name LIKE v_tok1 || '/%') <> 3
   THEN RAISE EXCEPTION 'Manager cannot see the link uploads'; END IF;
   v_j := public.rental_accept_details(v_t1);
-  IF v_j <> jsonb_build_object('idPaths', jsonb_build_array(v_id1, v_id2)) THEN RAISE EXCEPTION 'Accept returned %', v_j; END IF;
+  IF v_j <> jsonb_build_object('idPaths', jsonb_build_array(v_id1, v_id2, v_id3)) THEN RAISE EXCEPTION 'Accept returned %', v_j; END IF;
   IF (SELECT row(full_name, phone, address, emergency_name, emergency_phone, facebook, email, occupants)::text
     FROM public.rental_renters WHERE id = '00000000-0000-0000-0000-0000000ad051')
     <> row('New Tenant Full', '0917 000 0000', '12 Street', 'Mom', '0918 111', 'fb.me/nt', 'nt@example.com', 2)::text
@@ -1244,18 +1267,34 @@ BEGIN
   SET LOCAL ROLE anon;
   PERFORM set_config('request.jwt.claim.sub', '', true);
   v_j := public.rental_link_get(v_tok2);
-  IF NOT (v_j->'contract'->>'lessorSigned')::boolean OR v_j->'contract'->>'lessorSignature' <> v_png_l
+  IF NOT (v_j->'contract'->>'lessorSigned')::boolean OR v_j->'contract'->>'lessorSignature' <> v_png_t
   THEN RAISE EXCEPTION 'Countersigned contract hides the lessor signature: %', v_j->'contract'; END IF;
-  INSERT INTO storage.objects (bucket_id, name) VALUES ('rental-link-uploads', v_id3);
-  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-link-uploads',
-    v_tok1 || '/' || gen_random_uuid() || '.png'), '42501');
+  -- Uploads count from the reopen on (each real upload is its own transaction, hence clock_timestamp here).
+  INSERT INTO storage.objects (bucket_id, name, created_at) VALUES ('rental-link-uploads', v_id4, clock_timestamp());
+  INSERT INTO storage.objects (bucket_id, name, created_at) VALUES
+    ('rental-link-uploads', v_tok1 || '/' || gen_random_uuid() || '.png', clock_timestamp()),
+    ('rental-link-uploads', v_tok1 || '/' || gen_random_uuid() || '.png', clock_timestamp());
+  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name, created_at) VALUES (%L, %L, clock_timestamp())',
+    'rental-link-uploads', v_tok1 || '/' || gen_random_uuid() || '.png'), '42501');
+  -- Resubmitting without Messenger, email or people count.
+  PERFORM public.rental_link_submit_details(v_tok1, (v_details - 'facebook' - 'email' - 'occupants')
+    || jsonb_build_object('phone', '0917 999', 'idPaths', jsonb_build_array(v_id4)));
 
-  -- Viewer: sees contracts and templates, never links, tokens or uploads; can't act.
+  -- Accepting a resubmission keeps what the tenant left empty.
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  v_j := public.rental_accept_details(v_t1);
+  IF v_j <> jsonb_build_object('idPaths', jsonb_build_array(v_id4)) THEN RAISE EXCEPTION 'Resubmitted accept returned %', v_j; END IF;
+  IF (SELECT row(phone, facebook, email, occupants)::text FROM public.rental_renters WHERE id = '00000000-0000-0000-0000-0000000ad051')
+    <> row('0917 999', 'fb.me/nt', 'nt@example.com', 2)::text
+  THEN RAISE EXCEPTION 'Accept overwrote details the tenant left empty'; END IF;
+
+  -- Viewer: sees contracts and templates, never links, tokens, uploads or the saved signature; can't act.
   UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = v_friend::uuid AND property_id = v_house;
   PERFORM set_config('request.jwt.claim.sub', v_friend, true);
   IF EXISTS (SELECT 1 FROM public.rental_tenancy_links) THEN RAISE EXCEPTION 'Viewer can read link tokens'; END IF;
+  PERFORM pg_temp.refused(format('SELECT lessor_signature FROM public.rental_properties WHERE id = %L', v_house), '42501');
+  PERFORM pg_temp.refused(format('SELECT public.rental_get_lessor_signature(%L)', v_house), '42501');
   IF (SELECT count(*) FROM public.rental_contract_texts WHERE property_id = v_house) <> 3
     OR NOT EXISTS (SELECT 1 FROM public.rental_contract_templates WHERE property_id = v_house)
   THEN RAISE EXCEPTION 'Viewer cannot read contracts or the template'; END IF;

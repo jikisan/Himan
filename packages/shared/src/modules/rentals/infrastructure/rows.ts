@@ -20,12 +20,13 @@ export const propertyRow = z.object({
   lessor_capacity: z.enum(['owner', 'representative']), signing_city: z.string(), invoice_prefix: z.string(),
   archived_at: z.string().nullable(), created_at: z.string(), updated_at: z.string(),
   late_fee_centavos: z.number().default(0), rent_due_day: z.number().nullable().default(null),
+  payments_tracked_from: z.string().nullable().default(null),
   units: z.array(unitRow).default([]), members: z.array(z.object({ role: z.enum(RENTAL_ROLES) })).min(1),
 }).transform((r): RentalProperty => ({
   id: r.id, createdBy: r.created_by, name: r.name, address: r.address, ownerName: r.owner_name,
   ownerAddress: r.owner_address, lessorName: r.lessor_name, lessorCivilStatus: r.lessor_civil_status,
   lessorAddress: r.lessor_address, lessorCapacity: r.lessor_capacity, signingCity: r.signing_city,
-  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
+  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
   role: r.members[0].role, units: [...r.units].sort((a, b) => a.name.localeCompare(b.name)),
 }));
 
@@ -126,5 +127,7 @@ export function rentalError(error: unknown, fallback: string,
   if (code === '23503') return new Error(fallback);
   if (code === '23505') return new Error(duplicate);
   if (code === '42501') return new Error('You don’t have permission to do that');
-  return error instanceof Error ? error : new Error(fallback);
+  // Other Supabase errors (PostgREST codes, Storage refusals) are technical; only our own Errors pass through.
+  const technical = code !== undefined || (typeof error === 'object' && error !== null && '__isStorageError' in error);
+  return error instanceof Error && !technical ? error : new Error(fallback);
 }

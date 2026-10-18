@@ -12,7 +12,7 @@ const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: numb
 const property: RentalProperty = {
   id: 'p', createdBy: 'owner', name: 'Lahug Units', address: '', ownerName: 'Maria Santos', ownerAddress: 'Lahug, Cebu City',
   lessorName: '', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'LU',
-  lateFeeCentavos: 50000, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
+  lateFeeCentavos: 50000, rentDueDay: null, paymentsTrackedFrom: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
   units: [unit(U1, 'Room 1', 'room', 1, { electricMode: 'submeter', electricAmountCentavos: 1600 }), unit(U2, 'Room A', 'bedspace', 2)],
 };
 const person = (id: string, fullName: string): Renter => ({ id, propertyId: 'p', fullName, phone: '0917', facebook: '', email: '',

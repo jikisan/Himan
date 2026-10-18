@@ -31,6 +31,13 @@ export class PaymentRepository {
     if (error) throw rentalError(error, 'Could not void the payment');
   }
 
+  /** Pays off what is left on bills issued before payment tracking started; returns how many payments it created. */
+  async markEarlierPaid(propertyId: string): Promise<number> {
+    const { data, error } = await getSupabase().rpc('rental_mark_earlier_paid', { p_property_id: propertyId });
+    if (error) throw rentalError(error, 'Could not mark the earlier bills paid');
+    return z.number().parse(data);
+  }
+
   async uploadProof(paymentId: string, propertyId: string, file: { name: string; mimeType?: string | null; bytes: ArrayBuffer }): Promise<void> {
     const mimeType = validateRentalFile(file.name, file.mimeType, file.bytes.byteLength);
     // Reserve metadata first so interrupted uploads stay visible and removable.
@@ -48,7 +55,7 @@ export class PaymentRepository {
     } catch (error) {
       try { await this.removeProof(id); }
       catch { throw new Error('Upload incomplete. Remove the incomplete proof before retrying.'); }
-      throw error;
+      throw rentalError(error, 'Could not attach the proof');
     }
   }
 
@@ -57,7 +64,7 @@ export class PaymentRepository {
     if (error) throw rentalError(error, 'Could not remove the proof');
     const proof = paymentProofRow.parse(data);
     const { error: storageError } = await getSupabase().storage.from(BUCKET).remove([proof.storagePath]);
-    if (storageError) throw storageError;
+    if (storageError) throw rentalError(storageError, 'Could not remove the proof');
     const { error: rowError } = await getSupabase().from(PROOFS).delete().eq('id', id).select('id').single();
     if (rowError) throw rentalError(rowError, 'Could not remove the proof');
   }
@@ -68,7 +75,7 @@ export class PaymentRepository {
     const proof = paymentProofRow.parse(data);
     const { data: signed, error: signError } = await getSupabase().storage.from(BUCKET)
       .createSignedUrl(proof.storagePath, 60, download ? { download: proof.name } : undefined);
-    if (signError) throw signError;
+    if (signError) throw rentalError(signError, 'Could not open the proof');
     return signed.signedUrl;
   }
 }

@@ -9,7 +9,7 @@ const U1 = '00000000-0000-0000-0000-000000000001';
 const property: RentalProperty = {
   id: 'p', createdBy: 'owner', name: 'Lahug Units', address: '', ownerName: 'Maria Santos', ownerAddress: 'Lahug, Cebu City',
   lessorName: '', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'LU',
-  lateFeeCentavos: 0, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
+  lateFeeCentavos: 0, rentDueDay: null, paymentsTrackedFrom: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
   units: [{ id: U1, propertyId: 'p', name: 'Room 1', kind: 'room', capacity: 1, electricMode: 'none', electricAmountCentavos: 0,
     waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 0, extraPersonRentCentavos: 0 }],
 };

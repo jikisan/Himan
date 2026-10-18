@@ -242,9 +242,9 @@ describe('TenancyRepository bills support', () => {
 
 describe('PropertyRepository bill settings', () => {
   it('saves and maps late fee and due day', async () => {
-    mock.from.mockReturnValueOnce(result([{ ...propertyRow, late_fee_centavos: 50000, rent_due_day: 5 }]));
+    mock.from.mockReturnValueOnce(result([{ ...propertyRow, late_fee_centavos: 50000, rent_due_day: 5, payments_tracked_from: '2026-10-18' }]));
     const [property] = await new PropertyRepository().findAll('me');
-    expect(property).toMatchObject({ lateFeeCentavos: 50000, rentDueDay: 5 });
+    expect(property).toMatchObject({ lateFeeCentavos: 50000, rentDueDay: 5, paymentsTrackedFrom: '2026-10-18' });
     const save = result({ id: 'p' });
     mock.from.mockReturnValueOnce(save);
     await new PropertyRepository().save('p', { ...property, rentDueDay: null });

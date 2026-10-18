@@ -196,6 +196,10 @@ export function meterDetail(line: BillLine): string {
     + (m.sharedWith > 1 ? `, your 1/${m.sharedWith} share` : '');
 }
 
+/** Total plus previous balance minus paid, never below zero. */
+export const amountDueNow = (totalCentavos: number, info: { previousBalanceCentavos?: number; paidCentavos?: number }): number =>
+  Math.max(totalCentavos + (info.previousBalanceCentavos ?? 0) - (info.paidCentavos ?? 0), 0);
+
 // GCash and Maya print as the wallet's name; a bank or other account prints its label (e.g. "BPI").
 const ACCOUNT_NAME: Partial<Record<PaymentAccount['kind'], string>> = { gcash: 'GCash', maya: 'Maya' };
 
@@ -214,6 +218,7 @@ export function statementText(bill: Pick<RentalBill, 'period' | 'dueOn' | 'lines
   const footer = [`TOTAL ${formatBillPesos(billTotal(bill.lines))}`,
     ...(info.previousBalanceCentavos ? [`Previous balance ${formatBillPesos(info.previousBalanceCentavos)}`] : []),
     ...(info.paidCentavos ? [`Paid ${formatBillPesos(info.paidCentavos)}`] : []),
+    amountDueNow(billTotal(bill.lines), info) > 0 ? `Amount due now ${formatBillPesos(amountDueNow(billTotal(bill.lines), info))}` : 'Paid in full',
     `Due ${long(bill.dueOn)}`,
     ...(info.lateFeeCentavos > 0 ? [`Late payment will have a penalty of ${formatBillPesos(info.lateFeeCentavos)}.`] : [])];
   const payTo = info.accounts?.length ? ['', 'Pay to:', ...info.accounts.map((a) =>

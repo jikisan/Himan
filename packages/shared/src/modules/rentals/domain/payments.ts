@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { billTotal } from './billing.js';
-import type { RentalBill, RentalTenancy } from './types.js';
+import type { RentalBill, RentalProperty, RentalTenancy } from './types.js';
 
 export const PAYMENT_METHODS = ['gcash', 'maya', 'bank', 'cash', 'other'] as const;
 export const ACCOUNT_KINDS = ['gcash', 'maya', 'bank', 'other'] as const;
@@ -80,7 +80,20 @@ export function findDuplicateReference(payments: RentalPayment[], propertyId: st
   return key ? active(payments).find((p) => p.propertyId === propertyId && p.reference.trim().toLowerCase() === key) : undefined;
 }
 
-/** What the tenant still owes on their other bills due before this one. */
+/** What the tenant still owes on their other bills due before this one (same due date: the lower bill number first). */
 export function previousBalance(tenancyId: string, bill: RentalBill, bills: RentalBill[], payments: RentalPayment[]): number {
-  return tenancyOwed(tenancyId, bills.filter((b) => b.id !== bill.id && b.dueOn < bill.dueOn), payments);
+  return tenancyOwed(tenancyId, bills.filter((b) => b.id !== bill.id
+    && (b.dueOn < bill.dueOn || (b.dueOn === bill.dueOn && b.number < bill.number))), payments);
 }
+
+/** Unpaid bills issued before the property started tracking payments: who owes on them and how much in all. */
+export function earlierUnpaid(property: Pick<RentalProperty, 'id' | 'paymentsTrackedFrom'>, bills: RentalBill[], payments: RentalPayment[]):
+  { tenancyIds: string[]; totalCentavos: number } {
+  const from = property.paymentsTrackedFrom;
+  const owing = from ? bills.filter((b) => b.propertyId === property.id && isEarlier(b, from) && billBalance(b, payments) > 0) : [];
+  return { tenancyIds: [...new Set(owing.map((b) => b.tenancyId))], totalCentavos: sum(owing.map((b) => billBalance(b, payments))) };
+}
+
+/** Issued before payment tracking started; such bills live in the Home banner, not the Overdue list. */
+export const isEarlier = (bill: RentalBill, trackedFrom: string | null): boolean =>
+  !!trackedFrom && bill.status === 'issued' && bill.issuedOn < trackedFrom;

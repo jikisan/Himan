@@ -4,6 +4,8 @@ import type { RentalRole } from './roles.js';
 export interface RentalUnit extends UnitInput { id: string; propertyId: string }
 export interface RentalProperty extends PropertyInput {
   id: string; createdBy: string; role: RentalRole; archivedAt: string | null;
+  /** Bills issued before this date predate payment tracking (null: everything is tracked). */
+  paymentsTrackedFrom: string | null;
   units: RentalUnit[]; createdAt: string; updatedAt: string;
 }
 export interface RenterFile {

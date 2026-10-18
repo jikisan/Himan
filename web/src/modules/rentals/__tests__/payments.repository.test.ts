@@ -22,6 +22,9 @@ const accountRow = { id: 'acc', property_id: 'p', kind: 'gcash', label: 'GCash',
   qr_path: 'p/acc-1.png', position: 0, created_at: '' };
 const BILL = '00000000-0000-0000-0000-000000000001';
 
+/** What Supabase Storage throws, e.g. on an RLS refusal. */
+const storageError = () => Object.assign(new Error('new row violates row-level security policy'), { __isStorageError: true, statusCode: '403' });
+
 beforeEach(() => { vi.clearAllMocks(); mock.from.mockReset(); mock.rpc.mockReset(); mock.storage.from.mockReset(); });
 
 describe('PaymentRepository', () => {
@@ -71,6 +74,22 @@ describe('PaymentRepository', () => {
     expect(mock.storage.from).toHaveBeenCalledWith('rental-files');
     expect(remove).toHaveBeenCalledWith(['p/payments/pay/f']);
     expect(remove.mock.invocationCallOrder[0]).toBeLessThan(cleanup.delete.mock.invocationCallOrder[0]);
+  });
+  it('marks bills from before payment tracking as paid through the RPC', async () => {
+    mock.rpc.mockResolvedValue({ data: 2, error: null });
+    await expect(new PaymentRepository().markEarlierPaid('p')).resolves.toBe(2);
+    expect(mock.rpc).toHaveBeenCalledWith('rental_mark_earlier_paid', { p_property_id: 'p' });
+  });
+  it('never shows raw Storage or PostgREST errors', async () => {
+    mock.from.mockReturnValueOnce(result({ ...proofRow, ready: true }));
+    mock.storage.from.mockReturnValue({ createSignedUrl: vi.fn(async () => ({ data: null, error: storageError() })),
+      remove: vi.fn(async () => ({ error: storageError() })) });
+    await expect(new PaymentRepository().proofUrl('f')).rejects.toThrow('Could not open the proof');
+    mock.from.mockReturnValueOnce(result(proofRow));
+    await expect(new PaymentRepository().removeProof('f')).rejects.toThrow('Could not remove the proof');
+    mock.from.mockReturnValueOnce(result(null, Object.assign(new Error('JSON object requested, multiple (or no) rows returned'),
+      { code: 'PGRST116' })));
+    await expect(new PaymentRepository().findAll()).rejects.toThrow('Could not load payments');
   });
   it('creates only 60-second signed URLs for ready proofs', async () => {
     const lookup = result({ ...proofRow, ready: true });
@@ -124,13 +143,25 @@ describe('PaymentAccountRepository', () => {
     expect(mock.storage.from).toHaveBeenCalledWith('rental-qr');
     expect(getPublicUrl).toHaveBeenCalledWith('p/acc-1.png');
   });
-  it('removes an account and its QR', async () => {
+  it('removes an account, then its QR', async () => {
     const del = result({ id: 'acc' });
     mock.from.mockReturnValueOnce(result(accountRow)).mockReturnValueOnce(del);
     const remove = vi.fn(async () => ({ error: null }));
     mock.storage.from.mockReturnValue({ remove });
     await new PaymentAccountRepository().remove('acc');
     expect(remove).toHaveBeenCalledWith(['p/acc-1.png']);
-    expect(del.delete).toHaveBeenCalled();
+    expect(del.delete.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
+  });
+  it('keeps the account when its row can’t be deleted', async () => {
+    mock.from.mockReturnValueOnce(result(accountRow)).mockReturnValueOnce(result(null, { code: '42501', message: 'denied' }));
+    const remove = vi.fn(async () => ({ error: null }));
+    mock.storage.from.mockReturnValue({ remove });
+    await expect(new PaymentAccountRepository().remove('acc')).rejects.toThrow();
+    expect(remove).not.toHaveBeenCalled();
+  });
+  it('turns a Storage refusal on QR upload into a plain message', async () => {
+    mock.from.mockReturnValueOnce(result({ qr_path: null }));
+    mock.storage.from.mockReturnValue({ upload: vi.fn(async () => ({ error: storageError() })) });
+    await expect(new PaymentAccountRepository().uploadQr('p', 'acc', png(10))).rejects.toThrow('Could not upload the QR code');
   });
 });

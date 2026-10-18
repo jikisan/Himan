@@ -30,12 +30,10 @@ export class PaymentAccountRepository {
     const { data, error } = await table().select('*').eq('id', id).single();
     if (error) throw rentalError(error, 'Could not delete the payment account');
     const { qrPath } = paymentAccountRow.parse(data);
-    if (qrPath) {
-      const { error: storageError } = await getSupabase().storage.from(BUCKET).remove([qrPath]);
-      if (storageError) throw storageError;
-    }
+    // Row first: if the QR delete then fails, the orphaned public image is harmless.
     const { error: rowError } = await table().delete().eq('id', id).select('id').single();
     if (rowError) throw rentalError(rowError, 'Could not delete the payment account');
+    if (qrPath) await getSupabase().storage.from(BUCKET).remove([qrPath]);
   }
 
   async uploadQr(propertyId: string, accountId: string, file: { name: string; mimeType?: string | null; bytes: ArrayBuffer }): Promise<void> {
@@ -50,7 +48,7 @@ export class PaymentAccountRepository {
     const path = `${propertyId}/${accountId}-${Date.now()}.${EXT[mimeType]}`;
     const storage = getSupabase().storage.from(BUCKET);
     const { error: uploadError } = await storage.upload(path, file.bytes, { contentType: mimeType, upsert: false });
-    if (uploadError) throw uploadError;
+    if (uploadError) throw rentalError(uploadError, 'Could not upload the QR code');
     const { error: saveError } = await table().update({ qr_path: path }).eq('id', accountId).select('id').single();
     if (saveError) {
       await storage.remove([path]);

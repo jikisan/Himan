@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { billBalance, billPaid, billState, depositHeld, findDuplicateReference, paymentAccountSchema, paymentSchema,
+import { billBalance, billPaid, billState, depositHeld, earlierUnpaid, findDuplicateReference, paymentAccountSchema, paymentSchema,
   previousBalance, statementText, tenancyCredit, tenancyOwed } from '@himan/shared/rentals';
-import type { PaymentAccount, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
+import type { PaymentAccount, RentalBill, RentalPayment, RentalProperty, RentalTenancy } from '@himan/shared/rentals';
 
 const bill = (id: string, dueOn: string, amount: number, extra: Partial<RentalBill> = {}): RentalBill => ({
   id, propertyId: 'p', tenancyId: 't', kind: 'monthly', period: dueOn.slice(0, 7), number: `LU-${id}`, issuedOn: dueOn,
@@ -54,6 +54,29 @@ describe('tenancy totals', () => {
     const paid = [payment('x', 100000, [['b1', 100000]])];
     expect(previousBalance('t', bills[1], bills, paid)).toBe(200000);
     expect(previousBalance('t', bills[0], bills, paid)).toBe(0);
+  });
+  it('breaks a same-day tie by bill number', () => {
+    const a = bill('a', '2026-11-15', 100000, { number: 'LU-2026-0001' });
+    const b = bill('b', '2026-11-15', 200000, { number: 'LU-2026-0002' });
+    expect(previousBalance('t', b, [a, b], [])).toBe(100000);
+    expect(previousBalance('t', a, [a, b], [])).toBe(0);
+  });
+});
+
+describe('bills from before payment tracking', () => {
+  const property = { id: 'p', paymentsTrackedFrom: '2026-10-18' } as RentalProperty;
+  const bills = [bill('old1', '2026-09-15', 300000, { issuedOn: '2026-09-01' }),
+    bill('old2', '2026-10-15', 300000, { issuedOn: '2026-10-01', tenancyId: 't2' }),
+    bill('void', '2026-08-15', 300000, { issuedOn: '2026-08-01', status: 'void' }),
+    bill('new', '2026-11-15', 300000, { issuedOn: '2026-11-01' }),
+    bill('elsewhere', '2026-09-15', 300000, { issuedOn: '2026-09-01', propertyId: 'q' })];
+  it('lists the tenants and the total still unpaid on bills issued before tracking started', () => {
+    expect(earlierUnpaid(property, bills, [payment('x', 100000, [['old1', 100000]])]))
+      .toEqual({ tenancyIds: ['t', 't2'], totalCentavos: 500000 });
+    expect(earlierUnpaid(property, bills, [payment('x', 300000, [['old1', 300000]])])).toEqual({ tenancyIds: ['t2'], totalCentavos: 300000 });
+  });
+  it('is empty when the property tracked payments from the start', () => {
+    expect(earlierUnpaid({ ...property, paymentsTrackedFrom: null }, bills, [])).toEqual({ tenancyIds: [], totalCentavos: 0 });
   });
 });
 
@@ -111,5 +134,13 @@ describe('statement with payments', () => {
       previousBalanceCentavos: 50000, paidCentavos: 100000 });
     for (const part of ['Pay to:', 'GCash — Maria Santos 0917 123 4567', 'BPI — Maria Santos 1234', 'Previous balance ₱500',
       'Paid ₱1,000']) expect(text).toContain(part);
+  });
+  it('ends with what is due now: total plus previous balance minus paid', () => {
+    const b = bill('b', '2026-11-15', 350000);
+    expect(statementText(b, { ...info, previousBalanceCentavos: 50000, paidCentavos: 100000 })).toContain('Amount due now ₱3,000');
+    const overpaid = statementText(b, { ...info, paidCentavos: 400000 });
+    expect(overpaid).toContain('Paid in full');
+    expect(overpaid).not.toContain('Amount due now');
+    expect(statementText(b, info)).toContain('Amount due now ₱3,500');
   });
 });

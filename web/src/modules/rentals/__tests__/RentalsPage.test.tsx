@@ -10,7 +10,7 @@ const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: numb
 const property: RentalProperty = {
   id: 'p', createdBy: 'owner', name: 'Bakilid House', address: '', ownerName: '', ownerAddress: '',
   lessorName: 'Owner', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '',
-  invoicePrefix: 'INV', lateFeeCentavos: 0, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
+  invoicePrefix: 'INV', lateFeeCentavos: 0, rentDueDay: null, paymentsTrackedFrom: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
   units: [unit('u1', 'Room A', 'bedspace', 4, { defaultRentCentavos: 350000 }), unit('u2', 'Room B', 'room', 1)],
 };
 const person = (id: string, fullName: string): Renter => ({ id, propertyId: 'p', fullName, phone: '0917', facebook: '', email: '',

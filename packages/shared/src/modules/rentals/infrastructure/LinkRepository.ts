@@ -79,7 +79,8 @@ export class LinkRepository {
   /** Uploads one ID file into the link's folder; returns its path for `submitDetails`. */
   async uploadId(token: string, file: { name: string; mimeType?: string | null; bytes: ArrayBuffer }): Promise<string> {
     const mimeType = validateRentalFile(file.name, file.mimeType, file.bytes.byteLength);
-    const path = `${token}/${fileName(mimeType)}`;
+    // UUID-shaped (8-4-4-4-12 hex): the bucket's insert policy (rental_link_can_upload) accepts nothing else.
+    const path = `${token}/${fileName(mimeType).replace(/^(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-')}`;
     const { error } = await getSupabase().storage.from(UPLOADS).upload(path, file.bytes, { contentType: mimeType, upsert: false, cacheControl: '0' });
     if (error) throw rentalError(error, 'Could not upload the ID. You can add up to 3 files while the link is open.');
     return path;

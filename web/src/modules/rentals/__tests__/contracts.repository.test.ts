@@ -163,6 +163,13 @@ describe('LinkRepository public side', () => {
     mock.rpc.mockResolvedValue({ data: publicLink, error: null });
     expect(await new LinkRepository().getPublic('tok')).toMatchObject({ kind: 'existing', contract: { id: 'c1', body: ['a'] } });
     expect(mock.rpc).toHaveBeenCalledWith('rental_link_get', { p_token: 'tok' });
+    const receipt = { applied: [{ billId: 'b1', number: 'INV-1', amount: 500 }], creditCentavos: 0, balanceCentavos: 0 };
+    mock.rpc.mockResolvedValue({ data: { ...publicLink, roomName: 'Room A',
+      contract: { ...publicLink.contract, status: 'signed', tenantName: 'Ben Cruz', tenantSignature: 'data:image/png;base64,AA' },
+      payments: [{ id: 'pay1', createdAt: 'x', paidOn: '2026-10-01', amount: 500, method: 'cash', reference: '', billNumbers: ['INV-1'], receipt }] },
+      error: null });
+    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ roomName: 'Room A',
+      contract: { tenantName: 'Ben Cruz', tenantSignature: 'data:image/png;base64,AA' }, payments: [{ id: 'pay1', receipt }] });
     mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: INVALID } });
     await expect(new LinkRepository().getPublic('old')).rejects.toThrow(INVALID);
     mock.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.rental_link_get' } });
@@ -173,7 +180,8 @@ describe('LinkRepository public side', () => {
     mock.storage.from.mockReturnValue({ upload });
     const path = await new LinkRepository().uploadId('tok', { name: 'id.JPG', mimeType: 'image/jpeg', bytes: new ArrayBuffer(3) });
     expect(mock.storage.from).toHaveBeenCalledWith('rental-link-uploads');
-    expect(path).toMatch(/^tok\/[0-9a-f]{32}\.jpg$/);
+    // The storage policy accepts only a UUID name under the token folder.
+    expect(path).toMatch(/^tok\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/);
     expect(upload).toHaveBeenCalledWith(path, expect.any(ArrayBuffer), expect.objectContaining({ contentType: 'image/jpeg', upsert: false }));
     upload.mockResolvedValue({ error: { __isStorageError: true, message: 'new row violates row-level security policy' } } as never);
     await expect(new LinkRepository().uploadId('tok', { name: 'id.png', bytes: new ArrayBuffer(3) })).rejects.toThrow('Could not upload the ID');

@@ -154,24 +154,33 @@ export const linkRow = z.object({
 /** `rental_link_get`: everything the tenant's page shows, already limited by the database to this tenancy. */
 export const publicLinkSchema = z.object({
   kind: z.enum(['new', 'existing']), status: z.enum(['open', 'submitted', 'accepted']), tenantName: z.string(),
+  roomName: z.string().nullable().default(null),
   property: z.object({ name: z.string(), address: z.string(), lessorName: z.string(), lessorCapacity: z.enum(LESSOR_CAPACITIES),
-    signingCity: z.string(), invoicePrefix: z.string() }),
+    signingCity: z.string(), invoicePrefix: z.string(), ownerName: z.string().default(''), ownerAddress: z.string().default(''),
+    lateFeeCentavos: z.number().default(0) }),
   contract: z.object({
     id: z.string(), status: z.enum(CONTRACT_STATUSES), body: z.array(z.string()), specialTerms: z.string(),
     signMode: z.enum(SIGN_MODES).nullable(), tenantSignedAt: z.string().nullable(), lessorSigned: z.boolean(),
-    contentHash: z.string().nullable(),
-    // The landlord's signature image only once countersigned.
-    lessorSignature: z.string().nullable().optional(),
+    contentHash: z.string().nullable(), tenantName: z.string().nullable().default(null), tenantSignature: z.string().nullable().default(null),
+    // The landlord's signature image and date only once countersigned.
+    lessorSignature: z.string().nullable().optional(), lessorSignedAt: z.string().nullable().optional(),
   }).nullable(),
   bills: z.array(z.object({
-    number: z.string(), kind: z.enum(['move_in', 'monthly', 'final']).optional(), period: z.string(), issuedOn: z.string(),
+    id: z.string().default(''), number: z.string(), kind: z.enum(['move_in', 'monthly', 'final']).optional(), period: z.string(), issuedOn: z.string(),
     dueOn: z.string(), lines: z.array(storedBillLineSchema), paid: z.number(), balance: z.number(),
   })).default([]),
   payments: z.array(z.object({
+    id: z.string().default(''), createdAt: z.string().default(''),
     paidOn: z.string(), amount: z.number(), method: z.enum(PAYMENT_METHODS), reference: z.string(), billNumbers: z.array(z.string()),
+    // The receipt snapshot taken when the payment was recorded; null on payments from before snapshots.
+    receipt: z.object({
+      applied: z.array(z.object({ billId: z.string(), number: z.string(), amount: z.number() })),
+      creditCentavos: z.number(), balanceCentavos: z.number(),
+    }).partial().nullable().default(null),
   })).default([]),
   accounts: z.array(z.object({
-    kind: z.enum(ACCOUNT_KINDS), label: z.string(), accountName: z.string(), accountNumber: z.string(), qrPath: z.string().nullable(),
+    id: z.string().default(''), kind: z.enum(ACCOUNT_KINDS), label: z.string(), accountName: z.string(), accountNumber: z.string(),
+    qrPath: z.string().nullable(),
   })).default([]),
 });
 export type PublicLink = z.infer<typeof publicLinkSchema>;

@@ -206,3 +206,54 @@ The houses the user rents out have no CUSA or parking, so extra charges are opti
   `rental_meter_readings`, `rental_bills` (lines as a jsonb snapshot; status `issued`/`void`),
   RPCs `rental_issue_bill`, `rental_change_rent`, contract guard trigger, and
   `rental_start_tenancy` issuing the move-in bill.
+
+## Phases 2 part 2 – 4 (grilling Q1–Q21, 2026-10-18)
+
+Scope of this run: web only. Mobile is a later `/port-web-to-mobile` pass. The owner approved
+applying migrations to the hosted project directly (one file at a time, one transaction, then
+`supabase migration repair`). Steps ship in order, each on its own branch and MR:
+**A** payments + payment accounts · **B** PDFs · **C** contracts, invite link, e-sign, renewals · **D** deposit settlement.
+
+### A. Payments and payment accounts
+- **Record payment** (Q1): one tap on a bill or tenant; amount pre-filled with what the tenant still owes. A payment
+  pays the tenant's oldest unpaid bill first; the landlord may pick another bill. Bill state: Unpaid · Partial · Paid ·
+  Overdue (unpaid past due date). "Overdue" replaces the old "past due" label.
+- **Overpayment** (Q2): the excess is a credit carried to the next bill (shown as a credit, never refused).
+- **Void a payment** (Q3): with a reason; the record stays; bills it paid return to unpaid.
+- **Deposit held** (Q4): counts once the move-in bill is fully paid; until then "deposit pending". Feeds "deposits held" on Home.
+- **Payment accounts** (Q5): belong to the **property** (owner manages; all members and bills see them). Name, number, optional QR
+  image (public bucket). Bills show them as text; PDF and renter link also show the QR. This replaces the earlier
+  user-owned-accounts idea.
+- Payment fields (earlier decision kept): amount, date, method, reference no. (duplicate warning per property), notes, several proof
+  images (private bucket). Receipts: Step B.
+
+### B. PDFs (Q10)
+Four documents with `@react-pdf/renderer` (lazy chunk; `₱` needs `Font.register`): bill (Statement of Account), payment receipt,
+contract (only after signing; notary page only when the tenant chose "notarize"), deposit settlement. Bills and receipts download
+from the app and from the renter link.
+
+### C. Contracts, invite link, e-sign, renewals
+- **Create contract on demand** (Q6): move-in saves terms only; "Create contract" on a tenant makes an editable draft from the property
+  template; text is frozen (snapshot + SHA-256) when signed. Contracts are optional.
+- **Template** (Q7): ordered clauses (edit / add / remove / reorder), "Insert field" menu for placeholders, "Reset to default"
+  (the owner's Cebu contract with personal details replaced by fields). Each contract has a **Special terms** box appended as a last clause.
+- **Renewals** (Q8): "New rent from [month]" / renewal starts a new contract on the same tenancy as today; contract text (and re-signing)
+  only if "Create contract" is tapped. Home to-do: "Contract ends in 30 days".
+- **Invite / signing link** (Q14–Q21) — one private per-tenancy link, the only anonymous write path:
+  - New tenant: short details form, then contract to sign. Existing tenant (ex-tenant, picked from list): straight to the contract; no editing.
+  - Add tenant needs only name, room, rent, move-in date when a link is sent; the bed is reserved and the move-in bill issued at once;
+    tenant shows "Waiting for details" until submitted.
+  - Submitted details wait for the landlord's **Accept** (Home to-do "Review details from <name>"); nothing overwrites silently.
+  - Transfers: "Already a tenant?" also lists tenants of the owner's other properties; copies contact details only (ID re-uploaded).
+  - Form: required full name, mobile, home address, emergency contact (name + number), valid-ID photo; optional Facebook/Messenger,
+    email, people living there. One-line privacy notice with a required checkbox (Data Privacy Act 2012; wording to be checked by the owner).
+  - Safeguards: link locks after one submission (landlord can reopen), max 3 ID files, 10 MB, PDF/JPEG/PNG, ID stored in the private
+    bucket (managers only), token-keyed `SECURITY DEFINER` RPCs only, no table grants to `anon`.
+  - Landlord draws a signature **once** (saved on the property); countersigning is one tap. Home to-dos: "Countersign contract for <name>".
+  - "Copy link for Messenger" button writes a ready message; device share menu also works. No SMS or email is sent by the app.
+  - Sign mode, witnesses and notarized-scan upload stay as decided in Q18; the link expires 90 days after move-out and is revocable.
+
+### D. Deposit settlement (Q9)
+Move-out stays as is (date + final bill). Afterwards Home shows "Deposit to return". Settlement screen: starts with the deposit,
+subtracts unpaid bills automatically, lets the landlord add lines (cleaning, damage, other), and has "Forfeit all" for early
+termination. The refund is recorded (amount, date, method, optional proof image, note) and the deposit held becomes 0. A settlement PDF is produced.

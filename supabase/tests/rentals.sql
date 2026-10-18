@@ -1317,6 +1317,180 @@ BEGIN
   GET DIAGNOSTICS v_n = ROW_COUNT;
   IF v_n <> 1 THEN RAISE EXCEPTION 'Owner could not delete a link upload (viewer deleted it?)'; END IF;
 END $$;
+
+-- ── Step D: deposit settlement ─────────────────────────────────────────────
+-- Owner aa001 owns Settle House (ab061); friend aa002 owns Friend House (ab022) and joins Settle House as a
+-- manager, later a viewer; stranger aa003 has nothing.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab061', 'Settle House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity)
+  SELECT ('00000000-0000-0000-0000-0000000ac06' || n)::uuid, '00000000-0000-0000-0000-0000000ab061', 'S' || n, 'room', 1
+  FROM generate_series(1, 6) n;
+INSERT INTO public.rental_renters (id, property_id, full_name)
+  SELECT ('00000000-0000-0000-0000-0000000ad06' || n)::uuid, '00000000-0000-0000-0000-0000000ab061', 'Leaver ' || n
+  FROM generate_series(1, 6) n;
+
+DO $$ DECLARE
+  v_today date := (now() AT TIME ZONE 'Asia/Manila')::date;
+  v_house uuid := '00000000-0000-0000-0000-0000000ab061'; v_friend_house uuid := '00000000-0000-0000-0000-0000000ab022';
+  v_owner text := '00000000-0000-0000-0000-0000000aa001'; v_friend text := '00000000-0000-0000-0000-0000000aa002';
+  v_stranger text := '00000000-0000-0000-0000-0000000aa003';
+  v_mgr text := 'Only managers can settle deposits'; v_none text := 'No deposit to settle';
+  v_lines_msg text := 'Add a label and an amount for each deduction';
+  v_rent jsonb := '[{"kind":"rent","label":"Rent","amount":100000}]';
+  v_t1 uuid; v_t2 uuid; v_t3 uuid; v_t4 uuid; v_t5 uuid; v_t6 uuid; v_void uuid;
+  v_s1 uuid; v_s4 uuid; v_s5 uuid; v_s6 uuid; v_p uuid; v_r public.rental_settlements;
+  v_settle text := 'SELECT public.rental_settle_deposit(%L, %L::jsonb, %L, %L::date, %L, %L, %L)';
+BEGIN
+  -- T1: deposit 2,000 + advance 1,000 on the move-in bill (no prorated rent: move-in on the due day).
+  v_t1 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac061', '00000000-0000-0000-0000-0000000ad061',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 1, 200000);
+  -- T2: move-in bill only part paid. T3: no move-in bill at all. T4–T6: deposit 1,000, paid.
+  v_t2 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac062', '00000000-0000-0000-0000-0000000ad062',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 100000);
+  v_t3 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac063', '00000000-0000-0000-0000-0000000ad063',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 0);
+  v_t4 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac064', '00000000-0000-0000-0000-0000000ad064',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 100000);
+  v_t5 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac065', '00000000-0000-0000-0000-0000000ad065',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 100000);
+  v_t6 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac066', '00000000-0000-0000-0000-0000000ad066',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 100000);
+  PERFORM public.rental_record_payment(v_t1, 300000, v_today, 'cash', '', '');
+  PERFORM public.rental_record_payment(v_t2, 50000, v_today, 'cash', '', '');
+  PERFORM public.rental_record_payment(v_t4, 100000, v_today, 'cash', '', '');
+  PERFORM public.rental_record_payment(v_t5, 100000, v_today, 'cash', '', '');
+  PERFORM public.rental_record_payment(v_t6, 100000, v_today, 'cash', '', '');
+  -- T1 owes 1,500 on monthly bills (September half paid, October unpaid); a cancelled bill and a voided payment don't count.
+  PERFORM public.rental_issue_bill(v_t1, 'monthly', '2026-09', '2026-09-05', v_rent);
+  PERFORM public.rental_issue_bill(v_t1, 'monthly', '2026-10', '2026-10-05', v_rent);
+  v_p := public.rental_issue_bill(v_t1, 'monthly', '2026-11', '2026-11-05', v_rent);
+  UPDATE public.rental_bills SET status = 'void', void_reason = 'x' WHERE id = v_p;
+  PERFORM public.rental_record_payment(v_t1, 50000, v_today, 'cash', '', '');
+  v_void := public.rental_record_payment(v_t1, 70000, v_today, 'cash', '', '');
+  PERFORM public.rental_void_payment(v_void, 'Bounced');
+
+  -- Review Focus 2: not moved out yet, so nothing to settle.
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today, 'cash', '', ''), v_none);
+  UPDATE public.rental_tenancies SET move_out = v_today WHERE id IN (v_t1, v_t2, v_t3, v_t4, v_t5, v_t6);
+  -- Move-in bill not fully paid, or no move-in bill: nothing to settle either.
+  PERFORM pg_temp.refused(format(v_settle, v_t2, '[]', false, v_today, 'cash', '', ''), v_none);
+  PERFORM pg_temp.refused(format(v_settle, v_t3, '[]', false, v_today, 'cash', '', ''), v_none);
+
+  -- Strangers and other-property managers can't settle (same answer for an unknown tenancy).
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today, 'cash', '', ''), v_mgr);
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today, 'cash', '', ''), v_mgr);
+  PERFORM pg_temp.refused(format(v_settle, gen_random_uuid(), '[]', false, v_today, 'cash', '', ''), v_mgr);
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+
+  -- Deduction lines are validated; refund fields are required only when something is refunded.
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[{"label":"  ","amount":100}]', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[{"label":"Cleaning","amount":0}]', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[{"label":"Cleaning","amount":-500}]', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[{"label":"Cleaning","amount":1.5}]', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[{"label":"Cleaning","amount":"100"}]', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[{"label":"Cleaning","amount":2000000001}]', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, jsonb_build_array(jsonb_build_object('label', repeat('x', 81), 'amount', 1)),
+    false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, (SELECT jsonb_agg(jsonb_build_object('label', 'L' || n, 'amount', 1))
+    FROM generate_series(1, 31) n), false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '{"label":"Cleaning","amount":100}', false, v_today, 'cash', '', ''), v_lines_msg);
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today + 2, 'cash', '', ''), 'Settlement date is too far ahead');
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today, NULL, '', ''), 'Pick how the refund was paid');
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today, 'cheque', '', ''), 'Pick how the refund was paid');
+
+  -- Review Focus 1: deposit and unpaid bills come from SQL. 2,000 − 1,500 unpaid − 100 cleaning = 400 refund.
+  v_s1 := public.rental_settle_deposit(v_t1, '[{"label":" Cleaning ","amount":10000,"deposit":9999999}]',
+    false, v_today + 1, 'gcash', ' G-1 ', 'Keys returned');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s1;
+  IF (v_r.property_id, v_r.tenancy_id, v_r.deposit_centavos, v_r.unpaid_bills_centavos, v_r.refund_centavos, v_r.owed_centavos)
+    IS DISTINCT FROM (v_house, v_t1, 200000, 150000, 40000, 0)
+  THEN RAISE EXCEPTION 'Settlement figures are wrong: %', row_to_json(v_r); END IF;
+  IF v_r.lines <> '[{"label":"Cleaning","amount":10000}]'::jsonb OR v_r.forfeit OR v_r.status <> 'settled'
+    OR v_r.refunded_on <> v_today + 1 OR v_r.refund_method <> 'gcash' OR v_r.refund_reference <> 'G-1'
+    OR v_r.notes <> 'Keys returned' OR v_r.settled_by <> v_owner::uuid OR v_r.settled_at IS NULL
+  THEN RAISE EXCEPTION 'Settlement was stored wrong: %', row_to_json(v_r); END IF;
+  -- A second settlement is refused.
+  PERFORM pg_temp.refused(format(v_settle, v_t1, '[]', false, v_today, 'cash', '', ''), 'This deposit is already settled');
+
+  -- Over-deduction: refund 0, the tenant still owes the rest; refund fields are not recorded.
+  v_s4 := public.rental_settle_deposit(v_t4, '[{"label":"Broken door","amount":150000}]', false, v_today, 'cash', 'X', '');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s4;
+  IF (v_r.deposit_centavos, v_r.unpaid_bills_centavos, v_r.refund_centavos, v_r.owed_centavos, v_r.refunded_on, v_r.refund_method, v_r.refund_reference)
+    IS DISTINCT FROM (100000, 0, 0, 50000, NULL::date, NULL::text, '')
+  THEN RAISE EXCEPTION 'Over-deduction stored wrong: %', row_to_json(v_r); END IF;
+  -- Forfeit: refund 0, whatever the lines; a zero refund needs no method or date.
+  v_s5 := public.rental_settle_deposit(v_t5, '[]', true, NULL, NULL, NULL, 'Left early');
+  SELECT * INTO v_r FROM public.rental_settlements WHERE id = v_s5;
+  IF (v_r.refund_centavos, v_r.owed_centavos, v_r.forfeit, v_r.refunded_on, v_r.refund_method)
+    IS DISTINCT FROM (0, 0, true, NULL::date, NULL::text)
+  THEN RAISE EXCEPTION 'Forfeit stored wrong: %', row_to_json(v_r); END IF;
+
+  -- No direct writes on settlements, even for the owner; the invariant also holds in the table.
+  PERFORM pg_temp.refused(format('INSERT INTO public.rental_settlements (property_id, tenancy_id, deposit_centavos, '
+    'unpaid_bills_centavos, refund_centavos) VALUES (%L, %L, 1, 0, 1)', v_house, v_t6), '42501');
+  PERFORM pg_temp.refused(format('UPDATE public.rental_settlements SET refund_centavos = 200000 WHERE id = %L', v_s1), '42501');
+  PERFORM pg_temp.refused(format('DELETE FROM public.rental_settlements WHERE id = %L', v_s1), '42501');
+  IF has_function_privilege('anon', 'public.rental_settle_deposit(uuid, jsonb, boolean, date, text, text, text)', 'EXECUTE')
+  THEN RAISE EXCEPTION 'anon can settle deposits'; END IF;
+  RESET ROLE;
+  PERFORM pg_temp.refused(format('UPDATE public.rental_settlements SET refund_centavos = 200000 WHERE id = %L', v_s1), '23514');
+  PERFORM pg_temp.refused(format('UPDATE public.rental_settlements SET owed_centavos = 1 WHERE id = %L', v_s1), '23514');
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+
+  -- Settlement proofs: reserve, upload only to a reserved path, metadata guard, no cross-property rows.
+  INSERT INTO public.rental_settlement_proofs (id, settlement_id, property_id, name, mime_type, size)
+  VALUES ('00000000-0000-0000-0000-0000000a7061', v_s1, v_house, 'refund.png', 'image/png', 100);
+  IF (SELECT storage_path FROM public.rental_settlement_proofs WHERE id = '00000000-0000-0000-0000-0000000a7061')
+    <> v_house || '/settlements/' || v_s1 || '/00000000-0000-0000-0000-0000000a7061'
+  THEN RAISE EXCEPTION 'Settlement proof storage path is wrong'; END IF;
+  INSERT INTO storage.objects (bucket_id, name)
+  VALUES ('rental-files', v_house || '/settlements/' || v_s1 || '/00000000-0000-0000-0000-0000000a7061');
+  PERFORM pg_temp.refused(format('INSERT INTO storage.objects (bucket_id, name) VALUES (%L, %L)', 'rental-files',
+    v_house || '/settlements/' || v_s1 || '/00000000-0000-0000-0000-0000000a7999'), '42501');
+  UPDATE public.rental_settlement_proofs SET ready = true WHERE id = '00000000-0000-0000-0000-0000000a7061';
+  PERFORM pg_temp.refused(format('UPDATE public.rental_settlement_proofs SET name = %L WHERE id = %L', 'x.png',
+    '00000000-0000-0000-0000-0000000a7061'), '42501');
+  PERFORM pg_temp.refused(format('DELETE FROM public.rental_settlement_proofs WHERE id = %L', '00000000-0000-0000-0000-0000000a7061'),
+    'Remove the stored settlement proof before deleting its metadata');
+  RESET ROLE;
+  PERFORM pg_temp.refused(format('UPDATE public.rental_settlement_proofs SET settlement_id = %L WHERE id = %L', v_s4,
+    '00000000-0000-0000-0000-0000000a7061'), 'Settlement proof metadata cannot be reassigned');
+  SET LOCAL ROLE authenticated;
+
+  -- Friend joins as a manager: settles T6, but can't file a proof under Friend House or upload into it.
+  PERFORM public.rental_add_member(v_house, v_friend::uuid, 'manager');
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  v_s6 := public.rental_settle_deposit(v_t6, '[]', false, v_today, 'bank', '', '');
+  IF (SELECT refund_centavos FROM public.rental_settlements WHERE id = v_s6) <> 100000
+  THEN RAISE EXCEPTION 'Manager settlement refund is wrong'; END IF;
+  IF (SELECT count(*) FROM public.rental_settlement_proofs) <> 1 THEN RAISE EXCEPTION 'Manager cannot read settlement proofs'; END IF;
+  PERFORM pg_temp.refused(format('INSERT INTO public.rental_settlement_proofs (settlement_id, property_id, name, mime_type, size) '
+    'VALUES (%L, %L, %L, %L, 1)', v_s6, v_friend_house, 'x.png', 'image/png'), '23503');
+
+  -- As a viewer: reads settlements, never proofs; can't settle or reserve.
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = v_friend::uuid AND property_id = v_house;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  IF (SELECT count(*) FROM public.rental_settlements WHERE property_id = v_house) <> 4
+  THEN RAISE EXCEPTION 'Viewer cannot read settlements'; END IF;
+  IF EXISTS (SELECT 1 FROM public.rental_settlement_proofs) THEN RAISE EXCEPTION 'Viewer can read settlement proofs'; END IF;
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'rental-files' AND name LIKE v_house || '/%')
+  THEN RAISE EXCEPTION 'Viewer can read settlement proof files'; END IF;
+  PERFORM pg_temp.refused(format(v_settle, v_t2, '[]', false, v_today, 'cash', '', ''), v_mgr);
+  PERFORM pg_temp.refused(format('INSERT INTO public.rental_settlement_proofs (settlement_id, property_id, name, mime_type, size) '
+    'VALUES (%L, %L, %L, %L, 1)', v_s1, v_house, 'x.png', 'image/png'), '42501');
+
+  -- As a stranger: sees nothing.
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  IF EXISTS (SELECT 1 FROM public.rental_settlements) OR EXISTS (SELECT 1 FROM public.rental_settlement_proofs)
+  THEN RAISE EXCEPTION 'A stranger can read settlements'; END IF;
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+END $$;
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

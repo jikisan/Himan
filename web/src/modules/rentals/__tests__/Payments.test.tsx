@@ -42,6 +42,8 @@ const state = vi.hoisted(() => ({
 vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toasts }));
+const pdfs = vi.hoisted(() => ({ downloadBillPdf: vi.fn(), downloadReceiptPdf: vi.fn() }));
+vi.mock('../presentation/pdf/download', () => pdfs);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -281,5 +283,35 @@ describe('Payment accounts', () => {
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Previous balance ₱2,000'));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Paid ₱500'));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Amount due now ₱5,000'));
+  });
+});
+
+describe('PDF downloads', () => {
+  it('downloads the bill with its accounts and QR images, disabled while it is made', async () => {
+    state.accounts = [gcash];
+    let finish = () => {};
+    pdfs.downloadBillPdf.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(pdfs.downloadBillPdf).toHaveBeenCalledWith(expect.objectContaining({ id: BILL, number: 'LU-2026-0002' }),
+      expect.objectContaining({ renterName: 'Juan Dela Cruz', roomName: 'Room 1', accounts: [gcash] }), state.qrUrl));
+    expect(sheet.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
+    finish();
+    await waitFor(() => expect(sheet.getByRole('button', { name: 'Download PDF' })).toBeEnabled());
+  });
+  it('says so plainly when the PDF can’t be made', async () => {
+    pdfs.downloadBillPdf.mockRejectedValue(new Error('Failed to fetch dynamically imported module'));
+    fireEvent.click(openBill().getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledWith('Couldn’t make the PDF. Check your connection and try again.'));
+  });
+  it('downloads a receipt for each active payment, for viewers too', async () => {
+    state.properties = [{ ...property, role: 'viewer' }];
+    const p1 = pay('p1', 350000, [[BILL, 350000]]);
+    state.payments = [p1, pay('p2', 1000, [], { status: 'void', voidReason: 'Typo' })];
+    const sheet = openTenant();
+    expect(sheet.getAllByRole('button', { name: /Receipt PDF/ })).toHaveLength(1);
+    fireEvent.click(sheet.getByRole('button', { name: 'Receipt PDF for ₱3,500 on Nov 5, 2026' }));
+    await waitFor(() => expect(pdfs.downloadReceiptPdf).toHaveBeenCalledWith(p1, expect.objectContaining({
+      renterName: 'Juan Dela Cruz', roomName: 'Room 1', ownerName: 'Maria Santos', bills: state.bills, payments: state.payments })));
   });
 });

@@ -66,6 +66,7 @@ export const billName = (b: Pick<RentalBill, 'kind' | 'period'>) =>
   b.kind === 'move_in' ? 'Move-in SOA' : b.kind === 'final' ? 'Final SOA' : `${periodLabel(b.period)} SOA`;
 
 export interface ReceiptParty { propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string }
+export type ReceiptContext = ReceiptParty & { bills: RentalBill[]; payments: RentalPayment[] };
 export interface ReceiptDocument {
   number: string; date: string; from: { name: string; address: string }; receivedFrom: string; room: string;
   amount: string; amountInWords: string; method: string; reference: string;
@@ -75,7 +76,7 @@ export interface ReceiptDocument {
 }
 
 /** The acknowledgment receipt for one payment. Proof images are never part of it. */
-export function receiptDocument(payment: RentalPayment, ctx: ReceiptParty & { bills: RentalBill[]; payments: RentalPayment[] }): ReceiptDocument {
+export function receiptDocument(payment: RentalPayment, ctx: ReceiptContext): ReceiptDocument {
   const paid = payment.allocations.flatMap((a) => {
     const bill = ctx.bills.find((b) => b.id === a.billId);
     return bill ? [{ bill, amount: a.amountCentavos }] : [];

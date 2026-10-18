@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { billPaid, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit } from '@himan/shared/rentals';
-import type { RentalBill, RentalTenancy } from '@himan/shared/rentals';
+import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { PropertyForm } from '../components/PropertyForm';
@@ -88,6 +88,11 @@ function RentalsContent(state: RentalsState) {
     lateFeeCentavos: property?.lateFeeCentavos ?? 0, accounts: propertyAccounts,
     previousBalanceCentavos: bill ? previousBalance(t.id, { ...bill, id: bill.id ?? '' } as RentalBill, propertyBills, propertyPayments) : 0,
     paidCentavos: bill?.id ? billPaid(bill.id, propertyPayments) : 0 });
+  // Everything a payment's receipt needs; the whole property's bills and payments, so "left on these bills" is right.
+  const receipt = (p: RentalPayment): ReceiptContext => {
+    const { propertyName, ownerName, ownerAddress, renterName, roomName } = billInfo(propertyTenancies.find((t) => t.id === p.tenancyId)!);
+    return { propertyName, ownerName, ownerAddress, renterName, roomName, bills: propertyBills, payments: propertyPayments };
+  };
   const payingTenancy = propertyTenancies.find((t) => t.id === paying?.tenancyId);
   const hasFooter = dialog && dialog.type !== 'share' && !inSheet;
 
@@ -291,7 +296,7 @@ function RentalsContent(state: RentalsState) {
           const renter = propertyRenters.find((r) => r.id === dialog.renterId);
           return renter && <TenantSheet renter={renter} tenancies={propertyTenancies}
             bills={propertyBills} payments={propertyPayments} unitName={unitName} canManage={isManager} busy={busy} run={run}
-            fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
+            fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} receipt={receipt} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
             onSaveDetails={async (input) => { await run({ type: 'saveRenter', propertyId: property.id, id: renter.id, input }); toast.success('Tenant saved'); }}
             deleteAction={<Button type="button" variant="ghost" className="px-2 text-destructive hover:text-destructive" onClick={() => setConfirm({
               title: `Delete ${renter.fullName}?`, confirmText: 'Delete', done: 'Tenant deleted', action: { type: 'removeRenter', id: renter.id },
@@ -303,7 +308,7 @@ function RentalsContent(state: RentalsState) {
           const bill = dialog.type === 'bill' ? bills.find((b) => b.id === dialog.billId) : undefined;
           const tenancy = propertyTenancies.find((t) => t.id === (bill?.tenancyId ?? (dialog.type === 'pending' ? dialog.tenancyId : '')));
           if (!tenancy) return null;
-          if (bill) return <BillSheet bill={bill} info={billInfo(tenancy, bill)} canManage={isManager} busy={busy} payments={propertyPayments}
+          if (bill) return <BillSheet bill={bill} info={billInfo(tenancy, bill)} canManage={isManager} busy={busy} payments={propertyPayments} qrUrl={state.qrUrl}
             onRecordPayment={() => setPaying({ tenancyId: tenancy.id, billId: bill.id })}
             onSaveLines={async (lines) => { await run({ type: 'updateBillLines', id: bill.id, lines }); }}
             onCancelBill={() => setConfirm({ title: `Cancel ${bill.number}?`, confirmText: 'Cancel this SOA', done: 'SOA cancelled',
@@ -311,7 +316,7 @@ function RentalsContent(state: RentalsState) {
               description: [billPaid(bill.id, propertyPayments) > 0 && paidChangeWarning(billPaid(bill.id, propertyPayments)),
                 'It stays in the list, marked cancelled, and this month can be billed again.'].filter(Boolean).join(' ') })}>
             <PaymentsList payments={propertyPayments.filter((p) => p.allocations.some((a) => a.billId === bill.id))} bills={bills}
-              canManage={isManager} busy={busy} run={run} proofUrl={paymentProofUrl} empty="No payments on this SOA yet." />
+              canManage={isManager} busy={busy} run={run} proofUrl={paymentProofUrl} empty="No payments on this SOA yet." receipt={receipt} />
           </BillSheet>;
           if (dialog.type !== 'pending') return null;
           const pending = pendingBill({ property, tenancies: propertyTenancies, bills, utilityBills: propertyUtilityBills,

@@ -13,6 +13,7 @@ import type { StatementBill, StatementInfo } from './Statement';
 import { MoneyInput, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 import { paidChangeWarning } from '../utils/billingMonth';
+import { PdfButton } from './PdfButton';
 
 const isUtility = (l: BillLine) => l.kind === 'electric' || l.kind === 'water';
 /** Like parsePesos, but a leading minus makes a discount. */
@@ -22,8 +23,8 @@ const signedPesos = (value: string) => (value.trim().startsWith('-') ? -parsePes
  * Side-panel body for one bill (issued or still pending). Rendered inside a SheetContent.
  * `children` is the bill's payments list; `credit` is the tenant's unused credit (it pays a pending bill once generated).
  */
-export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, onCancelBill, payments = [], credit = 0, onRecordPayment, children }: {
-  bill: (StatementBill & { id?: string }); info: StatementInfo; canManage: boolean; busy: boolean;
+export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, onCancelBill, payments = [], credit = 0, onRecordPayment, qrUrl, children }: {
+  bill: (StatementBill & { id?: string }); info: StatementInfo; canManage: boolean; busy: boolean; qrUrl?(path: string): string;
   onSaveLines(lines: BillLine[]): Promise<void>; onIssue?(): Promise<void>; onCancelBill?(): void;
   payments?: RentalPayment[]; credit?: number; onRecordPayment?(): void; children?: ReactNode;
 }) {
@@ -69,6 +70,8 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
       {canManage && saved && onRecordPayment && billBalance(saved, payments) > 0 && <Button className="h-11 sm:h-9" onClick={onRecordPayment}>
         <HandCoins className="h-4 w-4" />Record payment</Button>}
       <Button variant="outline" className="h-11 sm:h-9" onClick={() => void copy()}><Copy className="h-4 w-4" />Copy for Messenger</Button>
+      {bill.number && bill.id && <PdfButton className="h-11 sm:h-9"
+        make={async () => (await import('../pdf/download')).downloadBillPdf(bill as RentalBill, info, qrUrl)}>Download PDF</PdfButton>}
       {lateFee && <Button variant="outline" className="h-11 sm:h-9" disabled={busy}
         onClick={() => void onSaveLines([...bill.lines, { kind: 'penalty', label: 'Late payment penalty', amount: info.lateFeeCentavos }])
           .then(() => toast.success('Late fee added'), (e) => toast.error(errorMessage(e)))}>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { addPeriods, centavosToInput, contractTermsSchema, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
-import type { ContractTermsInput, RentalBill, RentalContract, RentalPayment, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import type { ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
 import { PaymentsList } from './PaymentsList';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
@@ -24,9 +24,10 @@ const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
 export function TenantSheet({ renter, tenancies, bills = [], payments = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
-  onMoveOut, onRecordPayment, deleteAction }: {
+  onMoveOut, onRecordPayment, receipt, deleteAction }: {
   renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; payments?: RentalPayment[]; unitName(id: string): string; canManage: boolean;
   deleteAction?: ReactNode; onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void; onRecordPayment?(tenancyId: string): void;
+  receipt?(payment: RentalPayment): ReceiptContext;
 } & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
   const mine = tenancies.filter((t) => t.renterId === renter.id);
@@ -102,7 +103,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
           <Button key={t.id} variant="outline" className="h-11 sm:h-9" onClick={() => onRecordPayment(t.id)}>
             <HandCoins className="h-4 w-4" />Record payment{active.length > 1 && <span> · {unitName(t.unitId)}</span>}</Button>)}</div>}
         <PaymentsList payments={myPayments} bills={bills} canManage={canManage} busy={busy} run={run} proofUrl={paymentProofUrl}
-          empty="No payments recorded yet." />
+          empty="No payments recorded yet." receipt={receipt} />
       </section>}
 
       {contracts.map((c) => <section key={c.id} aria-label="Contract">

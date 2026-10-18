@@ -5,21 +5,24 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatBillPesos, validateRentalFile } from '@himan/shared/rentals';
-import type { RentalBill, RentalPayment } from '@himan/shared/rentals';
+import type { ReceiptContext, RentalBill, RentalPayment } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 import { METHOD, billName } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
+import { PdfButton } from './PdfButton';
 
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
 
 /**
  * Money received, newest first: what each payment paid, and any credit left over. Managers can void a payment
- * (with a reason) and see or attach proof screenshots; viewers only read.
+ * (with a reason) and see or attach proof screenshots; viewers only read. Anyone can download an active payment's receipt
+ * when `receipt` gives its context.
  */
-export function PaymentsList({ payments, bills, canManage, busy, run, proofUrl, empty }: {
+export function PaymentsList({ payments, bills, canManage, busy, run, proofUrl, empty, receipt }: {
   payments: RentalPayment[]; bills: RentalBill[]; canManage: boolean; proofUrl: RentalsState['paymentProofUrl']; empty: string;
+  receipt?(payment: RentalPayment): ReceiptContext;
 } & Pick<RentalsState, 'busy' | 'run'>) {
   const [voiding, setVoiding] = useState<RentalPayment | null>(null);
   if (!payments.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
@@ -41,9 +44,12 @@ export function PaymentsList({ payments, bills, canManage, busy, run, proofUrl, 
           </ul>}
         {p.notes && <p className="whitespace-pre-line text-xs">{p.notes}</p>}
         {canManage && <Proofs payment={p} busy={busy} run={run} proofUrl={proofUrl} />}
-        {canManage && !isVoid && <div className="flex justify-end">
-          <Button variant="ghost" size="sm" className="h-11 px-2 text-destructive hover:text-destructive sm:h-8" disabled={busy}
-            aria-label={`Void payment of ${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`} onClick={() => setVoiding(p)}>Void</Button>
+        {!isVoid && (receipt || canManage) && <div className="flex justify-end gap-1">
+          {receipt && <PdfButton variant="ghost" size="sm" className="h-11 px-2 sm:h-8"
+            aria-label={`Receipt PDF for ${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`}
+            make={async () => (await import('../pdf/download')).downloadReceiptPdf(p, receipt(p))}>Receipt PDF</PdfButton>}
+          {canManage && <Button variant="ghost" size="sm" className="h-11 px-2 text-destructive hover:text-destructive sm:h-8" disabled={busy}
+            aria-label={`Void payment of ${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`} onClick={() => setVoiding(p)}>Void</Button>}
         </div>}
       </li>;
     })}</ul>

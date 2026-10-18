@@ -6,7 +6,7 @@ import type { RentalBill, RentalTenancy } from './types.js';
 export interface SettlementLine { label: string; amount: number }
 export interface SettlementProof { id: string; settlementId: string; propertyId: string; name: string; mimeType: string; size: number; storagePath: string; ready: boolean }
 export interface RentalSettlement {
-  id: string; propertyId: string; tenancyId: string; depositCentavos: number; unpaidBillsCentavos: number; lines: SettlementLine[];
+  id: string; propertyId: string; tenancyId: string; depositCentavos: number; unpaidBillsCentavos: number; creditCentavos?: number; lines: SettlementLine[];
   forfeit: boolean; refundCentavos: number; owedCentavos: number; refundedOn: string | null; refundMethod: PaymentMethod | null;
   refundReference: string; notes: string; status: 'draft' | 'settled'; settledAt: string | null; proofs: SettlementProof[];
 }
@@ -14,7 +14,7 @@ export interface RentalSettlement {
 const LINE = 'Add a label and an amount for each deduction';
 export const settlementSchema = z.object({
   lines: z.array(z.object({
-    label: z.string(LINE).trim().min(1, LINE).max(80, 'Keep each label under 80 characters').regex(/[^\s​-‍﻿]/, LINE),
+    label: z.string(LINE).trim().min(1, LINE).max(80, 'Keep each label under 80 characters').regex(/[\p{L}\p{N}\p{P}]/u, LINE),
     amount: z.number(LINE).int(LINE).min(1, LINE).max(2_000_000_000, 'That amount is too high'),
   })).max(30, 'Use at most 30 deductions'),
   forfeit: z.boolean(),
@@ -26,13 +26,18 @@ export const settlementSchema = z.object({
 });
 export type SettlementInput = z.infer<typeof settlementSchema>;
 
-/** Unpaid bills and each line come off the deposit and any excess is still owed; forfeit keeps the whole deposit (refund 0). Matches rental_settle_deposit. */
-export function settlementPreview(input: { depositCentavos: number; unpaidBillsCentavos: number; lines: SettlementLine[]; forfeit: boolean }):
+/**
+ * Unpaid bills and each line come off the deposit plus the tenant's credit; any excess is still owed. Forfeit keeps the
+ * whole deposit and returns only the credit left after deductions beyond the deposit. Matches rental_settle_deposit.
+ */
+export function settlementPreview(input: { depositCentavos: number; unpaidBillsCentavos: number; lines: SettlementLine[]; forfeit: boolean; creditCentavos?: number }):
   { deductionsCentavos: number; refundCentavos: number; owedByTenantCentavos: number } {
-  const { depositCentavos, unpaidBillsCentavos, lines, forfeit } = input;
+  const { depositCentavos, unpaidBillsCentavos, lines, forfeit, creditCentavos = 0 } = input;
   const deductionsCentavos = unpaidBillsCentavos + lines.reduce((a, l) => a + l.amount, 0);
-  return { deductionsCentavos, refundCentavos: forfeit ? 0 : Math.max(depositCentavos - deductionsCentavos, 0),
-    owedByTenantCentavos: Math.max(deductionsCentavos - depositCentavos, 0) };
+  return { deductionsCentavos,
+    refundCentavos: forfeit ? Math.max(creditCentavos - Math.max(deductionsCentavos - depositCentavos, 0), 0)
+      : Math.max(depositCentavos + creditCentavos - deductionsCentavos, 0),
+    owedByTenantCentavos: Math.max(deductionsCentavos - depositCentavos - creditCentavos, 0) };
 }
 
 /** A held deposit after move-out waits to be settled; once settled it is no longer held. */

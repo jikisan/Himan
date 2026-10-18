@@ -130,6 +130,17 @@ describe('Settling a deposit', () => {
     expect(dialog.queryByLabelText('Refund date')).not.toBeInTheDocument();
   });
 
+  it('adds the tenant credit to the refund', () => {
+    state.payments = [{ ...paid, amountCentavos: 1380000 }];
+    const dialog = openFromHome();
+    expect(dialog.getByText('Tenant credit').nextElementSibling).toHaveTextContent('₱300');
+    expect(dialog.getByText('Refund to tenant').nextElementSibling).toHaveTextContent('₱8,300');
+  });
+
+  it('shows no credit row without credit', () => {
+    expect(openFromHome().queryByText('Tenant credit')).not.toBeInTheDocument();
+  });
+
   it('asks for a label on each line and shows the database’s message as is', async () => {
     const dialog = openFromHome();
     fireEvent.click(dialog.getByRole('button', { name: 'Add Other' }));
@@ -161,6 +172,14 @@ describe('Settled deposit', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Settlement PDF' }));
     await waitFor(() => expect(pdfs.downloadSettlementPdf).toHaveBeenCalledWith(settled, expect.objectContaining({
       renterName: 'Juan Dela Cruz', roomName: 'Room 1', moveOut: '2026-11-05', ownerName: 'Maria Santos' })));
+  });
+
+  it('drops the leftover credit from the sheet and says what a kept deposit still leaves owed', () => {
+    state.payments = [{ ...paid, amountCentavos: 1380000 }];
+    state.settlements = [{ ...settled, refundCentavos: 0, owedCentavos: 120000, refundedOn: null, refundMethod: null, refundReference: '' }];
+    const sheet = openTenant();
+    expect(sheet.queryByText(/credit$/)).not.toBeInTheDocument();
+    expect(sheet.getByText('Settled · deposit kept · still owes ₱1,200')).toBeInTheDocument();
   });
 
   it('lets managers settle from the sheet and shows viewers the summary read-only', () => {

@@ -110,14 +110,14 @@ export const settlementProofRow = z.object({
 }));
 
 export const settlementRow = z.object({
-  id: z.string(), property_id: z.string(), tenancy_id: z.string(), deposit_centavos: z.number(), unpaid_bills_centavos: z.number(),
+  id: z.string(), property_id: z.string(), tenancy_id: z.string(), deposit_centavos: z.number(), unpaid_bills_centavos: z.number(), credit_centavos: z.number().default(0),
   lines: z.array(z.object({ label: z.string(), amount: z.number() })), forfeit: z.boolean(), refund_centavos: z.number(),
   owed_centavos: z.number(), refunded_on: z.string().nullable(), refund_method: z.enum(PAYMENT_METHODS).nullable(),
   refund_reference: z.string(), notes: z.string(), status: z.enum(['draft', 'settled']), settled_at: z.string().nullable(),
   proofs: z.array(settlementProofRow).default([]),
 }).transform((r): RentalSettlement => ({
   id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, depositCentavos: r.deposit_centavos,
-  unpaidBillsCentavos: r.unpaid_bills_centavos, lines: r.lines, forfeit: r.forfeit, refundCentavos: r.refund_centavos,
+  unpaidBillsCentavos: r.unpaid_bills_centavos, creditCentavos: r.credit_centavos, lines: r.lines, forfeit: r.forfeit, refundCentavos: r.refund_centavos,
   owedCentavos: r.owed_centavos, refundedOn: r.refunded_on, refundMethod: r.refund_method, refundReference: r.refund_reference,
   notes: r.notes, status: r.status, settledAt: r.settled_at, proofs: r.proofs,
 }));

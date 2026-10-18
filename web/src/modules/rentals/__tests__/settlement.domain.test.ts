@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { depositHeld, depositToReturn, settlementPreview, settlementSchema } from '@himan/shared/rentals';
+import { depositHeld, depositToReturn, settlementPreview, settlementSchema, tenancyCredit } from '@himan/shared/rentals';
 import type { RentalBill, RentalPayment, RentalSettlement, RentalTenancy } from '@himan/shared/rentals';
 
 const moveIn: RentalBill = { id: 'mi', propertyId: 'p', tenancyId: 't', kind: 'move_in', period: '2026-10', number: 'LU-1',
@@ -29,6 +29,29 @@ describe('settlementPreview', () => {
       .toEqual({ deductionsCentavos: 5200000, refundCentavos: 0, owedByTenantCentavos: 4200000 });
     expect(settlementPreview({ ...base, lines: [], forfeit: true }))
       .toEqual({ deductionsCentavos: 200000, refundCentavos: 0, owedByTenantCentavos: 0 });
+  });
+  it('adds the tenant credit to the refund and lets it offset deductions, like the database', () => {
+    expect(settlementPreview({ ...base, unpaidBillsCentavos: 0, lines: [], creditCentavos: 30000 }))
+      .toEqual({ deductionsCentavos: 0, refundCentavos: 1030000, owedByTenantCentavos: 0 });
+    expect(settlementPreview({ ...base, lines: [{ label: 'Damage', amount: 820000 }], creditCentavos: 30000 }))
+      .toEqual({ deductionsCentavos: 1020000, refundCentavos: 10000, owedByTenantCentavos: 0 });
+    expect(settlementPreview({ ...base, lines: [{ label: 'Damage', amount: 900000 }], creditCentavos: 30000 }))
+      .toEqual({ deductionsCentavos: 1100000, refundCentavos: 0, owedByTenantCentavos: 70000 });
+  });
+  it('returns only the credit left after excess deductions on forfeit', () => {
+    expect(settlementPreview({ ...base, lines: [], forfeit: true, creditCentavos: 30000 }))
+      .toEqual({ deductionsCentavos: 200000, refundCentavos: 30000, owedByTenantCentavos: 0 });
+    expect(settlementPreview({ ...base, lines: [{ label: 'Damage', amount: 810000 }], forfeit: true, creditCentavos: 30000 }))
+      .toEqual({ deductionsCentavos: 1010000, refundCentavos: 20000, owedByTenantCentavos: 0 });
+  });
+});
+
+describe('tenancyCredit after settlement', () => {
+  it('shows no credit once the tenancy is settled', () => {
+    const over = [{ ...paid()[0], amountCentavos: 1530000 }];
+    expect(tenancyCredit('t', over)).toBe(30000);
+    expect(tenancyCredit('t', over, [settlement])).toBe(0);
+    expect(tenancyCredit('t', over, [{ ...settlement, tenancyId: 'other' }])).toBe(30000);
   });
 });
 
@@ -65,6 +88,7 @@ describe('settlementSchema', () => {
   });
   it('refuses bad lines with plain messages', () => {
     expect(message({ ...valid, lines: [{ label: '   ', amount: 100 }] })).toBe('Add a label and an amount for each deduction');
+    expect(message({ ...valid, lines: [{ label: '\u2060\u00AD', amount: 100 }] })).toBe('Add a label and an amount for each deduction');
     expect(message({ ...valid, lines: [{ label: 'x'.repeat(81), amount: 100 }] })).toBe('Keep each label under 80 characters');
     expect(message({ ...valid, lines: [{ label: 'Damage', amount: 0 }] })).toBe('Add a label and an amount for each deduction');
     expect(message({ ...valid, lines: [{ label: 'Damage', amount: 1.5 }] })).toBe('Add a label and an amount for each deduction');

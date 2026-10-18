@@ -32,5 +32,14 @@ describe('settlement pdf', () => {
     expect(text).toContain('Kept in full (early termination)');
     expect(text).toContain('Tenant still owes ₱1,200');
     expect(text).not.toContain('REFUND TO TENANT');
+    expect(text).not.toContain('Received by');
+  });
+
+  it('prints the tenant credit when there is one', async () => {
+    const withCredit = { ...settlement, creditCentavos: 30000, refundCentavos: 579950 };
+    const text = await pdfText(await renderToBuffer(<SettlementPdf doc={settlementDocument(withCredit, ctx)} />), 'settlement-credit');
+    if (text === null) return;
+    expect(text.replace(/\s+/g, ' ')).toContain('Tenant credit ₱300');
+    expect(text).toContain('₱5,799.50');
   });
 });

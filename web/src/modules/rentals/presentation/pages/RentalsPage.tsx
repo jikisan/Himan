@@ -107,6 +107,7 @@ function RentalsContent(state: RentalsState) {
     return { tenancyId: settling.id, name: renterName, room: roomName,
       depositCentavos: depositToReturn(settling, propertyBills, propertyPayments, settlement).depositCentavos,
       unpaidCentavos: tenancyOwed(settling.id, propertyBills, propertyPayments),
+      creditCentavos: tenancyCredit(settling.id, propertyPayments),
       ctx: { propertyName, ownerName, ownerAddress, renterName, roomName, moveOut: settling.moveOut! } };
   })();
   const hasFooter = dialog && dialog.type !== 'share' && dialog.type !== 'linkReady' && !inSheet;
@@ -366,7 +367,7 @@ function RentalsContent(state: RentalsState) {
           if (pending.state !== 'ready') return null;
           const draft = { period: dialog.period, dueOn: pending.dueOn, lines: pending.lines };
           return <BillSheet bill={draft} info={billInfo(tenancy, draft)} canManage={isManager} busy={busy}
-            credit={tenancyCredit(tenancy.id, propertyPayments)} onSaveLines={async () => undefined}
+            credit={tenancyCredit(tenancy.id, propertyPayments, state.settlements)} onSaveLines={async () => undefined}
             onIssue={async () => {
               const { issued } = await run({ type: 'issueBills', inputs: [{ tenancyId: tenancy.id, kind: 'monthly', ...draft }] }) as { issued: number };
               if (issued) { toast.success('SOA generated'); setDialog(null); } else toast.error('Couldn’t generate this SOA. Try again.');

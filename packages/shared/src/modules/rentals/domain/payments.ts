@@ -69,7 +69,9 @@ export function tenancyOwed(tenancyId: string, bills: RentalBill[], payments: Re
   return sum(bills.filter((b) => b.tenancyId === tenancyId).map((b) => billBalance(b, payments)));
 }
 
-export function tenancyCredit(tenancyId: string, payments: RentalPayment[]): number {
+/** Unallocated money on the tenancy's payments; none once its deposit is settled (the settlement paid it out). */
+export function tenancyCredit(tenancyId: string, payments: RentalPayment[], settlements: RentalSettlement[] = []): number {
+  if (settlements.some((s) => s.tenancyId === tenancyId)) return 0;
   return sum(active(payments).filter((p) => p.tenancyId === tenancyId)
     .map((p) => p.amountCentavos - sum(p.allocations.map((a) => a.amountCentavos))));
 }

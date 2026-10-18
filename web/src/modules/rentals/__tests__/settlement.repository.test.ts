@@ -15,7 +15,7 @@ function result(data: unknown, error: unknown = null) {
 }
 const proofRow = { id: 'f', settlement_id: 's', property_id: 'p', name: 'refund.png', mime_type: 'image/png', size: 10,
   storage_path: 'p/settlements/s/f', ready: false };
-const settlementRow = { id: 's', property_id: 'p', tenancy_id: 't', deposit_centavos: 1000000, unpaid_bills_centavos: 200000,
+const settlementRow = { id: 's', property_id: 'p', tenancy_id: 't', deposit_centavos: 1000000, unpaid_bills_centavos: 200000, credit_centavos: 30000,
   lines: [{ label: 'Cleaning', amount: 50000 }], forfeit: false, refund_centavos: 750000, owed_centavos: 0, refunded_on: '2027-04-02',
   refund_method: 'gcash', refund_reference: 'REF', notes: '', status: 'settled', created_at: '', settled_at: '2027-04-02T00:00:00Z',
   settled_by: 'u', proofs: [{ ...proofRow, ready: true }] };
@@ -32,7 +32,7 @@ describe('SettlementRepository', () => {
     const [s] = await new SettlementRepository().findAll();
     expect(mock.from).toHaveBeenCalledWith('rental_settlements');
     expect(query.select).toHaveBeenCalledWith('*, proofs:rental_settlement_proofs(*)');
-    expect(s).toEqual({ id: 's', propertyId: 'p', tenancyId: 't', depositCentavos: 1000000, unpaidBillsCentavos: 200000,
+    expect(s).toEqual({ id: 's', propertyId: 'p', tenancyId: 't', depositCentavos: 1000000, unpaidBillsCentavos: 200000, creditCentavos: 30000,
       lines: [{ label: 'Cleaning', amount: 50000 }], forfeit: false, refundCentavos: 750000, owedCentavos: 0, refundedOn: '2027-04-02',
       refundMethod: 'gcash', refundReference: 'REF', notes: '', status: 'settled', settledAt: '2027-04-02T00:00:00Z',
       proofs: [{ id: 'f', settlementId: 's', propertyId: 'p', name: 'refund.png', mimeType: 'image/png', size: 10,

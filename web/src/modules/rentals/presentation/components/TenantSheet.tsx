@@ -49,7 +49,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     .sort((a, b) => b.date.localeCompare(a.date));
   const myPayments = payments.filter((p) => mine.some((t) => t.id === p.tenancyId));
   const owed = mine.reduce((sum, t) => sum + tenancyOwed(t.id, bills, payments), 0);
-  const credit = mine.reduce((sum, t) => sum + tenancyCredit(t.id, payments), 0);
+  const credit = mine.reduce((sum, t) => sum + tenancyCredit(t.id, payments, settlements), 0);
   const chat = messengerUrl(renter.facebook);
   const deposits = mine.filter((t) => t.moveOut).map((t) => ({ t, settlement: settlements.find((x) => x.tenancyId === t.id) }))
     .map(({ t, settlement }) => ({ t, settlement, deposit: depositToReturn(t, bills, payments, settlement) }))
@@ -130,7 +130,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         <h3 id="sheet-deposit" className="text-sm font-semibold">Deposit</h3>
         {deposits.map(({ t, settlement, deposit }) => <div key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
           <span className="min-w-0 flex-1">{mine.length > 1 && `${unitName(t.unitId)} · `}{settlement
-            ? settlement.refundCentavos > 0 ? `Settled · ${formatBillPesos(settlement.refundCentavos)} refunded` : 'Settled · deposit kept'
+            ? settlement.refundCentavos > 0 ? `Settled · ${formatBillPesos(settlement.refundCentavos)} refunded` : `Settled · deposit kept${settlement.owedCentavos > 0 ? ` · still owes ${formatBillPesos(settlement.owedCentavos)}` : ''}`
             : `${formatBillPesos(deposit.depositCentavos)} to return`}</span>
           {settlement ? <Button variant="outline" className="h-11 sm:h-9" onClick={() => onOpenSettlement(t.id)}>View settlement</Button>
             : canManage && <Button className="h-11 sm:h-9" onClick={() => onOpenSettlement(t.id)}>Settle deposit</Button>}

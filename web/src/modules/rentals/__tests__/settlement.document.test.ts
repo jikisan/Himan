@@ -16,7 +16,7 @@ describe('settlementDocument', () => {
     expect(doc).toMatchObject({ from: { name: 'Maria Santos', address: 'Lahug, Cebu City' }, deposit: '₱10,000',
       fields: [['Tenant', 'Juan Dela Cruz'], ['Room', 'Room 1'], ['Moved out', 'Mar 31, 2027'], ['Settled on', 'Apr 2, 2027']],
       deductions: [{ label: 'Unpaid bills', amount: '₱2,500.50' }, { label: 'Cleaning', amount: '₱500' }, { label: 'Broken door', amount: '₱1,500' }],
-      totalDeductions: '₱4,500.50', notes: 'Keys returned', lessor: 'Maria Santos', tenant: 'Juan Dela Cruz', owed: null });
+      totalDeductions: '₱4,500.50', notes: 'Keys returned', lessor: 'Maria Santos', tenant: 'Juan Dela Cruz', owed: null, credit: null });
     expect(doc.result).toEqual({ title: 'Refund to tenant', amount: '₱5,499.50', words: 'Five Thousand Four Hundred Ninety Nine Pesos And Fifty Centavos Only',
       details: [['Method', 'GCash'], ['Date', 'Apr 2, 2027'], ['Reference no.', 'GC-9']] });
     expect(JSON.stringify(doc)).not.toContain('secret');
@@ -32,6 +32,12 @@ describe('settlementDocument', () => {
       refundReference: '', lines: [{ label: 'Damage', amount: 869950 }] }, ctx);
     expect(owing.result.details).toEqual([['Reason', 'Used up by the deductions']]);
     expect(owing.owed).toBe('Tenant still owes ₱1,200');
+    expect(owing.tenant).toBeNull();
+  });
+
+  it('lists the tenant credit when there is one', () => {
+    expect(settlementDocument({ ...settlement, creditCentavos: 30000, refundCentavos: 579950 }, ctx)).toMatchObject({
+      credit: '₱300', result: { amount: '₱5,799.50' } });
   });
 
   it('falls back to the property name and skips an empty reference', () => {

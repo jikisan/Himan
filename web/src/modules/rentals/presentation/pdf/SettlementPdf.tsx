@@ -20,6 +20,8 @@ export function SettlementPdf({ doc }: { doc: SettlementDocument }) {
 
       <View style={[styles.row, { marginTop: 16 }]} wrap={false}>
         <Text style={[styles.label, styles.bold]}>Deposit held</Text><Text style={[styles.amount, styles.bold]}>{doc.deposit}</Text></View>
+      {doc.credit && <View style={styles.row} wrap={false}>
+        <Text style={styles.label}>Tenant credit</Text><Text style={styles.amount}>{doc.credit}</Text></View>}
       {doc.deductions.length > 0 && <>
         <Text style={styles.heading} minPresenceAhead={24}>Less deductions</Text>
         {doc.deductions.map((d, i) => <View key={i} style={styles.row} wrap={false}>
@@ -42,7 +44,7 @@ export function SettlementPdf({ doc }: { doc: SettlementDocument }) {
       {!!doc.notes && <View wrap={false}><Text style={styles.heading}>Notes</Text><Text>{doc.notes}</Text></View>}
 
       <View wrap={false} style={{ marginTop: 40, flexDirection: 'row', justifyContent: 'space-between', gap: 24 }}>
-        {[['Lessor', doc.lessor], ['Received by', doc.tenant]].map(([k, v]) => <View key={k} style={{ flex: 1 }}>
+        {[['Lessor', doc.lessor], ...(doc.tenant ? [['Received by', doc.tenant]] : [])].map(([k, v]) => <View key={k} style={{ flex: 1, maxWidth: '50%' }}>
           <View style={[styles.line, { width: '100%' }]} />
           <Text style={styles.muted}>{k}</Text>
           <Text style={styles.bold}>{v}</Text>

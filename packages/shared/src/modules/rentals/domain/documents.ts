@@ -129,7 +129,11 @@ export interface SettlementDocument {
   deductions: { label: string; amount: string }[]; totalDeductions: string;
   /** The refund (in words, with how and when), or the deposit kept. */
   result: { title: string; amount: string; words: string | null; details: [string, string][] };
-  owed: string | null; notes: string; lessor: string; tenant: string;
+  /** The tenant's credit, added to the deposit. */
+  credit: string | null;
+  owed: string | null; notes: string; lessor: string;
+  /** The tenant signs as having received the refund, so only when there is one. */
+  tenant: string | null;
 }
 
 /** The deposit settlement as printed. Never includes proof images. */
@@ -141,6 +145,7 @@ export function settlementDocument(s: RentalSettlement, ctx: SettlementContext):
     from: { name: from, address: ctx.ownerAddress },
     fields: [['Tenant', ctx.renterName], ['Room', ctx.roomName], ['Moved out', long(ctx.moveOut)], ...(settledOn ? [['Settled on', long(settledOn)] as [string, string]] : [])],
     deposit: formatBillPesos(s.depositCentavos),
+    credit: (s.creditCentavos ?? 0) > 0 ? formatBillPesos(s.creditCentavos!) : null,
     deductions: deductions.map((d) => ({ label: d.label, amount: formatBillPesos(d.amount) })),
     totalDeductions: formatBillPesos(deductions.reduce((sum, d) => sum + d.amount, 0)),
     result: s.refundCentavos > 0
@@ -151,6 +156,6 @@ export function settlementDocument(s: RentalSettlement, ctx: SettlementContext):
       : { title: 'Deposit kept', amount: formatBillPesos(s.depositCentavos), words: null,
         details: [['Reason', s.forfeit ? 'Kept in full (early termination)' : 'Used up by the deductions']] },
     owed: s.owedCentavos > 0 ? `Tenant still owes ${formatBillPesos(s.owedCentavos)}` : null,
-    notes: s.notes, lessor: from, tenant: ctx.renterName,
+    notes: s.notes, lessor: from, tenant: s.refundCentavos > 0 ? ctx.renterName : null,
   };
 }

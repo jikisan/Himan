@@ -24,7 +24,7 @@ type Row = { name: string; label: string; amount: string };
  * are an estimate; the database recomputes the deposit and unpaid bills, and the summary shows what it stored.
  */
 export function SettleDepositDialog({ target, settlement, canManage, busy, run, proofUrl, onClose }: {
-  target: { tenancyId: string; name: string; room: string; depositCentavos: number; unpaidCentavos: number; ctx: SettlementContext } | null;
+  target: { tenancyId: string; name: string; room: string; depositCentavos: number; unpaidCentavos: number; creditCentavos: number; ctx: SettlementContext } | null;
   settlement?: RentalSettlement; canManage: boolean; proofUrl: RentalsState['settlementProofUrl']; onClose(): void;
 } & Pick<RentalsState, 'busy' | 'run'>) {
   return <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
@@ -40,8 +40,8 @@ export function SettleDepositDialog({ target, settlement, canManage, busy, run, 
   </Dialog>;
 }
 
-function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, busy, run, onClose }: {
-  tenancyId: string; name: string; depositCentavos: number; unpaidCentavos: number; onClose(): void;
+function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCentavos, busy, run, onClose }: {
+  tenancyId: string; name: string; depositCentavos: number; unpaidCentavos: number; creditCentavos: number; onClose(): void;
 } & Pick<RentalsState, 'busy' | 'run'>) {
   const today = manilaToday();
   const [rows, setRows] = useState<Row[]>([]);
@@ -55,7 +55,7 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, busy, ru
   const [confirming, setConfirming] = useState<SettlementInput | null>(null);
   const [saved, setSaved] = useState(false);
   const amountOf = (text: string) => { try { return text.trim() ? parsePesos(text) : 0; } catch { return 0; } };
-  const preview = settlementPreview({ depositCentavos, unpaidBillsCentavos: unpaidCentavos, forfeit,
+  const preview = settlementPreview({ depositCentavos, unpaidBillsCentavos: unpaidCentavos, creditCentavos, forfeit,
     lines: rows.map((r) => ({ label: r.label, amount: amountOf(r.amount) })) });
   const refunding = preview.refundCentavos > 0;
   const edit = (i: number, change: Partial<Row>) => { setRows((list) => list.map((r, j) => j === i ? { ...r, ...change } : r)); setError(''); };
@@ -91,6 +91,7 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, busy, ru
     <fieldset disabled={busy || !!confirming} className="grid gap-4">
       <dl className="divide-y rounded-lg border text-sm">
         <Line label="Deposit held" value={formatBillPesos(depositCentavos)} strong />
+        {creditCentavos > 0 && <Line label="Tenant credit" value={`+ ${formatBillPesos(creditCentavos)}`} />}
         <div className="flex items-start justify-between gap-4 px-3 py-2.5">
           <dt><span className="text-muted-foreground">Unpaid bills</span>
             <span className="block text-xs text-muted-foreground">Estimate · recomputed when you save</span></dt>
@@ -173,6 +174,7 @@ function Settled({ settlement: s, ctx, canManage, busy, run, proofUrl }: { settl
   return <div className="grid gap-4">
     <dl className="divide-y rounded-lg border text-sm">
       <Line label="Deposit held" value={formatBillPesos(s.depositCentavos)} strong />
+      {(s.creditCentavos ?? 0) > 0 && <Line label="Tenant credit" value={`+ ${formatBillPesos(s.creditCentavos!)}`} />}
       {s.unpaidBillsCentavos > 0 && <Line label="Unpaid bills" value={`− ${formatBillPesos(s.unpaidBillsCentavos)}`} />}
       {s.lines.map((l, i) => <Line key={i} label={l.label} value={`− ${formatBillPesos(l.amount)}`} />)}
       <Line label="Refund to tenant" value={formatBillPesos(s.refundCentavos)} strong />

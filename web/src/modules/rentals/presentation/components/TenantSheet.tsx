@@ -8,6 +8,8 @@ import { addPeriods, centavosToInput, contractTermsSchema, formatBillPesos, form
   tenancyOwed } from '@himan/shared/rentals';
 import type { ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
 import { PaymentsList } from './PaymentsList';
+import { ContractPanel } from './ContractPanel';
+import type { ContractInfo } from './ContractPanel';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
 import { Initials } from './Badges';
@@ -24,10 +26,12 @@ const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
 export function TenantSheet({ renter, tenancies, bills = [], payments = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
-  onMoveOut, onRecordPayment, receipt, deleteAction }: {
+  onMoveOut, onRecordPayment, receipt, deleteAction, contractInfo }: {
   renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; payments?: RentalPayment[]; unitName(id: string): string; canManage: boolean;
   deleteAction?: ReactNode; onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void; onRecordPayment?(tenancyId: string): void;
   receipt?(payment: RentalPayment): ReceiptContext;
+  /** The property's contract texts, template and links; without it the sheet shows the terms only. */
+  contractInfo?: ContractInfo;
 } & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
   const mine = tenancies.filter((t) => t.renterId === renter.id);
@@ -114,6 +118,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], unit
           <Item label="Deposit" value={formatPesos(c.depositCentavos)} />
           <Item label="Advance" value={`${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'}`} />
         </dl>
+        {contractInfo && <div className="mt-4"><ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} /></div>}
       </section>)}
 
       {active.map((t) => <Charges key={t.id} tenancy={t} room={unitName(t.unitId)} showRoom={active.length > 1} canManage={canManage} busy={busy}

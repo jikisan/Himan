@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CircleCheck, DoorOpen, Gauge, History, ReceiptText } from 'lucide-react';
+import { BedDouble, CircleCheck, DoorOpen, Gauge, History, PenLine, ReceiptText } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { billBalance, depositHeld, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
-import type { MeterReading, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
+import type { ContractText, MeterReading, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
 
@@ -12,11 +12,11 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
-  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid }: {
+  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [] }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
-  utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void;
+  utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void; contractTexts?: ContractText[];
 }) {
   const [confirmEarlier, setConfirmEarlier] = useState(false);
   const today = manilaToday();
@@ -74,6 +74,12 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
     tasks.push(<Task key="cancelled" icon={ReceiptText} tone="amber"
       title={`${cancelled.length} cancelled SOA${cancelled.length === 1 ? '' : 's'} not replaced`}
       detail={names(cancelled.map(what))} action="See cancelled" onAction={() => onReviewCancelled(cancelled[0].period)} />);
+  }
+  if (canManage) for (const t of active) {
+    const signed = t.contracts.some((c) => contractTexts.some((x) => x.contractId === c.id && x.status === 'signed'));
+    if (signed) tasks.push(<Task key={`sign-${t.id}`} icon={PenLine} tone="primary" title={`Countersign contract for ${name(t)}`}
+      detail={`${roomName(t.unitId)} · the tenant signed`} action="Countersign" label={`Countersign contract for ${name(t)}`}
+      onAction={() => onOpenTenant(t.renterId)} />);
   }
   if (canManage && freeBeds > 0) tasks.push(<Task key="free" icon={BedDouble} tone="emerald"
     title={`${freeBeds} free bed${freeBeds === 1 ? '' : 's'}`} detail={freeUnits.map((u) => u.name).join(' · ')}
@@ -154,14 +160,14 @@ const TONE = {
   emerald: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
 } as const;
 
-function Task({ icon: Icon, tone, title, detail, action, primary, onAction }: {
-  icon: typeof Gauge; tone: keyof typeof TONE; title: string; detail: string; action: string; primary?: boolean; onAction(): void;
+function Task({ icon: Icon, tone, title, detail, action, label, primary, onAction }: {
+  icon: typeof Gauge; tone: keyof typeof TONE; title: string; detail: string; action: string; label?: string; primary?: boolean; onAction(): void;
 }) {
   return <div className={cn('flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 shadow-sm', tone === 'destructive' && 'border-destructive/40')}>
     <span aria-hidden className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', TONE[tone])}><Icon className="h-5 w-5" /></span>
     <span className="min-w-0 flex-1"><span className="block font-semibold">{title}</span>
       <span className="block text-sm text-muted-foreground">{detail}</span></span>
-    <button type="button" onClick={onAction} className={cn('inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:w-auto',
+    <button type="button" aria-label={label} onClick={onAction} className={cn('inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:w-auto',
       primary ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border bg-background hover:bg-muted/50')}>{action}</button>
   </div>;
 }

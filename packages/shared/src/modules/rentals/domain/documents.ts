@@ -1,7 +1,9 @@
 import { format, parseISO } from 'date-fns';
 import { accountTitle, amountDueNow, billTotal, formatBillPesos, lineTitle, periodLabel } from './billing.js';
-import type { PaymentAccount } from './payments.js';
+import { billBalance } from './payments.js';
+import type { PaymentAccount, PaymentMethod, RentalPayment } from './payments.js';
 import type { RentalBill } from './types.js';
+import { pesosInWords } from './words.js';
 
 // What goes on each PDF, already worded and formatted; the web renders it as is.
 
@@ -55,5 +57,45 @@ export function billDocument(bill: Pick<RentalBill, 'period' | 'dueOn' | 'lines'
     accounts: (info.accounts ?? []).map((a) => ({ id: a.id, name: accountTitle(a),
       detail: [a.accountName, a.accountNumber].filter(Boolean).join(' '), qrPath: a.qrPath })),
     lateFee: info.lateFeeCentavos > 0 ? `Late payment will have a penalty of ${formatBillPesos(info.lateFeeCentavos)}.` : null,
+  };
+}
+
+export const METHOD_LABEL: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', bank: 'Bank transfer', cash: 'Cash', other: 'Other' };
+/** A bill's plain name: "November 2026 SOA", "Move-in SOA", "Final SOA". */
+export const billName = (b: Pick<RentalBill, 'kind' | 'period'>) =>
+  b.kind === 'move_in' ? 'Move-in SOA' : b.kind === 'final' ? 'Final SOA' : `${periodLabel(b.period)} SOA`;
+
+export interface ReceiptParty { propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string }
+export interface ReceiptDocument {
+  number: string; date: string; from: { name: string; address: string }; receivedFrom: string; room: string;
+  amount: string; amountInWords: string; method: string; reference: string;
+  appliedTo: { bill: string; amount: string }[];
+  /** Left on the bills it paid right after this payment ("Fully paid" when nothing); null when it paid no bill. */
+  balance: string | null; credit: string | null; receivedBy: string; voided: string | null;
+}
+
+/** The acknowledgment receipt for one payment. Proof images are never part of it. */
+export function receiptDocument(payment: RentalPayment, ctx: ReceiptParty & { bills: RentalBill[]; payments: RentalPayment[] }): ReceiptDocument {
+  const paid = payment.allocations.flatMap((a) => {
+    const bill = ctx.bills.find((b) => b.id === a.billId);
+    return bill ? [{ bill, amount: a.amountCentavos }] : [];
+  });
+  // Allocations go to payments in created order, so the ones up to this payment are what it saw.
+  const upToThis = ctx.payments.filter((p) => p.createdAt <= payment.createdAt);
+  const left = paid.reduce((sum, { bill }) => sum + billBalance(bill, upToThis), 0);
+  const credit = payment.amountCentavos - payment.allocations.reduce((sum, a) => sum + a.amountCentavos, 0);
+  const active = payment.status === 'active';
+  return {
+    // ponytail: the payment id's first 8 characters, not a sequence; add real receipt numbering if a tenant needs one.
+    number: `R-${payment.id.slice(0, 8).toUpperCase()}`,
+    date: long(payment.paidOn), from: { name: ctx.ownerName || ctx.propertyName, address: ctx.ownerAddress },
+    receivedFrom: ctx.renterName, room: ctx.roomName,
+    amount: formatBillPesos(payment.amountCentavos), amountInWords: pesosInWords(payment.amountCentavos),
+    method: METHOD_LABEL[payment.method], reference: payment.reference,
+    appliedTo: paid.map(({ bill, amount }) => ({ bill: `${bill.number} · ${billName(bill)}`, amount: formatBillPesos(amount) })),
+    balance: active && paid.length ? (left > 0 ? formatBillPesos(left) : 'Fully paid') : null,
+    credit: active && credit > 0 ? formatBillPesos(credit) : null,
+    receivedBy: ctx.ownerName || ctx.propertyName,
+    voided: active ? null : `VOID — ${payment.voidReason}`,
   };
 }

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import { billState, billTotal, contractFor, dueOn, formatBillPesos, pendingBill, periodLabel } from '@himan/shared/rentals';
-import type { MeterReading, PaymentMethod, Pending, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from '@himan/shared/rentals';
+import { billState, billTotal, contractFor, dueOn, formatBillPesos, pendingBill } from '@himan/shared/rentals';
+import type { MeterReading, Pending, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from '@himan/shared/rentals';
 
 type Ctx = { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[]; utilityBills?: UtilityBill[] };
 
@@ -77,7 +77,4 @@ export function useWide(): boolean {
 export const paidChangeWarning = (paidCentavos: number) =>
   `${formatBillPesos(paidCentavos)} was already paid on this bill. If it goes down, the extra goes back to the tenant’s credit.`;
 
-export const METHOD: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', bank: 'Bank transfer', cash: 'Cash', other: 'Other' };
-/** A bill's plain name: "November 2026 SOA", "Move-in SOA", "Final SOA". */
-export const billName = (b: Pick<RentalBill, 'kind' | 'period'>) =>
-  b.kind === 'move_in' ? 'Move-in SOA' : b.kind === 'final' ? 'Final SOA' : `${periodLabel(b.period)} SOA`;
+export { METHOD_LABEL as METHOD, billName } from '@himan/shared/rentals';

@@ -1,13 +1,10 @@
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
 import { amountDueNow, billTotal, formatBillPesos, lineTitle, periodLabel } from '@himan/shared/rentals';
-import type { PaymentAccount, RentalBill } from '@himan/shared/rentals';
+import type { PaymentAccount, RentalBill, StatementInfo } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 
-export interface StatementInfo {
-  propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string; lateFeeCentavos: number;
-  accounts?: PaymentAccount[]; previousBalanceCentavos?: number; paidCentavos?: number;
-}
+export type { StatementInfo } from '@himan/shared/rentals';
 export type StatementBill = Pick<RentalBill, 'period' | 'dueOn' | 'lines'> & Partial<Pick<RentalBill, 'number' | 'issuedOn' | 'status'>>;
 
 const long = (date: string) => format(parseISO(date), 'MMM d, yyyy');

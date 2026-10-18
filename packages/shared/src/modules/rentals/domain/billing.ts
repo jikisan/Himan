@@ -202,6 +202,7 @@ export const amountDueNow = (totalCentavos: number, info: { previousBalanceCenta
 
 // GCash and Maya print as the wallet's name; a bank or other account prints its label (e.g. "BPI").
 const ACCOUNT_NAME: Partial<Record<PaymentAccount['kind'], string>> = { gcash: 'GCash', maya: 'Maya' };
+export const accountTitle = (a: Pick<PaymentAccount, 'kind' | 'label'>): string => ACCOUNT_NAME[a.kind] ?? a.label;
 
 export function statementText(bill: Pick<RentalBill, 'period' | 'dueOn' | 'lines'> & Partial<Pick<RentalBill, 'number' | 'issuedOn'>>, info: {
   propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string; lateFeeCentavos: number;
@@ -224,6 +225,6 @@ export function statementText(bill: Pick<RentalBill, 'period' | 'dueOn' | 'lines
     `Due ${long(bill.dueOn)}`,
     ...(info.lateFeeCentavos > 0 ? [`Late payment will have a penalty of ${formatBillPesos(info.lateFeeCentavos)}.`] : [])];
   const payTo = info.accounts?.length ? ['', 'Pay to:', ...info.accounts.map((a) =>
-    [`${ACCOUNT_NAME[a.kind] ?? a.label} —`, a.accountName, a.accountNumber].filter(Boolean).join(' '))] : [];
+    [`${accountTitle(a)} —`, a.accountName, a.accountNumber].filter(Boolean).join(' '))] : [];
   return [...header, '', ...rows, '', ...footer, ...payTo].join('\n');
 }

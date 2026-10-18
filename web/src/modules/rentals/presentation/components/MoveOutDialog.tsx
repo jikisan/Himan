@@ -36,7 +36,7 @@ function MoveOutForm({ tenancy, unit, name, busy, onConfirm, onClose }: {
   }}>
     <DialogHeader><DialogTitle>Move out {name}?</DialogTitle>
       <DialogDescription>Their bed becomes free. {meters.length > 0 ? 'A final reading makes a final bill for their last usage.' : ''}
-        Deposit settlement comes in a later update.</DialogDescription></DialogHeader>
+        You settle their deposit afterwards.</DialogDescription></DialogHeader>
     <Field id="move-out-date" label="Move-out date">
       <input id="move-out-date" type="date" min={tenancy.moveIn} className={inputClass} value={date}
         onChange={(e) => { setDate(e.target.value); setError(''); }} />

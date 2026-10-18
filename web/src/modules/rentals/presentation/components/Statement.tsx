@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { billTotal, formatBillPesos, lineTitle, periodLabel } from '@himan/shared/rentals';
+import { amountDueNow, billTotal, formatBillPesos, lineTitle, periodLabel } from '@himan/shared/rentals';
 import type { PaymentAccount, RentalBill } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 
@@ -65,6 +65,8 @@ export function Statement({ bill, info }: { bill: StatementBill; info: Statement
       </div>
       {!!info.previousBalanceCentavos && <Total label="Previous balance" amount={info.previousBalanceCentavos} />}
       {!!info.paidCentavos && <Total label="Paid" amount={info.paidCentavos} />}
+      {!!(info.previousBalanceCentavos || info.paidCentavos) && (amountDueNow(billTotal(bill.lines), info) > 0 ? <Total label="Amount due now" amount={amountDueNow(billTotal(bill.lines), info)} />
+        : <p className="font-semibold text-emerald-700 dark:text-emerald-400">Paid in full</p>)}
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-muted-foreground">Due date</span><span className="font-semibold">{long(bill.dueOn)}</span>
       </div>

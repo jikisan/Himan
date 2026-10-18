@@ -137,12 +137,33 @@ describe('Payments list', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Void payment' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'voidPayment', id: 'p1', reason: 'Bounced transfer' }));
   });
-  it('locks editing and cancelling a bill that has payments', () => {
+  it('asks before editing or cancelling a paid bill, and says the extra goes back to credit', async () => {
     state.payments = [pay('p1', 100000, [[BILL, 100000]])];
     const sheet = openBill();
-    expect(sheet.getByRole('button', { name: 'Edit SOA' })).toBeDisabled();
-    expect(sheet.getByRole('button', { name: 'Cancel SOA' })).toBeDisabled();
-    expect(sheet.getByText(/void the payment first/i)).toBeInTheDocument();
+    expect(sheet.queryByText(/void the payment first/i)).not.toBeInTheDocument();
+    fireEvent.click(sheet.getByRole('button', { name: 'Edit SOA' }));
+    const edit = within(screen.getByRole('alertdialog'));
+    expect(edit.getByText('₱1,000 was already paid on this bill. If it goes down, the extra goes back to the tenant’s credit.')).toBeInTheDocument();
+    fireEvent.click(edit.getByRole('button', { name: 'Edit SOA' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save SOA' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel SOA' }));
+    expect(within(screen.getByRole('alertdialog')).getByText(/₱1,000 was already paid on this bill/)).toBeInTheDocument();
+  });
+  it('edits an unpaid bill without asking', () => {
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Edit SOA' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save SOA' })).toBeInTheDocument();
+  });
+  it('adds a late fee to a part-paid overdue bill without asking', async () => {
+    state.properties = [{ ...property, lateFeeCentavos: 50000 }];
+    state.bills = [bill({ dueOn: '2026-11-03' })];
+    state.payments = [pay('p1', 100000, [[BILL, 100000]])];
+    state.run.mockResolvedValue(undefined);
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Add late fee ₱500' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'updateBillLines', id: BILL })));
   });
   it('opens a proof through a short-lived link', async () => {
     state.payments = [pay('p1', 350000, [[BILL, 350000]], { proofs: [{ id: 'pr1', paymentId: 'p1', propertyId: 'p', name: 'gcash.png',
@@ -185,6 +206,42 @@ describe('Home', () => {
   });
 });
 
+describe('Bills from before payment tracking', () => {
+  const earlier = () => {
+    state.properties = [{ ...property, paymentsTrackedFrom: '2026-11-08' }];
+    state.bills = [bill({ issuedOn: '2026-10-20', dueOn: '2026-11-03' })];
+  };
+  it('lists them in a banner instead of Overdue and marks them all paid after asking', async () => {
+    earlier();
+    state.run.mockResolvedValue(1);
+    page();
+    expect(screen.queryByRole('region', { name: 'Overdue' })).not.toBeInTheDocument();
+    const banner = within(screen.getByRole('region', { name: 'Bills from before payment tracking' }));
+    expect(banner.getByText(/1 tenant · ₱3,500/)).toBeInTheDocument();
+    fireEvent.click(banner.getByRole('button', { name: 'Mark all as paid' }));
+    const confirm = within(screen.getByRole('alertdialog'));
+    expect(confirm.getByText(/open a tenant and record what was actually paid/)).toBeInTheDocument();
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.click(confirm.getByRole('button', { name: 'Mark all as paid' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'markEarlierPaid', propertyId: 'p' }));
+  });
+  it('keeps the bill’s honest badge and hides the banner from viewers', () => {
+    earlier();
+    state.properties = [{ ...state.properties[0], role: 'viewer' }];
+    page();
+    expect(screen.queryByRole('region', { name: 'Bills from before payment tracking' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
+    fireEvent.click(screen.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' }));
+    expect(within(screen.getByRole('dialog')).getByText('Overdue · 7 days')).toBeInTheDocument();
+  });
+  it('shows no banner once they are paid', () => {
+    earlier();
+    state.payments = [pay('p1', 350000, [[BILL, 350000]])];
+    page();
+    expect(screen.queryByRole('region', { name: 'Bills from before payment tracking' })).not.toBeInTheDocument();
+  });
+});
+
 describe('Payment accounts', () => {
   it('lets the owner add an account in Edit property', async () => {
     state.run.mockResolvedValue('acc-new');
@@ -217,9 +274,12 @@ describe('Payment accounts', () => {
     const sheet = openBill();
     expect(sheet.getByText('Pay to')).toBeInTheDocument();
     expect(sheet.getByText('Previous balance').nextElementSibling).toHaveTextContent('₱2,000');
+    expect(sheet.getByText('Amount due now').nextElementSibling).toHaveTextContent('₱5,000');
+    expect(sheet.queryByText('Paid in full')).not.toBeInTheDocument();
     fireEvent.click(sheet.getByRole('button', { name: 'Copy for Messenger' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Pay to:\nGCash — Maria Santos 0917 555 1234')));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Previous balance ₱2,000'));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Paid ₱500'));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Amount due now ₱5,000'));
   });
 });

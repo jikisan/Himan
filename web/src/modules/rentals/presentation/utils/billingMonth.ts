@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { billState, billTotal, contractFor, dueOn, pendingBill, periodLabel } from '@himan/shared/rentals';
+import { billState, billTotal, contractFor, dueOn, formatBillPesos, pendingBill, periodLabel } from '@himan/shared/rentals';
 import type { MeterReading, PaymentMethod, Pending, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from '@himan/shared/rentals';
 
 type Ctx = { property: RentalProperty; tenancies: RentalTenancy[]; readings: MeterReading[]; bills: RentalBill[]; utilityBills?: UtilityBill[] };
@@ -72,6 +72,10 @@ export function useWide(): boolean {
     () => typeof window.matchMedia !== 'function' || window.matchMedia(wideQuery).matches,
   );
 }
+
+/** Shown before editing or cancelling a bill that has payments. */
+export const paidChangeWarning = (paidCentavos: number) =>
+  `${formatBillPesos(paidCentavos)} was already paid on this bill. If it goes down, the extra goes back to the tenant’s credit.`;
 
 export const METHOD: Record<PaymentMethod, string> = { gcash: 'GCash', maya: 'Maya', bank: 'Bank transfer', cash: 'Cash', other: 'Other' };
 /** A bill's plain name: "November 2026 SOA", "Move-in SOA", "Final SOA". */

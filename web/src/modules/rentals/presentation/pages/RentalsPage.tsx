@@ -25,7 +25,7 @@ import { MoveOutDialog } from '../components/MoveOutDialog';
 import { SetupWizard } from '../components/SetupWizard';
 import { BillsView } from '../components/BillsView';
 import { HomeView } from '../components/HomeView';
-import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
+import { monthRows, monthTodo, paidChangeWarning, unreplacedCancelled } from '../utils/billingMonth';
 import { BillSheet } from '../components/BillSheet';
 import { RecordPaymentDialog } from '../components/RecordPaymentDialog';
 import { PaymentsList } from '../components/PaymentsList';
@@ -178,7 +178,8 @@ function RentalsContent(state: RentalsState) {
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
               onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }}
-              onAddBillAmounts={() => { setAmountsFromHome(true); setView('bills'); }} utilityBills={propertyUtilityBills} />
+              onAddBillAmounts={() => { setAmountsFromHome(true); setView('bills'); }} utilityBills={propertyUtilityBills}
+              onMarkEarlierPaid={() => void tryAct({ type: 'markEarlierPaid', propertyId: property.id }, 'Earlier SOAs marked paid')} />
           : view === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
               <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
@@ -307,7 +308,8 @@ function RentalsContent(state: RentalsState) {
             onSaveLines={async (lines) => { await run({ type: 'updateBillLines', id: bill.id, lines }); }}
             onCancelBill={() => setConfirm({ title: `Cancel ${bill.number}?`, confirmText: 'Cancel this SOA', done: 'SOA cancelled',
               action: { type: 'voidBill', id: bill.id, reason: '' },
-              description: 'It stays in the list, marked cancelled, and this month can be billed again.' })}>
+              description: [billPaid(bill.id, propertyPayments) > 0 && paidChangeWarning(billPaid(bill.id, propertyPayments)),
+                'It stays in the list, marked cancelled, and this month can be billed again.'].filter(Boolean).join(' ') })}>
             <PaymentsList payments={propertyPayments.filter((p) => p.allocations.some((a) => a.billId === bill.id))} bills={bills}
               canManage={isManager} busy={busy} run={run} proofUrl={paymentProofUrl} empty="No payments on this SOA yet." />
           </BillSheet>;

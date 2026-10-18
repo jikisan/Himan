@@ -39,6 +39,8 @@ export type RentalAction =
   /** Records the payment, then attaches each proof; resolves to { id, failed: proof names that didn't upload }. */
   | { type: 'recordPayment'; tenancyId: string; input: PaymentInput; proofs?: FileInput[] }
   | { type: 'voidPayment'; id: string; reason: string }
+  /** Pays off bills issued before payment tracking started; resolves to the number of payments created. */
+  | { type: 'markEarlierPaid'; propertyId: string }
   | { type: 'uploadPaymentProof'; paymentId: string; propertyId: string; file: FileInput }
   | { type: 'removePaymentProof'; id: string }
   | { type: 'saveAccount'; propertyId: string; id: string | null; input: PaymentAccountInput }
@@ -115,6 +117,7 @@ export function useRentals() {
           return { id, failed };
         }
         case 'voidPayment': return repos.payments.void(a.id, a.reason);
+        case 'markEarlierPaid': return repos.payments.markEarlierPaid(a.propertyId);
         case 'uploadPaymentProof': return repos.payments.uploadProof(a.paymentId, a.propertyId, a.file);
         case 'removePaymentProof': return repos.payments.removeProof(a.id);
         case 'saveAccount': return repos.accounts.save(a.propertyId, a.id, a.input);

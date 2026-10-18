@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CircleCheck, DoorOpen, Gauge, ReceiptText } from 'lucide-react';
-import { billBalance, depositHeld, formatBillPesos, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
+import { BedDouble, CircleCheck, DoorOpen, Gauge, History, ReceiptText } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { billBalance, depositHeld, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
 import type { MeterReading, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
@@ -10,12 +12,13 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
-  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [] }: {
+  onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
-  utilityBills: UtilityBill[]; onAddBillAmounts(): void;
+  utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void;
 }) {
+  const [confirmEarlier, setConfirmEarlier] = useState(false);
   const today = manilaToday();
   const period = periodOf(today);
   const month = periodLabel(period).split(' ')[0];
@@ -24,6 +27,10 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
   const active = tenancies.filter((t) => t.moveOut === null);
   const rows = monthRows({ property, tenancies, readings, bills, utilityBills }, period);
   const todo = monthTodo(rows, bills, today, property.units, payments);
+  // Bills from before payment tracking have no payments on record; they wait in their own banner, not in Overdue.
+  const overdue = todo.overdue.filter((b) => !isEarlier(b, property.paymentsTrackedFrom));
+  const earlier = earlierUnpaid(property, bills, payments);
+  const trackedSince = property.paymentsTrackedFrom ? format(parseISO(property.paymentsTrackedFrom), 'MMM d, yyyy') : '';
   const deposits = active.map((t) => depositHeld(t, bills, payments));
   const held = deposits.reduce((sum, d) => sum + (d.state === 'held' ? d.amountCentavos : 0), 0);
   const pending = deposits.reduce((sum, d) => sum + (d.state === 'pending' ? d.amountCentavos : 0), 0);
@@ -82,10 +89,25 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
           <p><span className="font-medium">Nothing to do right now.</span> <span className="text-muted-foreground">New tasks show up here when bills come due.</span></p>
         </div>}
     </section>
-    {todo.overdue.length > 0 && <section aria-labelledby="rentals-overdue" className="rounded-xl border border-destructive/40 bg-card p-4 shadow-sm">
+    {canManage && onMarkEarlierPaid && earlier.tenancyIds.length > 0 && <section aria-labelledby="rentals-earlier"
+      className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
+      <span aria-hidden className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', TONE.amber)}><History className="h-5 w-5" /></span>
+      <div className="min-w-0 flex-1">
+        <h3 id="rentals-earlier" className="font-semibold">Bills from before payment tracking</h3>
+        <p className="text-sm text-muted-foreground">
+          {earlier.tenancyIds.length} tenant{earlier.tenancyIds.length === 1 ? '' : 's'} · {formatBillPesos(earlier.totalCentavos)} shows as unpaid on SOAs from before {trackedSince}.</p>
+      </div>
+      <button type="button" onClick={() => setConfirmEarlier(true)}
+        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border bg-background px-4 text-sm font-semibold transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:w-auto">
+        Mark all as paid</button>
+      <ConfirmDialog open={confirmEarlier} onOpenChange={setConfirmEarlier} title="Mark the earlier SOAs as paid?" confirmText="Mark all as paid"
+        description={`This records one payment per tenant for the ${formatBillPesos(earlier.totalCentavos)} still unpaid on SOAs from before ${trackedSince}. If some weren’t paid in full, cancel and instead open a tenant and record what was actually paid.`}
+        onConfirm={onMarkEarlierPaid} />
+    </section>}
+    {overdue.length > 0 && <section aria-labelledby="rentals-overdue" className="rounded-xl border border-destructive/40 bg-card p-4 shadow-sm">
       <h3 id="rentals-overdue" className="font-semibold text-destructive">Overdue</h3>
       <p className="text-sm text-muted-foreground">Unpaid after the due date. Open one to record a payment.</p>
-      <ul className="mt-2 divide-y">{todo.overdue.map((b) => {
+      <ul className="mt-2 divide-y">{overdue.map((b) => {
         const t = tenancyOf(b);
         const late = differenceInCalendarDays(parseISO(today), parseISO(b.dueOn));
         return <li key={b.id}><button type="button" onClick={() => onOpenBill(b.id)}

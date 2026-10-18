@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Copy, HandCoins, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { billBalance, billPaid, centavosToInput, formatBillPesos, isOverdue, lineTitle, manilaToday, parsePesos, statementText } from '@himan/shared/rentals';
 import type { BillLine, RentalBill, RentalPayment } from '@himan/shared/rentals';
@@ -11,6 +12,7 @@ import { Statement } from './Statement';
 import type { StatementBill, StatementInfo } from './Statement';
 import { MoneyInput, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
+import { paidChangeWarning } from '../utils/billingMonth';
 
 const isUtility = (l: BillLine) => l.kind === 'electric' || l.kind === 'water';
 /** Like parsePesos, but a leading minus makes a discount. */
@@ -26,13 +28,12 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
   payments?: RentalPayment[]; credit?: number; onRecordPayment?(): void; children?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(false);
   const issued = !!bill.number && bill.status === 'issued';
   const saved = issued ? bill as RentalBill : null;
   const paid = saved ? billPaid(saved.id, payments) : 0;
-  // The database refuses to change a bill with payments; say so up front instead of failing on save.
-  const locked = paid > 0;
   const fromCredit = !!saved && payments.some((p) => p.status === 'active' && p.paidOn < saved.issuedOn && p.allocations.some((a) => a.billId === saved.id));
-  const lateFee = canManage && issued && !locked && info.lateFeeCentavos > 0 && isOverdue(bill as RentalBill, manilaToday())
+  const lateFee = canManage && issued && info.lateFeeCentavos > 0 && isOverdue(bill as RentalBill, manilaToday())
     && !bill.lines.some((l) => l.kind === 'penalty');
   const copy = async () => {
     try {
@@ -60,8 +61,6 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
           <Statement bill={bill} info={info} />
           {saved && <section aria-labelledby="bill-payments" className="space-y-2">
             <h3 id="bill-payments" className="text-sm font-semibold">Money received</h3>
-            {canManage && locked && <p className="text-xs text-muted-foreground">
-              This SOA has payments, so it can’t be edited or cancelled. If a payment was a mistake, void the payment first.</p>}
             {children}
           </section>}
         </>}
@@ -74,11 +73,13 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
         onClick={() => void onSaveLines([...bill.lines, { kind: 'penalty', label: 'Late payment penalty', amount: info.lateFeeCentavos }])
           .then(() => toast.success('Late fee added'), (e) => toast.error(errorMessage(e)))}>
         Add late fee {formatBillPesos(info.lateFeeCentavos)}</Button>}
-      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" disabled={locked} onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Edit SOA</Button>}
+      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" onClick={() => (paid > 0 ? setConfirmEdit(true) : setEditing(true))}><Pencil className="h-4 w-4" />Edit SOA</Button>}
       {canManage && !bill.number && onIssue && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void onIssue()}>Generate SOA</Button>}
       {canManage && issued && onCancelBill && <Button variant="ghost" className="ml-auto h-11 px-2 text-destructive hover:text-destructive sm:h-9"
-        disabled={locked} onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel SOA</Button>}
+        onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel SOA</Button>}
     </div>}
+    <ConfirmDialog open={confirmEdit} onOpenChange={setConfirmEdit} title={`Edit ${bill.number}?`} description={paidChangeWarning(paid)}
+      confirmText="Edit SOA" cancelText="Back" onConfirm={() => setEditing(true)} />
   </>;
 }
 

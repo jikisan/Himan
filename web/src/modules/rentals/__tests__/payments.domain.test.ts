@@ -141,6 +141,6 @@ describe('statement with payments', () => {
     const overpaid = statementText(b, { ...info, paidCentavos: 400000 });
     expect(overpaid).toContain('Paid in full');
     expect(overpaid).not.toContain('Amount due now');
-    expect(statementText(b, info)).toContain('Amount due now ₱3,500');
+    expect(statementText(b, info)).not.toContain('Amount due now');
   });
 });

@@ -807,6 +807,13 @@ BEGIN
   IF pg_temp.paid(e1) <> 100000 OR pg_temp.paid(e2) <> 100000 OR pg_temp.paid(n1) <> 0
   THEN RAISE EXCEPTION 'Earlier bills not paid exactly: e1 % e2 % n1 %', pg_temp.paid(e1), pg_temp.paid(e2), pg_temp.paid(n1); END IF;
   IF public.rental_mark_earlier_paid(v_house) <> 0 THEN RAISE EXCEPTION 'Marked earlier bills paid twice'; END IF;
+  -- The earlier-bills payment carries its receipt snapshot too.
+  IF (SELECT receipt FROM public.rental_payments WHERE id = v_marked) <> jsonb_build_object(
+    'applied', jsonb_build_array(
+      jsonb_build_object('billId', e1, 'number', (SELECT number FROM public.rental_bills WHERE id = e1), 'amount', 70000),
+      jsonb_build_object('billId', e2, 'number', (SELECT number FROM public.rental_bills WHERE id = e2), 'amount', 100000)),
+    'creditCentavos', 0, 'balanceCentavos', 100000)
+  THEN RAISE EXCEPTION 'Earlier-bills receipt snapshot is wrong: %', (SELECT receipt FROM public.rental_payments WHERE id = v_marked); END IF;
   PERFORM pg_temp.check_allocations();
 
   -- Automatic allocation follows the order payments were recorded, not their dates: a back-dated payment goes last.
@@ -816,6 +823,56 @@ BEGIN
     OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE payment_id = py AND bill_id = n1) <> 60000
     OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE payment_id = pz) <> 40000
   THEN RAISE EXCEPTION 'Allocation did not follow the recording order'; END IF;
+  PERFORM pg_temp.check_allocations();
+END $$;
+
+-- Receipts never change after issue: each payment keeps what it paid, its credit and the balance at record time.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab041', 'Receipt House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity)
+VALUES ('00000000-0000-0000-0000-0000000ac041', '00000000-0000-0000-0000-0000000ab041', 'R1', 'room', 1);
+INSERT INTO public.rental_renters (id, property_id, full_name)
+VALUES ('00000000-0000-0000-0000-0000000ad041', '00000000-0000-0000-0000-0000000ab041', 'Receipt Tenant');
+DO $$ DECLARE v_today date := (now() AT TIME ZONE 'Asia/Manila')::date; v_t uuid; b1 uuid; b2 uuid; b3 uuid;
+  p1 uuid; p2 uuid; r1 jsonb; r2 jsonb; v_rent jsonb := '[{"kind":"rent","label":"Rent","amount":100000}]';
+BEGIN
+  v_t := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac041', '00000000-0000-0000-0000-0000000ad041',
+    '2026-08-05', '2026-08-05', '2027-08-05', 100000, 5, 0, 0);
+  b1 := public.rental_issue_bill(v_t, 'monthly', '2026-08', '2026-08-05', v_rent);
+  b2 := public.rental_issue_bill(v_t, 'monthly', '2026-09', '2026-09-05', v_rent);
+  p1 := public.rental_record_payment(v_t, 150000, v_today, 'cash', '', '');
+  p2 := public.rental_record_payment(v_t, 80000, v_today, 'cash', '', '');
+  SELECT receipt INTO r1 FROM public.rental_payments WHERE id = p1;
+  SELECT receipt INTO r2 FROM public.rental_payments WHERE id = p2;
+  IF r1 <> jsonb_build_object('applied', jsonb_build_array(
+      jsonb_build_object('billId', b1, 'number', (SELECT number FROM public.rental_bills WHERE id = b1), 'amount', 100000),
+      jsonb_build_object('billId', b2, 'number', (SELECT number FROM public.rental_bills WHERE id = b2), 'amount', 50000)),
+    'creditCentavos', 0, 'balanceCentavos', 50000)
+  THEN RAISE EXCEPTION 'First receipt snapshot is wrong: %', r1; END IF;
+  IF r2 <> jsonb_build_object('applied', jsonb_build_array(
+      jsonb_build_object('billId', b2, 'number', (SELECT number FROM public.rental_bills WHERE id = b2), 'amount', 50000)),
+    'creditCentavos', 30000, 'balanceCentavos', 0)
+  THEN RAISE EXCEPTION 'Second receipt snapshot is wrong: %', r2; END IF;
+
+  -- A client can't rewrite a receipt.
+  BEGIN
+    UPDATE public.rental_payments SET receipt = '{}' WHERE id = p1;
+    RAISE EXCEPTION 'A client rewrote a receipt';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+
+  -- A later bill takes the credit, a bill is edited and another cancelled, the first payment is voided:
+  -- allocations move, receipts stay.
+  b3 := public.rental_issue_bill(v_t, 'monthly', '2026-10', '2026-10-05', v_rent);
+  IF pg_temp.paid(b3) <> 30000 THEN RAISE EXCEPTION 'Credit did not move to the later bill'; END IF;
+  RESET ROLE;
+  UPDATE public.rental_bills SET lines = '[{"kind":"rent","label":"Rent","amount":120000}]' WHERE id = b2;
+  UPDATE public.rental_bills SET status = 'void', void_reason = 'test' WHERE id = b3;
+  SET LOCAL ROLE authenticated;
+  PERFORM public.rental_void_payment(p1, 'bounced');
+  IF NOT EXISTS (SELECT 1 FROM public.rental_payment_allocations WHERE payment_id = p2 AND bill_id = b1)
+  THEN RAISE EXCEPTION 'Voiding did not reallocate the later payment'; END IF;
+  IF (SELECT receipt FROM public.rental_payments WHERE id = p1) <> r1 OR (SELECT receipt FROM public.rental_payments WHERE id = p2) <> r2
+  THEN RAISE EXCEPTION 'A receipt changed after issue'; END IF;
   PERFORM pg_temp.check_allocations();
 END $$;
 

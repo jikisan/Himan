@@ -6,6 +6,8 @@ import type { DocumentProps } from '@react-pdf/renderer';
 import { billDocument, receiptDocument } from '@himan/shared/rentals';
 import type { ReceiptContext, RentalBill, RentalPayment, StatementInfo } from '@himan/shared/rentals';
 import { BillPdf } from './BillPdf';
+import { ContractPdf } from './ContractPdf';
+import type { ContractPdfData } from '../utils/contract';
 import { ReceiptPdf } from './ReceiptPdf';
 import { loadQrImages } from './qr';
 
@@ -29,6 +31,12 @@ export async function downloadBillPdf(bill: RentalBill, info: StatementInfo, qrU
 export async function downloadReceiptPdf(payment: RentalPayment, ctx: ReceiptContext): Promise<void> {
   const doc = receiptDocument(payment, ctx);
   save(await toBlob(createElement(ReceiptPdf, { doc })), `Receipt-${doc.number}.pdf`);
+}
+
+/** Downloads the contract of lease as `Contract-<tenant name>.pdf`. */
+export async function downloadContractPdf(doc: ContractPdfData): Promise<void> {
+  const name = doc.tenantName.trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'Lease';
+  save(await toBlob(createElement(ContractPdf, { doc })), `Contract-${name}.pdf`);
 }
 
 function save(blob: Blob, name: string) {

@@ -1,7 +1,7 @@
 ---
 type: module
 area: rentals
-status: phase-2-payments
+status: phase-2-pdfs
 ---
 
 # Rentals
@@ -138,3 +138,18 @@ Plan: [[2026-10-18-rentals-payments]]. Migration `20261018100000_add_rental_paym
   record payments. Earlier migrations through `20261018000000` were already applied (this supersedes the older
   "apply before deploying" note above).
 - Not in this step: PDFs (Step B), contract and renter link (Step C), deposit settlement (Step D).
+
+## PDFs (Step B, 2026-10-18)
+Plan: [[2026-10-18-rentals-pdfs]]. Migration `20261018150000_snapshot_rental_payment_receipts.sql`.
+- `@react-pdf/renderer` loads lazily (`import()` from the download buttons; ~635 KB gzip chunk, not in the entry bundle).
+  Fonts: Noto Sans WOFF inlined in that chunk (latin-ext carries `₱`; licence `web/public/assets/fonts/OFL-NotoSans.txt`).
+  Pure shaping in shared `domain/documents.ts` (`billDocument`, `receiptDocument`), rendering in `web/.../presentation/pdf/`.
+- Amount in words: `pesosInWords` (shared `domain/words.ts`, `to-words` en-PH).
+- Bill PDF = Statement of Account (accounts + QR, previous balance, paid, amount due). Receipt PDF = acknowledgment receipt
+  (number `R-` + first 8 chars of the payment id; never embeds proofs).
+- **Receipts are frozen**: `rental_payments.receipt` (jsonb) is written at record time by `rental_snapshot_receipt`
+  (applied bills, credit, balance after); later bill or payment changes never alter it. Legacy payments fall back to live
+  figures labelled "Figures as of <date>".
+- Applied to the hosted project 2026-10-18 (one transaction, `migration repair`).
+- Not yet: contract and deposit-settlement PDFs (Steps C, D); downloads from the renter link (Step C).
+

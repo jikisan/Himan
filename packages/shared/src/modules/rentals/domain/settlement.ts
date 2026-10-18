@@ -26,13 +26,12 @@ export const settlementSchema = z.object({
 });
 export type SettlementInput = z.infer<typeof settlementSchema>;
 
-/** Forfeit keeps the whole deposit; otherwise unpaid bills and each line come off it, and any excess is still owed. */
+/** Unpaid bills and each line come off the deposit and any excess is still owed; forfeit keeps the whole deposit (refund 0). Matches rental_settle_deposit. */
 export function settlementPreview(input: { depositCentavos: number; unpaidBillsCentavos: number; lines: SettlementLine[]; forfeit: boolean }):
   { deductionsCentavos: number; refundCentavos: number; owedByTenantCentavos: number } {
   const { depositCentavos, unpaidBillsCentavos, lines, forfeit } = input;
-  if (forfeit) return { deductionsCentavos: depositCentavos, refundCentavos: 0, owedByTenantCentavos: 0 };
   const deductionsCentavos = unpaidBillsCentavos + lines.reduce((a, l) => a + l.amount, 0);
-  return { deductionsCentavos, refundCentavos: Math.max(depositCentavos - deductionsCentavos, 0),
+  return { deductionsCentavos, refundCentavos: forfeit ? 0 : Math.max(depositCentavos - deductionsCentavos, 0),
     owedByTenantCentavos: Math.max(deductionsCentavos - depositCentavos, 0) };
 }
 

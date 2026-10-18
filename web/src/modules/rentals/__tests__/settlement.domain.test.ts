@@ -24,9 +24,11 @@ describe('settlementPreview', () => {
     expect(settlementPreview({ ...base, lines: [{ label: 'Damage', amount: 1000000 }] }))
       .toEqual({ deductionsCentavos: 1200000, refundCentavos: 0, owedByTenantCentavos: 200000 });
   });
-  it('keeps the whole deposit on forfeit', () => {
+  it('keeps the whole deposit on forfeit and still shows what the tenant owes, like the database', () => {
     expect(settlementPreview({ ...base, lines: [{ label: 'Damage', amount: 5000000 }], forfeit: true }))
-      .toEqual({ deductionsCentavos: 1000000, refundCentavos: 0, owedByTenantCentavos: 0 });
+      .toEqual({ deductionsCentavos: 5200000, refundCentavos: 0, owedByTenantCentavos: 4200000 });
+    expect(settlementPreview({ ...base, lines: [], forfeit: true }))
+      .toEqual({ deductionsCentavos: 200000, refundCentavos: 0, owedByTenantCentavos: 0 });
   });
 });
 

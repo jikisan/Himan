@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { DEFAULT_CLAUSES, billPaid, depositToReturn, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit,
+import { DEFAULT_CLAUSES, billPaid, depositToReturn, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
 import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
@@ -20,7 +20,7 @@ import { ShareDialog } from '../components/ShareDialog';
 import { RoleBadge } from '../components/Badges';
 import { RoomsBoard } from '../components/RoomsBoard';
 import { TenantsList } from '../components/TenantsList';
-import { AddTenantForm } from '../components/AddTenantForm';
+import { MoveInFlow } from '../components/MoveInFlow';
 import { TenantSheet } from '../components/TenantSheet';
 import { MoveOutDialog } from '../components/MoveOutDialog';
 import { SetupWizard } from '../components/SetupWizard';
@@ -33,15 +33,13 @@ import { SettleDepositDialog } from '../components/SettleDepositDialog';
 import { PaymentsList } from '../components/PaymentsList';
 import { PaymentAccountsEditor } from '../components/PaymentAccountsEditor';
 import { ContractTemplateEditor, LessorSignatureEditor } from '../components/ContractTemplateEditor';
-import { LinkReady } from '../components/TenantLink';
 import { cn } from '@core/presentation/utils';
 import { errorMessage } from '../utils/errorMessage';
 
 export type RentalsState = ReturnType<typeof useRentals>;
 type DialogState = { type: 'setup' } | { type: 'property'; id: string } | { type: 'room'; id: string | null }
   | { type: 'addTenant'; unitId: string } | { type: 'tenant'; renterId: string; focus?: 'contract' } | { type: 'share' }
-  | { type: 'bill'; billId: string } | { type: 'pending'; tenancyId: string; period: string; skip: boolean }
-  | { type: 'linkReady'; tenancyId: string; name: string } | null;
+  | { type: 'bill'; billId: string } | { type: 'pending'; tenancyId: string; period: string; skip: boolean } | null;
 type Confirm = { title: string; description: string; confirmText: string; action: RentalAction; done: string } | null;
 
 export function RentalsPage() {
@@ -87,6 +85,8 @@ function RentalsContent(state: RentalsState) {
   const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} className="h-11 sm:h-9" onClick={() => setDialog({ type: 'setup' })} disabled={!canCreate}>
     <Plus className="h-4 w-4" />New property</Button>;
   const inSheet = dialog?.type === 'tenant' || dialog?.type === 'bill' || dialog?.type === 'pending';
+  // The move-in flow is its own dialog: it asks before closing.
+  const inFlow = dialog?.type === 'addTenant';
   // With a bill: what is still owed on earlier bills and what was paid on this one, for the SOA and its Messenger copy.
   const billInfo = (t: RentalTenancy, bill?: Pick<RentalBill, 'dueOn'> & { id?: string }) => ({ propertyName: property?.name ?? '',
     ownerName: property?.ownerName || property?.lessorName || state.myName || '',
@@ -110,7 +110,7 @@ function RentalsContent(state: RentalsState) {
       creditCentavos: tenancyCredit(settling.id, propertyPayments),
       ctx: { propertyName, ownerName, ownerAddress, renterName, roomName, moveOut: settling.moveOut! } };
   })();
-  const hasFooter = dialog && dialog.type !== 'share' && dialog.type !== 'linkReady' && !inSheet;
+  const hasFooter = dialog && dialog.type !== 'share' && !inSheet;
   // People from the owner's other properties, once each (by name and mobile), most recently moved in first.
   const others = (() => {
     const homes = new Map(properties.filter((p) => p.id !== property?.id && p.createdBy === property?.createdBy).map((p) => [p.id, p.name]));
@@ -263,7 +263,14 @@ function RentalsContent(state: RentalsState) {
     <SettleDepositDialog target={settlingTarget ?? null} settlement={settlement} canManage={isManager} busy={busy} run={run}
       proofUrl={state.settlementProofUrl} onClose={() => setSettlingId(null)} />
 
-    <Dialog open={!!dialog && !inSheet} onOpenChange={(open) => !open && setDialog(null)}>
+    {dialog?.type === 'addTenant' && property && (() => {
+      const room = property.units.find((u) => u.id === dialog.unitId);
+      const here = new Set(activeTenancies.filter((t) => t.unitId === dialog.unitId).map((t) => t.renterId));
+      return room && <MoveInFlow property={property} unit={room} renters={propertyRenters.filter((r) => !here.has(r.id))} others={isManager ? others : []}
+        state={state} receipt={receipt} onClose={() => setDialog(null)} />;
+    })()}
+
+    <Dialog open={!!dialog && !inSheet && !inFlow} onOpenChange={(open) => !open && setDialog(null)}>
       <DialogContent className={cn('max-h-[90dvh] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--muted-foreground)_transparent]',
         dialog?.type !== 'share' && dialog?.type !== 'room' && 'sm:max-w-xl',
         // Forms end in a sticky FormActions bar that replaces the bottom padding.
@@ -300,33 +307,6 @@ function RentalsContent(state: RentalsState) {
               onSave={async (input) => { await act({ type: 'saveUnit', propertyId: property.id, id: dialog.id, input }, 'Room saved'); }} />
           </>;
         })()}
-        {dialog?.type === 'addTenant' && property && (() => {
-          const room = property.units.find((u) => u.id === dialog.unitId);
-          const here = new Set(activeTenancies.filter((t) => t.unitId === dialog.unitId).map((t) => t.renterId));
-          return room && <>
-            <DialogHeader><DialogTitle>Add tenant to {room.name}</DialogTitle>
-              <DialogDescription>{room.kind === 'bedspace' ? `Shared room · ${room.capacity - here.size} of ${room.capacity} beds free`
-                : room.kind === 'whole' ? 'Whole house' : 'Private room'}
-                {room.defaultRentCentavos > 0 && ` · ${formatPesos(room.defaultRentCentavos)}`}
-                {room.extraPersonRentCentavos > 0 && room.defaultRentCentavos > 0 && ` + ${formatPesos(room.extraPersonRentCentavos)} per extra person`}
-              </DialogDescription></DialogHeader>
-            <AddTenantForm unit={room} rentDueDay={property.rentDueDay} renters={propertyRenters.filter((r) => !here.has(r.id))} others={isManager ? others : []}
-              busy={busy} onCancel={() => setDialog(null)}
-              onSave={async (action, sendLink) => {
-                const { renterId, tenancyId, warnings } = await run(action) as { renterId: string; tenancyId: string; warnings: string[] };
-                const name = action.renter?.fullName ?? renterName(action.renterId ?? '');
-                toast.success(`${name} moved in`);
-                warnings.forEach((w) => toast.warning(w));
-                // The contract comes next: open their sheet at it (the link path says so in its dialog).
-                setDialog(sendLink ? { type: 'linkReady', tenancyId, name } : { type: 'tenant', renterId, focus: 'contract' });
-              }} />
-          </>;
-        })()}
-        {dialog?.type === 'linkReady' && <>
-          <DialogHeader><DialogTitle>Send {dialog.name} their link</DialogTitle>
-            <DialogDescription>Paste it in Messenger or any chat app.</DialogDescription></DialogHeader>
-          <LinkReady name={dialog.name} tenancyId={dialog.tenancyId} busy={busy} run={run} onDone={() => setDialog(null)} />
-        </>}
         {dialog?.type === 'share' && property && <>
           <DialogHeader><DialogTitle>Share {property.name}</DialogTitle>
             <DialogDescription>Only accepted friends can be added.</DialogDescription></DialogHeader>

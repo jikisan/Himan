@@ -6,7 +6,7 @@ import { DEFAULT_CLAUSES } from '@himan/shared/rentals';
 import { useRentals } from '../presentation/hooks/useRentals';
 
 const calls = vi.hoisted(() => ({ contracts: {} as Record<string, ReturnType<typeof vi.fn>>, links: {} as Record<string, ReturnType<typeof vi.fn>>,
-  settlements: {} as Record<string, ReturnType<typeof vi.fn>> }));
+  settlements: {} as Record<string, ReturnType<typeof vi.fn>>, renters: {} as Record<string, ReturnType<typeof vi.fn>> }));
 vi.mock('@auth/index', () => ({ useAuth: () => ({ user: { id: 'u' } }) }));
 vi.mock('@himan/shared/friends', () => ({ FriendRepository: class { getFriends = vi.fn(async () => []); } }));
 vi.mock('@himan/shared/profile', () => ({ ProfileRepository: class { get = vi.fn(async () => ({ fullName: 'Maria' })); } }));
@@ -14,7 +14,13 @@ vi.mock('../infrastructure', () => {
   const list = () => vi.fn(async () => []);
   return {
     PropertyRepository: class { findAll = vi.fn(async () => [{ id: 'p1', role: 'owner' }, { id: 'p2', role: 'manager' }]); },
-    RenterRepository: class { findAll = list(); fileUrl = vi.fn(); },
+    RenterRepository: class {
+      constructor() {
+        calls.renters = { findAll: vi.fn(async () => []), fileUrl: vi.fn(),
+          upload: vi.fn(async (_r: string, _p: string, f: { name: string }) => { if (f.name === 'bad.png') throw new Error('no'); }) };
+        Object.assign(this, calls.renters);
+      }
+    },
     TenancyRepository: class { findAll = vi.fn(async () => [{ id: 't', propertyId: 'p1' }]); },
     BillRepository: class { findAll = list(); findReadings = list(); findUtilityBills = list(); },
     PaymentRepository: class { findAll = list(); proofUrl = vi.fn(); },
@@ -22,7 +28,7 @@ vi.mock('../infrastructure', () => {
     ContractRepository: class {
       constructor() {
         calls.contracts = { findTexts: vi.fn(async () => [{ id: 'ct' }]), getTemplate: vi.fn(async () => DEFAULT_CLAUSES),
-          createText: vi.fn(async () => 'new-id'), updateText: vi.fn(), send: vi.fn(), countersign: vi.fn(), setNotarizedScan: vi.fn(),
+          createText: vi.fn(async () => 'new-id'), signInPerson: vi.fn(async () => undefined), updateText: vi.fn(), send: vi.fn(), countersign: vi.fn(), setNotarizedScan: vi.fn(),
           saveTemplate: vi.fn(), saveLessorSignature: vi.fn(), getLessorSignature: vi.fn(async () => 'data:image/png;base64,SIG') };
         Object.assign(this, calls.contracts);
       }
@@ -119,5 +125,18 @@ describe('useRentals contracts', () => {
     await result.current.run({ type: 'removeSettlementProof', id: 'f' });
     expect(s.removeProof).toHaveBeenCalledWith('f');
     expect(await result.current.settlementProofUrl('f')).toBe('https://signed');
+  });
+
+  it('signs in person, then attaches each ID photo to the tenant and reports the ones that failed', async () => {
+    const { result } = renderHook(() => useRentals(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const details = { fullName: 'Ben', phone: '0917', address: 'Cebu', emergencyName: 'Ana', emergencyPhone: '0918', facebook: '', email: '', occupants: 1 };
+    const good = { name: 'id.png', mimeType: 'image/png', bytes: new ArrayBuffer(1) };
+    const bad = { ...good, name: 'bad.png' };
+    expect(await result.current.run({ type: 'signInPerson', id: 'ct', renterId: 'r', propertyId: 'p1', name: 'Ben', signature: 'data:image/png;base64,A',
+      contentHash: 'h', details, ids: [good, bad] })).toEqual({ failed: ['bad.png'] });
+    expect(calls.contracts.signInPerson).toHaveBeenCalledWith('ct', { name: 'Ben', signature: 'data:image/png;base64,A', contentHash: 'h', details });
+    expect(calls.renters.upload).toHaveBeenCalledWith('r', 'p1', good);
+    expect(calls.contracts.signInPerson.mock.invocationCallOrder[0]).toBeLessThan(calls.renters.upload.mock.invocationCallOrder[0]);
   });
 });

@@ -13,21 +13,21 @@ import { parseCharges } from '../utils/charges';
 import type { ChargeRow } from '../utils/charges';
 import { cn } from '@core/presentation/utils';
 
-type AddTenant = Extract<RentalAction, { type: 'addTenant' }>;
+/** Everything step 1 of the move-in collects; nothing is saved until the Pay step. */
+export type MoveInDraft = Omit<Extract<RentalAction, { type: 'moveIn' }>, 'payment' | 'proofs'>;
 const blankPerson: RenterInput = { fullName: '', phone: '', facebook: '', email: '', address: '', emergencyName: '',
   emergencyPhone: '', occupants: 1, notes: '' };
 const peso = (value: string) => { try { return value.trim() ? parsePesos(value) : null; } catch { return null; } };
 
-/** `others`: people from the owner's other properties; picking one copies their contact details (not their ID) into a new tenant here. */
-export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, busy, onSave, onCancel }: {
+/** Step 1 of the move-in: who, which terms. Only checks the input; `onNext` gets the draft (nothing is saved here).
+ * `others`: people from the owner's other properties; picking one copies their contact details (not their ID) into a new tenant here. */
+export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, busy, onNext, onCancel }: {
   unit: RentalUnit; renters: Renter[]; others?: { renter: Renter; propertyName: string }[]; rentDueDay?: number | null; busy: boolean;
-  /** `sendLink`: the tenant fills in their own details through a link made after saving. */
-  onSave(action: AddTenant, sendLink: boolean): Promise<void>; onCancel(): void;
+  onNext(draft: MoveInDraft): void; onCancel(): void;
 }) {
   const [person, setPerson] = useState(blankPerson);
   // A renter id of this property, or `other:<id>` for someone from another property.
   const [existingId, setExistingId] = useState<string | null>(null);
-  const [sendLink, setSendLink] = useState(false);
   const other = existingId?.startsWith('other:') ? others.find((o) => `other:${o.renter.id}` === existingId)?.renter : undefined;
   const [moveIn, setMoveIn] = useState(manilaToday());
   // Rent follows the room's price for the headcount until the user types their own amount.
@@ -71,14 +71,13 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
         value={person[key]} onChange={setP(key)} />
     </Field>;
 
-  return <form noValidate className="space-y-6" onSubmit={async (event) => {
+  return <form noValidate className="space-y-6" onSubmit={(event) => {
     event.preventDefault();
     try {
       const copied = other && { fullName: other.fullName, phone: other.phone, facebook: other.facebook, email: other.email, address: other.address,
         emergencyName: other.emergencyName, emergencyPhone: other.emergencyPhone, occupants: other.occupants, notes: '' };
       const renter = copied ? renterSchema.safeParse(copied) : existingId ? null : renterSchema.safeParse(person);
       if (renter && !renter.success) { fail(renter.error.issues[0].message, renter.error.issues[0].path[0]); return; }
-      if (renter && !copied && !sendLink && !renter.data.phone) { fail('Enter the tenant’s mobile number', 'phone'); return; }
       const monthlyRentCentavos = parsePesos(rent);
       const terms = tenancyTermsSchema.safeParse({ moveIn, startDate: moveIn, endDate, monthlyRentCentavos, dueDay: Number(dueDay), advanceMonths: Number(advance),
         depositCentavos: deposit.trim() ? parsePesos(deposit) : 0 });
@@ -89,8 +88,8 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
       const starting = meters.flatMap((kind) => readings[kind]?.trim() ? [{ kind, value: Number(readings[kind]) }] : []);
       if (starting.some((r) => !Number.isFinite(r.value) || r.value < 0)) { fail('Meter readings must be 0 or more', 'readings'); return; }
       const { moveIn: date, ...rest } = terms.data;
-      await onSave({ type: 'addTenant', propertyId: unit.propertyId, unitId: unit.id, renterId: renter ? null : existingId,
-        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra }, !existingId && sendLink);
+      onNext({ type: 'moveIn', propertyId: unit.propertyId, unitId: unit.id, renterId: renter ? null : existingId,
+        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra });
     } catch (failure) { setError(errorMessage(failure)); }
   }}>
     <fieldset disabled={busy} className="space-y-6">
@@ -104,12 +103,7 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
         </div>}
         {existingId === null ? <>
           {text('fullName', 'Full name', { autoComplete: 'name', wide: true })}
-          {text('phone', 'Mobile number', { type: 'tel', autoComplete: 'tel', wide: true, hint: sendLink ? 'optional' : undefined })}
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm sm:col-span-2">
-            <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={sendLink} onChange={(e) => setSendLink(e.target.checked)} />
-            <span><span className="block font-medium">Send details link</span>
-              <span className="block text-xs text-muted-foreground">They fill in their mobile, address, emergency contact and ID themselves. You review it before it’s saved.</span></span>
-          </label>
+          {text('phone', 'Mobile number', { type: 'tel', autoComplete: 'tel', wide: true, hint: 'optional' })}
         </> : <Field id="add-existing" label="Tenant" className="sm:col-span-2">
           <select id="add-existing" className={inputClass} value={existingId} onChange={(e) => setExistingId(e.target.value)}>
             {renters.map((r) => <option key={r.id} value={r.id}>{r.fullName}</option>)}
@@ -201,12 +195,12 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
             <Field id="add-notes" label="Notes" className="sm:col-span-2">
               <textarea id="add-notes" className={cn(inputClass, 'h-20 py-2 sm:h-20')} value={person.notes} onChange={setP('notes')} />
             </Field>
-            <p className="text-xs text-muted-foreground sm:col-span-2">Attach their valid ID after moving them in, from their tenant sheet.</p>
+            <p className="text-xs text-muted-foreground sm:col-span-2">Optional: the tenant fills these in, with their ID, when signing the contract.</p>
           </>}
         </Collapsible>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <FormActions submit="Move in" onCancel={onCancel} />
+      <FormActions submit="Next: payment" onCancel={onCancel} />
     </fieldset>
   </form>;
 }

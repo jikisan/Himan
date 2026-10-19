@@ -157,34 +157,21 @@ describe('Contract badges', () => {
 });
 
 describe('After Add tenant', () => {
-  const addElle = (sendLink: boolean) => {
+  it('goes on to the new tenant’s contract in the same dialog', async () => {
     state.run.mockImplementation(async (a: { type: string }) => {
-      if (a.type === 'createLink') return 'tok9';
-      if (a.type !== 'addTenant') return undefined;
+      if (a.type !== 'moveIn') return undefined;
       // In place: the page holds these arrays until the next fetch.
       state.renters.push(person('r9', 'Elle Tan'));
       state.tenancies.push(stay('t9', 'u7', 'r9'));
-      return { renterId: 'r9', tenancyId: 't9', warnings: [] };
+      return { renterId: 'r9', tenancyId: 't9', billId: null, paymentId: null, warnings: [] };
     });
     page('Rooms');
     fireEvent.click(within(screen.getByRole('region', { name: 'Room 7' })).getByRole('button', { name: /Add tenant/ }));
-    if (sendLink) fireEvent.click(screen.getByRole('checkbox', { name: /Send details link/ }));
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
-    if (!sendLink) fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-  };
-
-  it('opens the new tenant’s sheet at the Contract section', async () => {
-    addElle(false);
-    const contract = await screen.findByRole('region', { name: 'Contract' });
-    expect(screen.getByRole('heading', { name: 'Elle Tan' })).toBeInTheDocument();
-    await waitFor(() => expect(contract).toHaveFocus());
-    expect(within(contract).getByRole('button', { name: 'Create contract' })).toBeInTheDocument();
-  });
-
-  it('keeps the details-link dialog and says the contract is next', async () => {
-    addElle(true);
-    expect(await screen.findByText(/Create their contract next\./)).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Contract' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add without payment (pay later)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Next: contract' }));
+    expect(screen.getByRole('button', { name: 'Save draft' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Preview' })).toHaveTextContent('Elle Tan, also of legal age');
   });
 });

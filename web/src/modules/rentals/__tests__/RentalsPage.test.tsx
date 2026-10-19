@@ -51,6 +51,11 @@ const page = (tab = 'Rooms') => {
   return view;
 };
 const card = (name: string) => within(screen.getByRole('region', { name }));
+// Step 1 of the move-in, then "pay later" on step 2.
+const payLater = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add without payment (pay later)' }));
+};
 
 describe('Rooms board', () => {
   it('shows each bed of a shared room, filled first, with an add slot per free bed', () => {
@@ -115,15 +120,15 @@ describe('Tenants view', () => {
 
 describe('Add tenant', () => {
   const openAdd = () => { page(); fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]); };
-  it('needs only name, mobile, move-in and rent, and fills the rest', async () => {
+  it('needs only name, move-in and rent, and fills the rest', async () => {
     openAdd();
     expect(screen.getByLabelText('Monthly rent')).toHaveValue('3500.00');
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-11-15' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    payLater();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'addTenant', propertyId: 'p', unitId: 'u1', renterId: null, moveIn: '2026-11-15',
+      type: 'moveIn', payment: null, propertyId: 'p', unitId: 'u1', renterId: null, moveIn: '2026-11-15',
       renter: expect.objectContaining({ fullName: 'Elle Tan', phone: '0918' }),
       terms: { startDate: '2026-11-15', endDate: '2027-11-15', monthlyRentCentavos: 350000, dueDay: 15,
         advanceMonths: 1, depositCentavos: 350000 } })));
@@ -144,14 +149,15 @@ describe('Add tenant', () => {
     openAdd();
     fireEvent.click(screen.getByRole('button', { name: 'Already a tenant' }));
     fireEvent.change(screen.getByLabelText('Tenant'), { target: { value: 'r4' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant', renterId: 'r4', renter: null })));
+    payLater();
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn', renterId: 'r4', renter: null })));
   });
-  it('asks for a mobile number for a new person', async () => {
+  it('leaves the mobile number optional: the tenant gives it when signing', () => {
     openAdd();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s mobile number');
+    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Move-in bill' })).toBeInTheDocument();
     expect(state.run).not.toHaveBeenCalled();
   });
   it('explains a zero rent in plain words', async () => {
@@ -159,7 +165,7 @@ describe('Add tenant', () => {
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     fireEvent.change(screen.getByLabelText('Monthly rent'), { target: { value: '0' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter the monthly rent');
   });
   it('keeps contact in its own section, and explains it for someone already on file', () => {
@@ -180,13 +186,13 @@ describe('Add tenant', () => {
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     fireEvent.change(screen.getByLabelText('Contract ends'), { target: { value: '2020-01-01' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Contract must end after it starts');
-    expect(screen.getByText('Contract').closest('details')).toHaveAttribute('open');
+    expect(screen.getByText('Contract', { selector: 'summary span' }).closest('details')).toHaveAttribute('open');
   });
   it('asks for a name before saving', async () => {
     openAdd();
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s name');
     expect(state.run).not.toHaveBeenCalled();
   });
@@ -300,8 +306,8 @@ describe('Per-person room price', () => {
     expect(screen.getByLabelText('Monthly rent')).toHaveValue('3,200');
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant', unitId: 'u3',
+    payLater();
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn', unitId: 'u3',
       renter: expect.objectContaining({ occupants: 3 }), terms: expect.objectContaining({ monthlyRentCentavos: 320000 }) })));
   });
   it('saves the extra-person price on a room', async () => {
@@ -454,10 +460,10 @@ describe('Bills in the existing screens', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Other' }));
     fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Parking' } });
     fireEvent.change(screen.getByLabelText('Charge amount'), { target: { value: '1,000' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant',
+    payLater();
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn',
       readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }] })));
-    expect(toasts.success).toHaveBeenCalledWith('Elle Tan moved in');
+    expect(await screen.findByText('Tenant added')).toBeInTheDocument();
   });
   it('uses the property due date and charges the days until it on move-in', async () => {
     state.run.mockResolvedValue({ renterId: 'r9', warnings: [] });
@@ -470,7 +476,7 @@ describe('Bills in the existing screens', () => {
     expect(screen.getByText('Advance · 1 month')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
+    payLater();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ terms: expect.objectContaining({ dueDay: 5 }) })));
   });
   it('asks for a final reading when moving out of a metered room', async () => {

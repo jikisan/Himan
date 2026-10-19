@@ -65,48 +65,6 @@ const openSheet = () => {
   fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^Carlo Lim/ }));
 };
 
-describe('Add tenant with a details link', () => {
-  it('needs only the name, moves them in, then makes a new-tenant link ready to copy', async () => {
-    state.run.mockImplementation(async (a: { type: string }) =>
-      a.type === 'addTenant' ? { renterId: 'r9', tenancyId: 't9', warnings: [] } : a.type === 'createLink' ? 'tok9' : undefined);
-    openAdd();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Send details link/ }));
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't9', kind: 'new' }));
-    expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant', renterId: null, unitId: 'u1',
-      renter: expect.objectContaining({ fullName: 'Elle Tan', phone: '' }) }));
-    const message = linkMessage(`${location.origin}/r/tok9`, 'Elle Tan', 'new');
-    expect(await screen.findByRole('textbox', { name: 'Message to send' })).toHaveValue(message);
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(message));
-  });
-
-  it('still asks for a mobile number without the link', async () => {
-    openAdd();
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s mobile number');
-    expect(state.run).not.toHaveBeenCalled();
-  });
-
-  it('lets the landlord try the link again when it could not be made', async () => {
-    let fail = true;
-    state.run.mockImplementation(async (a: { type: string }) => {
-      if (a.type !== 'createLink') return { renterId: 'r9', tenancyId: 't9', warnings: [] };
-      if (fail) { fail = false; throw new Error('Could not create the link'); }
-      return 'tok9';
-    });
-    openAdd();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Send details link/ }));
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    expect(await screen.findByText(/the link wasn’t made/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('textbox', { name: 'Message to send' })).toHaveValue(linkMessage(`${location.origin}/r/tok9`, 'Elle Tan', 'new'));
-  });
-});
-
 describe('Waiting for details', () => {
   it('shows on the Tenants list, the Rooms board and the tenant sheet until submitted', () => {
     state.links = [link({ kind: 'new' })];
@@ -136,11 +94,11 @@ describe('Pick from my other properties', () => {
     const others = within(within(select).getByRole('group', { name: 'From my other properties' })).getAllByRole('option');
     expect(others.map((o) => o.textContent)).toEqual(['Dana Cruz · Talamban House', 'Eli Go · Talamban House']);
     expect(screen.queryByText(/Zed Friend/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: /Send details link/ })).not.toBeInTheDocument();
     fireEvent.change(select, { target: { value: (others[0] as HTMLOptionElement).value } });
     expect(screen.getByText(/Ask for a new ID photo/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Move in' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'addTenant', propertyId: 'p', renterId: null,
+    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add without payment (pay later)' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn', propertyId: 'p', renterId: null,
       renter: { fullName: 'Dana Cruz', phone: '0920', facebook: 'dana.fb', email: 'dana@example.com', address: 'Talamban, Cebu City',
         emergencyName: 'Mom', emergencyPhone: '0999', occupants: 2, notes: '' } })));
   });

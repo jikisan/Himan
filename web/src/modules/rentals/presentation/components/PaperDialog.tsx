@@ -19,7 +19,7 @@ export function PaperDialog({ label, title, description, make, children, ...trig
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-md bg-muted/40 p-2 [scrollbar-width:thin] sm:p-3">{children()}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-md bg-muted/40 p-2 [scrollbar-width:thin] sm:p-3">{open && children()}</div>
         <div className="flex justify-end"><PdfButton className="h-11 sm:h-9" make={make}>Download PDF</PdfButton></div>
       </DialogContent>
     </Dialog>

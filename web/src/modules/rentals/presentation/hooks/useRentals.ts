@@ -3,9 +3,9 @@ import { onlineManager, useMutation, useQuery, useQueryClient } from '@tanstack/
 import { useAuth } from '@auth/index';
 import { FriendRepository } from '@himan/shared/friends';
 import { ProfileRepository } from '@himan/shared/profile';
-import { DEFAULT_CLAUSES, addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
+import { DEFAULT_CLAUSES, issueBills, moveIn, moveOut, setupProperty } from '@himan/shared/rentals';
 import { Logger } from '@core/infrastructure/services';
-import type { AddTenantInput, BillLine, Clause, LinkKind, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
+import type { BillLine, Clause, InPersonDetails, LinkKind, MoveInInput, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
   ReadingInput, RenterInput, SettlementInput, SignMode, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
 import { BillRepository, ContractRepository, LinkRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, SettlementRepository, TenancyRepository } from '../../infrastructure';
 
@@ -23,7 +23,8 @@ export type RentalAction =
   | { type: 'removeRenterFile'; id: string }
   | { type: 'startTenancy'; input: StartTenancyInput }
   | { type: 'endTenancy'; id: string; moveOut: string }
-  | ({ type: 'addTenant' } & AddTenantInput)
+  /** One transaction: the person (if new), tenancy, move-in bill and payment; resolves to { renterId, tenancyId, billId, paymentId, warnings }. */
+  | ({ type: 'moveIn' } & MoveInInput)
   | { type: 'updateTerms'; contractId: string; input: ContractTermsInput }
   | { type: 'setupProperty'; input: PropertyInput; rooms: UnitInput[] }
   | { type: 'saveReadings'; propertyId: string; inputs: ReadingInput[] }
@@ -58,6 +59,9 @@ export type RentalAction =
   | { type: 'sendContract'; id: string }
   /** Without a signature, the property's saved one is used. */
   | { type: 'countersign'; id: string; signature?: string }
+  /** The tenant signs on this device; then their ID files are attached. Resolves to { failed: ID file names that didn't upload }. */
+  | { type: 'signInPerson'; id: string; renterId: string; propertyId: string; name: string; signature: string; contentHash: string;
+      details: InPersonDetails; ids: FileInput[] }
   | { type: 'setNotarizedScan'; id: string; file: FileInput }
   | { type: 'saveTemplate'; propertyId: string; clauses: Clause[] }
   | { type: 'saveLessorSignature'; propertyId: string; png: string }
@@ -123,7 +127,7 @@ export function useRentals() {
         case 'removeRenterFile': return repos.renters.removeFile(a.id);
         case 'startTenancy': return repos.tenancies.start(a.input);
         case 'endTenancy': return repos.tenancies.end(a.id, a.moveOut);
-        case 'addTenant': return addTenant(repos, a);
+        case 'moveIn': return moveIn(repos, a);
         case 'updateTerms': return repos.tenancies.updateTerms(a.contractId, a.input);
         case 'setupProperty': return setupProperty(repos, a);
         case 'saveReadings': return repos.bills.saveReadings(a.propertyId, a.inputs);
@@ -176,6 +180,14 @@ export function useRentals() {
         case 'updateContractText': return repos.contracts.updateText(a.id, a.changes);
         case 'sendContract': return repos.contracts.send(a.id);
         case 'countersign': return repos.contracts.countersign(a.id, a.signature);
+        case 'signInPerson': {
+          await repos.contracts.signInPerson(a.id, { name: a.name, signature: a.signature, contentHash: a.contentHash, details: a.details });
+          const failed: string[] = [];
+          for (const file of a.ids) {
+            try { await repos.renters.upload(a.renterId, a.propertyId, file); } catch { failed.push(file.name); }
+          }
+          return { failed };
+        }
         case 'setNotarizedScan': return repos.contracts.setNotarizedScan(a.id, a.file);
         case 'saveTemplate': return repos.contracts.saveTemplate(a.propertyId, a.clauses);
         case 'saveLessorSignature': return repos.contracts.saveLessorSignature(a.propertyId, a.png);

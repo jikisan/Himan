@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, centavosToInput, contractStage, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
+import { addPeriods, billBalance, centavosToInput, contractStage, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
 import type { ContractStage, ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalSettlement, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
 import { PaymentsList } from './PaymentsList';
@@ -74,6 +74,12 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   const stageOf = (tenancyId: string): ContractStage =>
     contractInfo ? contractStage(active.find((t) => t.id === tenancyId)!, contractInfo.texts) : 'done';
   const contractFirst = contracts.some((c) => contractOpen(stageOf(c.tenancyId)));
+  // Until the move-in is paid and the contract signed by both (or not needed): Added · Move-in paid · Contract.
+  const checklists = active.map((t) => {
+    const stage = stageOf(t.id);
+    const paid = bills.filter((b) => b.tenancyId === t.id && b.kind === 'move_in' && b.status === 'issued').every((b) => billBalance(b, payments) === 0);
+    return { t, stage, paid };
+  }).filter(({ stage, paid }) => stage !== 'not_needed' && (!paid || stage !== 'done'));
   const setNotNeeded = (tenancyId: string, value: boolean) => run({ type: 'setContractNotNeeded', tenancyId, value })
     .then(() => toast.success(value ? 'Marked as not needed' : 'Contract is back on your to-do list'), (e) => toast.error(errorMessage(e)));
   const contractSections = contracts.map((c, i) => {
@@ -124,6 +130,15 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
 
     {/* Every section gets a line above it: same spacing around each line. */}
     <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+      {checklists.map(({ t, stage, paid }) => <section key={`steps-${t.id}`} aria-label="Move-in checklist">
+        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          {active.length > 1 && <li className="font-semibold">{unitName(t.unitId)}:</li>}
+          {([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word]) =>
+            <li key={label} className={ok ? 'text-emerald-700 dark:text-emerald-400' : 'font-medium'}>
+              {label} <span aria-hidden>{ok ? '✓' : '✗'}</span><span className="sr-only">{ok ? ' done' : ' not yet'}</span>
+              {word && <span className="text-muted-foreground"> ({word})</span>}</li>)}
+        </ul>
+      </section>)}
       {canManage && active.map((t) => {
         const link = linkOf(t);
         return link?.status === 'submitted' && link.submittedDetails
@@ -225,6 +240,8 @@ const NEXT_STEP: Partial<Record<ContractStage, string>> = {
   none: 'Next step: the written contract.', draft: 'Next step: send it to the tenant to sign.',
   sent: 'Next step: the tenant signs through their link.', signed: 'Next step: your signature.',
 };
+
+const STAGE_WORD: Partial<Record<ContractStage, string>> = { none: 'not started', draft: 'draft', sent: 'waiting to sign', signed: 'needs your signature' };
 
 const ordinal = (n: number) => {
   const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';

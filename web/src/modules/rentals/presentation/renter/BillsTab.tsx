@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { accountTitle, billName, billTotal, formatBillPesos, manilaToday, METHOD_LABEL } from '@himan/shared/rentals';
+import { accountTitle, billName, billTotal, formatBillPesos, manilaToday, METHOD_LABEL, receiptDocument } from '@himan/shared/rentals';
 import type { PaymentAccount, PublicLink, ReceiptContext, RentalBill, RentalPayment, StatementInfo } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 import { PaymentAccountRepository } from '../../infrastructure';
+import { PaperDialog } from '../components/PaperDialog';
 import { PdfButton } from '../components/PdfButton';
+import { ReceiptPaper } from '../components/ReceiptPaper';
 
 const qrUrl = (path: string) => new PaymentAccountRepository().qrUrl(path);
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
@@ -83,6 +85,10 @@ export function BillsTab({ data }: { data: PublicLink }) {
           {/* Receipts print from the snapshot taken when the payment was recorded; older payments have none. */}
           {p.receipt?.applied && <PdfButton className="h-12 w-full text-base" aria-label={`Receipt PDF for ${formatBillPesos(p.amount)} on ${day(p.paidOn)}`}
             make={async () => (await import('../pdf/download')).downloadReceiptPdf(asPayment(p), receiptContext)}>Receipt PDF</PdfButton>}
+          {p.receipt?.applied && <PaperDialog className="h-12 w-full text-base" label="View receipt" title="Receipt"
+            description={`${formatBillPesos(p.amount)} on ${day(p.paidOn)}`} aria-label={`View receipt for ${formatBillPesos(p.amount)} on ${day(p.paidOn)}`}
+            make={async () => (await import('../pdf/download')).downloadReceiptPdf(asPayment(p), receiptContext)}>
+            {() => <ReceiptPaper doc={receiptDocument(asPayment(p), receiptContext)} />}</PaperDialog>}
         </li>)}</ul>}
     </section>
 

@@ -319,4 +319,17 @@ describe('PDF downloads', () => {
     await waitFor(() => expect(pdfs.downloadReceiptPdf).toHaveBeenCalledWith(p1, expect.objectContaining({
       renterName: 'Juan Dela Cruz', roomName: 'Room 1', ownerName: 'Maria Santos', bills: state.bills, payments: state.payments })));
   });
+  it('opens a payment as the paper receipt, for viewers too, with its download', async () => {
+    state.properties = [{ ...property, role: 'viewer' }];
+    const p1 = pay('p1', 350000, [[BILL, 350000]]);
+    state.payments = [p1];
+    const sheet = openTenant();
+    fireEvent.click(sheet.getByRole('button', { name: 'View receipt for ₱3,500 on Nov 5, 2026' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    const paper = within(dialog.getByRole('article', { name: 'Acknowledgment Receipt' }));
+    expect(paper.getByText('Juan Dela Cruz')).toBeInTheDocument();
+    expect(paper.getByText('Three Thousand Five Hundred Pesos Only')).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(pdfs.downloadReceiptPdf).toHaveBeenCalledWith(p1, expect.objectContaining({ renterName: 'Juan Dela Cruz' })));
+  });
 });

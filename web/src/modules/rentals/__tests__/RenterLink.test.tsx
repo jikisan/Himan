@@ -143,6 +143,15 @@ describe('renter link page', () => {
     expect(screen.getByText('2. Special terms: No pets.')).toBeInTheDocument();
   });
 
+  it('shows the contract to sign as the paper copy, with blank signature lines', async () => {
+    await open(base());
+    const paper = within(screen.getByRole('article', { name: 'Contract of Lease' }));
+    expect(paper.getByText('1. Rent is ₱5,000.')).toBeInTheDocument();
+    expect(paper.getByText('2. Special terms: No pets.')).toBeInTheDocument();
+    expect(paper.getByText('Talamban, Cebu City')).toBeInTheDocument();
+    expect(paper.queryByRole('img')).toBeNull();
+  });
+
   it('never shows a draft contract', async () => {
     await open(base({ contract: { ...sent, status: 'draft' } }));
     expect(screen.queryByText('1. Rent is ₱5,000.')).toBeNull();
@@ -220,6 +229,12 @@ describe('renter link page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Receipt PDF/ }));
     await waitFor(() => expect(pdfs.downloadReceiptPdf).toHaveBeenCalledWith(expect.objectContaining({ id: 'pay1', amountCentavos: 850000 }),
       expect.objectContaining({ renterName: 'Ben Cruz' })));
+    pdfs.downloadReceiptPdf.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /^View receipt/ }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(within(dialog.getByRole('article', { name: 'Acknowledgment Receipt' })).getByText('BAK-1 · Move-in SOA')).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(pdfs.downloadReceiptPdf).toHaveBeenCalledWith(expect.objectContaining({ id: 'pay1' }), expect.objectContaining({ renterName: 'Ben Cruz' })));
   });
 
   it('shows payment accounts with their QR, falling back to text when the image fails', async () => {

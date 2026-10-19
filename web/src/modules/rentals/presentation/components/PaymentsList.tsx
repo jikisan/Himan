@@ -4,14 +4,16 @@ import { Eye, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { formatBillPesos, validateRentalFile } from '@himan/shared/rentals';
+import { formatBillPesos, receiptDocument, validateRentalFile } from '@himan/shared/rentals';
 import type { ReceiptContext, RentalBill, RentalPayment } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 import { METHOD, billName } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
+import { PaperDialog } from './PaperDialog';
 import { PdfButton } from './PdfButton';
+import { ReceiptPaper } from './ReceiptPaper';
 
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
 
@@ -48,6 +50,11 @@ export function PaymentsList({ payments, bills, canManage, busy, run, proofUrl, 
           {receipt && <PdfButton variant="ghost" size="sm" className="h-11 px-2 sm:h-8"
             aria-label={`Receipt PDF for ${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`}
             make={async () => (await import('../pdf/download')).downloadReceiptPdf(p, receipt(p))}>Receipt PDF</PdfButton>}
+          {receipt && <PaperDialog variant="ghost" size="sm" className="h-11 px-2 sm:h-8" label="View receipt" title="Receipt"
+            description={`${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`}
+            aria-label={`View receipt for ${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`}
+            make={async () => (await import('../pdf/download')).downloadReceiptPdf(p, receipt(p))}>
+            {() => <ReceiptPaper doc={receiptDocument(p, receipt(p))} />}</PaperDialog>}
           {canManage && <Button variant="ghost" size="sm" className="h-11 px-2 text-destructive hover:text-destructive sm:h-8" disabled={busy}
             aria-label={`Void payment of ${formatBillPesos(p.amountCentavos)} on ${day(p.paidOn)}`} onClick={() => setVoiding(p)}>Void</Button>}
         </div>}

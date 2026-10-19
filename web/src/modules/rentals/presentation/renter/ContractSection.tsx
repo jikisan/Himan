@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@core/presentation/utils';
 import { LinkRepository } from '../../infrastructure';
 import { SignaturePad } from '../components/SignaturePad';
+import { ContractPaper } from '../components/ContractPaper';
 import { PdfButton } from '../components/PdfButton';
 import { inputClass } from '../components/Field';
 import { contractLines, manilaDate } from '../utils/contract';
@@ -23,9 +24,7 @@ export function ContractSection({ token, data, reload }: { token: string; data: 
   return <section aria-labelledby="contract-title" className="space-y-4">
     <h2 id="contract-title" className="text-lg font-semibold">Contract of lease</h2>
     {notice && <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-base">{notice}</p>}
-    <div className="space-y-3 rounded-xl border bg-card p-4 text-base leading-relaxed break-words">
-      {contractLines(c.body, c.specialTerms).map((line, i) => <p key={i} className="whitespace-pre-line">{line}</p>)}
-    </div>
+    <ContractPaper doc={pdfData(c, data)} />
     <p className="text-sm text-muted-foreground">Something wrong? Tell your landlord.</p>
     {c.status === 'sent'
       ? <SignForm contract={c} onSign={async (input) => {
@@ -92,14 +91,16 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
   </form>;
 }
 
+const pdfData = (c: Contract, data: PublicLink): ContractPdfData => ({
+  // Same address as the landlord's PDF (rental_link_get already falls back to the property address).
+  lessorName: data.property.lessorName, lessorAddress: data.property.lessorAddress || data.property.address, signingCity: data.property.signingCity,
+  lines: contractLines(c.body, c.specialTerms), signMode: c.signMode, tenantName: c.tenantName || data.tenantName,
+  tenantSignature: c.tenantSignature, tenantSignedAt: c.tenantSignedAt, lessorSignature: c.lessorSignature ?? null,
+  lessorSignedAt: c.lessorSignedAt ?? null, contentHash: c.contentHash,
+});
+
 function SignedView({ contract: c, data }: { contract: Contract; data: PublicLink }) {
-  const pdf: ContractPdfData = {
-    // Same address as the landlord's PDF (rental_link_get already falls back to the property address).
-    lessorName: data.property.lessorName, lessorAddress: data.property.lessorAddress || data.property.address, signingCity: data.property.signingCity,
-    lines: contractLines(c.body, c.specialTerms), signMode: c.signMode, tenantName: c.tenantName || data.tenantName,
-    tenantSignature: c.tenantSignature, tenantSignedAt: c.tenantSignedAt, lessorSignature: c.lessorSignature ?? null,
-    lessorSignedAt: c.lessorSignedAt ?? null, contentHash: c.contentHash,
-  };
+  const pdf = pdfData(c, data);
   return <div className="space-y-4 rounded-xl border bg-card p-4">
     <p role="status" className="text-base font-semibold">{c.status === 'countersigned' ? 'Fully signed' : 'Waiting for your landlord to countersign'}</p>
     <div className="grid gap-4 sm:grid-cols-2">

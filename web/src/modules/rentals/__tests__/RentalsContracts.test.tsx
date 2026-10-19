@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { DEFAULT_CLAUSES, contractStatusLabel, contractValues, linkMessage, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalProperty, RentalTenancy, Renter, TenancyLink } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { expectBanner, expectNoErrorAfter } from './formErrors';
 
 const PNG = 'data:image/png;base64,AAAA';
 const pad = vi.hoisted(() => ({ fire: () => {} }));
@@ -135,6 +136,16 @@ describe('Contract on the tenant sheet', () => {
     fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct',
       changes: { body: stored(), specialTerms: '', signMode: 'notarize' } }));
+  });
+
+  it('shows a refused save in one banner at the top of the contract editor', async () => {
+    state.run.mockRejectedValue(new Error('The database said no'));
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
+    const save = contract.getByRole('button', { name: 'Save draft' });
+    fireEvent.click(save);
+    await waitFor(() => expectBanner('The database said no', contract.getByLabelText('Special terms')));
+    expectNoErrorAfter(save);
   });
 
   it('chooses the sign mode on a new draft, online only by default', async () => {

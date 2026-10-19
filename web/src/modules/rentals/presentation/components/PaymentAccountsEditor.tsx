@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button';
 import { ACCOUNT_KINDS, paymentAccountSchema } from '@himan/shared/rentals';
 import type { PaymentAccount } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
+import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 import { Field, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 
 type Kind = PaymentAccount['kind'];
 const KIND: Record<Kind, string> = { gcash: 'GCash', maya: 'Maya', bank: 'Bank', other: 'Other' };
+const FIELD: Record<string, string> = { kind: 'kind', label: 'label', accountName: 'name', accountNumber: 'number' };
 const DEFAULT_LABEL: Record<Kind, string> = { gcash: 'GCash', maya: 'Maya', bank: 'Bank', other: '' };
 
 /**
@@ -39,18 +42,18 @@ function AccountRow({ propertyId, account, position, busy, run, qrUrl, onDone }:
   const [label, setLabel] = useState(account?.label ?? DEFAULT_LABEL.gcash);
   const [accountName, setName] = useState(account?.accountName ?? '');
   const [accountNumber, setNumber] = useState(account?.accountNumber ?? '');
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
   const [confirming, setConfirming] = useState(false);
   const id = `account-${account?.id ?? 'new'}`;
   const save = async () => {
     const result = paymentAccountSchema.safeParse({ kind, label, accountName, accountNumber, position });
-    if (!result.success) { setError(result.error.issues[0].message); return; }
-    setError('');
+    fe.clear();
+    if (!result.success) { fe.failMany(zodFieldErrors(result.error, ([key]) => `${id}-${FIELD[key as string] ?? 'label'}`)); return; }
     try {
       await run({ type: 'saveAccount', propertyId, id: account?.id ?? null, input: result.data });
       toast.success('Payment account saved');
       onDone?.();
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { fe.setFormError(errorMessage(e)); }
   };
   const uploadQr = async (file: File | undefined) => {
     if (!file || !account) return;
@@ -63,22 +66,27 @@ function AccountRow({ propertyId, account, position, busy, run, qrUrl, onDone }:
     .then(() => toast.success('Payment account deleted'), (e) => toast.error(errorMessage(e))).finally(() => setConfirming(false));
 
   return <div role="group" aria-label={account ? `${account.label} account` : 'New payment account'} className="space-y-3 rounded-lg border p-3">
+    <FormErrorBanner message={fe.formError} />
     <div className="grid gap-3 sm:grid-cols-2">
       <Field id={`${id}-kind`} label="Type">
         <select id={`${id}-kind`} className={inputClass} value={kind} onChange={(e) => {
           const next = e.target.value as Kind;
           if (!label.trim() || label === DEFAULT_LABEL[kind]) setLabel(DEFAULT_LABEL[next]);
           setKind(next);
+          fe.clear(`${id}-label`);
         }}>{ACCOUNT_KINDS.map((k) => <option key={k} value={k}>{KIND[k]}</option>)}</select>
       </Field>
-      <Field id={`${id}-label`} label="Label" hint="e.g. BDO Savings">
-        <input id={`${id}-label`} className={inputClass} maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} />
+      <Field id={`${id}-label`} label="Label" hint="e.g. BDO Savings" required error={fe.errors[`${id}-label`]}>
+        <input id={`${id}-label`} className={inputClass} maxLength={60} value={label} required {...fe.invalid(`${id}-label`)}
+          onChange={(e) => { setLabel(e.target.value); fe.clear(`${id}-label`); }} />
       </Field>
-      <Field id={`${id}-name`} label="Account name">
-        <input id={`${id}-name`} className={inputClass} maxLength={120} value={accountName} onChange={(e) => setName(e.target.value)} />
+      <Field id={`${id}-name`} label="Account name" error={fe.errors[`${id}-name`]}>
+        <input id={`${id}-name`} className={inputClass} maxLength={120} value={accountName} {...fe.invalid(`${id}-name`)}
+          onChange={(e) => { setName(e.target.value); fe.clear(`${id}-name`); }} />
       </Field>
-      <Field id={`${id}-number`} label="Account number">
-        <input id={`${id}-number`} className={inputClass} maxLength={60} value={accountNumber} onChange={(e) => setNumber(e.target.value)} />
+      <Field id={`${id}-number`} label="Account number" error={fe.errors[`${id}-number`]}>
+        <input id={`${id}-number`} className={inputClass} maxLength={60} value={accountNumber} {...fe.invalid(`${id}-number`)}
+          onChange={(e) => { setNumber(e.target.value); fe.clear(`${id}-number`); }} />
       </Field>
     </div>
     {account ? <div className="flex flex-wrap items-center gap-3">
@@ -90,7 +98,6 @@ function AccountRow({ propertyId, account, position, busy, run, qrUrl, onDone }:
       </label>
       <span className="text-xs text-muted-foreground">PNG, JPEG or WebP up to 2 MB. Anyone with the link can see it.</span>
     </div> : <p className="text-xs text-muted-foreground">Save first, then you can add a QR code.</p>}
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex flex-wrap justify-end gap-2">
       {account && (confirming
         ? <>

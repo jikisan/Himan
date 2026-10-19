@@ -167,7 +167,7 @@ describe('After Add tenant', () => {
     });
     page('Rooms');
     fireEvent.click(within(screen.getByRole('region', { name: 'Room 7' })).getByRole('button', { name: /Add tenant/ }));
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add without payment (pay later)' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Next: contract' }));

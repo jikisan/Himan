@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { DEFAULT_CLAUSES, canonicalText, sha256Hex } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
 const pad = vi.hoisted(() => ({ instance: null as null | { fire(): void } }));
 vi.mock('signature_pad', () => ({
@@ -75,7 +76,9 @@ const openSheet = () => {
 };
 // The tenant screen is the topmost dialog, over the tenant sheet.
 const top = () => within(screen.getAllByRole('dialog').at(-1)!);
-const fill = (label: string | RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+// A required field's label ends in a hidden " *".
+const label = (text: string) => new RegExp(`^${text}( \\*)?$`);
+const fill = (text: string, value: string) => fireEvent.change(screen.getByLabelText(label(text)), { target: { value } });
 const toDetails = () => {
   openSheet();
   fireEvent.click(screen.getByRole('button', { name: 'Sign on this device' }));
@@ -95,7 +98,7 @@ const fillDetails = (id = new File(['x'], 'id.png', { type: 'image/png' })) => {
 describe('Sign on this device', () => {
   it('lets the tenant fill in their details, read their own contract and sign it, then the owner countersigns', async () => {
     toDetails();
-    expect(screen.getByLabelText('Full name')).toHaveValue('Carlo Lim');
+    expect(screen.getByLabelText(label('Full name'))).toHaveValue('Carlo Lim');
     fillDetails();
     const paper = within(screen.getByRole('article', { name: 'Contract of Lease' }));
     expect(paper.getByText('Carlo Lim of Pajo, Lapu-Lapu City')).toBeInTheDocument();
@@ -120,7 +123,7 @@ describe('Sign on this device', () => {
     fill('Mobile number', '0917');
     fireEvent.pointerDown(document.body);
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
-    expect(screen.getByLabelText('Mobile number')).toHaveValue('0917');
+    expect(screen.getByLabelText(label('Mobile number'))).toHaveValue('0917');
   });
 
   it('uses the corrected name in the contract and the hash', async () => {
@@ -137,18 +140,51 @@ describe('Sign on this device', () => {
     expect(call.contentHash).toBe(await sha256Hex(canonicalText(['Carlo M. Lim of Pajo, Lapu-Lapu City', '1. Lease.'], '')));
   });
 
-  it('asks for the missing details and an ID before showing the contract', () => {
+  it('marks what the tenant must give, and takes them to the first missing field with the message under it', () => {
     toDetails();
-    fireEvent.click(screen.getByRole('button', { name: 'Next: read the contract' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter your home address');
+    for (const text of ['Full name', 'Mobile number', 'Home address', 'Emergency contact name', 'Emergency contact number'])
+      expectRequired(screen.getByLabelText(label(text)));
+    const ids = top().getByLabelText(/Valid ID/);
+    const agree = screen.getByRole('checkbox', { name: /stores these details/ });
+    expectRequired(ids);
+    expect(agree).toBeRequired();
+    const next = screen.getByRole('button', { name: 'Next: read the contract' });
+    expect(next).toBeEnabled();
+    fireEvent.click(next);
+    expectFieldError(screen.getByLabelText(label('Home address')), 'Enter your home address');
+    expect(document.getElementById(`${ids.id}-error`)).toHaveTextContent('Add a photo of a valid ID');
+    expect(document.getElementById(`${agree.id}-error`)).toHaveTextContent('Tick the box to agree to the details being stored');
+    expectNoErrorAfter(next);
     fill('Home address', 'Pajo');
+    expect(screen.getByLabelText(label('Home address'))).not.toHaveAttribute('aria-invalid');
     fill('Emergency contact name', 'Rosa Lim');
     fill('Emergency contact number', '0918');
-    fireEvent.click(screen.getByRole('button', { name: 'Next: read the contract' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Add a photo of a valid ID');
-    fireEvent.change(top().getByLabelText(/Valid ID/), { target: { files: [new File(['x'], 'id.gif', { type: 'image/gif' })] } });
-    expect(screen.getByRole('alert')).toHaveTextContent('PDF, JPEG, or PNG');
+    fireEvent.click(next);
+    expectFieldError(ids, 'Add a photo of a valid ID');
+    fireEvent.change(ids, { target: { files: [new File(['x'], 'id.gif', { type: 'image/gif' })] } });
+    expect(document.getElementById(`${ids.id}-error`)).toHaveTextContent('PDF, JPEG, or PNG');
+    fireEvent.change(ids, { target: { files: [new File(['x'], 'id.png', { type: 'image/png' })] } });
+    fireEvent.click(next);
+    expectFieldError(agree, 'Tick the box to agree to the details being stored');
     expect(screen.queryByRole('article', { name: 'Contract of Lease' })).toBeNull();
+  });
+
+  it('keeps Sign on and takes the tenant to the missing name, with the signature asked for under the pad', () => {
+    toDetails();
+    fillDetails();
+    const name = screen.getByLabelText(label('Type your full name'));
+    expectRequired(name);
+    const sign = screen.getByRole('button', { name: 'Sign' });
+    expect(sign).toBeEnabled();
+    fireEvent.click(sign);
+    expectFieldError(name, 'Enter your full name');
+    const signatureError = screen.getByText('Draw your signature', { selector: '[id$="-error"]' });
+    expect(signatureError.id).toBe(`${screen.getByRole('group', { name: 'Draw your signature' }).id}-error`);
+    expectNoErrorAfter(sign);
+    fill('Type your full name', 'Carlo Lim');
+    act(() => pad.instance!.fire());
+    expect(screen.queryByText('Draw your signature', { selector: '[id$="-error"]' })).toBeNull();
+    expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'signInPerson' }));
   });
 
   it('warns when an ID photo didn’t upload after signing', async () => {
@@ -170,7 +206,8 @@ describe('Sign on this device', () => {
     act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The contract changed');
-    expect(screen.getByRole('article', { name: 'Contract of Lease' })).toBeInTheDocument();
+    expectBanner('The contract changed', screen.getByRole('article', { name: 'Contract of Lease' }));
+    expectNoErrorAfter(screen.getByRole('button', { name: 'Sign' }));
   });
 
   it('is for managers only', () => {

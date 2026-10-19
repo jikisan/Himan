@@ -7,12 +7,17 @@ import { SignaturePad } from '../components/SignaturePad';
 import { SignModeChoice } from '../components/ContractPanel';
 import { ContractPaper } from '../components/ContractPaper';
 import { PdfButton } from '../components/PdfButton';
-import { inputClass } from '../components/Field';
+import { Field, inputClass } from '../components/Field';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { contractLines, manilaDate, previewLessee } from '../utils/contract';
 import type { ContractPdfData } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
 
 const links = new LinkRepository();
+/** The signature pad's wrapper: focusable for a failed submit, its canvas outlined red while invalid. */
+const padGroupClass = 'space-y-1.5 rounded-lg focus:outline-none aria-invalid:[&_canvas]:border-destructive aria-invalid:[&_canvas]:ring-2 '
+  + 'aria-invalid:[&_canvas]:ring-destructive/25';
 type Contract = NonNullable<PublicLink['contract']>;
 
 /** The contract once the landlord has sent it: read, choose how to sign, sign; then the signed view and its PDF. */
@@ -54,32 +59,41 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
   const [name, setName] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const ready = !!mode && !!name.trim() && !!signature && !busy;
-  return <form className="space-y-4 rounded-xl border bg-card p-4" onSubmit={async (e) => {
+  const fe = useFieldErrors();
+  const fid = (key: string) => `${id}-${key}`;
+  return <form noValidate className="space-y-4 rounded-xl border bg-card p-4" onSubmit={async (e) => {
     e.preventDefault();
-    if (!ready) return;
-    setBusy(true); setError('');
+    if (busy) return;
+    fe.clear();
+    const bad: [string, string][] = [];
+    if (!mode) bad.push([fid('mode'), 'Choose how you want to sign']);
+    if (!name.trim()) bad.push([fid('name'), 'Enter your full name']);
+    if (!signature) bad.push([fid('signature'), 'Draw your signature']);
+    if (bad.length || !mode || !signature) { fe.failMany(bad); return; }
+    setBusy(true);
     try {
       // The fingerprint of exactly the text on screen; the database refuses it if the landlord changed the contract since.
       const contentHash = await sha256Hex(canonicalText(contract.body, contract.specialTerms));
       await onSign({ name, signMode: mode, signature, userAgent: navigator.userAgent, contentHash });
-    } catch (err) { setError(errorMessage(err)); } finally { setBusy(false); }
+    } catch (err) { fe.setFormError(errorMessage(err)); } finally { setBusy(false); }
   }}>
+    <FormErrorBanner message={fe.formError} />
     <h3 className="text-base font-semibold">Sign the contract</h3>
     {contract.signMode ? <p className="text-base">{contract.signMode === 'notarize'
       ? 'Your landlord asked you to sign online and then have it notarized.' : 'You can sign online. No notary needed.'}</p>
-      : <SignModeChoice legend="How do you want to sign?" value={mode} onChange={setMode} disabled={busy} />}
-    <div className="space-y-1.5">
-      <label htmlFor={`${id}-name`} className="text-sm font-medium">Type your full name</label>
-      <input id={`${id}-name`} autoComplete="name" value={name} disabled={busy} className={inputClass} onChange={(e) => setName(e.target.value)} />
+      : <SignModeChoice legend="How do you want to sign?" value={mode} disabled={busy} id={fid('mode')} required error={fe.errors[fid('mode')]}
+        onChange={(m) => { setMode(m); fe.clear(fid('mode')); }} />}
+    <Field id={fid('name')} label="Type your full name" required error={fe.errors[fid('name')]}>
+      <input id={fid('name')} autoComplete="name" value={name} disabled={busy} className={inputClass} required {...fe.invalid(fid('name'))}
+        onChange={(e) => { setName(e.target.value); fe.clear(fid('name')); }} />
+    </Field>
+    <div id={fid('signature')} role="group" aria-label="Draw your signature" tabIndex={-1} className={padGroupClass} {...fe.invalid(fid('signature'))}>
+      <p className="text-sm font-medium">Draw your signature<span aria-hidden="true" className="text-destructive"> *</span></p>
+      <SignaturePad label="Your signature" onChange={(png) => { setSignature(png); fe.clear(fid('signature')); }} disabled={busy} />
+      <FieldError id={fid('signature')} message={fe.errors[fid('signature')]} />
     </div>
-    <div className="space-y-1.5">
-      <p className="text-sm font-medium">Draw your signature</p>
-      <SignaturePad label="Your signature" onChange={setSignature} disabled={busy} />
-    </div>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    <Button type="submit" className="h-12 w-full text-base" disabled={!ready}>{busy ? 'Signing…' : 'Sign'}</Button>
+    {/* On while anything is missing: pressing it takes the tenant to what is. */}
+    <Button type="submit" className="h-12 w-full text-base" disabled={busy}>{busy ? 'Signing…' : 'Sign'}</Button>
   </form>;
 }
 

@@ -6,6 +6,8 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { contractStatusLabel, contractValues, linkMessage, manilaToday, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalContract, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import type { RentalsState } from '../pages/RentalsPage';
 import { SIGN_MODES, contractLines, contractPdfData, previewLessee, signModeWords } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
@@ -19,18 +21,23 @@ import { InPersonSigning } from './InPersonSigning';
 export interface ContractInfo { property: RentalProperty; texts: ContractText[]; template: Clause[]; links: TenancyLink[] }
 
 /** The two ways a contract is signed, as radio cards. */
-export function SignModeChoice({ legend, value, onChange, disabled, className }: {
+/** `id` goes on the first radio, so a failed submit can focus the choice; `error` shows under it (`${id}-error`). */
+export function SignModeChoice({ legend, value, onChange, disabled, className, id: fieldId, error, required }: {
   legend: string; value: SignMode | null; onChange(mode: SignMode): void; disabled?: boolean; className?: string;
+  id?: string; error?: string; required?: boolean;
 }) {
   const id = useId();
   return <fieldset className={cn('space-y-2', className)}>
-    <legend className="mb-2 text-sm font-medium">{legend}</legend>
-    {SIGN_MODES.map(([mode, label, hint]) => <label key={mode}
-      className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3', value === mode && 'border-primary bg-primary/5')}>
-      <input type="radio" name={`${id}-mode`} value={mode} checked={value === mode} disabled={disabled} className="mt-1 size-4 shrink-0 accent-primary"
-        onChange={() => onChange(mode)} />
+    <legend className="mb-2 text-sm font-medium">{legend}{required && <span aria-hidden="true" className="text-destructive"> *</span>}</legend>
+    {SIGN_MODES.map(([mode, label, hint], i) => <label key={mode}
+      className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3', value === mode && 'border-primary bg-primary/5',
+        error && 'border-destructive')}>
+      <input type="radio" id={i === 0 ? fieldId : undefined} name={`${id}-mode`} value={mode} checked={value === mode} disabled={disabled}
+        className="mt-1 size-4 shrink-0 accent-primary" required={required} aria-invalid={error ? true : undefined}
+        aria-describedby={error && fieldId ? `${fieldId}-error` : undefined} onChange={() => onChange(mode)} />
       <span><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted-foreground">{hint}</span></span>
     </label>)}
+    {fieldId && <FieldError id={fieldId} message={error} />}
   </fieldset>;
 }
 
@@ -173,8 +180,9 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
 }) {
   const [terms, setTerms] = useState(initialTerms);
   const [mode, setMode] = useState(initialMode);
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
   return <div className="space-y-5">
+    <FormErrorBanner message={fe.formError} />
     <div className="divide-y [&>*]:py-5 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
     <div>
     <section aria-label="Preview" className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-3 text-xs leading-relaxed [scrollbar-width:thin]">
@@ -192,12 +200,11 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
       : <div><SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} /></div>}
     </div>
     {note && <p className="text-xs text-muted-foreground">{note}</p>}
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex justify-end gap-2 pt-1">
       <Button variant="ghost" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
       <Button className="h-11 sm:h-9" disabled={busy} onClick={async () => {
-        setError('');
-        try { await onSave(terms.trim(), modeLocked ? undefined : mode ?? undefined); } catch (e) { setError(errorMessage(e)); }
+        fe.clear();
+        try { await onSave(terms.trim(), modeLocked ? undefined : mode ?? undefined); } catch (e) { fe.setFormError(errorMessage(e)); }
       }}>{submit}</Button>
     </div>
   </div>;

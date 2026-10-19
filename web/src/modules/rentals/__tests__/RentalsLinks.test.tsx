@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { DEFAULT_CLAUSES, linkMessage } from '@himan/shared/rentals';
 import type { ContractText, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
 const unit = (id: string, propertyId: string, name: string): RentalUnit => ({ id, propertyId, name, kind: 'room', capacity: 1,
   electricMode: 'none', electricAmountCentavos: 0, waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 350000, extraPersonRentCentavos: 0 });
@@ -125,6 +126,8 @@ describe('Review details', () => {
     openSheet();
     fireEvent.click(review().getByRole('button', { name: 'Accept' }));
     expect(await review().findByRole('alert')).toHaveTextContent('Could not copy the ID files. Try Accept again.');
+    expectBanner('Could not copy the ID files. Try Accept again.', review().getByText('Full name'));
+    expectNoErrorAfter(review().getByRole('button', { name: 'Ask again' }));
     fireEvent.click(review().getByRole('button', { name: 'Accept' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledTimes(2));
   });
@@ -240,5 +243,52 @@ describe('Renewals', () => {
     expect(state.run).not.toHaveBeenCalled();
     expect(state.contractTexts).toEqual([signed]);
     expect(signed.body).toEqual(['1. Old']);
+  });
+});
+
+describe('Tenant sheet form errors', () => {
+  const type = (id: string, value: string) => fireEvent.change(document.getElementById(id)!, { target: { value } });
+  const openTerms = () => { openSheet(); fireEvent.click(screen.getByRole('button', { name: 'Change rent' })); };
+
+  it('takes you to a bad due day in the rent form, with the message under it', () => {
+    openTerms();
+    expectRequired('terms-c-t3-rent');
+    expectRequired('terms-c-t3-due');
+    type('terms-c-t3-due', '32');
+    const save = screen.getByRole('button', { name: 'Save' });
+    fireEvent.click(save);
+    expectFieldError('terms-c-t3-due', 'Due day is 1–31');
+    expectNoErrorAfter(save);
+    type('terms-c-t3-rent', 'lots');
+    fireEvent.click(save);
+    expectFieldError('terms-c-t3-rent', 'Enter an amount like 10,000 or 1,500.50');
+    expect(state.run).not.toHaveBeenCalled();
+  });
+
+  it('shows a refused rent change in one banner at the top of the rent form', async () => {
+    state.run.mockRejectedValue(new Error('The database said no'));
+    openTerms();
+    type('terms-c-t3-rent', '4,000');
+    const save = screen.getByRole('button', { name: 'Save' });
+    fireEvent.click(save);
+    await waitFor(() => expectBanner('The database said no', document.getElementById('terms-c-t3-rent')!));
+    expectNoErrorAfter(save);
+  });
+
+  it('points at the charge missing its name, and shows a refusal in a banner', async () => {
+    openSheet();
+    const charges = within(screen.getByRole('region', { name: 'Extra monthly charges' }));
+    fireEvent.click(charges.getByRole('button', { name: 'Other' }));
+    type('charges-t3-charge-0-amount', '500');
+    const save = charges.getByRole('button', { name: 'Save charges' });
+    fireEvent.click(save);
+    expectFieldError('charges-t3-charge-0-name', 'Enter a name and amount for each charge');
+    expectNoErrorAfter(save);
+    type('charges-t3-charge-0-name', 'Parking');
+    expect(document.getElementById('charges-t3-charge-0-name')).not.toHaveAttribute('aria-invalid');
+    state.run.mockRejectedValue(new Error('The database said no'));
+    fireEvent.click(save);
+    await waitFor(() => expectBanner('The database said no', document.getElementById('charges-t3-charge-0-name')!));
+    expectNoErrorAfter(save);
   });
 });

@@ -7,6 +7,8 @@ import type { SubmittedDetails, TenancyLink } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { tenantLinkMessage } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 
 const copyText = async (text: string) => {
   try { await navigator.clipboard.writeText(text); toast.success('Link copied. Paste it in Messenger.'); } catch (e) { toast.error(errorMessage(e)); }
@@ -41,17 +43,18 @@ export function TenantLinkPanel({ link, name, busy, run }: { link: TenancyLink; 
 
 /** Managers only: what a new tenant sent through the link. Nothing reaches the tenant record until Accept. */
 export function DetailsReview({ tenancyId, details, busy, run }: { tenancyId: string; details: SubmittedDetails } & Pick<RentalsState, 'busy' | 'run'>) {
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
   const ids = details.idPaths.length;
   const rows: [string, string][] = [['Full name', details.fullName], ['Mobile', details.phone], ['Home address', details.address],
     ['Emergency', [details.emergencyName, details.emergencyPhone].filter(Boolean).join(' · ')], ['Messenger', details.facebook],
     ['Email', details.email], ['Living with them', details.occupants ? `${details.occupants} ${details.occupants === 1 ? 'person' : 'people'}` : ''],
     ['Valid ID', `${ids} ID photo${ids === 1 ? '' : 's'}`]];
   const act = async (action: Parameters<RentalsState['run']>[0], done: string) => {
-    setError('');
-    try { await run(action); toast.success(done); } catch (e) { setError(errorMessage(e)); }
+    fe.clear();
+    try { await run(action); toast.success(done); } catch (e) { fe.setFormError(errorMessage(e)); }
   };
   return <section aria-label="Details to review" className="space-y-2">
+    <FormErrorBanner message={fe.formError} />
     <h3 className="text-sm font-semibold">Details to review</h3>
     <p className="text-xs text-muted-foreground">Sent by the tenant. Accept to save them and add the ID photos to their files.</p>
     <dl className="divide-y rounded-lg border text-sm">
@@ -59,7 +62,6 @@ export function DetailsReview({ tenancyId, details, busy, run }: { tenancyId: st
         <dt className="shrink-0 text-muted-foreground">{label}</dt><dd className="min-w-0 break-words text-right font-medium">{value}</dd>
       </div>)}
     </dl>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex flex-wrap justify-end gap-2">
       <Button variant="outline" className="h-11 sm:h-9" disabled={busy}
         onClick={() => void act({ type: 'reopenLink', tenancyId }, 'The link is open again. Ask them to send their details again.')}>Ask again</Button>

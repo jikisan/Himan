@@ -4,6 +4,7 @@ import { canonicalText, sha256Hex } from '@himan/shared/rentals';
 import type { PublicLink } from '@himan/shared/rentals';
 import { RenterLinkScreen } from '../presentation/renter/RenterLinkScreen';
 import { contractLines } from '../presentation/utils/contract';
+import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
 const pad = vi.hoisted(() => ({ instance: null as null | { fire(): void } }));
 vi.mock('signature_pad', () => ({
@@ -39,7 +40,10 @@ const base = (extra: Partial<PublicLink> = {}): PublicLink => ({
     invoicePrefix: 'BAK', ownerName: 'Maria Santos', ownerAddress: 'Banilad', lessorAddress: 'Talamban, Cebu City', lateFeeCentavos: 0 },
   contract: sent, bills: [], payments: [], accounts: [], lessee: { name: 'Ben Cruz', address: '' }, ...extra });
 
-const fill = (label: string | RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+// A required field's label ends in a hidden " *".
+const label = (text: string) => new RegExp(`^${text}( \\*)?$`);
+const fill = (text: string | RegExp, value: string) =>
+  fireEvent.change(screen.getByLabelText(typeof text === 'string' ? label(text) : text), { target: { value } });
 const open = async (data: PublicLink | Error) => {
   if (data instanceof Error) repo.getPublic.mockRejectedValue(data); else repo.getPublic.mockResolvedValue(data);
   render(<RenterLinkScreen token={TOKEN} />);
@@ -76,19 +80,33 @@ describe('renter link page', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
-  it('keeps Submit off until the required details, an ID and the privacy box are there', async () => {
+  it('keeps Send on and takes the tenant to each missing detail, the ID and the privacy box in turn', async () => {
     await open(base({ kind: 'new', contract: null }));
+    for (const text of ['Full name', 'Mobile number', 'Home address', 'Emergency contact name', 'Emergency contact number'])
+      expectRequired(screen.getByLabelText(label(text)));
+    const ids = screen.getByLabelText(/Valid ID/);
+    const agree = screen.getByRole('checkbox', { name: /I agree that my landlord stores these details/ });
+    expectRequired(ids);
+    expect(agree).toBeRequired();
     const submit = screen.getByRole('button', { name: 'Send my details' });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    expectFieldError(screen.getByLabelText(label('Full name')), 'Enter your full name');
+    expect(document.getElementById(`${ids.id}-error`)).toHaveTextContent('Add a photo of a valid ID');
+    expect(document.getElementById(`${agree.id}-error`)).toHaveTextContent('Tick the box to agree to the details being stored');
+    expectNoErrorAfter(submit);
     fillDetails();
-    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expectFieldError(ids, 'Add a photo of a valid ID');
     pickId();
     await screen.findByText(/id\.jpg.*Uploaded/);
-    expect(submit).toBeDisabled();
-    fireEvent.click(screen.getByRole('checkbox', { name: /I agree that my landlord stores these details/ }));
-    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    expectFieldError(agree, 'Tick the box to agree to the details being stored');
+    fireEvent.click(agree);
     fill('Full name', ' ');
-    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expectFieldError(screen.getByLabelText(label('Full name')), 'Enter your full name');
+    expect(repo.submitDetails).not.toHaveBeenCalled();
   });
 
   it('uploads each ID as chosen and shows a plain error when one fails', async () => {
@@ -111,7 +129,7 @@ describe('renter link page', () => {
       emergencyName: 'Rosa Cruz', emergencyPhone: '0918 333 4444', facebook: '', email: 'ben@example.com', occupants: 2,
       idPaths: [`${TOKEN}/0f8e0c8a-1111-2222-3333-444455556666.jpg`] });
     expect(screen.queryByRole('button', { name: 'Send my details' })).toBeNull();
-    expect(screen.queryByLabelText('Full name')).toBeNull();
+    expect(screen.queryByLabelText(label('Full name'))).toBeNull();
     expect(await screen.findByRole('button', { name: 'Sign' })).toBeInTheDocument();
   });
 
@@ -122,6 +140,8 @@ describe('renter link page', () => {
     repo.submitDetails.mockRejectedValue(new Error('Your details were already sent'));
     fireEvent.click(screen.getByRole('button', { name: 'Send my details' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Your details were already sent');
+    expectBanner('Your details were already sent', screen.getByLabelText(label('Full name')));
+    expectNoErrorAfter(screen.getByRole('button', { name: 'Send my details' }));
   });
 
   it('does not let a new tenant sign before sending details', async () => {
@@ -133,12 +153,12 @@ describe('renter link page', () => {
   it('shows saved details as saved once accepted', async () => {
     await open(base({ kind: 'new', status: 'accepted', contract: null }));
     expect(screen.getByText(/Your landlord saved your details/)).toBeInTheDocument();
-    expect(screen.queryByLabelText('Full name')).toBeNull();
+    expect(screen.queryByLabelText(label('Full name'))).toBeNull();
   });
 
   it('existing tenants get the contract only, with no form', async () => {
     await open(base());
-    expect(screen.queryByLabelText('Mobile number')).toBeNull();
+    expect(screen.queryByLabelText(label('Mobile number'))).toBeNull();
     expect(screen.getByText('Something wrong? Tell your landlord.')).toBeInTheDocument();
     expect(screen.getByText('2. Special terms: No pets.')).toBeInTheDocument();
   });
@@ -161,7 +181,6 @@ describe('renter link page', () => {
 
   it('signs with the hash of the text that was shown', async () => {
     await open(base());
-    expect(screen.getByRole('button', { name: 'Sign' })).toBeDisabled();
     repo.getPublic.mockResolvedValue(base({ contract: { ...sent, status: 'signed', signMode: 'esign', tenantName: 'Ben Cruz',
       tenantSignature: PNG, tenantSignedAt: '2026-10-19T02:00:00Z' } }));
     await signNow();
@@ -193,11 +212,32 @@ describe('renter link page', () => {
     expect(repo.getPublic).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps Sign on and takes the tenant to the sign mode, name and signature they still need', async () => {
+    await open(base());
+    const sign = screen.getByRole('button', { name: 'Sign' });
+    expect(sign).toBeEnabled();
+    const name = screen.getByLabelText(label('Type your full name'));
+    expectRequired(name);
+    fireEvent.click(sign);
+    const firstMode = screen.getByRole('radio', { name: /Sign online only/ });
+    expectFieldError(firstMode, 'Choose how you want to sign');
+    expect(document.getElementById(`${name.id}-error`)).toHaveTextContent('Enter your full name');
+    const pad = screen.getByRole('group', { name: 'Draw your signature' });
+    expect(document.getElementById(`${pad.id}-error`)).toHaveTextContent('Draw your signature');
+    expectNoErrorAfter(sign);
+    fireEvent.click(firstMode);
+    fireEvent.click(sign);
+    expectFieldError(name, 'Enter your full name');
+    expect(repo.sign).not.toHaveBeenCalled();
+  });
+
   it('shows the database’s message on a second signing', async () => {
     await open(base());
     repo.sign.mockRejectedValue(new Error('You already signed this contract'));
     await signNow();
     expect(await screen.findByRole('alert')).toHaveTextContent('You already signed this contract');
+    expectBanner('You already signed this contract', screen.getByLabelText(label('Type your full name')));
+    expectNoErrorAfter(screen.getByRole('button', { name: 'Sign' }));
   });
 
   it('shows the signed contract and makes its PDF, with the notary page only for notarize', async () => {

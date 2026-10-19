@@ -2,9 +2,9 @@ import { useId, useState } from 'react';
 import { linkDetailsSchema } from '@himan/shared/rentals';
 import type { LinkDetails, PublicLink } from '@himan/shared/rentals';
 import { Button } from '@/components/ui/button';
-import { Field, inputClass } from '../components/Field';
+import { Field, FieldGroup, fileInputClass, inputClass } from '../components/Field';
 import { errorMessage } from '../utils/errorMessage';
-import { OPTIONAL_FIELDS, PRIVACY_CONSENT, TEXT_FIELDS } from '../utils/details';
+import { ABOUT_FIELDS, EMERGENCY_FIELDS, OPTIONAL_FIELDS, PRIVACY_CONSENT } from '../utils/details';
 import { LinkRepository } from '../../infrastructure';
 
 const MAX_IDS = 3;
@@ -59,7 +59,7 @@ function DetailsForm({ token, onSent }: { token: string; onSent(): Promise<void>
     </Field>;
   };
 
-  return <form className="space-y-5 rounded-xl border bg-card p-4" onSubmit={async (e) => {
+  return <form className="space-y-8 rounded-xl border bg-card p-4 sm:p-6" onSubmit={async (e) => {
     e.preventDefault();
     if (!parsed.success || !agreed || uploading) return;
     setBusy(true); setError('');
@@ -69,11 +69,16 @@ function DetailsForm({ token, onSent }: { token: string; onSent(): Promise<void>
       <h2 className="text-lg font-semibold">Your details</h2>
       <p className="text-sm text-muted-foreground">Your landlord needs these before you move in. You can send them once.</p>
     </div>
-    {TEXT_FIELDS.map(([key, label, auto, type]) => text(key, label, auto, type, true))}
+    <FieldGroup title="About you">
+      {ABOUT_FIELDS.map(([key, label, auto, type]) => text(key, label, auto, type, true))}
+    </FieldGroup>
+    <FieldGroup title="Emergency contact">
+      <div className="grid gap-4 sm:grid-cols-2">{EMERGENCY_FIELDS.map(([key, label, auto, type]) => text(key, label, auto, type, true))}</div>
+    </FieldGroup>
 
     <Field id={`${id}-ids`} label="Valid ID (photo or PDF, up to 3)" hint="JPEG, PNG or PDF, 10 MB each">
       {done < MAX_IDS && <input id={`${id}-ids`} type="file" multiple disabled={busy} accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
-        className="block w-full text-base file:mr-3 file:h-12 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:text-primary-foreground"
+        className={`${fileInputClass} text-base file:h-12`}
         onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; void choose(files); }} />}
       {!!uploads.length && <ul aria-live="polite" className="space-y-1 text-sm">
         {uploads.map((u) => <li key={u.key} className={u.state === 'error' ? 'text-destructive' : undefined}>
@@ -81,11 +86,13 @@ function DetailsForm({ token, onSent }: { token: string; onSent(): Promise<void>
       </ul>}
     </Field>
 
-    {OPTIONAL_FIELDS.map(([key, label, auto, type]) => text(key, label, auto, type, false))}
-    <Field id={`${id}-occupants`} label="People living there (optional)">
-      <input id={`${id}-occupants`} type="number" inputMode="numeric" min={1} max={50} value={values.occupants} disabled={busy} className={inputClass}
-        onChange={(e) => setValues((v) => ({ ...v, occupants: e.target.value }))} />
-    </Field>
+    <FieldGroup title="Optional">
+      {OPTIONAL_FIELDS.map(([key, label, auto, type]) => text(key, label, auto, type, false))}
+      <Field id={`${id}-occupants`} label="People living there">
+        <input id={`${id}-occupants`} type="number" inputMode="numeric" min={1} max={50} value={values.occupants} disabled={busy} className={inputClass}
+          onChange={(e) => setValues((v) => ({ ...v, occupants: e.target.value }))} />
+      </Field>
+    </FieldGroup>
 
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-base">
       <input type="checkbox" className="mt-1 size-5 shrink-0" checked={agreed} disabled={busy} onChange={(e) => setAgreed(e.target.checked)} />

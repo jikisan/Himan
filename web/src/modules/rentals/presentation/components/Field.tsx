@@ -7,19 +7,29 @@ export function Field({ id, label, hint, className, children }: {
   id: string; label: string; hint?: string; className?: string; children: ReactNode;
 }) {
   return <div className={cn('space-y-1.5', className)}>
-    <div className="flex items-baseline justify-between gap-2">
+    {/* A long label and its hint wrap as units: the hint drops below instead of both breaking mid-phrase. */}
+    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
       <Label htmlFor={id}>{label}</Label>
-      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      {hint && <span className="whitespace-nowrap text-xs text-muted-foreground">{hint}</span>}
     </div>
     {children}
   </div>;
+}
+
+/** A titled group of a long form, e.g. the tenant's details: `large` for the tenant's own phone screens. */
+export function FieldGroup({ title, hint, large, children }: { title: string; hint?: string; large?: boolean; children: ReactNode }) {
+  return <fieldset className="space-y-4">
+    <legend className={cn('mb-4 font-semibold', large ? 'text-lg' : 'text-base')}>
+      {title}{hint && <span className="ml-2 text-sm font-normal text-muted-foreground">{hint}</span>}</legend>
+    {children}
+  </fieldset>;
 }
 
 /** Titled group inside a form; keeps related fields together and separates the groups. */
 export function FormSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return <section className="space-y-3">
     <div>
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className="text-base font-semibold">{title}</h3>
       {description && <p className="text-xs text-muted-foreground">{description}</p>}
     </div>
     <div className="grid gap-3 sm:grid-cols-2">{children}</div>
@@ -45,3 +55,8 @@ export function FormActions({ submit, onCancel, start }: { submit: string; onCan
 export const inputClass = 'h-11 w-full rounded-lg border border-input bg-background px-3 text-base shadow-sm transition-colors '
   + 'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring '
   + '[&[readonly]]:bg-muted/50 [&[readonly]]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:text-sm';
+
+/** Native file picker drawn like the outline buttons. Add `file:h-12 text-base` on the tenant's big screens. */
+export const fileInputClass = 'block w-full text-sm text-muted-foreground file:mr-3 file:h-10 file:cursor-pointer file:rounded-lg file:border '
+  + 'file:border-input file:bg-background file:px-4 file:text-sm file:font-medium file:text-foreground file:transition-colors hover:file:bg-muted '
+  + 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60';

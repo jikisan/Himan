@@ -8,9 +8,9 @@ import type { ContractText, RentalProperty, Renter } from '@himan/shared/rentals
 import type { RentalsState } from '../pages/RentalsPage';
 import { contractPdfData, signModeWords } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
-import { OPTIONAL_FIELDS, PRIVACY_CONSENT, TEXT_FIELDS } from '../utils/details';
+import { ABOUT_FIELDS, EMERGENCY_FIELDS, OPTIONAL_FIELDS, PRIVACY_CONSENT } from '../utils/details';
 import { ContractPaper } from './ContractPaper';
-import { Field, inputClass } from './Field';
+import { Field, FieldGroup, fileInputClass, inputClass } from './Field';
 import { SignaturePad } from './SignaturePad';
 
 const MAX_IDS = 3;
@@ -87,6 +87,12 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
     } catch (e) { setError(errorMessage(e)); }
   };
 
+  const detail = (key: 'fullName' | 'phone' | 'address' | 'emergencyName' | 'emergencyPhone' | 'facebook' | 'email', label: string, auto: string, type: string) =>
+    <Field key={key} id={`${id}-${key}`} label={label}>
+      <input id={`${id}-${key}`} type={type} autoComplete={auto} className={big} value={values[key]}
+        onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))} />
+    </Field>;
+
   return <Dialog open onOpenChange={(open) => !open && onClose()}>
     {/* The phone is in the tenant's hands: only the Close button ends this screen, so a stray tap or Escape loses nothing. */}
     <DialogContent onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}
@@ -102,18 +108,16 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
         <Button className="h-12 w-full text-base" onClick={() => go('details')}>Start</Button>
       </>}
 
-      {screen === 'details' && <div className="space-y-4">
-        {[...TEXT_FIELDS, ...OPTIONAL_FIELDS].map(([key, label, auto, type]) => <Field key={key} id={`${id}-${key}`} label={label}>
-          <input id={`${id}-${key}`} type={type} autoComplete={auto} className={big} value={values[key]}
-            onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))} />
-        </Field>)}
-        <Field id={`${id}-occupants`} label="People living there (optional)">
-          <input id={`${id}-occupants`} type="number" inputMode="numeric" min={1} max={50} className={big} value={values.occupants}
-            onChange={(e) => setValues((v) => ({ ...v, occupants: e.target.value }))} />
-        </Field>
+      {screen === 'details' && <div className="space-y-8">
+        <FieldGroup title="About you" large>
+          {ABOUT_FIELDS.map(([key, label, auto, type]) => detail(key, label, auto, type))}
+        </FieldGroup>
+        <FieldGroup title="Emergency contact" large>
+          <div className="grid gap-4 sm:grid-cols-2">{EMERGENCY_FIELDS.map(([key, label, auto, type]) => detail(key, label, auto, type))}</div>
+        </FieldGroup>
         <Field id={`${id}-ids`} label={`Valid ID (photo or PDF, up to ${MAX_IDS})${needsId ? '' : ' (optional)'}`} hint="JPEG, PNG or PDF, 10 MB each">
           {ids.length < MAX_IDS && <input id={`${id}-ids`} type="file" multiple accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
-            className="block w-full text-base file:mr-3 file:h-12 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:text-primary-foreground"
+            className={`${fileInputClass} text-base file:h-12`}
             onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; pick(files); }} />}
           {ids.length > 0 && <ul className="space-y-1 text-base">{ids.map((f, i) => <li key={i} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate">{f.name}</span>
@@ -121,6 +125,13 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
               onClick={() => setIds((all) => all.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>
           </li>)}</ul>}
         </Field>
+        <FieldGroup title="Optional" large>
+          {OPTIONAL_FIELDS.map(([key, label, auto, type]) => detail(key, label, auto, type))}
+          <Field id={`${id}-occupants`} label="People living there">
+            <input id={`${id}-occupants`} type="number" inputMode="numeric" min={1} max={50} className={big} value={values.occupants}
+              onChange={(e) => setValues((v) => ({ ...v, occupants: e.target.value }))} />
+          </Field>
+        </FieldGroup>
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-base">
           <input type="checkbox" className="mt-1 size-5 shrink-0" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
           <span>{PRIVACY_CONSENT}</span>

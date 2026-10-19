@@ -185,17 +185,18 @@ describe('Move-in checklist on the tenant sheet', () => {
   it('shows what is left: unpaid move-in and the contract stage, for viewers too', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     openSheet();
-    expect(checklist()).toHaveTextContent('Added ✓ done');
-    expect(checklist()).toHaveTextContent('Move-in paid ✗ not yet');
-    expect(checklist()).toHaveTextContent('Contract ✗ not yet (waiting to sign)');
+    expect(checklist()).toHaveTextContent('Added, done');
+    expect(checklist()).toHaveTextContent('Move-in paid, not yet');
+    expect(checklist()).toHaveTextContent('Contract, not yetWaiting to sign');
+    expect(checklist()).not.toHaveTextContent(/[✓✗]/);
   });
 
   it('ticks the payment once the move-in bill is paid', () => {
     state.payments = [paidAll];
     state.contractTexts = [text({ status: 'signed' })];
     openSheet();
-    expect(checklist()).toHaveTextContent('Move-in paid ✓ done');
-    expect(checklist()).toHaveTextContent('(needs your signature)');
+    expect(checklist()).toHaveTextContent('Move-in paid, done');
+    expect(checklist()).toHaveTextContent('Needs your signature');
   });
 
   it('is gone when everything is done, or the contract isn’t needed', () => {

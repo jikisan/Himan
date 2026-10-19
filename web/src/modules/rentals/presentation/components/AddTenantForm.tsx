@@ -118,24 +118,22 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
         <Field id="add-move-in" label="Move-in date" className="sm:col-span-2">
           <input id="add-move-in" type="date" className={inputClass} value={moveIn} onChange={(e) => setMoveIn(e.target.value)} />
         </Field>
-        {unit.kind !== 'bedspace' && <div className="space-y-1.5">
-          <label htmlFor="add-occupants" className="text-sm font-medium">People in the room</label>
+        {unit.kind !== 'bedspace' && <Field id="add-occupants" label="People in the room">
           <Stepper id="add-occupants" value={person.occupants} min={1} max={50} less="One fewer person" more="One more person"
             onChange={setPeople} onType={setP('occupants')} />
           <p className="text-xs text-muted-foreground">Including the tenant</p>
-        </div>}
+        </Field>}
         <Field id="add-rent" label="Monthly rent" hint={unit.kind === 'bedspace' ? 'per bed' : undefined}>
           <MoneyInput id="add-rent" value={rent} placeholder="0.00" onChange={(e) => setOwnRent(e.target.value)} />
           {perPerson && ownRent === null && <p className="text-xs text-muted-foreground">
             {people > 1 ? `${formatPesos(unit.defaultRentCentavos)} + ${formatPesos(unit.extraPersonRentCentavos)} × ${people - 1} extra person${people === 2 ? '' : 's'}`
               : `+${formatPesos(unit.extraPersonRentCentavos)} for each extra person`}</p>}
         </Field>
-        <div className="space-y-1.5">
-          <label htmlFor="add-advance" className="text-sm font-medium">Advance months</label>
+        <Field id="add-advance" label="Advance months">
           <Stepper id="add-advance" value={Number(advance) || 0} min={0} max={12} less="One month less" more="One month more"
             onChange={(n) => setOwn((o) => ({ ...o, advance: String(n) }))} onType={(e) => setOwn((o) => ({ ...o, advance: e.target.value }))} />
           <p className="text-xs text-muted-foreground">Rent paid ahead, used for the first months</p>
-        </div>
+        </Field>
         <Field id="add-deposit" label="Deposit">
           <MoneyInput id="add-deposit" value={deposit} onChange={(e) => setOwn((o) => ({ ...o, deposit: e.target.value }))} />
           <p className="text-xs text-muted-foreground">Kept until they move out</p>
@@ -158,7 +156,7 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
         <p className="text-sm font-semibold">More details <span className="font-normal text-muted-foreground">(optional, filled in for you)</span></p>
         <Collapsible refEl={contractRef} title="Due date and lease end"
           summary={`Due every ${dueNumber >= 1 && dueNumber <= 31 ? (dueNumber === 31 ? 'month end' : ordinal(dueNumber)) : '—'} · ends ${endDate ? format(parseISO(endDate), 'MMM d, yyyy') : '—'}`}>
-          <p className="text-xs text-muted-foreground sm:col-span-2">Change only if your agreement is different.</p>
+          <p className="text-xs italic text-muted-foreground sm:col-span-2">Change only if your agreement is different.</p>
           <Field id="add-due" label="Due day" hint="31 = month end">
             <input id="add-due" type="number" min={1} max={31} className={inputClass} value={dueDay}
               onChange={(e) => setOwn((o) => ({ ...o, dueDay: e.target.value }))} />
@@ -184,6 +182,7 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
           summary={existingId !== null ? 'Already on file' : [person.facebook, person.emergencyName].filter(Boolean).join(' · ') || 'Messenger, email, emergency contact'}>
           {existingId !== null ? <p className="text-sm text-muted-foreground sm:col-span-2">
             Their contact details are already on file. Change them from their tenant sheet after moving them in.</p> : <>
+            <p className="text-xs italic text-muted-foreground sm:col-span-2">Optional: the tenant fills these in, with their ID, when signing the contract.</p>
             {text('facebook', 'Facebook / Messenger')}
             {text('email', 'Email', { type: 'email', autoComplete: 'email' })}
             {text('address', 'Home address', { autoComplete: 'street-address', wide: true })}
@@ -195,7 +194,6 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
             <Field id="add-notes" label="Notes" className="sm:col-span-2">
               <textarea id="add-notes" className={cn(inputClass, 'h-20 py-2 sm:h-20')} value={person.notes} onChange={setP('notes')} />
             </Field>
-            <p className="text-xs text-muted-foreground sm:col-span-2">Optional: the tenant fills these in, with their ID, when signing the contract.</p>
           </>}
         </Collapsible>
       </div>
@@ -238,6 +236,6 @@ function Collapsible({ refEl, title, summary, children }: {
         <span className="block truncate text-xs text-muted-foreground">{summary}</span></span>
       <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
     </summary>
-    <div className="grid gap-3 border-t px-4 py-4 sm:grid-cols-2">{children}</div>
+    <div className="grid gap-x-3 gap-y-4 border-t px-4 py-4 sm:grid-cols-2">{children}</div>
   </details>;
 }

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
+import { CircleCheck, CircleDashed, ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@core/presentation/utils';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { addPeriods, billBalance, centavosToInput, contractStage, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
@@ -131,12 +132,16 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     {/* Every section gets a line above it: same spacing around each line. */}
     <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
       {checklists.map(({ t, stage, paid }) => <section key={`steps-${t.id}`} aria-label="Move-in checklist">
-        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
-          {active.length > 1 && <li className="font-semibold">{unitName(t.unitId)}:</li>}
+        {active.length > 1 && <p className="mb-2 text-sm font-semibold">{unitName(t.unitId)}</p>}
+        <ul className="grid grid-cols-3 gap-2">
           {([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word]) =>
-            <li key={label} className={ok ? 'text-emerald-700 dark:text-emerald-400' : 'font-medium'}>
-              {label} <span aria-hidden>{ok ? '✓' : '✗'}</span><span className="sr-only">{ok ? ' done' : ' not yet'}</span>
-              {word && <span className="text-muted-foreground"> ({word})</span>}</li>)}
+            <li key={label} className={cn('flex min-w-0 flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-sm',
+              ok ? 'border-emerald-600/30 bg-emerald-500/10' : 'bg-muted/40')}>
+              {ok ? <CircleCheck aria-hidden className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                : <CircleDashed aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
+              <span className={cn('font-medium leading-snug', ok && 'text-emerald-700 dark:text-emerald-400')}>
+                {label}<span className="sr-only">{ok ? ', done' : ', not yet'}</span></span>
+              {word && <span className="text-xs text-muted-foreground">{word[0].toUpperCase() + word.slice(1)}</span>}</li>)}
         </ul>
       </section>)}
       {canManage && active.map((t) => {

@@ -174,11 +174,11 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
   const [terms, setTerms] = useState(initialTerms);
   const [mode, setMode] = useState(initialMode);
   const [error, setError] = useState('');
-  return <div className="space-y-3">
+  return <div className="space-y-5">
     <section aria-label="Preview" className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-3 text-xs leading-relaxed [scrollbar-width:thin]">
       {contractLines(preview, terms).map((line, i) => <p key={i}>{line}</p>)}
     </section>
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <label htmlFor="contract-terms" className="text-sm font-medium">Special terms</label>
       <textarea id="contract-terms" rows={3} maxLength={4000} className={`${inputClass} h-auto py-2`} value={terms}
         placeholder="Anything only for this tenant, e.g. “The storage room is not included.”" onChange={(e) => setTerms(e.target.value)} />
@@ -188,7 +188,7 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
       : <SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} />}
     {note && <p className="text-xs text-muted-foreground">{note}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end gap-2 pt-1">
       <Button variant="ghost" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
       <Button className="h-11 sm:h-9" disabled={busy} onClick={async () => {
         setError('');

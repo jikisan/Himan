@@ -69,15 +69,15 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
   };
 
   return <Dialog open onOpenChange={(open) => !open && close()}>
-    <DialogContent className={cn('max-h-[90dvh] overflow-y-auto [scrollbar-width:thin] sm:max-w-xl', step === 1 && 'pb-0')}>
-      <DialogHeader>
+    <DialogContent className="max-h-[90dvh] overflow-y-auto pb-0 [scrollbar-width:thin] sm:max-w-xl">
+      <DialogHeader className="text-left">
         <DialogTitle>Add tenant to {unit.name}</DialogTitle>
         <DialogDescription>{unit.kind === 'bedspace' ? 'Shared room' : unit.kind === 'whole' ? 'Whole house' : 'Private room'}
           {unit.defaultRentCentavos > 0 && ` · ${formatPesos(unit.defaultRentCentavos)}`}
           {unit.extraPersonRentCentavos > 0 && unit.defaultRentCentavos > 0 && ` + ${formatPesos(unit.extraPersonRentCentavos)} per extra person`}
         </DialogDescription>
       </DialogHeader>
-      <ol aria-label="Move-in steps" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <ol aria-label="Move-in steps" className="-mx-6 mb-2 flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-6 pb-4 text-sm">
         {STEPS.map((label, i) => {
           const done = step > i + 1;
           return <li key={label} aria-current={step === i + 1 ? 'step' : undefined}
@@ -93,7 +93,7 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
       {step === 1 && <AddTenantForm unit={unit} rentDueDay={property.rentDueDay} renters={renters} others={others} busy={busy} onCancel={close}
         onNext={(next) => { setDraft(next); setPay(paymentDraft(moveInLines(next).reduce((sum, [, amount]) => sum + amount, 0))); setStep(2); }} />}
 
-      {step === 2 && draft && <div className="space-y-5 pb-2">
+      {step === 2 && draft && <div className="space-y-6">
         <section aria-label="Move-in bill" className="rounded-xl bg-primary/10 px-4 py-3 text-sm">
           <p className="font-semibold">Move-in bill for {name}</p>
           <dl className="mt-2 space-y-1 tabular-nums">
@@ -103,23 +103,23 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
               <dt className="font-semibold">Total</dt><dd className="text-2xl font-bold text-primary">{formatPesos(total)}</dd></div>
           </dl>
         </section>
-        {saved ? <div className="space-y-3">
+        {saved ? <div className="space-y-4">
           <p role="status" className="rounded-md bg-emerald-500/10 px-3 py-2 font-semibold text-emerald-800 dark:text-emerald-300">Tenant added</p>
           <p className="text-sm text-muted-foreground">{payment ? `${formatBillPesos(payment.amountCentavos)} recorded.` : 'Nothing paid yet: the move-in bill waits in Bills.'}
             {' '}Their bed is taken. Next, the contract.</p>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="sticky bottom-0 z-10 -mx-6 flex flex-col-reverse gap-2 border-t bg-card px-6 py-4 sm:flex-row sm:justify-end">
             {payment && <PaperDialog label="View receipt" title="Receipt" description={`${formatBillPesos(payment.amountCentavos)} from ${name}`}
               className="h-11 sm:h-9" make={async () => (await import('../pdf/download')).downloadReceiptPdf(payment, receipt(payment))}>
               {() => <ReceiptPaper doc={receiptDocument(payment, receipt(payment))} />}</PaperDialog>}
             <Button className="h-11 sm:h-9" onClick={() => setStep(3)}>Next: contract</Button>
           </div>
-        </div> : <form noValidate className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(true); }}>
+        </div> : <form noValidate className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save(true); }}>
           <p className="text-sm">Record what {name.split(' ')[0] || 'they'} paid now. A part is fine; the rest stays on the bill.</p>
           <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
             <PaymentFields value={pay} onChange={setPay} owed={total} propertyId={property.id} payments={payments} nameOf={nameOf} />
           </fieldset>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="sticky bottom-0 z-10 -mx-6 flex flex-col-reverse gap-2 border-t bg-card px-6 py-4 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void save(false)}>
               Add without payment (pay later)</Button>
             <Button type="submit" className="h-11 sm:h-9" disabled={busy}>Record payment and add tenant</Button>
@@ -127,11 +127,11 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
         </form>}
       </div>}
 
-      {step === 3 && <div className="space-y-4 pb-2">
+      {step === 3 && <div className="space-y-6">
         {contract && renter ? <ContractPanel contract={contract} renter={renter} canManage busy={busy} run={run} startEditing
           info={{ property, texts: state.contractTexts, template: state.templates[property.id] ?? DEFAULT_CLAUSES, links: state.links }} />
           : <p role="status" className="text-sm text-muted-foreground">Loading…</p>}
-        <div className="flex justify-end border-t pt-4">
+        <div className="sticky bottom-0 z-10 -mx-6 flex flex-col-reverse gap-2 border-t bg-card px-6 py-4 sm:flex-row sm:justify-end">
           <Button variant="outline" className="h-11 sm:h-9" onClick={onClose}>
             {state.contractTexts.some((t) => t.contractId === contract?.id) ? 'Close' : 'Do the contract later'}</Button>
         </div>

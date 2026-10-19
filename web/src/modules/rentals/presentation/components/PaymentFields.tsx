@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PAYMENT_METHODS, findDuplicateReference, formatBillPesos, manilaToday, parsePesos } from '@himan/shared/rentals';
 import type { PaymentMethod, RentalPayment } from '@himan/shared/rentals';
-import { Field, MoneyInput, inputClass } from './Field';
+import { Field, MoneyInput, fileInputClass, inputClass } from './Field';
 import { METHOD } from '../utils/billingMonth';
 import type { PaymentDraft } from '../utils/payment';
 
@@ -45,7 +45,7 @@ export function PaymentFields({ value, onChange, owed, propertyId, payments, nam
     <div className="space-y-2 sm:col-span-2">
       <Field id="pay-proofs" label="Proof of payment" hint="screenshots, optional">
         <input id="pay-proofs" type="file" multiple accept="image/jpeg,image/png"
-          className="block w-full text-sm file:mr-3 file:h-10 file:rounded-lg file:border file:bg-background file:px-3 file:text-sm file:font-medium"
+          className={fileInputClass}
           onChange={(e) => { const chosen = [...(e.target.files ?? [])]; set('proofs', [...value.proofs, ...chosen]); e.target.value = ''; }} />
       </Field>
       {value.proofs.length > 0 && <ul className="space-y-1 text-sm">{value.proofs.map((f, i) => <li key={i} className="flex items-center gap-2">

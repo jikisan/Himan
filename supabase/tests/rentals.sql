@@ -1741,6 +1741,16 @@ DO $$ BEGIN
   THEN RAISE EXCEPTION 'Empty lessee values did not render as blanks'; END IF;
   IF public.rental_resolve_lessee('["Already Ana","Line 2"]', 'Bea', 'X') <> '["Already Ana","Line 2"]'::jsonb
   THEN RAISE EXCEPTION 'Resolving an already resolved text changed it'; END IF;
+  -- A value carrying a placeholder, a line break or another control character could inject text: refused.
+  PERFORM pg_temp.refused(format('SELECT public.rental_resolve_lessee(%L, %L, %L)', '["{{lessee_name}} of {{lessee_address}}"]',
+    v, 'Pajo'), 'Remove line breaks and braces from the name and address')
+  FROM unnest(ARRAY['{{lessee_address}}', E'Ben\nCruz', E'Ben\tCruz', 'Ben }}', E'Ben\x7f']) v;
+  PERFORM pg_temp.refused(format('SELECT public.rental_resolve_lessee(%L, %L, %L)', '["x"]', 'Ben', E'Pajo\r\nCebu'),
+    'Remove line breaks and braces from the name and address');
+  -- Only spaces are trimmed; the same vector (and hex) is in contracts.domain.test.ts, so both sides hash it identically.
+  IF public.rental_contract_hash(public.rental_resolve_lessee('["Lessee: {{lessee_name}}","Address: {{lessee_address}}"]',
+      E'  \u00a0Ana Cruz  ', ' 1 Pajo, Cebu '), '') <> '7bb4f76e6aba5ccb7172bfb86c50754c44075e4669178effab91477456261007'
+  THEN RAISE EXCEPTION 'Resolved lessee hash differs from the TS vector'; END IF;
   -- Only the signing RPCs write the in-person fields.
   IF has_column_privilege('authenticated', 'public.rental_contract_texts', 'signed_in_person', 'INSERT')
     OR has_column_privilege('authenticated', 'public.rental_contract_texts', 'signed_in_person', 'UPDATE')
@@ -1814,6 +1824,13 @@ BEGIN
   PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET signed_in_person = true WHERE id = %L', v_x4), '42501');
   PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET witnessed_by = %L WHERE id = %L', v_owner, v_x4), '42501');
 
+  -- Link, kind new: names and addresses that could inject text are refused before anything else is checked.
+  SET LOCAL ROLE anon;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  PERFORM pg_temp.refused(format('SELECT public.rental_link_submit_details(%L, %L)', v_tok1, v_details || d),
+    'Remove line breaks and braces from the name and address')
+  FROM unnest(ARRAY['{"fullName":"Nina {{lessee_address}}"}', '{"fullName":"Nina\nNew"}', '{"address":"12 Link Rd\r\n"}',
+    '{"address":"}} 12"}']::jsonb[]) d;
   -- Link, kind new: the lessee is what the tenant typed. (Status set directly: the ID upload path is tested in Step C.)
   RESET ROLE;
   UPDATE public.rental_tenancy_links SET status = 'submitted', submitted_at = now(),
@@ -1858,6 +1875,10 @@ BEGIN
     v_details || '{"occupants":0}'), 'People living there must be between 1 and 50');
   PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', v_x3, 'Wally Walk', 'nope', v_h, v_details),
     'Draw your signature again');
+  PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', v_x3, 'Wally Walk', v_png, v_h,
+    v_details || d), 'Remove line breaks and braces from the name and address')
+  FROM unnest(ARRAY['{"fullName":"Wally {{lessee_address}}"}', '{"fullName":"Wally\nWalk"}', '{"address":"3 Desk St\u0007"}',
+    '{"address":"{{ 3"}']::jsonb[]) d;
   PERFORM public.rental_sign_in_person(v_x3, ' Wally Walk ', v_png, v_h, v_details);
   SELECT * INTO v_ct FROM public.rental_contract_texts WHERE id = v_x3;
   IF v_ct.status <> 'signed' OR NOT v_ct.signed_in_person OR v_ct.witnessed_by IS DISTINCT FROM v_friend::uuid
@@ -1877,6 +1898,15 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', v_owner, true);
   PERFORM public.rental_countersign(v_x3, v_png);
   IF (SELECT status FROM public.rental_contract_texts WHERE id = v_x3) <> 'countersigned' THEN RAISE EXCEPTION 'Countersign after in-person failed'; END IF;
+  -- The tenant's page says how it was signed.
+  v_tok1 := public.rental_create_link(v_t3, 'existing');
+  SET LOCAL ROLE anon;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  IF public.rental_link_get(v_tok1)->'contract'->'signedInPerson' IS DISTINCT FROM 'true'::jsonb
+    OR public.rental_link_get(v_tok2)->'contract'->'signedInPerson' IS DISTINCT FROM 'false'::jsonb
+  THEN RAISE EXCEPTION 'rental_link_get does not say whether the contract was signed in person'; END IF;
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
 
   -- One-step move-in. New renter paying the full move-in bill: 21 days' rent 350000 + advance 500000 + deposit 500000.
   v_j := public.rental_move_in('00000000-0000-0000-0000-0000000ac0f4', NULL, '{"fullName":" Mo Full ","phone":"0917","occupants":2}',

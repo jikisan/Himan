@@ -2,18 +2,33 @@
 -- person on the owner's device, and lessee placeholders resolved only at signing.
 --
 -- Deploy note: safe with the current web build. Texts it creates are already resolved (replacement is a no-op, the hash
--- is unchanged), and rental_link_get only gains a top-level "lessee" key, which the current zod schema strips.
+-- is unchanged), rental_link_get only gains a top-level "lessee" key and contract.signedInPerson, which the current zod
+-- schema strips, and a name or address refused by rental_link_submit_details shows the database's message.
 
 -- ── Lessee placeholders ─────────────────────────────────────────────────────
 
--- Must match resolveLessee in the shared domain's contracts.ts: plain replacement in every line, values trimmed, an
--- empty value rendered as a blank line.
-CREATE FUNCTION public.rental_resolve_lessee(body jsonb, name text, address text) RETURNS jsonb
+-- A lessee value with a control character (line breaks included) or "{{" / "}}" could inject text into the signed
+-- contract. Refused where the tenant types them (rental_link_submit_details, rental_sign_in_person) and, defensively,
+-- at resolution. Must match unsafeLessee in the shared domain's contracts.ts. (PostgreSQL text can't hold U+0000.)
+CREATE FUNCTION public.rental_unsafe_lessee(v text) RETURNS boolean
 LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
-  SELECT coalesce(jsonb_agg(to_jsonb(replace(replace(e,
+  SELECT coalesce(v, '') ~ '[\x01-\x1f\x7f]|\{\{|\}\}'
+$$;
+
+-- Must match resolveLessee in the shared domain's contracts.ts: plain replacement in every line, values trimmed of
+-- spaces, an empty value rendered as a blank line. Neither placeholder can appear in a value, so the two replacements
+-- in a row are safe.
+CREATE FUNCTION public.rental_resolve_lessee(body jsonb, name text, address text) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path = '' AS $$
+BEGIN
+  IF public.rental_unsafe_lessee(name) OR public.rental_unsafe_lessee(address) THEN
+    RAISE EXCEPTION 'Remove line breaks and braces from the name and address';
+  END IF;
+  RETURN (SELECT coalesce(jsonb_agg(to_jsonb(replace(replace(e,
       '{{lessee_name}}', coalesce(nullif(btrim(name), ''), '__________')),
       '{{lessee_address}}', coalesce(nullif(btrim(address), ''), '__________'))) ORDER BY i), '[]'::jsonb)
-  FROM jsonb_array_elements_text(body) WITH ORDINALITY x(e, i)
+    FROM jsonb_array_elements_text(body) WITH ORDINALITY x(e, i));
+END;
 $$;
 
 -- What a link's signing uses for the lessee: kind new → the details the tenant sent; kind existing → the renter record.
@@ -37,7 +52,7 @@ ALTER TABLE public.rental_contract_texts
 -- ── Link RPCs ───────────────────────────────────────────────────────────────
 
 -- Unchanged from 20261018200000 except the top-level "lessee" (what signing will use, so the page renders and hashes the
--- same text). The contract body stays unresolved until signed; the page resolves it.
+-- same text) and contract.signedInPerson (the tenant's page prints "Signed in person on ..."). The contract body stays unresolved until signed; the page resolves it.
 CREATE OR REPLACE FUNCTION public.rental_link_get(p_token text) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_link public.rental_tenancy_links; v_t public.rental_tenancies; v_ct public.rental_contract_texts;
@@ -64,7 +79,8 @@ BEGIN
       'tenantSignature', v_ct.tenant_signature, 'tenantSignedAt', v_ct.tenant_signed_at,
       'lessorSigned', v_ct.status = 'countersigned',
       'lessorSignedAt', CASE WHEN v_ct.status = 'countersigned' THEN v_ct.lessor_signed_at END,
-      'lessorSignature', CASE WHEN v_ct.status = 'countersigned' THEN v_ct.lessor_signature END) END,
+      'lessorSignature', CASE WHEN v_ct.status = 'countersigned' THEN v_ct.lessor_signature END,
+      'signedInPerson', v_ct.signed_in_person) END,
     'bills', coalesce((SELECT jsonb_agg(jsonb_build_object('id', b.id, 'kind', b.kind, 'period', b.period,
         'number', b.number, 'issuedOn', b.issued_on, 'dueOn', b.due_on, 'lines', b.lines, 'total', x.total,
         'paid', x.paid, 'balance', greatest(x.total - x.paid, 0)) ORDER BY b.due_on, b.created_at, b.id)
@@ -83,6 +99,54 @@ BEGIN
         'accountName', a.account_name, 'accountNumber', a.account_number, 'qrPath', a.qr_path)
         ORDER BY a.position, a.created_at, a.id)
       FROM public.rental_payment_accounts a WHERE a.property_id = v_t.property_id), '[]'::jsonb));
+END;
+$$;
+
+-- Unchanged from 20261018200000 except the name/address check (rental_unsafe_lessee): these become the lessee at signing.
+CREATE OR REPLACE FUNCTION public.rental_link_submit_details(p_token text, p_details jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_link public.rental_tenancy_links; v_d jsonb; v_paths text[]; v_occupants integer;
+BEGIN
+  v_link := public.rental_lock_link(p_token);
+  IF v_link.kind <> 'new' THEN RAISE EXCEPTION 'Your details are already on file'; END IF;
+  IF v_link.status <> 'open' THEN RAISE EXCEPTION 'Your details were already sent'; END IF;
+  v_d := CASE WHEN jsonb_typeof(p_details) = 'object' THEN p_details ELSE '{}'::jsonb END;
+  IF EXISTS (SELECT 1 FROM unnest(ARRAY['fullName', 'phone', 'address', 'emergencyName', 'emergencyPhone']) k
+    WHERE btrim(coalesce(v_d->>k, '')) = '') THEN
+    RAISE EXCEPTION 'Fill in your full name, mobile number, home address and emergency contact';
+  END IF;
+  IF char_length(btrim(v_d->>'fullName')) > 160 OR char_length(btrim(v_d->>'phone')) > 40
+    OR char_length(btrim(v_d->>'address')) > 300 OR char_length(btrim(v_d->>'emergencyName')) > 160
+    OR char_length(btrim(v_d->>'emergencyPhone')) > 40 OR char_length(btrim(coalesce(v_d->>'facebook', ''))) > 200
+    OR char_length(btrim(coalesce(v_d->>'email', ''))) > 200 THEN
+    RAISE EXCEPTION 'One of your answers is too long';
+  END IF;
+  IF public.rental_unsafe_lessee(v_d->>'fullName') OR public.rental_unsafe_lessee(v_d->>'address') THEN
+    RAISE EXCEPTION 'Remove line breaks and braces from the name and address';
+  END IF;
+  IF v_d ? 'occupants' AND v_d->'occupants' <> 'null'::jsonb THEN
+    IF coalesce(v_d->>'occupants', '') !~ '^[0-9]{1,2}$' OR (v_d->>'occupants')::integer NOT BETWEEN 1 AND 50 THEN
+      RAISE EXCEPTION 'People living there must be between 1 and 50';
+    END IF;
+    v_occupants := (v_d->>'occupants')::integer;
+  END IF;
+  -- 1..3 distinct files that were really uploaded under this link's folder.
+  IF jsonb_typeof(v_d->'idPaths') = 'array' THEN
+    SELECT array_agg(e ORDER BY i) INTO v_paths FROM jsonb_array_elements_text(v_d->'idPaths') WITH ORDINALITY x(e, i);
+  END IF;
+  IF coalesce(cardinality(v_paths), 0) NOT BETWEEN 1 AND 3
+    OR cardinality(v_paths) <> (SELECT count(DISTINCT e) FROM unnest(v_paths) e)
+    OR EXISTS (SELECT 1 FROM unnest(v_paths) e WHERE e !~ ('^' || v_link.token || '/[A-Za-z0-9_-]+[.](pdf|jpe?g|png)$') OR NOT EXISTS (
+      SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'rental-link-uploads' AND o.name = e)) THEN
+    RAISE EXCEPTION 'Upload a photo of your valid ID (up to 3)';
+  END IF;
+  -- Kept for the landlord's review; nothing reaches the renter row until rental_accept_details.
+  UPDATE public.rental_tenancy_links SET status = 'submitted', submitted_at = now(),
+    submitted_details = jsonb_build_object('fullName', btrim(v_d->>'fullName'), 'phone', btrim(v_d->>'phone'),
+      'address', btrim(v_d->>'address'), 'emergencyName', btrim(v_d->>'emergencyName'),
+      'emergencyPhone', btrim(v_d->>'emergencyPhone'), 'facebook', btrim(coalesce(v_d->>'facebook', '')),
+      'email', btrim(coalesce(v_d->>'email', '')), 'occupants', v_occupants, 'idPaths', to_jsonb(v_paths))
+  WHERE tenancy_id = v_link.tenancy_id;
 END;
 $$;
 
@@ -140,6 +204,9 @@ BEGIN
     OR char_length(btrim(v_d->>'emergencyPhone')) > 40 OR char_length(btrim(coalesce(v_d->>'facebook', ''))) > 200
     OR char_length(btrim(coalesce(v_d->>'email', ''))) > 200 THEN
     RAISE EXCEPTION 'One of your answers is too long';
+  END IF;
+  IF public.rental_unsafe_lessee(v_d->>'fullName') OR public.rental_unsafe_lessee(v_d->>'address') THEN
+    RAISE EXCEPTION 'Remove line breaks and braces from the name and address';
   END IF;
   IF v_d ? 'occupants' AND v_d->'occupants' <> 'null'::jsonb THEN
     IF coalesce(v_d->>'occupants', '') !~ '^[0-9]{1,2}$' OR (v_d->>'occupants')::integer NOT BETWEEN 1 AND 50 THEN
@@ -206,10 +273,11 @@ $$;
 -- ── Grants ──────────────────────────────────────────────────────────────────
 
 -- New functions get Supabase's default grants (anon included); take them back. CREATE OR REPLACE keeps the link RPCs'.
-REVOKE ALL ON FUNCTION public.rental_resolve_lessee(jsonb, text, text), public.rental_link_lessee(public.rental_tenancy_links),
+REVOKE ALL ON FUNCTION public.rental_unsafe_lessee(text), public.rental_resolve_lessee(jsonb, text, text),
+  public.rental_link_lessee(public.rental_tenancy_links),
   public.rental_sign_in_person(uuid, text, text, text, jsonb),
   public.rental_move_in(uuid, uuid, jsonb, date, date, date, integer, integer, integer, integer, jsonb)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.rental_resolve_lessee(jsonb, text, text),
+GRANT EXECUTE ON FUNCTION public.rental_unsafe_lessee(text), public.rental_resolve_lessee(jsonb, text, text),
   public.rental_sign_in_person(uuid, text, text, text, jsonb),
   public.rental_move_in(uuid, uuid, jsonb, date, date, date, integer, integer, integer, integer, jsonb) TO authenticated;

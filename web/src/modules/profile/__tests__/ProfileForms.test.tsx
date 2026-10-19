@@ -24,13 +24,13 @@ const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 const marked = (input: HTMLElement) => document.querySelector(`label[for="${input.id}"] [aria-hidden="true"]`)?.textContent;
 
 const editors = [
-  { name: 'CertificateEditor', render: (onSave: () => unknown) => <CertificateEditor onSave={onSave} onCancel={vi.fn()} />,
+  { name: 'CertificateEditor', render: (onSave: () => Promise<void>) => <CertificateEditor onSave={onSave} onCancel={vi.fn()} />,
     fields: [['cert-name', 'Enter the certificate name']], failure: 'Failed to create certificate' },
-  { name: 'EducationEditor', render: (onSave: () => unknown) => <EducationEditor onSave={onSave} onCancel={vi.fn()} />,
+  { name: 'EducationEditor', render: (onSave: () => Promise<void>) => <EducationEditor onSave={onSave} onCancel={vi.fn()} />,
     fields: [['edu-school', 'Enter the school']], failure: 'Failed to create education' },
-  { name: 'ExperienceEditor', render: (onSave: () => unknown) => <ExperienceEditor onSave={onSave} onCancel={vi.fn()} />,
+  { name: 'ExperienceEditor', render: (onSave: () => Promise<void>) => <ExperienceEditor onSave={onSave} onCancel={vi.fn()} />,
     fields: [['exp-company', 'Enter the company'], ['exp-title', 'Enter the title']], failure: 'Failed to create experience' },
-  { name: 'ProjectEditor', render: (onSave: () => unknown) => <ProjectEditor onSave={onSave} onCancel={vi.fn()} />,
+  { name: 'ProjectEditor', render: (onSave: () => Promise<void>) => <ProjectEditor onSave={onSave} onCancel={vi.fn()} />,
     fields: [['proj-name', 'Enter the project name']], failure: 'Failed to create project' },
 ];
 

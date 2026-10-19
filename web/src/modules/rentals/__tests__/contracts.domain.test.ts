@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_FIELDS, DEFAULT_CLAUSES, NOTARY_ACKNOWLEDGMENT, canonicalText, contractStage, contractStatusLabel, contractValues, linkMessage,
-  linkDetailsSchema, ordinal, renderClauses, resolveLessee, sha256Hex,
+  UNSAFE_LESSEE_MESSAGE, inPersonDetailsSchema, linkDetailsSchema, ordinal, renderClauses, resolveLessee, sha256Hex,
 } from '@himan/shared/rentals';
 import type { ContractText, RentalContract, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
 
@@ -161,5 +161,28 @@ describe('lessee placeholders', () => {
     expect(resolveLessee(['{{lessee_name}}'], 'A $& B', 'x')).toEqual(['A $& B']);
     // Texts made before the placeholders stayed are already resolved: nothing changes.
     expect(resolveLessee(['1. Ben Cruz, of Purok 2'], 'Other', 'Else')).toEqual(['1. Ben Cruz, of Purok 2']);
+  });
+
+  it('refuses a name or address that could inject text into the contract', () => {
+    const body = ['{{lessee_name}} of {{lessee_address}}'];
+    for (const [name, address] of [['{{lessee_address}}', 'Pajo'], ['Ben\nCruz', 'Pajo'], ['Ben', 'Pajo\tCebu'], ['Ben }}', 'Pajo'],
+      ['Ben', 'Pajo\u007f']]) {
+      expect(() => resolveLessee(body, name, address)).toThrow(UNSAFE_LESSEE_MESSAGE);
+    }
+    const details = { fullName: 'Ben Cruz', phone: '0917', address: 'Pajo', emergencyName: 'Rosa', emergencyPhone: '0918',
+      facebook: '', email: '', occupants: 1 };
+    for (const bad of [{ fullName: 'Ben {{lessee_address}}' }, { fullName: 'Ben\nCruz' }, { address: 'Pajo\r\nCebu' }, { address: '}} x' }]) {
+      const link = linkDetailsSchema.safeParse({ ...details, ...bad, idPaths: ['tok/a.jpg'] });
+      const inPerson = inPersonDetailsSchema.safeParse({ ...details, ...bad });
+      expect(link.success || link.error.issues[0].message).toBe(UNSAFE_LESSEE_MESSAGE);
+      expect(inPerson.success || inPerson.error.issues[0].message).toBe(UNSAFE_LESSEE_MESSAGE);
+    }
+    expect(inPersonDetailsSchema.safeParse(details).success).toBe(true);
+  });
+
+  it('trims only spaces, like btrim, so a value hashes the same as rental_resolve_lessee (same vector in supabase/tests/rentals.sql)', async () => {
+    const body = resolveLessee(['Lessee: {{lessee_name}}', 'Address: {{lessee_address}}'], '  \u00a0Ana Cruz  ', ' 1 Pajo, Cebu ');
+    expect(body).toEqual(['Lessee: \u00a0Ana Cruz', 'Address: 1 Pajo, Cebu']);
+    expect(await sha256Hex(canonicalText(body, ''))).toBe('7bb4f76e6aba5ccb7172bfb86c50754c44075e4669178effab91477456261007');
   });
 });

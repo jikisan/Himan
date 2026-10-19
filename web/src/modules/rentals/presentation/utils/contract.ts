@@ -23,12 +23,18 @@ export interface ContractPdfData {
   signedInPerson?: boolean;
 }
 
+/** `resolveLessee` for display: a value it refuses (line breaks, braces) leaves the placeholders showing instead of crashing the page;
+ * signing with such a value is refused with the reason. */
+export function previewLessee(body: string[], name: string, address: string): string[] {
+  try { return resolveLessee(body, name, address); } catch { return body; }
+}
+
 /** An unsigned text shows the renter's current name and address in its lessee placeholders; a signed one is already resolved. */
 export function contractPdfData(text: ContractText,
   property: Pick<RentalProperty, 'lessorName' | 'lessorAddress' | 'address' | 'signingCity'>,
   renter: Pick<Renter, 'fullName' | 'address'> = { fullName: '', address: '' }): ContractPdfData {
   return { lessorName: property.lessorName, lessorAddress: property.lessorAddress || property.address, signingCity: property.signingCity,
-    lines: contractLines(resolveLessee(text.body, renter.fullName, renter.address), text.specialTerms), signMode: text.signMode,
+    lines: contractLines(previewLessee(text.body, renter.fullName, renter.address), text.specialTerms), signMode: text.signMode,
     tenantName: text.tenantName || renter.fullName, tenantSignature: text.tenantSignature, tenantSignedAt: text.tenantSignedAt,
     lessorSignature: text.lessorSignature, lessorSignedAt: text.lessorSignedAt, contentHash: text.contentHash, signedInPerson: text.signedInPerson };
 }

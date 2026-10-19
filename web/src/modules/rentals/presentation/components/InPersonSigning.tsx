@@ -38,8 +38,8 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
   // A new ID is needed only when none is on file yet.
   const needsId = renter.files.length === 0;
   const details = inPersonDetailsSchema.safeParse({ ...values, occupants: values.occupants.trim() ? Number(values.occupants) : 1 });
-  // Exactly the text on screen: the stored body with the typed name and address filled in.
-  const body = resolveLessee(text.body, values.fullName, values.address);
+  // Exactly the text on screen and sent: the stored body with the checked name and address filled in (signing needs valid details).
+  const body = details.success ? resolveLessee(text.body, details.data.fullName, details.data.address) : text.body;
   const saved = property.role === 'owner' && !!property.lessorSignature;
   const go = (next: Screen) => { setError(''); setScreen(next); };
 

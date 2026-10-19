@@ -3,11 +3,11 @@ import { Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'luci
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { contractStatusLabel, contractValues, linkMessage, manilaToday, renderClauses, resolveLessee } from '@himan/shared/rentals';
+import { contractStatusLabel, contractValues, linkMessage, manilaToday, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalContract, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 import type { RentalsState } from '../pages/RentalsPage';
-import { SIGN_MODES, contractLines, contractPdfData, signModeWords } from '../utils/contract';
+import { SIGN_MODES, contractLines, contractPdfData, previewLessee, signModeWords } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
 import { inputClass } from './Field';
 import { ContractPaper } from './ContractPaper';
@@ -90,7 +90,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
       <FilePlus2 className="h-4 w-4" />Create contract</Button>;
     return <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? (modeLocked ? null : 'esign')}
       modeLocked={modeLocked}
-      preview={resolveLessee(body(), renter.fullName, renter.address)} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
+      preview={previewLessee(body(), renter.fullName, renter.address)} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
       note={text?.status === 'sent' ? 'Your tenant’s page will ask them to reload and read the new version.' : undefined}
       onCancel={() => setEditing(false)}
       onSave={async (specialTerms, signMode) => {

@@ -33,11 +33,17 @@ export const clausesSchema = z.array(z.object({
 /** `{token}/{file}.{pdf|jpg|jpeg|png}`: one plain file directly inside the link's folder. */
 export const ID_PATH = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(pdf|jpe?g|png)$/;
 
+export const UNSAFE_LESSEE_MESSAGE = 'Remove line breaks and braces from the name and address';
+/** A control character (line breaks included) or `{{`/`}}` in a lessee name or address could inject text into the signed contract.
+ * Same rule as the database (`rental_resolve_lessee`, `rental_link_submit_details`, `rental_sign_in_person`). */
+const unsafeLessee = (v: string) => v.includes('{{') || v.includes('}}') || Array.from(v).some((c) => c < ' ' || c === '\x7f');
+
 const required = (message: string, max: number) => z.string().trim().min(1, message).max(max);
+const lesseeValue = (message: string, max: number) => required(message, max).refine((v) => !unsafeLessee(v), UNSAFE_LESSEE_MESSAGE);
 /** The new-tenant form on the link; `idPaths` are the files `LinkRepository.uploadId` returned. */
 export const linkDetailsSchema = z.object({
-  fullName: required('Enter your full name', 160), phone: required('Enter your mobile number', 40),
-  address: required('Enter your home address', 300), emergencyName: required('Enter an emergency contact name', 160),
+  fullName: lesseeValue('Enter your full name', 160), phone: required('Enter your mobile number', 40),
+  address: lesseeValue('Enter your home address', 300), emergencyName: required('Enter an emergency contact name', 160),
   emergencyPhone: required('Enter the emergency contact’s number', 40),
   facebook: z.string().trim().max(200), email: z.union([z.literal(''), z.email('Enter a valid email')]),
   occupants: z.number().int().min(1).max(50),
@@ -148,10 +154,13 @@ export function renderClauses(clauses: Clause[], values: ContractValues, options
 }
 
 /** Fills the tenant's name and address into a stored text, exactly like the database's `rental_resolve_lessee`:
- * plain replacement in every line, the value trimmed, an empty one printed as a blank. Already-resolved texts are unchanged. */
+ * plain replacement in every line, the value trimmed of spaces (like `btrim`), an empty one printed as a blank. Already-resolved
+ * texts are unchanged. Throws on a value that could inject text (neither placeholder can then appear in a value, so the two
+ * replacements in a row are safe). */
 export function resolveLessee(body: string[], name: string, address: string): string[] {
-  const n = name.trim() || BLANK;
-  const a = address.trim() || BLANK;
+  if (unsafeLessee(name) || unsafeLessee(address)) throw new Error(UNSAFE_LESSEE_MESSAGE);
+  const n = name.replace(/^ +| +$/g, '') || BLANK;
+  const a = address.replace(/^ +| +$/g, '') || BLANK;
   return body.map((line) => line.split('{{lessee_name}}').join(n).split('{{lessee_address}}').join(a));
 }
 

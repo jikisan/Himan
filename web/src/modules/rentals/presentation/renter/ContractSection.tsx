@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { canonicalText, resolveLessee, sha256Hex } from '@himan/shared/rentals';
+import { canonicalText, sha256Hex } from '@himan/shared/rentals';
 import type { PublicLink, SignMode } from '@himan/shared/rentals';
 import { Button } from '@/components/ui/button';
 import { LinkRepository } from '../../infrastructure';
@@ -8,7 +8,7 @@ import { SignModeChoice } from '../components/ContractPanel';
 import { ContractPaper } from '../components/ContractPaper';
 import { PdfButton } from '../components/PdfButton';
 import { inputClass } from '../components/Field';
-import { contractLines, manilaDate } from '../utils/contract';
+import { contractLines, manilaDate, previewLessee } from '../utils/contract';
 import type { ContractPdfData } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
 
@@ -84,7 +84,7 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
 }
 
 /** The text exactly as the database will sign it: `lessee` filled into the name and address placeholders (a signed text has none left). */
-const resolved = (c: Contract, data: PublicLink) => resolveLessee(c.body, data.lessee.name, data.lessee.address);
+const resolved = (c: Contract, data: PublicLink) => previewLessee(c.body, data.lessee.name, data.lessee.address);
 
 const pdfData = (c: Contract, data: PublicLink): ContractPdfData => ({
   // Same address as the landlord's PDF (rental_link_get already falls back to the property address).

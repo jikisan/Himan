@@ -55,6 +55,12 @@ When adding a new module, add its alias to all three config files.
 - **Testing**: Vitest + React Testing Library + happy-dom. Co-locate tests in `__tests__` directories.
 - **Icons**: Lucide React
 
+## Buttons are labelled
+
+Older and non-technical people use this app (rentals co-managers, tenants on their own phones). Every action button shows
+a text label (an icon may sit beside it). No icon-only action buttons, and never make "tap the row" the only way to act.
+Standard affordances (dialog close X, month prev/next arrows) may stay icon-only but keep an `aria-label`.
+
 ## Form errors
 
 Rule for every form: a failed submit never shows its message below the buttons. It scrolls to the

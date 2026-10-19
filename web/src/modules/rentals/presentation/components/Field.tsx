@@ -2,17 +2,20 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@core/presentation/utils';
+import { FieldError } from '@core/presentation/components';
 
-export function Field({ id, label, hint, className, children }: {
-  id: string; label: string; hint?: string; className?: string; children: ReactNode;
+/** `required` draws the label's `*` (the input still sets `required`); `error` shows FieldError (`${id}-error`) under the control. */
+export function Field({ id, label, hint, required, error, className, children }: {
+  id: string; label: string; hint?: string; required?: boolean; error?: string; className?: string; children: ReactNode;
 }) {
   return <div className={cn('space-y-1.5', className)}>
     {/* A long label and its hint wrap as units: the hint drops below instead of both breaking mid-phrase. */}
     <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} required={required}>{label}</Label>
       {hint && <span className="whitespace-nowrap text-xs text-muted-foreground">{hint}</span>}
     </div>
     {children}
+    <FieldError id={id} message={error} />
   </div>;
 }
 
@@ -54,7 +57,8 @@ export function FormActions({ submit, onCancel, start }: { submit: string; onCan
 
 export const inputClass = 'h-11 w-full rounded-lg border border-input bg-background px-3 text-base shadow-sm transition-colors '
   + 'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring '
-  + '[&[readonly]]:bg-muted/50 [&[readonly]]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:text-sm';
+  + '[&[readonly]]:bg-muted/50 [&[readonly]]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:text-sm '
+  + 'aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/25';
 
 /** Native file picker drawn like the outline buttons. Add `file:h-12 text-base` on the tenant's big screens. */
 export const fileInputClass = 'block w-full text-sm text-muted-foreground file:mr-3 file:h-10 file:cursor-pointer file:rounded-lg file:border '

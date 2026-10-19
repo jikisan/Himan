@@ -55,6 +55,35 @@ When adding a new module, add its alias to all three config files.
 - **Testing**: Vitest + React Testing Library + happy-dom. Co-locate tests in `__tests__` directories.
 - **Icons**: Lucide React
 
+## Form errors
+
+Rule for every form: a failed submit never shows its message below the buttons. It scrolls to the
+first invalid field (DOM order), focuses it, outlines it red and shows the message right under it.
+Errors not tied to a field (server refusals) go in a `FormErrorBanner` at the top of the form.
+Mandatory fields get `*` in their label (`<Label required>` / rentals `<Field required>`); the input
+itself must still carry `required` or `aria-required`.
+
+```tsx
+import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
+
+const fe = useFieldErrors();
+const submit = (e: FormEvent) => { e.preventDefault(); fe.clear();
+  const r = schema.safeParse(values);
+  if (!r.success) return fe.failMany(zodFieldErrors(r.error, (p) => `rent-${String(p[0])}`));
+  save(r.data).catch((err) => fe.setFormError(err.message)); };
+<form onSubmit={submit} noValidate><FormErrorBanner message={fe.formError} />
+  <Label htmlFor="rent-name" required>Name</Label>
+  <Input id="rent-name" required {...fe.invalid('rent-name')} onChange={(e) => { setName(e.target.value); fe.clear('rent-name'); }} />
+  <FieldError id="rent-name" message={fe.errors['rent-name']} /></form>
+```
+
+- `invalid(id)` sets `aria-invalid` + `aria-describedby="${id}-error"`; `Input`, `Textarea`, `SelectTrigger`
+  and rentals `inputClass` draw the red border/ring from `aria-invalid` (Tailwind `aria-invalid:` variant).
+- Rentals: `<Field id error={fe.errors[id]} required>` renders `FieldError` for you.
+- `setFormError` scrolls the one rendered `[data-form-error]` banner; render it only once per screen.
+- Use `noValidate` on the form when the hook validates, so the browser's own bubbles don't preempt it.
+
 ## Module Details
 
 Feature modules live under `src/modules/`. Each follows the three-layer architecture (domain → infrastructure → presentation) described in the root CLAUDE.md.

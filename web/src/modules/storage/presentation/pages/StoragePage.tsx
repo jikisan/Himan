@@ -98,7 +98,8 @@ export const StoragePage = () => {
       description: string | null;
     }) => {
       if (editingFile) {
-        await updateFile(editingFile.id, data);
+        // updateFile returns null on failure; throwing lets FileDialog show it in its banner.
+        if (!await updateFile(editingFile.id, data)) throw new Error('Failed to save file');
         refetchFolders();
       }
     },

@@ -170,11 +170,11 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
         <Collapsible refEl={metersRef} title={meters.length ? 'Meters and extra charges' : 'Extra charges'}
           summary={[meters.length ? (meters.some((k) => readings[k]?.trim()) ? 'Starting reading added' : 'No starting reading') : '',
             charges.length ? `${charges.length} extra charge${charges.length === 1 ? '' : 's'}` : 'No extra charges'].filter(Boolean).join(' · ')}>
+          {meters.length > 0 && <p className="text-xs italic text-muted-foreground sm:col-span-2">The number on the meter today, so their first SOA counts usage from here.</p>}
           {meters.map((kind) => <Field key={kind} id={`add-reading-${kind}`} label={kind === 'electric' ? 'Electricity reading today' : 'Water reading today'}>
             <input id={`add-reading-${kind}`} type="number" inputMode="decimal" min={0} step="any" className={inputClass}
               value={readings[kind] ?? ''} onChange={(e) => setReadings((r) => ({ ...r, [kind]: e.target.value }))} />
           </Field>)}
-          {meters.length > 0 && <p className="text-xs text-muted-foreground sm:col-span-2">The number on the meter today, so their first SOA counts usage from here.</p>}
           <div className="space-y-2 sm:col-span-2">
             <p className="text-sm font-medium">Extra monthly charges <span className="font-normal text-muted-foreground">e.g. parking, added to every SOA</span></p>
             <ChargesEditor idPrefix="add" value={charges} onChange={setCharges} />

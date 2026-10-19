@@ -160,11 +160,13 @@ export const contractTextRow = z.object({
   tenant_name: z.string().nullable(), tenant_signature: z.string().nullable(), tenant_signed_at: z.string().nullable(),
   lessor_signed_at: z.string().nullable(), lessor_signature: z.string().nullable(), notarized_scan_path: z.string().nullable(),
   created_at: z.string(), updated_at: z.string(),
+  signed_in_person: z.boolean().default(false), witnessed_by: z.string().nullable().default(null),
 }).transform((r): ContractText => ({
   id: r.id, propertyId: r.property_id, contractId: r.contract_id, body: r.body, specialTerms: r.special_terms, status: r.status,
   signMode: r.sign_mode, contentHash: r.content_hash, tenantName: r.tenant_name, tenantSignature: r.tenant_signature,
   tenantSignedAt: r.tenant_signed_at, lessorSignedAt: r.lessor_signed_at, lessorSignature: r.lessor_signature,
   notarizedScanPath: r.notarized_scan_path, createdAt: r.created_at, updatedAt: r.updated_at,
+  signedInPerson: r.signed_in_person, witnessedBy: r.witnessed_by,
 }));
 
 export const linkRow = z.object({
@@ -194,7 +196,10 @@ export const publicLinkSchema = z.object({
     contentHash: z.string().nullable(), tenantName: z.string().nullable().default(null), tenantSignature: z.string().nullable().default(null),
     // The landlord's signature image and date only once countersigned.
     lessorSignature: z.string().nullable().optional(), lessorSignedAt: z.string().nullable().optional(),
+    signedInPerson: z.boolean().optional(),
   }).nullable(),
+  /** The name and address the database fills into `{{lessee_name}}` / `{{lessee_address}}` when the tenant signs (`resolveLessee`). */
+  lessee: z.object({ name: z.string(), address: z.string() }).default({ name: '', address: '' }),
   bills: z.array(z.object({
     id: z.string().default(''), number: z.string(), kind: z.enum(['move_in', 'monthly', 'final']).optional(), period: z.string(), issuedOn: z.string(),
     dueOn: z.string(), lines: z.array(storedBillLineSchema), paid: z.number(), balance: z.number(),

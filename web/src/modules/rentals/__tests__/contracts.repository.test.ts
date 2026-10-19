@@ -33,7 +33,24 @@ describe('ContractRepository', () => {
     mock.from.mockReturnValue(result([textRow]));
     const [text] = await new ContractRepository().findTexts();
     expect(mock.from).toHaveBeenCalledWith('rental_contract_texts');
-    expect(text).toMatchObject({ id: 'c1', contractId: 'k', body: ['1. That'], status: 'signed', signMode: 'esign', tenantSignedAt: '2026-10-18T00:00:00Z' });
+    expect(text).toMatchObject({ id: 'c1', contractId: 'k', body: ['1. That'], status: 'signed', signMode: 'esign', tenantSignedAt: '2026-10-18T00:00:00Z',
+      signedInPerson: false, witnessedBy: null });
+    mock.from.mockReturnValue(result([{ ...textRow, signed_in_person: true, witnessed_by: 'owner' }]));
+    expect((await new ContractRepository().findTexts())[0]).toMatchObject({ signedInPerson: true, witnessedBy: 'owner' });
+  });
+  it('signs in person with the typed details and the hash of the resolved text', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: null });
+    const rest = { fullName: 'Ben Cruz', phone: '0917', address: 'Purok 2', emergencyName: 'Ana', emergencyPhone: '0918', facebook: '', email: '', occupants: 1 };
+    await new ContractRepository().signInPerson('c1', { name: ' Ben Cruz ', signature: png, contentHash: HASH, details: { ...rest, fullName: ' Ben Cruz ' } });
+    expect(mock.rpc).toHaveBeenCalledWith('rental_sign_in_person', { p_contract_text_id: 'c1', p_name: 'Ben Cruz', p_signature: png,
+      p_content_hash: HASH, p_details: rest });
+    mock.rpc.mockClear();
+    await expect(new ContractRepository().signInPerson('c1', { name: 'Ben', signature: png, contentHash: '', details: rest })).rejects.toThrow('reload');
+    await expect(new ContractRepository().signInPerson('c1', { name: 'Ben', signature: png, contentHash: HASH, details: { ...rest, address: '' } }))
+      .rejects.toThrow('home address');
+    expect(mock.rpc).not.toHaveBeenCalled();
+    mock.rpc.mockResolvedValue({ data: null, error: { code: '42883', message: 'function does not exist' } });
+    await expect(new ContractRepository().signInPerson('c1', { name: 'Ben', signature: png, contentHash: HASH, details: rest })).rejects.toThrow('Could not sign the contract');
   });
   it('falls back to the default template when the property has none', async () => {
     mock.from.mockReturnValue(result(null));
@@ -193,7 +210,10 @@ describe('LinkRepository public side', () => {
     bills: [], payments: [], accounts: [] };
   it('reads the link and passes the uniform invalid-link message through', async () => {
     mock.rpc.mockResolvedValue({ data: publicLink, error: null });
-    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ kind: 'existing', contract: { id: 'c1', body: ['a'] } });
+    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ kind: 'existing', contract: { id: 'c1', body: ['a'] },
+      lessee: { name: '', address: '' } });
+    mock.rpc.mockResolvedValue({ data: { ...publicLink, lessee: { name: 'Ben Cruz', address: 'Purok 2' } }, error: null });
+    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ lessee: { name: 'Ben Cruz', address: 'Purok 2' } });
     expect(mock.rpc).toHaveBeenCalledWith('rental_link_get', { p_token: 'tok' });
     const receipt = { applied: [{ billId: 'b1', number: 'INV-1', amount: 500 }], creditCentavos: 0, balanceCentavos: 0 };
     mock.rpc.mockResolvedValue({ data: { ...publicLink, roomName: 'Room A',

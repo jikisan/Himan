@@ -57,6 +57,33 @@ describe('TenancyRepository', () => {
   });
 });
 
+describe('TenancyRepository moveIn', () => {
+  const terms = { unitId: 'u', moveIn: '2026-10-01', startDate: '2026-10-01', endDate: '2027-10-01', monthlyRentCentavos: 1000000,
+    dueDay: 30, advanceMonths: 1, depositCentavos: 1000000 };
+  const person = { fullName: ' Elle Tan ', phone: '', facebook: '', email: '', address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '' };
+  it('moves a new person in and records the payment in one RPC', async () => {
+    mock.rpc.mockResolvedValue({ data: { renterId: 'r', tenancyId: 't', billId: 'b', paymentId: 'pay' }, error: null });
+    const result = await new TenancyRepository().moveIn({ ...terms, renterId: null, renter: person,
+      payment: { amountCentavos: 500000, paidOn: '2026-10-01', method: 'gcash', reference: ' 123 ', notes: '' } });
+    expect(result).toEqual({ renterId: 'r', tenancyId: 't', billId: 'b', paymentId: 'pay' });
+    expect(mock.rpc).toHaveBeenCalledWith('rental_move_in', { p_unit_id: 'u', p_renter_id: null, p_renter: { ...person, fullName: 'Elle Tan' },
+      p_move_in: '2026-10-01', p_start: '2026-10-01', p_end: '2027-10-01', p_rent: 1000000, p_due_day: 30, p_advance: 1, p_deposit: 1000000,
+      p_payment: { amount: 500000, paidOn: '2026-10-01', method: 'gcash', reference: '123', notes: '' } });
+  });
+  it('sends no payment for pay later, and an existing person by id', async () => {
+    mock.rpc.mockResolvedValue({ data: { renterId: 'r', tenancyId: 't', billId: null, paymentId: null }, error: null });
+    expect(await new TenancyRepository().moveIn({ ...terms, renterId: 'r', renter: null, payment: null }))
+      .toEqual({ renterId: 'r', tenancyId: 't', billId: null, paymentId: null });
+    expect(mock.rpc).toHaveBeenCalledWith('rental_move_in', expect.objectContaining({ p_renter_id: 'r', p_renter: null, p_payment: null }));
+  });
+  it('explains a full room in plain words and hides technical errors', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'This unit is full' } });
+    await expect(new TenancyRepository().moveIn({ ...terms, renterId: 'r', renter: null, payment: null })).rejects.toThrow('This room is full');
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.rental_move_in' } });
+    await expect(new TenancyRepository().moveIn({ ...terms, renterId: 'r', renter: null, payment: null })).rejects.toThrow('Could not move the tenant in');
+  });
+});
+
 describe('TenancyRepository duplicates', () => {
   it('explains a second active tenancy for the same renter in the same unit', async () => {
     mock.rpc.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key' } });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
-import { DEFAULT_CLAUSES, clausesSchema, signatureSchema, validateRentalFile } from '../domain/index.js';
-import type { Clause, ContractText, SignMode } from '../domain/index.js';
+import { DEFAULT_CLAUSES, clausesSchema, inPersonDetailsSchema, signatureSchema, validateRentalFile } from '../domain/index.js';
+import type { Clause, ContractText, InPersonDetails, SignMode } from '../domain/index.js';
 import { contractTextRow, fileName, rentalError } from './rows.js';
 
 const TEXTS = 'rental_contract_texts';
@@ -55,6 +55,16 @@ export class ContractRepository {
   async countersign(id: string, signature?: string): Promise<void> {
     const { error } = await getSupabase().rpc('rental_countersign',
       { p_contract_text_id: id, p_signature: signature === undefined ? null : signatureSchema.parse(signature) });
+    if (error) throw rentalError(error, 'Could not sign the contract');
+  }
+
+  /** The tenant signs on this (the manager's) device. `contentHash` = `sha256Hex(canonicalText(resolveLessee(body, details.fullName,
+   * details.address), specialTerms))` of the text they read; the details go straight onto the renter. */
+  async signInPerson(textId: string, input: { name: string; signature: string; contentHash: string; details: InPersonDetails }): Promise<void> {
+    if (!/^[0-9a-f]{64}$/.test(input.contentHash)) throw new Error('Please reload the page to read the latest contract');
+    const name = z.string().trim().min(1, 'Type your full name').max(160).parse(input.name);
+    const { error } = await getSupabase().rpc('rental_sign_in_person', { p_contract_text_id: textId, p_name: name,
+      p_signature: signatureSchema.parse(input.signature), p_content_hash: input.contentHash, p_details: inPersonDetailsSchema.parse(input.details) });
     if (error) throw rentalError(error, 'Could not sign the contract');
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_FIELDS, DEFAULT_CLAUSES, NOTARY_ACKNOWLEDGMENT, canonicalText, contractStage, contractStatusLabel, contractValues, linkMessage,
-  linkDetailsSchema, ordinal, renderClauses, sha256Hex,
+  linkDetailsSchema, ordinal, renderClauses, resolveLessee, sha256Hex,
 } from '@himan/shared/rentals';
 import type { ContractText, RentalContract, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
 
@@ -144,5 +144,22 @@ describe('contractStage', () => {
     const renewed = tenancy({ contracts: [c('c2', 'active'), c('c1', 'ended')] });
     expect(contractStage(renewed, [text('countersigned', 'c1')])).toBe('done');
     expect(contractStage(renewed, [text('countersigned', 'c1'), text('draft', 'c2')])).toBe('draft');
+  });
+});
+
+describe('lessee placeholders', () => {
+  it('keeps {{lessee_name}} and {{lessee_address}} for a stored text and resolves everything else', () => {
+    const body = renderClauses(DEFAULT_CLAUSES, full, { keepLessee: true }).join('\n');
+    expect(placeholders(body)).toEqual(['lessee_name', 'lessee_address']);
+    expect(body).toContain('Ana Reyes');
+  });
+
+  it('resolves them by plain replacement in every line, trimmed, with a blank for an empty value', () => {
+    const body = ['{{lessee_name}} of {{lessee_address}}', 'Again {{lessee_name}}', 'No field'];
+    expect(resolveLessee(body, '  Ben Cruz ', '')).toEqual(['Ben Cruz of __________', 'Again Ben Cruz', 'No field']);
+    // Literal: "$&" in a name is printed as typed.
+    expect(resolveLessee(['{{lessee_name}}'], 'A $& B', 'x')).toEqual(['A $& B']);
+    // Texts made before the placeholders stayed are already resolved: nothing changes.
+    expect(resolveLessee(['1. Ben Cruz, of Purok 2'], 'Other', 'Else')).toEqual(['1. Ben Cruz, of Purok 2']);
   });
 });

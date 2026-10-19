@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
+import { issueBills, moveIn, moveOut, setupProperty } from '@himan/shared/rentals';
 import type { BillingContext, PropertyInput, RentalTenancy, RenterInput, UnitInput } from '@himan/shared/rentals';
 
 const person: RenterInput = { fullName: 'Juan', phone: '0917', facebook: '', email: '', address: '', emergencyName: '',
@@ -21,26 +21,56 @@ const billRepos = () => ({
   },
 });
 
-describe('addTenant', () => {
-  it('creates the person, then moves them in', async () => {
-    const r = repos();
-    const result = await addTenant(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms });
-    expect(result).toEqual({ renterId: 'new-renter', tenancyId: 't', warnings: [] });
-    expect(r.tenancies.start).toHaveBeenCalledWith({ unitId: 'u', renterId: 'new-renter', moveIn: '2026-10-01', ...terms });
+const moved = { renterId: 'new-renter', tenancyId: 't', billId: 'b', paymentId: 'pay' };
+const moveInRepos = () => ({
+  tenancies: { moveIn: vi.fn(async () => moved), setCharges: vi.fn(async () => undefined) },
+  bills: billRepos().bills,
+  payments: { uploadProof: vi.fn(async () => undefined) },
+});
+const payment = { amountCentavos: 500000, paidOn: '2026-10-01', method: 'cash' as const, reference: '', notes: '' };
+const proof = { name: 'gcash.png', mimeType: 'image/png', bytes: new ArrayBuffer(3) };
+
+describe('moveIn', () => {
+  it('creates the person, the move-in and the payment in one call', async () => {
+    const r = moveInRepos();
+    const result = await moveIn(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms, payment });
+    expect(result).toEqual({ ...moved, warnings: [] });
+    expect(r.tenancies.moveIn).toHaveBeenCalledWith({ unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', ...terms, payment });
   });
-  it('removes the new person again when the move-in fails, and keeps the original error', async () => {
-    const r = repos();
-    r.tenancies.start.mockRejectedValueOnce(new Error('This unit is full'));
-    await expect(addTenant(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms }))
-      .rejects.toThrow('This unit is full');
-    expect(r.renters.remove).toHaveBeenCalledWith('new-renter');
+  it('moves in without a payment (pay later)', async () => {
+    const r = moveInRepos();
+    r.tenancies.moveIn.mockResolvedValueOnce({ ...moved, renterId: 'old', paymentId: null } as never);
+    const result = await moveIn(r, { propertyId: 'p', unitId: 'u', renterId: 'old', renter: null, moveIn: '2026-10-01', terms, payment: null,
+      proofs: [proof] });
+    expect(result.paymentId).toBeNull();
+    expect(r.tenancies.moveIn).toHaveBeenCalledWith(expect.objectContaining({ renterId: 'old', renter: null, payment: null }));
+    expect(r.payments.uploadProof).not.toHaveBeenCalled();
   });
-  it('never creates or removes an existing tenant', async () => {
-    const r = repos();
-    r.tenancies.start.mockRejectedValueOnce(new Error('full'));
-    await expect(addTenant(r, { propertyId: 'p', unitId: 'u', renterId: 'old', renter: null, moveIn: '2026-10-01', terms })).rejects.toThrow();
-    expect(r.renters.save).not.toHaveBeenCalled();
-    expect(r.renters.remove).not.toHaveBeenCalled();
+  it('passes a failed move-in through and saves nothing else', async () => {
+    const r = moveInRepos();
+    r.tenancies.moveIn.mockRejectedValueOnce(new Error('This room is full. Move someone out first, or add a bed.'));
+    await expect(moveIn(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms, payment,
+      readings: [{ kind: 'electric', value: 1 }] })).rejects.toThrow('This room is full');
+    expect(r.bills.saveReadings).not.toHaveBeenCalled();
+  });
+  it('saves starting readings dated move-in, extra charges and proofs after moving in', async () => {
+    const r = moveInRepos();
+    await moveIn(r, { propertyId: 'p', unitId: 'u', renterId: 'old', renter: null, moveIn: '2026-10-01', terms, payment,
+      readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }], proofs: [proof] });
+    expect(r.bills.saveReadings).toHaveBeenCalledWith('p', [{ unitId: 'u', kind: 'electric', readOn: '2026-10-01', value: 1200, isReset: false }]);
+    expect(r.tenancies.setCharges).toHaveBeenCalledWith('t', [{ label: 'Parking', amount: 100000 }]);
+    expect(r.payments.uploadProof).toHaveBeenCalledWith('pay', 'p', proof);
+    expect(r.bills.saveReadings.mock.invocationCallOrder[0]).toBeGreaterThan(r.tenancies.moveIn.mock.invocationCallOrder[0]);
+  });
+  it('keeps the move-in and warns when the extras fail', async () => {
+    const r = moveInRepos();
+    r.bills.saveReadings.mockRejectedValueOnce(new Error('x'));
+    r.tenancies.setCharges.mockRejectedValueOnce(new Error('y'));
+    r.payments.uploadProof.mockRejectedValueOnce(new Error('z'));
+    const result = await moveIn(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms, payment,
+      readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }], proofs: [proof] });
+    expect(result.warnings).toEqual(['Moved in, but the starting readings weren’t saved', 'Moved in, but the extra charges weren’t saved',
+      'Couldn’t attach gcash.png. Add it again from the payment.']);
   });
 });
 
@@ -53,26 +83,6 @@ describe('setupProperty', () => {
     const result = await setupProperty(r, { input: { name: 'House' } as PropertyInput, rooms: [room('A'), room('B'), room('C')] });
     expect(result).toEqual({ propertyId: 'p', failed: ['B'] });
     expect(r.properties.saveUnit).toHaveBeenCalledTimes(3);
-  });
-});
-
-describe('addTenant extras', () => {
-  it('saves starting readings dated move-in and extra charges after moving in', async () => {
-    const r = billRepos();
-    await addTenant(r, { propertyId: 'p', unitId: 'u', renterId: 'old', renter: null, moveIn: '2026-10-01', terms,
-      readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }] });
-    expect(r.bills.saveReadings).toHaveBeenCalledWith('p', [{ unitId: 'u', kind: 'electric', readOn: '2026-10-01', value: 1200, isReset: false }]);
-    expect(r.tenancies.setCharges).toHaveBeenCalledWith('t', [{ label: 'Parking', amount: 100000 }]);
-    expect(r.bills.saveReadings.mock.invocationCallOrder[0]).toBeGreaterThan(r.tenancies.start.mock.invocationCallOrder[0]);
-  });
-  it('keeps the move-in and warns when the extras fail', async () => {
-    const r = billRepos();
-    r.bills.saveReadings.mockRejectedValueOnce(new Error('x'));
-    r.tenancies.setCharges.mockRejectedValueOnce(new Error('y'));
-    const result = await addTenant(r, { propertyId: 'p', unitId: 'u', renterId: null, renter: person, moveIn: '2026-10-01', terms,
-      readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }] });
-    expect(result.warnings).toEqual(['Moved in, but the starting readings weren’t saved', 'Moved in, but the extra charges weren’t saved']);
-    expect(r.renters.remove).not.toHaveBeenCalled();
   });
 });
 

@@ -15,6 +15,8 @@ export interface ContractText {
   signMode: SignMode | null; contentHash: string | null; tenantName: string | null; tenantSignature: string | null;
   tenantSignedAt: string | null; lessorSignedAt: string | null; lessorSignature: string | null;
   notarizedScanPath: string | null; createdAt: string; updatedAt: string;
+  /** Signed on the owner's device with them present (`witnessedBy`: that manager's user id). */
+  signedInPerson?: boolean; witnessedBy?: string | null;
 }
 
 /** The one answer for a guessed, old, revoked or expired link, so a caller learns nothing about which. */
@@ -41,6 +43,10 @@ export const linkDetailsSchema = z.object({
   occupants: z.number().int().min(1).max(50),
   idPaths: z.array(z.string().regex(ID_PATH, 'That file can’t be used')).min(1, 'Add a photo of a valid ID').max(3, 'Add up to 3 ID files'),
 });
+
+/** The same form filled in on the owner's device (in-person signing): the ID files are uploaded separately. */
+export const inPersonDetailsSchema = linkDetailsSchema.omit({ idPaths: true });
+export type InPersonDetails = z.infer<typeof inPersonDetailsSchema>;
 
 /** What a new tenant types into the link form; nothing reaches the renter record until a manager accepts it. */
 export type LinkDetails = z.infer<typeof linkDetailsSchema>;
@@ -128,14 +134,25 @@ export const NOTARY_ACKNOWLEDGMENT: Clause[] = [
   { id: 'notary-register', text: `Doc. No. ${BLANK}; Page No. ${BLANK}; Book No. ${BLANK}; Series of ${BLANK}` },
 ];
 
-/** Resolves `{{field}}` placeholders (a missing or empty value prints a blank line) and numbers the clauses. */
-export function renderClauses(clauses: Clause[], values: ContractValues): string[] {
+const LESSEE = new Set(['lessee_name', 'lessee_address']);
+
+/** Resolves `{{field}}` placeholders (a missing or empty value prints a blank line) and numbers the clauses.
+ * `keepLessee`: leaves `{{lessee_name}}` and `{{lessee_address}}` for `resolveLessee` at signing (stored contract texts). */
+export function renderClauses(clauses: Clause[], values: ContractValues, options: { keepLessee?: boolean } = {}): string[] {
   let n = 0;
   return clauses.map(({ id, text }) => {
-    const filled = text.replace(/\{\{(\w+)\}\}/g, (_, key: string) =>
-      (Object.hasOwn(values, key) ? values[key as ContractField]?.trim() : '') || BLANK);
+    const filled = text.replace(/\{\{(\w+)\}\}/g, (match, key: string) => options.keepLessee && LESSEE.has(key) ? match
+      : (Object.hasOwn(values, key) ? values[key as ContractField]?.trim() : '') || BLANK);
     return UNNUMBERED.has(id) ? filled : `${++n}. ${filled}`;
   });
+}
+
+/** Fills the tenant's name and address into a stored text, exactly like the database's `rental_resolve_lessee`:
+ * plain replacement in every line, the value trimmed, an empty one printed as a blank. Already-resolved texts are unchanged. */
+export function resolveLessee(body: string[], name: string, address: string): string[] {
+  const n = name.trim() || BLANK;
+  const a = address.trim() || BLANK;
+  return body.map((line) => line.split('{{lessee_name}}').join(n).split('{{lessee_address}}').join(a));
 }
 
 const longDate = (date: string) => format(parseISO(date), 'MMMM d, yyyy');

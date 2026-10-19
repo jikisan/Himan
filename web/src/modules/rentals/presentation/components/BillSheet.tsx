@@ -35,8 +35,9 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
   const issued = !!bill.number && bill.status === 'issued';
   const saved = issued ? bill as RentalBill : null;
   const paid = saved ? billPaid(saved.id, payments) : 0;
+  const changeable = issued && !saved?.settled;
   const fromCredit = !!saved && payments.some((p) => p.status === 'active' && p.paidOn < saved.issuedOn && p.allocations.some((a) => a.billId === saved.id));
-  const lateFee = canManage && issued && info.lateFeeCentavos > 0 && isOverdue(bill as RentalBill, manilaToday())
+  const lateFee = canManage && changeable && info.lateFeeCentavos > 0 && isOverdue(bill as RentalBill, manilaToday())
     && !bill.lines.some((l) => l.kind === 'penalty');
   const copy = async () => {
     try {
@@ -58,6 +59,7 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
           {saved && <div className="flex flex-wrap items-center gap-2 text-sm">
             <BillStateBadge bill={saved} payments={payments} today={manilaToday()} />
             {fromCredit && <span className="text-muted-foreground">Part of this SOA was paid from the tenant’s credit.</span>}
+            {saved.settled && <span className="text-muted-foreground">Settled with the deposit, so this SOA can’t be changed.</span>}
           </div>}
           {!bill.number && credit > 0 && <p className="rounded-md bg-muted px-3 py-2 text-sm">
             {info.renterName} has {formatBillPesos(credit)} credit. It pays this SOA as soon as you generate it.</p>}
@@ -78,9 +80,9 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
         onClick={() => void onSaveLines([...bill.lines, { kind: 'penalty', label: 'Late payment penalty', amount: info.lateFeeCentavos }])
           .then(() => toast.success('Late fee added'), (e) => toast.error(errorMessage(e)))}>
         Add late fee {formatBillPesos(info.lateFeeCentavos)}</Button>}
-      {canManage && issued && <Button variant="outline" className="h-11 sm:h-9" onClick={() => (paid > 0 ? setConfirmEdit(true) : setEditing(true))}><Pencil className="h-4 w-4" />Edit SOA</Button>}
+      {canManage && changeable && <Button variant="outline" className="h-11 sm:h-9" onClick={() => (paid > 0 ? setConfirmEdit(true) : setEditing(true))}><Pencil className="h-4 w-4" />Edit SOA</Button>}
       {canManage && !bill.number && onIssue && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void onIssue()}>Generate SOA</Button>}
-      {canManage && issued && onCancelBill && <Button variant="ghost" className="ml-auto h-11 px-2 text-destructive hover:text-destructive sm:h-9"
+      {canManage && changeable && onCancelBill && <Button variant="ghost" className="ml-auto h-11 px-2 text-destructive hover:text-destructive sm:h-9"
         onClick={onCancelBill}><Trash2 className="h-4 w-4" />Cancel SOA</Button>}
     </div>}
     <ConfirmDialog open={confirmEdit} onOpenChange={setConfirmEdit} title={`Edit ${bill.number}?`} description={paidChangeWarning(paid)}

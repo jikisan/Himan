@@ -34,4 +34,6 @@ export interface UtilityBill { id: string; propertyId: string; unitId: string; k
 export interface RentalBill {
   id: string; propertyId: string; tenancyId: string; kind: 'move_in' | 'monthly' | 'final'; period: string; number: string;
   issuedOn: string; dueOn: string; lines: BillLine[]; status: 'issued' | 'void'; voidReason: string;
+  /** Counted by the tenancy's deposit settlement, so it can no longer change. */
+  settled?: boolean;
 }

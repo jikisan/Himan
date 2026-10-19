@@ -89,10 +89,10 @@ export const utilityBillRow = z.object({
 export const billRow = z.object({
   id: z.string(), property_id: z.string(), tenancy_id: z.string(), kind: z.enum(['move_in', 'monthly', 'final']),
   period: z.string(), number: z.string(), issued_on: z.string(), due_on: z.string(), lines: z.array(storedBillLineSchema),
-  status: z.enum(['issued', 'void']), void_reason: z.string(),
+  status: z.enum(['issued', 'void']), void_reason: z.string(), settled: z.boolean().default(false),
 }).transform((r): RentalBill => ({
   id: r.id, propertyId: r.property_id, tenancyId: r.tenancy_id, kind: r.kind, period: r.period, number: r.number,
-  issuedOn: r.issued_on, dueOn: r.due_on, lines: r.lines, status: r.status, voidReason: r.void_reason,
+  issuedOn: r.issued_on, dueOn: r.due_on, lines: r.lines, status: r.status, voidReason: r.void_reason, settled: r.settled,
 }));
 
 export const paymentProofRow = z.object({

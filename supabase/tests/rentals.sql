@@ -1516,7 +1516,7 @@ DO $$ DECLARE
   v_move_in uuid; v_later uuid; v_later_pay uuid; v_n integer;
   v_final text := '[{"kind":"other","label":"Final bill","amount":%s}]';
   v_frozen_pay text := 'This deposit is already settled, so its payments can''t be voided';
-  v_frozen_bill text := 'This deposit is already settled, so the move-in bill can''t change';
+  v_frozen_bill text := 'This deposit is already settled, so the bills it counted can''t change';
 BEGIN
   -- R1–R3: deposit 5,000 / 1,000 / 5,000 paid, then a final bill of 1,200 / 1,500 / 1,200 left unpaid.
   -- R4–R6: deposit 1,000 paid with 1,300, so 300 sits as credit.
@@ -1590,6 +1590,24 @@ BEGIN
   GET DIAGNOSTICS v_n = ROW_COUNT;
   IF v_n <> 1 THEN RAISE EXCEPTION 'Later final bill could not be edited'; END IF;
   PERFORM public.rental_void_payment(v_later_pay, 'Wrong amount');
+
+  -- Every bill the settlement counted is frozen, not only the move-in bill.
+  PERFORM pg_temp.refused(format('UPDATE public.rental_bills SET lines = %L WHERE id = %L',
+    format(v_final, 1)::jsonb, v_b[1]), v_frozen_bill);
+  PERFORM pg_temp.refused(format('UPDATE public.rental_bills SET status = %L, void_reason = %L WHERE id = %L', 'void', 'x', v_b[2]),
+    v_frozen_bill);
+  -- The credit was refunded with the deposit, so it never pays a bill issued afterwards.
+  v_later := public.rental_issue_bill(v_t[4], 'final', '2026-11', v_today, format(v_final, 50000)::jsonb);
+  IF pg_temp.balance(v_later) <> 50000 THEN RAISE EXCEPTION 'Refunded credit paid a later bill'; END IF;
+  -- The settled bills keep what paid them after a later reallocation.
+  RESET ROLE;
+  PERFORM public.rental_reallocate(v_t[4]);
+  SET LOCAL ROLE authenticated;
+  IF pg_temp.balance(v_later) <> 50000 OR pg_temp.owed(v_t[4]) <> 50000
+  THEN RAISE EXCEPTION 'Reallocation moved settled money'; END IF;
+  -- A payment recorded after the settlement still pays it.
+  PERFORM public.rental_record_payment(v_t[4], 50000, v_today, 'cash', '', '');
+  IF pg_temp.balance(v_later) <> 0 THEN RAISE EXCEPTION 'A later payment did not pay the later bill'; END IF;
 
   -- The table re-asserts the credit formulas.
   RESET ROLE;

@@ -205,6 +205,13 @@ describe('Payments list', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel SOA' }));
     expect(within(screen.getByRole('alertdialog')).getByText(/₱1,000 was already paid on this bill/)).toBeInTheDocument();
   });
+  it('offers no edit, cancel or late fee on a bill the deposit settlement counted', () => {
+    state.properties = [{ ...property, lateFeeCentavos: 50000 }];
+    state.bills = [bill({ dueOn: '2026-11-03', settled: true })];
+    const sheet = openBill();
+    expect(sheet.getByText('Settled with the deposit, so this SOA can’t be changed.')).toBeInTheDocument();
+    for (const name of ['Edit SOA', 'Cancel SOA', /^Add late fee/]) expect(sheet.queryByRole('button', { name })).not.toBeInTheDocument();
+  });
   it('edits an unpaid bill without asking', () => {
     const sheet = openBill();
     fireEvent.click(sheet.getByRole('button', { name: 'Edit SOA' }));

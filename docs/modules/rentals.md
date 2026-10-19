@@ -184,8 +184,10 @@ Plan: [[2026-10-18-rentals-settlement]]. Migration `20261018300000_add_rental_se
 - Bills covered by the deposit are marked paid by one "Taken from the deposit" payment (pinned allocations), so nothing stays open.
 - After settlement the move-in bill and the payments recorded before it are frozen; later bills and payments still work.
 - Refund proofs: `rental_settlement_proofs` (managers only, bucket `rental-files`). Settlement PDF (lazy, no proof images).
-- Known limits: leftover ledger credit on a settled tenancy is not zeroed in SQL, so a final bill issued afterwards would be
-  auto-paid from credit that was already refunded. The renter link does not show settlements. Advance months are not refunded by settlement.
+- Ledger lock (`20261020000000_close_settlement_ledger_gaps.sql`): settling marks every issued bill `settled` (frozen by
+  `rental_settled_bill_guard`) and pins every allocation; `rental_reallocate` places no new money from payments recorded up to
+  the settlement, so refunded credit never pays a later bill. BillSheet hides Edit/Cancel/late fee on settled bills.
+- Known limits: the renter link does not show settlements. Advance months are not refunded by settlement.
 
 ## Deploy order for the whole payments → settlement run (2026-10-19)
 Applied to hosted: `20261018100000`, `20261018150000`, `20261018200000`, `20261018300000` (all additive).

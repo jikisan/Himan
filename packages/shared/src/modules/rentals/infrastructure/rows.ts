@@ -196,7 +196,7 @@ export const publicLinkSchema = z.object({
     contentHash: z.string().nullable(), tenantName: z.string().nullable().default(null), tenantSignature: z.string().nullable().default(null),
     // The landlord's signature image and date only once countersigned.
     lessorSignature: z.string().nullable().optional(), lessorSignedAt: z.string().nullable().optional(),
-    signedInPerson: z.boolean().optional(),
+    signedInPerson: z.boolean().default(false),
   }).nullable(),
   /** The name and address the database fills into `{{lessee_name}}` / `{{lessee_address}}` when the tenant signs (`resolveLessee`). */
   lessee: z.object({ name: z.string(), address: z.string() }).default({ name: '', address: '' }),

@@ -210,8 +210,10 @@ describe('LinkRepository public side', () => {
     bills: [], payments: [], accounts: [] };
   it('reads the link and passes the uniform invalid-link message through', async () => {
     mock.rpc.mockResolvedValue({ data: publicLink, error: null });
-    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ kind: 'existing', contract: { id: 'c1', body: ['a'] },
-      lessee: { name: '', address: '' } });
+    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ kind: 'existing',
+      contract: { id: 'c1', body: ['a'], signedInPerson: false }, lessee: { name: '', address: '' } });
+    mock.rpc.mockResolvedValue({ data: { ...publicLink, contract: { ...publicLink.contract, signedInPerson: true } }, error: null });
+    expect(await new LinkRepository().getPublic('tok')).toMatchObject({ contract: { signedInPerson: true } });
     mock.rpc.mockResolvedValue({ data: { ...publicLink, lessee: { name: 'Ben Cruz', address: 'Purok 2' } }, error: null });
     expect(await new LinkRepository().getPublic('tok')).toMatchObject({ lessee: { name: 'Ben Cruz', address: 'Purok 2' } });
     expect(mock.rpc).toHaveBeenCalledWith('rental_link_get', { p_token: 'tok' });

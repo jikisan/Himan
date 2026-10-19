@@ -99,7 +99,7 @@ function SignedView({ contract: c, data }: { contract: Contract; data: PublicLin
   return <div className="space-y-4 rounded-xl border bg-card p-4">
     <p role="status" className="text-base font-semibold">{c.status === 'countersigned' ? 'Fully signed' : 'Waiting for your landlord to countersign'}</p>
     <div className="grid gap-4 sm:grid-cols-2">
-      <Signed title="You" image={c.tenantSignature} alt="Your signature" name={pdf.tenantName} at={c.tenantSignedAt} />
+      <Signed title="You" image={c.tenantSignature} alt="Your signature" name={pdf.tenantName} at={c.tenantSignedAt} inPerson={c.signedInPerson} />
       {c.lessorSignature && <Signed title="Your landlord" image={c.lessorSignature} alt="Your landlord’s signature" name={data.property.lessorName}
         at={c.lessorSignedAt ?? null} />}
     </div>
@@ -108,11 +108,12 @@ function SignedView({ contract: c, data }: { contract: Contract; data: PublicLin
   </div>;
 }
 
-function Signed({ title, image, alt, name, at }: { title: string; image: string | null; alt: string; name: string; at: string | null }) {
+function Signed({ title, image, alt, name, at, inPerson }: { title: string; image: string | null; alt: string; name: string; at: string | null;
+  inPerson?: boolean }) {
   return <div className="space-y-1">
     <p className="text-sm text-muted-foreground">{title}</p>
     {image && <img src={image} alt={alt} className="h-20 w-full rounded-lg border bg-white object-contain" />}
     <p className="text-base font-medium">{name}</p>
-    {at && <p className="text-sm text-muted-foreground">Signed {manilaDate(at)}</p>}
+    {at && <p className="text-sm text-muted-foreground">{inPerson ? 'Signed in person on' : 'Signed'} {manilaDate(at)}</p>}
   </div>;
 }

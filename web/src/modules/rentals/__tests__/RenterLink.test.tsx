@@ -32,7 +32,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 const PNG = 'data:image/png;base64,AAAA';
 const TOKEN = 'Zk3o9VQm2c1oZb8m3gq0bQ3n6zS6xKXr0a7b5pK1wQe';
 const sent = { id: 'ct1', status: 'sent' as const, body: ['KNOW ALL MEN BY THESE PRESENTS:', '1. Rent is ₱5,000.'], specialTerms: 'No pets.',
-  signMode: null, tenantSignedAt: null, lessorSigned: false, contentHash: null, tenantName: null, tenantSignature: null };
+  signMode: null, tenantSignedAt: null, lessorSigned: false, contentHash: null, tenantName: null, tenantSignature: null, signedInPerson: false };
 const base = (extra: Partial<PublicLink> = {}): PublicLink => ({
   kind: 'existing', status: 'open', tenantName: 'Ben Cruz', roomName: 'Room A',
   property: { name: 'Bakilid House', address: 'Lot 1, Mandaue', lessorName: 'Maria Santos', lessorCapacity: 'owner', signingCity: 'Cebu City',
@@ -210,6 +210,15 @@ describe('renter link page', () => {
     await waitFor(() => expect(pdfs.downloadContractPdf).toHaveBeenCalledWith(expect.objectContaining({
       signMode: 'notarize', tenantName: 'Ben Cruz', tenantSignature: PNG, lessorSignature: PNG, lessorAddress: 'Talamban, Cebu City',
       lines: contractLines(sent.body, sent.specialTerms) })));
+  });
+
+  it('says the contract was signed in person when it was, on the page and in the PDF', async () => {
+    await open(base({ contract: { ...sent, status: 'signed', signMode: 'esign', tenantName: 'Ben Cruz', tenantSignature: PNG,
+      tenantSignedAt: '2026-10-19T02:00:00Z', contentHash: 'a'.repeat(64), signedInPerson: true } }));
+    // The "You" card and the contract paper.
+    expect(screen.getAllByText('Signed in person on Oct 19, 2026')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /Download PDF/ }));
+    await waitFor(() => expect(pdfs.downloadContractPdf).toHaveBeenCalledWith(expect.objectContaining({ signedInPerson: true })));
   });
 
   it('lists bills with their state, balance and credit, payments, and their PDFs', async () => {

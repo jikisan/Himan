@@ -185,10 +185,10 @@ describe('Add tenant', () => {
     openAdd();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
-    fireEvent.change(screen.getByLabelText('Contract ends'), { target: { value: '2020-01-01' } });
+    fireEvent.change(screen.getByLabelText('Lease ends'), { target: { value: '2020-01-01' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Contract must end after it starts');
-    expect(screen.getByText('Contract', { selector: 'summary span' }).closest('details')).toHaveAttribute('open');
+    expect(await screen.findByRole('alert')).toHaveTextContent('The lease must end after it starts');
+    expect(screen.getByText('Due date and lease end', { selector: 'summary span' }).closest('details')).toHaveAttribute('open');
   });
   it('asks for a name before saving', async () => {
     openAdd();

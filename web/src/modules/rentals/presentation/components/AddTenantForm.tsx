@@ -156,14 +156,14 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
 
       <div className="space-y-3">
         <p className="text-sm font-semibold">More details <span className="font-normal text-muted-foreground">(optional, filled in for you)</span></p>
-        <Collapsible refEl={contractRef} title="Contract"
+        <Collapsible refEl={contractRef} title="Due date and lease end"
           summary={`Due every ${dueNumber >= 1 && dueNumber <= 31 ? (dueNumber === 31 ? 'month end' : ordinal(dueNumber)) : '—'} · ends ${endDate ? format(parseISO(endDate), 'MMM d, yyyy') : '—'}`}>
           <p className="text-xs text-muted-foreground sm:col-span-2">Change only if your agreement is different.</p>
           <Field id="add-due" label="Due day" hint="31 = month end">
             <input id="add-due" type="number" min={1} max={31} className={inputClass} value={dueDay}
               onChange={(e) => setOwn((o) => ({ ...o, dueDay: e.target.value }))} />
           </Field>
-          <Field id="add-end" label="Contract ends">
+          <Field id="add-end" label="Lease ends">
             <input id="add-end" type="date" className={inputClass} value={endDate} onChange={(e) => setOwn((o) => ({ ...o, endDate: e.target.value }))} />
           </Field>
         </Collapsible>

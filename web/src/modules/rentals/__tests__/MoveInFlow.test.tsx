@@ -79,6 +79,10 @@ describe('Move-in flow', () => {
     expect(current()).toBe('1Add tenant');
     expect(screen.queryByRole('checkbox', { name: /Send details link/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Move in' })).toBeNull();
+    // Step 1's due day and lease end aren't the contract document of step 3, so they aren't called "Contract".
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('Due date and lease end')).toBeInTheDocument();
+    expect(dialog.getAllByText('Contract')).toHaveLength(1);
   });
 
   it('saves nothing at step 1 and shows the move-in bill to pay at step 2 (contact details optional)', () => {

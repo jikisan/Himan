@@ -191,3 +191,11 @@ Applied to hosted: `20261018100000`, `20261018150000`, `20261018200000`, `202610
 Also applied: `20261018210000_lock_rental_lessor_signature.sql`, ahead of the deploy. **Until the web build from these branches is live,
 the old build's Rentals page fails** (it runs `select('*')` on `rental_properties`; `lessor_signature` is now owner-only). To undo: `GRANT SELECT (lessor_signature) ON public.rental_properties TO authenticated`. Branches are stacked: payments → pdfs → contracts → settlement.
 
+## Owner-chosen sign mode (2026-10-19)
+Migration `20261019000000_owner_chosen_sign_mode.sql` (applied to hosted 2026-10-19). The owner picks "Sign online only" or
+"Sign online, then notarize" on the contract draft; `rental_send_contract` refuses a text without one. The mode is frozen once the
+text is sent, and `rental_link_sign` refuses a different mode from a stale page. Texts sent before this keep a NULL mode and the
+tenant still chooses. **Until the matching web build is deployed, the old build can't send contracts** (it never sets a mode).
+Decision: renters get the room by paying advance and deposit and the contract follows; "reserve a room" is a separate, unbuilt
+feature (a pending-tenant design was built and removed for this reason).
+

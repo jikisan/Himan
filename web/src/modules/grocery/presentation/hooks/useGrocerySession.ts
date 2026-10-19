@@ -148,8 +148,8 @@ export const useGrocerySession = () => {
       toast.success('Shopper added');
     },
     onError: (err) => {
+      // AddShopperDialog shows the failure under the email field.
       Logger.error('Error adding shopper', err);
-      toast.error(err.message === 'User not found' ? 'User not found with that email' : 'Failed to add shopper');
     },
   });
 
@@ -175,8 +175,8 @@ export const useGrocerySession = () => {
       queryClient.invalidateQueries({ queryKey: groceryKeys.activeSession() });
     },
     onError: (err) => {
+      // The add item dialog shows the failure in its banner.
       Logger.error('Error adding session item', err);
-      toast.error('Failed to add item');
     },
   });
 

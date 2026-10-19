@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 import { ShoppingCart, Check } from 'lucide-react';
 import {
   Dialog,
@@ -32,8 +34,10 @@ export const StartSessionDialog = ({
 }: StartSessionDialogProps) => {
   const [storeName, setStoreName] = useState('');
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
+  const fe = useFieldErrors();
 
   const toggleList = (listId: string) => {
+    fe.clear('session-lists');
     setSelectedListIds((prev) =>
       prev.includes(listId)
         ? prev.filter((id) => id !== listId)
@@ -41,9 +45,14 @@ export const StartSessionDialog = ({
     );
   };
 
-  const handleStart = () => {
+  const handleStart = (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
     const trimmed = storeName.trim();
-    if (!trimmed || selectedListIds.length === 0) return;
+    const invalid: [string, string][] = [];
+    if (selectedListIds.length === 0) invalid.push(['session-lists', 'Select at least one list']);
+    if (!trimmed) invalid.push(['store-name', 'Enter a store name']);
+    if (invalid.length) { fe.failMany(invalid); return; }
     onStart(selectedListIds, trimmed);
     setStoreName('');
     setSelectedListIds([]);
@@ -60,16 +69,20 @@ export const StartSessionDialog = ({
           <DialogDescription className="sr-only">Select lists and a store to begin shopping</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
+        <form noValidate onSubmit={handleStart} className="space-y-4 mt-2">
           {/* List selection */}
           <div>
-            <Label>Select lists to shop</Label>
-            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+            <Label id="session-lists-label" required>Select lists to shop</Label>
+            <div id="session-lists" role="group" aria-labelledby="session-lists-label" aria-required="true" tabIndex={-1}
+              {...fe.invalid('session-lists')}
+              className="mt-2 space-y-1.5 max-h-48 overflow-y-auto rounded-lg outline-none aria-invalid:ring-2 aria-invalid:ring-destructive/25">
               {activeLists.map((list) => {
                 const isSelected = selectedListIds.includes(list.id);
                 return (
                   <button
                     key={list.id}
+                    type="button"
+                    aria-pressed={isSelected}
                     onClick={() => toggleList(list.id)}
                     className={cn(
                       'flex items-center gap-3 w-full px-3 py-2 rounded-lg border text-left text-sm transition-colors',
@@ -103,20 +116,21 @@ export const StartSessionDialog = ({
                 </p>
               )}
             </div>
+            <FieldError id="session-lists" message={fe.errors['session-lists']} />
           </div>
 
           {/* Store name */}
           <div>
-            <Label htmlFor="store-name">Store name</Label>
+            <Label htmlFor="store-name" required>Store name</Label>
             <Input
               id="store-name"
+              required
+              {...fe.invalid('store-name')}
               placeholder="e.g., Walmart, Costco"
               value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleStart();
-              }}
+              onChange={(e) => { setStoreName(e.target.value); fe.clear('store-name'); }}
             />
+            <FieldError id="store-name" message={fe.errors['store-name']} />
           </div>
 
           {recentStores.length > 0 && (
@@ -126,7 +140,8 @@ export const StartSessionDialog = ({
                 {recentStores.map((store) => (
                   <button
                     key={store}
-                    onClick={() => setStoreName(store)}
+                    type="button"
+                    onClick={() => { setStoreName(store); fe.clear('store-name'); }}
                     className={cn(
                       'text-xs px-2.5 py-1 rounded-full border border-border hover:bg-accent transition-colors',
                       storeName === store && 'bg-accent border-primary/30'
@@ -140,8 +155,8 @@ export const StartSessionDialog = ({
           )}
 
           <Button
-            onClick={handleStart}
-            disabled={!storeName.trim() || selectedListIds.length === 0 || isStarting}
+            type="submit"
+            disabled={isStarting}
             className="w-full"
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
@@ -149,7 +164,7 @@ export const StartSessionDialog = ({
               ? 'Starting...'
               : `Start Shopping${storeName.trim() ? ` at ${storeName.trim()}` : ''}`}
           </Button>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

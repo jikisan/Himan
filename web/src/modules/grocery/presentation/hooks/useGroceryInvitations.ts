@@ -42,8 +42,8 @@ export const useGroceryInvitations = (listId?: string) => {
       toast.success('Invitation sent');
     },
     onError: (err) => {
+      // ShareListDialog shows the failure under the email field.
       Logger.error('Error sending invitation', err);
-      toast.error('Failed to send invitation');
     },
   });
 

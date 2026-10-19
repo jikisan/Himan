@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 import {
   Sheet,
   SheetContent,
@@ -83,6 +85,8 @@ export const ItemDetailSheet = ({
   const [notes, setNotes] = useState('');
 
   const isAddMode = mode === 'add';
+  const fe = useFieldErrors();
+  const clearErrors = fe.clear;
 
   useEffect(() => {
     if (isAddMode) {
@@ -123,10 +127,12 @@ export const ItemDetailSheet = ({
       }
       setNotes(item.notes ?? '');
     }
-  }, [item, isAddMode, open]);
+    clearErrors();
+  }, [item, isAddMode, open, clearErrors]);
 
-  const handleSave = () => {
-    if (!name.trim()) return;
+  const handleSave = (event: FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) { fe.fail('item-name', 'Enter an item name'); return; }
 
     const resolvedCategory = isOtherCategory
       ? customCategory.trim() || undefined
@@ -171,15 +177,17 @@ export const ItemDetailSheet = ({
         <SheetHeader>
           <SheetTitle>{isAddMode ? 'Add Item' : 'Edit Item'}</SheetTitle>
         </SheetHeader>
-        <div className="space-y-4 mt-4">
+        <form noValidate onSubmit={handleSave} className="space-y-4 mt-4">
           <div>
-            <Label htmlFor="item-name">Name</Label>
+            <Label htmlFor="item-name" required>Name</Label>
             <Input
               id="item-name"
+              required
+              {...fe.invalid('item-name')}
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+              onChange={(e) => { setName(e.target.value); fe.clear('item-name'); }}
             />
+            <FieldError id="item-name" message={fe.errors['item-name']} />
           </div>
 
           <div>
@@ -210,7 +218,6 @@ export const ItemDetailSheet = ({
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
                 placeholder="Enter custom category"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
               />
             )}
           </div>
@@ -256,7 +263,6 @@ export const ItemDetailSheet = ({
               value={customUnit}
               onChange={(e) => setCustomUnit(e.target.value)}
               placeholder="Enter custom unit"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
             />
           )}
 
@@ -272,11 +278,12 @@ export const ItemDetailSheet = ({
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} className="flex-1">
+            <Button type="submit" className="flex-1">
               {isAddMode ? 'Add' : 'Save'}
             </Button>
             {!isAddMode && (
               <Button
+                type="button"
                 variant="destructive"
                 onClick={handleDelete}
               >
@@ -284,7 +291,7 @@ export const ItemDetailSheet = ({
               </Button>
             )}
           </div>
-        </div>
+        </form>
       </SheetContent>
     </Sheet>
   );

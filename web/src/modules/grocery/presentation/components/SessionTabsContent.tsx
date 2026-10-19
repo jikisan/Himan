@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Plus, Check, Loader2, ShoppingCart, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
@@ -43,6 +46,7 @@ export const SessionTabsContent = ({
   const [activeTab, setActiveTab] = useState<'to-get' | 'purchased'>('to-get');
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [newItem, setNewItem] = useState('');
+  const fe = useFieldErrors();
   const [allCollapsed, setAllCollapsed] = useState(false);
 
   const unpurchasedCount = activeSession.items.filter((i) => !i.isPurchased).length;
@@ -54,9 +58,15 @@ export const SessionTabsContent = ({
   };
 
   const handleAddItem = async () => {
+    fe.clear();
     const trimmed = newItem.trim();
-    if (!trimmed) return;
-    await addSessionItem(trimmed);
+    if (!trimmed) { fe.fail('session-item-name', 'Enter an item name'); return; }
+    try {
+      await addSessionItem(trimmed);
+    } catch {
+      fe.setFormError('Failed to add item');
+      return;
+    }
     setNewItem('');
     setAddItemOpen(false);
   };
@@ -99,32 +109,41 @@ export const SessionTabsContent = ({
         </button>
       </div>
 
-      <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) setNewItem(''); }}>
+      <Dialog open={addItemOpen} onOpenChange={(open) => { setAddItemOpen(open); if (!open) { setNewItem(''); fe.clear(); } }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Add Item</DialogTitle>
             <DialogDescription className="sr-only">Add an item to the shopping session</DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             onSubmit={async (e) => { e.preventDefault(); await handleAddItem(); }}
-            className="flex gap-2 mt-1"
+            className="space-y-2 mt-1"
           >
+            <FormErrorBanner message={fe.formError} />
+            <Label htmlFor="session-item-name" required>Item name</Label>
+            <div className="flex gap-2">
             <Input
+              id="session-item-name"
+              required
+              {...fe.invalid('session-item-name')}
               placeholder="Item name..."
               value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
+              onChange={(e) => { setNewItem(e.target.value); fe.clear('session-item-name'); }}
               className="h-9 text-sm"
-              disabled={isAddingSessionItem}
+              readOnly={isAddingSessionItem}
               autoFocus
             />
             <Button
               type="submit"
               size="sm"
               className="h-9 px-3 flex-shrink-0"
-              disabled={!newItem.trim() || isAddingSessionItem}
+              disabled={isAddingSessionItem}
             >
               {isAddingSessionItem ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
             </Button>
+            </div>
+            <FieldError id="session-item-name" message={fe.errors['session-item-name']} />
           </form>
         </DialogContent>
       </Dialog>

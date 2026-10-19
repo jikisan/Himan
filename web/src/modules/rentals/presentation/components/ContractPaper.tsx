@@ -26,10 +26,11 @@ export function ContractPaper({ doc }: { doc: ContractPdfData }) {
       <Signer role="Lessee" name={doc.tenantName} image={doc.tenantSignature} signedAt={doc.tenantSignedAt} inPerson={doc.signedInPerson} />
     </div>
 
-    <div className="pt-6 text-left">
+    {/* Witnesses only sign the printed copy taken to the notary; nobody could sign these lines online. */}
+    {doc.signMode === 'notarize' && <div className="pt-6 text-left">
       <p className="font-bold">SIGNED IN THE PRESENCE OF:</p>
       <div className="grid grid-cols-2 gap-6 pt-8 sm:gap-8"><span className="border-b border-neutral-400" /><span className="border-b border-neutral-400" /></div>
-    </div>
+    </div>}
 
     {doc.contentHash && <p className={`pt-4 text-left text-[11px] ${muted}`}>
       Document fingerprint: {doc.contentHash.slice(0, 12)} (changes if the signed text changes)</p>}

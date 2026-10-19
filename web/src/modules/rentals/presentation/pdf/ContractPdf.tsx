@@ -7,7 +7,7 @@ import { MUTED, styles } from './styles';
 
 registerPdfFonts();
 
-/** The contract of lease on A4: clauses, both signatures, blank witness lines, and the notary page only for "notarize". */
+/** The contract of lease on A4: clauses, both signatures, and the witness lines and notary page only for "notarize". */
 export function ContractPdf({ doc }: { doc: ContractPdfData }) {
   const closing = /^IN WITNESS WHEREOF/i.test(doc.lines.at(-1) ?? '') ? doc.lines.at(-1) : undefined;
   const lines = closing ? doc.lines.slice(0, -1) : doc.lines;
@@ -27,12 +27,13 @@ export function ContractPdf({ doc }: { doc: ContractPdfData }) {
         </View>
       </View>
 
-      <View wrap={false} style={{ marginTop: 24 }}>
+      {/* Witnesses only sign the printed copy taken to the notary; nobody could sign these lines online. */}
+      {doc.signMode === 'notarize' && <View wrap={false} style={{ marginTop: 24 }}>
         <Text style={styles.bold}>SIGNED IN THE PRESENCE OF:</Text>
         <View style={{ flexDirection: 'row', gap: 32, marginTop: 28 }}>
           <View style={[styles.line, { flex: 1 }]} /><View style={[styles.line, { flex: 1 }]} />
         </View>
-      </View>
+      </View>}
 
       {doc.contentHash && <Text style={{ marginTop: 20, fontSize: 8, color: MUTED }}>
         Document fingerprint: {doc.contentHash.slice(0, 12)} (changes if the signed text changes)</Text>}

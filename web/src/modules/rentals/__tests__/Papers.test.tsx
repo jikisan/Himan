@@ -19,7 +19,7 @@ const signed = (extra: Partial<ContractText> = {}) => text({ status: 'countersig
 describe('ContractPaper (the on-screen copy of the contract PDF)', () => {
   const paper = () => within(screen.getByRole('article', { name: 'Contract of Lease' }));
 
-  it('shows the lessor, title, every clause with special terms last, and the witness lines', () => {
+  it('shows the lessor, title, every clause with special terms last', () => {
     const doc = contractPdfData(text(), property, { fullName: 'Ben Cruz', address: '' });
     render(<ContractPaper doc={doc} />);
     const sheet = paper();
@@ -31,7 +31,7 @@ describe('ContractPaper (the on-screen copy of the contract PDF)', () => {
     expect(sheet.getByText('Ben Cruz')).toBeInTheDocument();
     expect(sheet.getByText('LESSOR')).toBeInTheDocument();
     expect(sheet.getByText('LESSEE')).toBeInTheDocument();
-    expect(sheet.getByText('SIGNED IN THE PRESENCE OF:')).toBeInTheDocument();
+    expect(sheet.queryByText('SIGNED IN THE PRESENCE OF:')).toBeNull();
   });
 
   it('is a white sheet like the PDF, in light and dark mode alike', () => {
@@ -72,9 +72,15 @@ describe('ContractPaper (the on-screen copy of the contract PDF)', () => {
     expect(doc.lines).toEqual(['Ben Cruz, residing at __________,', '1. Special terms: No pets.']);
   });
 
-  it('adds the notary acknowledgment only for notarize', () => {
+  it('has no witness lines on a contract signed online only, since nobody is there to sign them', () => {
+    render(<ContractPaper doc={contractPdfData(signed(), property)} />);
+    expect(screen.queryByText('SIGNED IN THE PRESENCE OF:')).toBeNull();
+  });
+
+  it('adds the witness lines and the notary acknowledgment only for notarize', () => {
     const doc = contractPdfData(signed({ signMode: 'notarize' }), property);
     render(<ContractPaper doc={doc} />);
+    expect(screen.getByText('SIGNED IN THE PRESENCE OF:')).toBeInTheDocument();
     for (const line of renderClauses(NOTARY_ACKNOWLEDGMENT, { signing_city: doc.signingCity })) expect(screen.getByText(line)).toBeInTheDocument();
   });
 });

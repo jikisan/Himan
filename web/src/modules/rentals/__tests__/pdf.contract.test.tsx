@@ -30,27 +30,29 @@ describe('contract lines', () => {
 });
 
 describe('contract pdf', () => {
-  it('prints the signed contract with signatures, witnesses and a fingerprint, and nothing private', async () => {
+  it('prints the signed contract with signatures and a fingerprint, no witness lines, and nothing private', async () => {
     const pdf = await renderToBuffer(<ContractPdf doc={contractPdfData(text, property)} />);
     expect(new TextDecoder('latin1').decode(pdf)).not.toContain('secret-text-id');
     const out = await pdfText(pdf, 'contract');
     if (out === null) return;
     const flat = out.replace(/\s+/g, ' ');
     for (const s of ['CONTRACT OF LEASE', 'Maria Santos', 'KNOW ALL MEN BY THESE PRESENTS', '₱15,000.00', '27. That the LESSEE hereby warrants',
-      '28. Special terms: The storage room is not part of the lease.', 'IN WITNESS WHEREOF', 'SIGNED IN THE PRESENCE OF', 'Juan Dela Cruz',
+      '28. Special terms: The storage room is not part of the lease.', 'IN WITNESS WHEREOF', 'Juan Dela Cruz',
       'LESSOR', 'LESSEE', 'Signed online Oct 19, 2026', 'Signed online Oct 20, 2026', 'a1b2c3d4e5f6'])
       expect(flat).toContain(s);
     expect(flat).not.toContain(hash);
     expect(flat).not.toContain('ACKNOWLEDGEMENT');
+    expect(flat).not.toContain('SIGNED IN THE PRESENCE OF');
     expect(flat).not.toContain('scan.pdf');
     expect(flat).not.toContain('±');
     expect(out).not.toMatch(/\(-\s*$/m); // no hyphen where the peso sign's font starts
   });
 
-  it('adds the notary page only when the tenant chose to notarize', async () => {
+  it('adds the witness lines and the notary page only when the tenant chose to notarize', async () => {
     const out = await pdfText(await renderToBuffer(<ContractPdf doc={contractPdfData({ ...text, signMode: 'notarize' }, property)} />), 'contract-notary');
     if (out === null) return;
     expect(out).toContain('ACKNOWLEDGEMENT');
+    expect(out.replace(/\s+/g, ' ')).toContain('SIGNED IN THE PRESENCE OF');
     expect(out).toContain('Cebu City');
   });
 

@@ -972,11 +972,12 @@ BEGIN
     '2026-10-01', '2026-10-01', '2027-10-01', 500000, 1, 1, 500000);
   v_t3 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac053', '00000000-0000-0000-0000-0000000ad053',
     '2026-01-05', '2026-01-05', '2027-01-05', 500000, 5, 0, 0);
-  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, special_terms)
-  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t1), v_house, '["Rent ₱1","Second"]', 'No pets')
+  -- The landlord picks how each contract is signed (20261019000000).
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, special_terms, sign_mode)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t1), v_house, '["Rent ₱1","Second"]', 'No pets', 'notarize')
   RETURNING id INTO v_x1;
-  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, special_terms)
-  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t2), v_house, '["Rent ₱1","Second"]', 'No pets')
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, special_terms, sign_mode)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t2), v_house, '["Rent ₱1","Second"]', 'No pets', 'esign')
   RETURNING id INTO v_x2;
   IF (SELECT status FROM public.rental_contract_texts WHERE id = v_x1) <> 'draft' THEN RAISE EXCEPTION 'New contract is not a draft'; END IF;
   -- Clients can't pick the status, file a text under another property, or store a malformed body.
@@ -1136,7 +1137,7 @@ BEGIN
 
   -- Signing input checks, and a stale page's hash.
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, ' ', 'esign', v_png_t, 'UA'), 'Type your full name');
-  PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'wet', v_png_t, 'UA'), 'Choose how to sign');
+  -- 'Choose how to sign' now applies only to texts sent without a mode: see Step E.
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'esign',
     'data:image/jpeg;base64,AAAA', 'UA'), 'Draw your signature again');
   PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L)', v_tok1, 'N', 'esign',
@@ -1210,8 +1211,8 @@ BEGIN
   IF FOUND THEN RAISE EXCEPTION 'A manager edited a signed contract'; END IF;
   PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET tenant_signature = NULL WHERE id = %L', v_x2), '42501');
   PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET status = %L WHERE id = %L', 'countersigned', v_x2), '42501');
-  INSERT INTO public.rental_contract_texts (contract_id, property_id, body)
-  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t3), v_house, '["Gone"]') RETURNING id INTO v_x3;
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t3), v_house, '["Gone"]', 'esign') RETURNING id INTO v_x3;
   PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L)', v_x3), 'The tenant hasn''t signed yet');
   PERFORM public.rental_send_contract(v_x3);
   PERFORM pg_temp.refused(format('SELECT public.rental_countersign(%L)', v_x3), 'The tenant hasn''t signed yet');
@@ -1594,6 +1595,205 @@ BEGIN
   RESET ROLE;
   PERFORM pg_temp.refused(format('UPDATE public.rental_settlements SET credit_centavos = 1 WHERE id = %L', v_s), '23514');
   SET LOCAL ROLE authenticated;
+END $$;
+-- ── Step E: contract before move-in, landlord-chosen sign mode ─────────────
+-- Owner aa001 owns Pending House (ab081); friend aa002 joins it as a manager, later a viewer; stranger aa003 has nothing.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab081', 'Pending House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity)
+  SELECT ('00000000-0000-0000-0000-0000000ac08' || n)::uuid, '00000000-0000-0000-0000-0000000ab081', 'P' || n, 'room', 1
+  FROM generate_series(1, 5) n;
+INSERT INTO public.rental_renters (id, property_id, full_name)
+  SELECT ('00000000-0000-0000-0000-0000000ad08' || n)::uuid, '00000000-0000-0000-0000-0000000ab081', 'Waiter ' || n
+  FROM generate_series(1, 7) n;
+SELECT public.rental_add_member('00000000-0000-0000-0000-0000000ab081', '00000000-0000-0000-0000-0000000aa002', 'manager');
+
+DO $$ DECLARE
+  v_today date := (now() AT TIME ZONE 'Asia/Manila')::date;
+  v_house uuid := '00000000-0000-0000-0000-0000000ab081';
+  v_owner text := '00000000-0000-0000-0000-0000000aa001'; v_friend text := '00000000-0000-0000-0000-0000000aa002';
+  v_stranger text := '00000000-0000-0000-0000-0000000aa003';
+  v_png text := 'data:image/png;base64,iVBORw0KGgoUEVORA';
+  v_mgr text := 'Only managers can manage contracts';
+  v_unsigned text := 'This tenant hasn''t signed their contract yet';
+  v_not_both text := 'The contract isn''t signed by both of you yet';
+  v_active text := 'This tenant is already active';
+  v_ta uuid; v_tb uuid; v_tc uuid; v_td uuid; v_tn uuid; v_xa uuid; v_xb uuid; v_xc uuid;
+  v_toka text; v_tokc text; v_ha text; v_hc text; v_lines jsonb; v_j jsonb;
+BEGIN
+  -- require_contract: off by default, owner-only to change, readable by members.
+  IF (SELECT require_contract FROM public.rental_properties WHERE id = v_house) THEN RAISE EXCEPTION 'require_contract is on by default'; END IF;
+  UPDATE public.rental_properties SET require_contract = true WHERE id = v_house;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  IF NOT (SELECT require_contract FROM public.rental_properties WHERE id = v_house) THEN RAISE EXCEPTION 'Manager cannot read require_contract'; END IF;
+  UPDATE public.rental_properties SET require_contract = false WHERE id = v_house;
+  IF FOUND THEN RAISE EXCEPTION 'A manager changed require_contract'; END IF;
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  IF EXISTS (SELECT 1 FROM public.rental_properties WHERE id = v_house) THEN RAISE EXCEPTION 'Stranger can read the property'; END IF;
+  UPDATE public.rental_properties SET require_contract = false WHERE id = v_house;
+  IF FOUND THEN RAISE EXCEPTION 'A stranger changed require_contract'; END IF;
+
+  -- A pending start holds the room and issues no bill; a normal start with the same terms is the reference bill.
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  v_ta := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac081', '00000000-0000-0000-0000-0000000ad081',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000, true);
+  v_tn := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac082', '00000000-0000-0000-0000-0000000ad082',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000);
+  IF NOT (SELECT pending FROM public.rental_tenancies WHERE id = v_ta) OR (SELECT pending FROM public.rental_tenancies WHERE id = v_tn)
+  THEN RAISE EXCEPTION 'pending flag is wrong'; END IF;
+  IF EXISTS (SELECT 1 FROM public.rental_bills WHERE tenancy_id = v_ta) THEN RAISE EXCEPTION 'A pending start issued a bill'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.rental_contracts WHERE tenancy_id = v_ta AND status = 'active') THEN RAISE EXCEPTION 'Pending start has no contract'; END IF;
+  SELECT lines INTO v_lines FROM public.rental_bills WHERE tenancy_id = v_tn AND kind = 'move_in';
+  IF v_lines IS NULL THEN RAISE EXCEPTION 'A normal start issued no move-in bill'; END IF;
+  PERFORM pg_temp.refused(format('SELECT public.rental_start_tenancy(%L, %L, %L, %L, %L, 500000, 1, 1, 500000, true)',
+    '00000000-0000-0000-0000-0000000ac081', '00000000-0000-0000-0000-0000000ad083', '2026-11-10', '2026-11-10', '2027-11-10'),
+    'This unit is full');
+  -- Strangers can't start tenancies (the function checks the role itself).
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  PERFORM pg_temp.refused(format('SELECT public.rental_start_tenancy(%L, %L, %L, %L, %L, 500000, 1, 1, 500000, true)',
+    '00000000-0000-0000-0000-0000000ac083', '00000000-0000-0000-0000-0000000ad083', '2026-11-10', '2026-11-10', '2027-11-10'), '42501');
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+
+  -- No bills or payments while pending.
+  PERFORM pg_temp.refused(format('SELECT public.rental_issue_bill(%L, %L, %L, %L, %L)', v_ta, 'final', '2026-11', v_today,
+    '[{"kind":"other","label":"X","amount":100}]'), v_unsigned);
+  PERFORM pg_temp.refused(format('SELECT public.rental_record_payment(%L, 100, %L, %L, %L, %L)', v_ta, v_today, 'cash', '', ''), v_unsigned);
+
+  -- Sign mode: required to send, settable by managers on drafts and sent texts.
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_ta), v_house, '["Pending A"]') RETURNING id INTO v_xa;
+  PERFORM pg_temp.refused(format('SELECT public.rental_send_contract(%L)', v_xa), 'Choose how the contract is signed');
+  PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET sign_mode = %L WHERE id = %L', 'wet', v_xa), '23514');
+  UPDATE public.rental_contract_texts SET sign_mode = 'notarize' WHERE id = v_xa;
+  IF NOT FOUND THEN RAISE EXCEPTION 'A manager could not set the sign mode on a draft'; END IF;
+  PERFORM public.rental_send_contract(v_xa);
+  UPDATE public.rental_contract_texts SET sign_mode = 'esign' WHERE id = v_xa;
+  IF NOT FOUND THEN RAISE EXCEPTION 'A manager could not change the sign mode on a sent text'; END IF;
+  v_toka := public.rental_create_link(v_ta, 'existing');
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_ta), v_not_both);
+
+  -- Strangers get the uniform answer, known id or not.
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_ta), v_mgr);
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', gen_random_uuid()), v_mgr);
+
+  -- Tenant: the page says pending, has no bills, and signing uses the landlord's mode whatever the page sends.
+  RESET ROLE;
+  v_ha := public.rental_contract_hash('["Pending A"]', '');
+  SET LOCAL ROLE anon;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  v_j := public.rental_link_get(v_toka);
+  IF NOT (v_j->>'pending')::boolean OR jsonb_array_length(v_j->'bills') <> 0 OR v_j->'contract'->>'signMode' <> 'esign'
+  THEN RAISE EXCEPTION 'Pending link page is wrong: %', v_j; END IF;
+  PERFORM public.rental_link_sign(v_toka, 'Waiter One', 'notarize', v_png, 'UA', v_ha);
+  IF public.rental_link_get(v_toka)->'contract'->>'signMode' <> 'esign' THEN RAISE EXCEPTION 'Tenant overrode the sign mode'; END IF;
+
+  -- Signed: the mode is frozen; activation still waits for the countersignature.
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  UPDATE public.rental_contract_texts SET sign_mode = 'notarize' WHERE id = v_xa;
+  IF FOUND THEN RAISE EXCEPTION 'A manager changed the sign mode after the tenant signed'; END IF;
+  RESET ROLE;
+  PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET sign_mode = %L WHERE id = %L', 'notarize', v_xa),
+    'A signed contract can''t be changed');
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_ta), v_not_both);
+
+  -- Countersigning activates the tenant and issues the same move-in bill a normal start would, once.
+  PERFORM public.rental_countersign(v_xa, v_png);
+  IF (SELECT pending FROM public.rental_tenancies WHERE id = v_ta) THEN RAISE EXCEPTION 'Countersign did not activate the tenant'; END IF;
+  IF (SELECT count(*) FROM public.rental_bills WHERE tenancy_id = v_ta) <> 1
+    OR (SELECT lines FROM public.rental_bills WHERE tenancy_id = v_ta AND kind = 'move_in' AND status = 'issued') IS DISTINCT FROM v_lines
+  THEN RAISE EXCEPTION 'Activation bill differs from a normal start: %', (SELECT jsonb_agg(lines) FROM public.rental_bills WHERE tenancy_id = v_ta); END IF;
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_ta), v_active);
+  PERFORM public.rental_record_payment(v_ta, 100, v_today, 'cash', '', '');
+  SET LOCAL ROLE anon;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  v_j := public.rental_link_get(v_toka);
+  IF (v_j->>'pending')::boolean OR jsonb_array_length(v_j->'bills') <> 1 THEN RAISE EXCEPTION 'Active link page is wrong: %', v_j; END IF;
+
+  -- Manual activation: a pending tenant whose contract is countersigned (set directly here) is activated by a manager.
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  v_tb := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac083', '00000000-0000-0000-0000-0000000ad083',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000, true);
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_tb), v_not_both);
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_tb), v_house, '["Pending B"]', 'esign') RETURNING id INTO v_xb;
+  RESET ROLE;
+  UPDATE public.rental_contract_texts SET status = 'countersigned', content_hash = repeat('a', 64), tenant_name = 'B',
+    tenant_signature = v_png, tenant_signed_at = now(), lessor_signature = v_png, lessor_signed_at = now()
+  WHERE id = v_xb;
+  SET LOCAL ROLE authenticated;
+  PERFORM public.rental_activate_tenancy(v_tb);
+  IF (SELECT pending FROM public.rental_tenancies WHERE id = v_tb)
+    OR (SELECT lines FROM public.rental_bills WHERE tenancy_id = v_tb AND kind = 'move_in' AND status = 'issued') IS DISTINCT FROM v_lines
+  THEN RAISE EXCEPTION 'Manual activation is wrong'; END IF;
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_tb), v_active);
+  IF (SELECT count(*) FROM public.rental_bills WHERE tenancy_id = v_tb) <> 1 THEN RAISE EXCEPTION 'Activation issued twice'; END IF;
+
+  -- Legacy texts sent without a mode still take the tenant's choice, validated as before.
+  v_tc := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac084', '00000000-0000-0000-0000-0000000ad084',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000, true);
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_tc), v_house, '["Legacy C"]', 'esign') RETURNING id INTO v_xc;
+  PERFORM public.rental_send_contract(v_xc);
+  v_tokc := public.rental_create_link(v_tc, 'existing');
+  RESET ROLE;
+  UPDATE public.rental_contract_texts SET sign_mode = NULL WHERE id = v_xc;
+  v_hc := public.rental_contract_hash('["Legacy C"]', '');
+  SET LOCAL ROLE anon;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, %L, %L, %L, %L)', v_tokc, 'C', 'wet', v_png, 'UA', v_hc),
+    'Choose how to sign');
+  PERFORM public.rental_link_sign(v_tokc, 'C', 'notarize', v_png, 'UA', v_hc);
+  IF public.rental_link_get(v_tokc)->'contract'->>'signMode' <> 'notarize' THEN RAISE EXCEPTION 'Legacy fallback did not store the tenant''s mode'; END IF;
+
+  -- Cancelling a pending tenant: move-out works, frees the room, no bills.
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  v_td := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac085', '00000000-0000-0000-0000-0000000ad085',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000, true);
+  PERFORM public.rental_end_tenancy(v_td, '2026-11-10');
+  IF EXISTS (SELECT 1 FROM public.rental_bills WHERE tenancy_id = v_td)
+    OR EXISTS (SELECT 1 FROM public.rental_contracts WHERE tenancy_id = v_td AND status = 'active')
+  THEN RAISE EXCEPTION 'Cancelling a pending tenant left a bill or an active contract'; END IF;
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_td), 'This tenant has moved out');
+  v_td := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac085', '00000000-0000-0000-0000-0000000ad086',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000, true);
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body)
+  VALUES ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_td), v_house, '["Draft D"]') RETURNING id INTO v_xc;
+
+  -- Viewer: reads require_contract, can't activate or set the sign mode.
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = v_friend::uuid AND property_id = v_house;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  IF NOT (SELECT require_contract FROM public.rental_properties WHERE id = v_house) THEN RAISE EXCEPTION 'Viewer cannot read require_contract'; END IF;
+  PERFORM pg_temp.refused(format('SELECT public.rental_activate_tenancy(%L)', v_tb), v_mgr);
+  PERFORM pg_temp.refused(format('SELECT public.rental_start_tenancy(%L, %L, %L, %L, %L, 500000, 1, 1, 500000, true)',
+    '00000000-0000-0000-0000-0000000ac082', '00000000-0000-0000-0000-0000000ad087', '2026-11-10', '2026-11-10', '2027-11-10'), '42501');
+  UPDATE public.rental_contract_texts SET sign_mode = 'esign' WHERE id = v_xc;
+  IF FOUND THEN RAISE EXCEPTION 'A viewer set a sign mode'; END IF;
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+END $$;
+
+-- Privileges: only the link RPCs for anon; the move-in bill helper for nobody; activation for signed-in users.
+RESET ROLE;
+DO $$ BEGIN
+  IF to_regprocedure('public.rental_start_tenancy(uuid, uuid, date, date, date, integer, integer, integer, integer)') IS NOT NULL
+  THEN RAISE EXCEPTION 'The old rental_start_tenancy signature still exists'; END IF;
+  IF has_function_privilege('anon', 'public.rental_start_tenancy(uuid, uuid, date, date, date, integer, integer, integer, integer, boolean)', 'EXECUTE')
+    OR NOT has_function_privilege('authenticated', 'public.rental_start_tenancy(uuid, uuid, date, date, date, integer, integer, integer, integer, boolean)', 'EXECUTE')
+    OR has_function_privilege('anon', 'public.rental_activate_tenancy(uuid)', 'EXECUTE')
+    OR NOT has_function_privilege('authenticated', 'public.rental_activate_tenancy(uuid)', 'EXECUTE')
+    OR has_function_privilege('anon', 'public.rental_issue_move_in_bill(uuid)', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.rental_issue_move_in_bill(uuid)', 'EXECUTE')
+  THEN RAISE EXCEPTION 'Function grants are wrong for the pending-tenant RPCs'; END IF;
+  IF EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.proname LIKE 'rental\_%'
+    AND p.prorettype <> 'trigger'::regtype AND has_function_privilege('anon', p.oid, 'EXECUTE')
+    AND p.proname NOT IN ('rental_link_get', 'rental_link_submit_details', 'rental_link_sign', 'rental_link_can_upload'))
+  THEN RAISE EXCEPTION 'anon can execute more than the link RPCs'; END IF;
 END $$;
 RESET ROLE;
 DO $$ BEGIN

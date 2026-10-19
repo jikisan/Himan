@@ -59,7 +59,7 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
           </div>}
           {!bill.number && credit > 0 && <p className="rounded-md bg-muted px-3 py-2 text-sm">
             {info.renterName} has {formatBillPesos(credit)} credit. It pays this SOA as soon as you generate it.</p>}
-          <Statement bill={bill} info={info} />
+          <Statement bill={bill} info={info} qrUrl={qrUrl} />
           {saved && <section aria-labelledby="bill-payments" className="space-y-2">
             <h3 id="bill-payments" className="text-sm font-semibold">Money received</h3>
             {children}

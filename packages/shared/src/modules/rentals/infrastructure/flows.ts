@@ -14,20 +14,22 @@ export interface AddTenantInput {
   /** Optional starting meter readings, dated move-in. */
   readings?: MeterValue[];
   charges?: TenancyCharge[];
+  /** Hold the bed until the contract is signed by both; no move-in bill until then. */
+  pending?: boolean;
 }
 
 /** Creates the tenant (if new) and moves them in; a failed move-in removes the just-created tenant.
  * Starting readings and extra charges are saved afterwards; if they fail the move-in stays and a warning is returned. */
 export async function addTenant(repos: {
   renters: { save(propertyId: string, id: null, input: RenterInput): Promise<string>; remove(id: string): Promise<void> };
-  tenancies: { start(input: StartTenancyInput): Promise<string>; setCharges?(tenancyId: string, charges: TenancyCharge[]): Promise<void> };
+  tenancies: { start(input: StartTenancyInput, pending?: boolean): Promise<string>; setCharges?(tenancyId: string, charges: TenancyCharge[]): Promise<void> };
   bills?: SaveReadings;
 }, a: AddTenantInput): Promise<{ renterId: string; tenancyId: string; warnings: string[] }> {
   if (!a.renterId && !a.renter) throw new Error('Enter the tenant’s details');
   const renterId = a.renterId ?? await repos.renters.save(a.propertyId, null, a.renter!);
   let tenancyId: string;
   try {
-    tenancyId = await repos.tenancies.start({ unitId: a.unitId, renterId, moveIn: a.moveIn, ...a.terms });
+    tenancyId = await repos.tenancies.start({ unitId: a.unitId, renterId, moveIn: a.moveIn, ...a.terms }, a.pending ?? false);
   } catch (error) {
     if (!a.renterId) await repos.renters.remove(renterId).catch(() => undefined);
     throw error;

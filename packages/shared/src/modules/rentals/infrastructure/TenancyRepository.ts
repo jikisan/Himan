@@ -12,15 +12,22 @@ export class TenancyRepository {
     return z.array(tenancyRow).parse(data);
   }
 
-  async start(input: StartTenancyInput): Promise<string> {
+  /** `pending`: holds the bed without a move-in bill until the contract is signed by both (`activate`). */
+  async start(input: StartTenancyInput, pending = false): Promise<string> {
     const v = startTenancySchema.parse(input);
     const { data, error } = await getSupabase().rpc('rental_start_tenancy', {
       p_unit_id: v.unitId, p_renter_id: v.renterId, p_move_in: v.moveIn, p_start: v.startDate, p_end: v.endDate,
-      p_rent: v.monthlyRentCentavos, p_due_day: v.dueDay, p_advance: v.advanceMonths, p_deposit: v.depositCentavos,
+      p_rent: v.monthlyRentCentavos, p_due_day: v.dueDay, p_advance: v.advanceMonths, p_deposit: v.depositCentavos, p_pending: pending,
     });
     if (error?.message === 'This unit is full') throw new Error('This room is full. Move someone out first, or add a bed.');
     if (error) throw rentalError(error, 'Could not move the tenant in', 'This tenant already lives in this room');
     return z.string().parse(data);
+  }
+
+  /** Makes a pending tenancy active and issues its move-in bill; needs the contract signed by both. */
+  async activate(tenancyId: string): Promise<void> {
+    const { error } = await getSupabase().rpc('rental_activate_tenancy', { p_tenancy_id: tenancyId });
+    if (error) throw rentalError(error, 'Could not make them an active tenant');
   }
 
   async end(id: string, moveOut: string): Promise<void> {

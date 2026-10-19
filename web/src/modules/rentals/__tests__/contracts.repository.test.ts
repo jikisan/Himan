@@ -51,8 +51,8 @@ describe('ContractRepository', () => {
   it('creates a draft text and returns its id', async () => {
     const query = result({ id: 'c1' });
     mock.from.mockReturnValue(query);
-    expect(await new ContractRepository().createText('k', 'p', ['a'], ' no pets ')).toBe('c1');
-    expect(query.insert).toHaveBeenCalledWith({ contract_id: 'k', property_id: 'p', body: ['a'], special_terms: 'no pets' });
+    expect(await new ContractRepository().createText('k', 'p', ['a'], ' no pets ', 'esign')).toBe('c1');
+    expect(query.insert).toHaveBeenCalledWith({ contract_id: 'k', property_id: 'p', body: ['a'], special_terms: 'no pets', sign_mode: 'esign' });
   });
   it('updates only the given fields', async () => {
     const query = result({ id: 'c1' });

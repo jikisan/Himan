@@ -22,7 +22,8 @@ export class PropertyRepository {
     const row = { name: v.name, address: v.address, owner_name: v.ownerName, owner_address: v.ownerAddress,
       lessor_name: v.lessorName, lessor_civil_status: v.lessorCivilStatus, lessor_address: v.lessorAddress,
       lessor_capacity: v.lessorCapacity, signing_city: v.signingCity, invoice_prefix: v.invoicePrefix,
-      late_fee_centavos: v.lateFeeCentavos, rent_due_day: v.rentDueDay };
+      late_fee_centavos: v.lateFeeCentavos, rent_due_day: v.rentDueDay,
+      ...(v.requireContract !== undefined ? { require_contract: v.requireContract } : {}) };
     const query = id ? getSupabase().from('rental_properties').update(row).eq('id', id)
       : getSupabase().from('rental_properties').insert(row);
     // Select only the id: the owner membership row is added by a trigger that the

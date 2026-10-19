@@ -95,7 +95,8 @@ export class LinkRepository {
     if (error) throw rentalError(error, 'Could not send your details');
   }
 
-  /** `contentHash` = `sha256Hex(canonicalText(body, specialTerms))` of the text the tenant was shown; the database refuses a stale one. */
+  /** `signMode` only counts for contracts sent before the owner chose it (sign mode null); otherwise the database uses the owner's.
+   * `contentHash` = `sha256Hex(canonicalText(body, specialTerms))` of the text the tenant was shown; the database refuses a stale one. */
   async sign(token: string, input: { name: string; signMode: SignMode; signature: string; userAgent: string; contentHash: string }): Promise<void> {
     if (!/^[0-9a-f]{64}$/.test(input.contentHash)) throw new Error('Please reload the page to read the latest contract');
     const name = z.string().trim().min(1, 'Type your full name').max(160).parse(input.name);

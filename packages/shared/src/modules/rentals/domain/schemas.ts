@@ -20,6 +20,9 @@ export const propertySchema = z.object({
   lateFeeCentavos: centavos(0).default(0),
   /** "Rent is due every [N]" for the whole property; null = each tenant's move-in day. */
   rentDueDay: dueDay.nullable().default(null),
+  /** "Require a signed contract before move-in": new tenants stay pending until it is signed by both.
+   * Always set when loaded; only the owner's form sends it (absent = unchanged). */
+  requireContract: z.boolean().optional(),
 });
 
 export const unitSchema = z.object({

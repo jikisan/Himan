@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
 import { DEFAULT_CLAUSES, clausesSchema, signatureSchema, validateRentalFile } from '../domain/index.js';
-import type { Clause, ContractText } from '../domain/index.js';
+import type { Clause, ContractText, SignMode } from '../domain/index.js';
 import { contractTextRow, fileName, rentalError } from './rows.js';
 
 const TEXTS = 'rental_contract_texts';
@@ -28,18 +28,20 @@ export class ContractRepository {
     if (error) throw rentalError(error, 'Could not save the contract template');
   }
 
-  /** A draft from already rendered clauses (`renderClauses`); returns its id. */
-  async createText(contractId: string, propertyId: string, body: string[], specialTerms: string): Promise<string> {
+  /** A draft from already rendered clauses (`renderClauses`) and how the owner wants it signed; returns its id. */
+  async createText(contractId: string, propertyId: string, body: string[], specialTerms: string, signMode: SignMode): Promise<string> {
     const { data, error } = await getSupabase().from(TEXTS)
-      .insert({ contract_id: contractId, property_id: propertyId, body, special_terms: specialTerms.trim() }).select('id').single();
+      .insert({ contract_id: contractId, property_id: propertyId, body, special_terms: specialTerms.trim(), sign_mode: signMode })
+      .select('id').single();
     if (error) throw rentalError(error, 'Could not create the contract', 'This contract already has a text');
     return z.object({ id: z.string() }).parse(data).id;
   }
 
   /** Only while draft or sent; the database refuses once the tenant has signed. */
-  async updateText(id: string, changes: { body?: string[]; specialTerms?: string }): Promise<void> {
+  async updateText(id: string, changes: { body?: string[]; specialTerms?: string; signMode?: SignMode }): Promise<void> {
     const row = { ...(changes.body ? { body: changes.body } : {}),
-      ...(changes.specialTerms !== undefined ? { special_terms: changes.specialTerms.trim() } : {}) };
+      ...(changes.specialTerms !== undefined ? { special_terms: changes.specialTerms.trim() } : {}),
+      ...(changes.signMode ? { sign_mode: changes.signMode } : {}) };
     const { error } = await getSupabase().from(TEXTS).update(row).eq('id', id).select('id').single();
     if (error) throw rentalError(error, 'Could not save the contract');
   }

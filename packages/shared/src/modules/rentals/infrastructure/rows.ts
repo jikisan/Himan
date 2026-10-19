@@ -17,7 +17,7 @@ export const unitRow = z.object({
 // Every column but lessor_signature, which only the owner reads (rental_get_lessor_signature).
 export const PROPERTY_COLUMNS = 'id, created_by, name, address, owner_name, owner_address, lessor_name, lessor_civil_status, '
   + 'lessor_address, lessor_capacity, signing_city, invoice_prefix, archived_at, created_at, updated_at, late_fee_centavos, '
-  + 'rent_due_day, payments_tracked_from';
+  + 'rent_due_day, payments_tracked_from, require_contract';
 
 export const propertyRow = z.object({
   id: z.string(), created_by: z.string(), name: z.string(), address: z.string(), owner_name: z.string(),
@@ -25,13 +25,13 @@ export const propertyRow = z.object({
   lessor_capacity: z.enum(['owner', 'representative']), signing_city: z.string(), invoice_prefix: z.string(),
   archived_at: z.string().nullable(), created_at: z.string(), updated_at: z.string(),
   late_fee_centavos: z.number().default(0), rent_due_day: z.number().nullable().default(null),
-  payments_tracked_from: z.string().nullable().default(null),
+  payments_tracked_from: z.string().nullable().default(null), require_contract: z.boolean().default(false),
   units: z.array(unitRow).default([]), members: z.array(z.object({ role: z.enum(RENTAL_ROLES) })).min(1),
 }).transform((r): RentalProperty => ({
   id: r.id, createdBy: r.created_by, name: r.name, address: r.address, ownerName: r.owner_name,
   ownerAddress: r.owner_address, lessorName: r.lessor_name, lessorCivilStatus: r.lessor_civil_status,
   lessorAddress: r.lessor_address, lessorCapacity: r.lessor_capacity, signingCity: r.signing_city,
-  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
+  invoicePrefix: r.invoice_prefix, lateFeeCentavos: r.late_fee_centavos, rentDueDay: r.rent_due_day, paymentsTrackedFrom: r.payments_tracked_from, requireContract: r.require_contract, archivedAt: r.archived_at, createdAt: r.created_at, updatedAt: r.updated_at,
   role: r.members[0].role, units: [...r.units].sort((a, b) => a.name.localeCompare(b.name)),
 }));
 
@@ -66,10 +66,10 @@ const contractRow = z.object({
 export const tenancyRow = z.object({
   id: z.string(), property_id: z.string(), unit_id: z.string(), renter_id: z.string(),
   move_in: z.string(), move_out: z.string().nullable(), contracts: z.array(contractRow).default([]),
-  charges: z.array(storedChargeSchema).default([]),
+  charges: z.array(storedChargeSchema).default([]), pending: z.boolean().default(false),
 }).transform((r): RentalTenancy => ({
   id: r.id, propertyId: r.property_id, unitId: r.unit_id, renterId: r.renter_id,
-  moveIn: r.move_in, moveOut: r.move_out, charges: r.charges,
+  moveIn: r.move_in, moveOut: r.move_out, charges: r.charges, pending: r.pending,
   contracts: [...r.contracts].sort((a, b) => b.startDate.localeCompare(a.startDate)),
 }));
 
@@ -180,6 +180,8 @@ export const linkRow = z.object({
 /** `rental_link_get`: everything the tenant's page shows, already limited by the database to this tenancy. */
 export const publicLinkSchema = z.object({
   kind: z.enum(['new', 'existing']), status: z.enum(['open', 'submitted', 'accepted']), tenantName: z.string(),
+  /** The tenancy waits for the contract; it becomes active once the landlord countersigns. */
+  pending: z.boolean().default(false),
   roomName: z.string().nullable().default(null),
   property: z.object({ name: z.string(), address: z.string(), lessorName: z.string(), lessorCapacity: z.enum(LESSOR_CAPACITIES),
     signingCity: z.string(), invoicePrefix: z.string(), ownerName: z.string().default(''), ownerAddress: z.string().default(''),

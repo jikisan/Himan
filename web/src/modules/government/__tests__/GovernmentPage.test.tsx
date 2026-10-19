@@ -93,11 +93,65 @@ describe('Government privacy and editing', () => {
     render(page());
     fireEvent.click(screen.getByRole('button', { name: 'Add record' }));
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'custom' } });
-    fireEvent.change(screen.getByLabelText('Custom type name'), { target: { value: 'PRC license' } });
-    fireEvent.change(screen.getByLabelText('Registered name'), { target: { value: 'Test Person' } });
+    fireEvent.change(screen.getByLabelText(/Custom type name/), { target: { value: 'PRC license' } });
+    fireEvent.change(screen.getByLabelText(/Registered name/), { target: { value: 'Test Person' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save record' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'save', id: null,
       input: { agency: 'PRC license', label: 'PRC license', registeredName: 'Test Person', number: '',
         issueDate: null, expiryDate: null, notes: '' } }));
+  });
+});
+
+describe('Government record form errors', () => {
+  it('marks required fields with an asterisk and the required attribute', () => {
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Add record' }));
+    const name = screen.getByLabelText(/Registered name/);
+    expect(name).toBeRequired();
+    expect(name.closest('div')?.querySelector('label')?.textContent).toContain('*');
+  });
+  it('focuses the empty custom type, outlines it and shows the message under it', async () => {
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Add record' }));
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'custom' } });
+    fireEvent.change(screen.getByLabelText(/Registered name/), { target: { value: 'Test Person' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save record' }));
+    const custom = screen.getByLabelText(/Custom type name/);
+    await waitFor(() => expect(document.activeElement).toBe(custom));
+    expect(custom).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('gov-custom-error')).toHaveTextContent('Choose a type');
+    fireEvent.change(custom, { target: { value: 'PRC' } });
+    expect(custom).not.toHaveAttribute('aria-invalid');
+    expect(state.run).not.toHaveBeenCalled();
+  });
+  it('focuses the empty registered name', async () => {
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Add record' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save record' }));
+    const name = screen.getByLabelText(/Registered name/);
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('gov-name-error')).toHaveTextContent('Enter the registered name');
+  });
+  it('shows a save failure in the banner at the top of the form', async () => {
+    state.run.mockRejectedValue(new Error('offline'));
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Add record' }));
+    fireEvent.change(screen.getByLabelText(/Registered name/), { target: { value: 'Test Person' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save record' }));
+    const banner = await screen.findByText('Could not save this record. Your changes are still here; retry when connected.');
+    expect(banner).toHaveAttribute('data-form-error');
+    const form = banner.closest('form')!;
+    expect(form.firstElementChild).toBe(banner);
+  });
+  it('shows a rejected attachment under the file input', async () => {
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'View My membership details' }));
+    const input = screen.getByLabelText('Attach existing files');
+    fireEvent.change(input, { target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] } });
+    await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+    expect(document.activeElement).toBe(input);
+    expect(document.getElementById('gov-upload-error')).not.toBeEmptyDOMElement();
+    expect(state.run).not.toHaveBeenCalled();
   });
 });

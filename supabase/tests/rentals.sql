@@ -1732,6 +1732,216 @@ BEGIN
   PERFORM pg_temp.refused(format('UPDATE public.rental_tenancies SET contract_not_needed = NULL WHERE id = %L', v_t), '23502');
   IF NOT (SELECT contract_not_needed FROM public.rental_tenancies WHERE id = v_t) THEN RAISE EXCEPTION 'contract_not_needed was not kept'; END IF;
 END $$;
+-- ── Guided move-in: lessee placeholders, signing in person, one-step move-in ──────────
+RESET ROLE;
+DO $$ BEGIN
+  IF public.rental_resolve_lessee('["I, {{lessee_name}}, of {{lessee_address}}.","{{lessee_name}} again"]', '  Ana  ', ' Cebu ')
+    <> '["I, Ana, of Cebu.","Ana again"]'::jsonb THEN RAISE EXCEPTION 'Lessee placeholders were not resolved'; END IF;
+  IF public.rental_resolve_lessee('["{{lessee_name}} / {{lessee_address}}"]', '  ', NULL) <> '["__________ / __________"]'::jsonb
+  THEN RAISE EXCEPTION 'Empty lessee values did not render as blanks'; END IF;
+  IF public.rental_resolve_lessee('["Already Ana","Line 2"]', 'Bea', 'X') <> '["Already Ana","Line 2"]'::jsonb
+  THEN RAISE EXCEPTION 'Resolving an already resolved text changed it'; END IF;
+  -- Only the signing RPCs write the in-person fields.
+  IF has_column_privilege('authenticated', 'public.rental_contract_texts', 'signed_in_person', 'INSERT')
+    OR has_column_privilege('authenticated', 'public.rental_contract_texts', 'signed_in_person', 'UPDATE')
+    OR has_column_privilege('authenticated', 'public.rental_contract_texts', 'witnessed_by', 'INSERT')
+    OR has_column_privilege('authenticated', 'public.rental_contract_texts', 'witnessed_by', 'UPDATE')
+  THEN RAISE EXCEPTION 'Clients can write the in-person fields'; END IF;
+  IF NOT has_function_privilege('authenticated', 'public.rental_sign_in_person(uuid, text, text, text, jsonb)', 'EXECUTE')
+    OR NOT has_function_privilege('authenticated',
+      'public.rental_move_in(uuid, uuid, jsonb, date, date, date, integer, integer, integer, integer, jsonb)', 'EXECUTE')
+    OR has_function_privilege('anon', 'public.rental_sign_in_person(uuid, text, text, text, jsonb)', 'EXECUTE')
+  THEN RAISE EXCEPTION 'Guided move-in RPC grants are wrong'; END IF;
+END $$;
+
+-- Owner aa001 owns Move House (ab0f1); friend aa002 joins it as a manager, later a viewer; stranger aa003 has nothing.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000aa001', true);
+INSERT INTO public.rental_properties (id, name) VALUES ('00000000-0000-0000-0000-0000000ab0f1', 'Move House');
+INSERT INTO public.rental_units (id, property_id, name, kind, capacity)
+  SELECT ('00000000-0000-0000-0000-0000000ac0f' || n)::uuid, '00000000-0000-0000-0000-0000000ab0f1', 'M' || n, 'room', 1
+  FROM generate_series(0, 9) n;
+INSERT INTO public.rental_renters (id, property_id, full_name, address) VALUES
+  ('00000000-0000-0000-0000-0000000ad0f0', '00000000-0000-0000-0000-0000000ab0f1', 'Link Newcomer', ''),
+  ('00000000-0000-0000-0000-0000000ad0f1', '00000000-0000-0000-0000-0000000ab0f1', 'Rita Record', '9 Renter St'),
+  ('00000000-0000-0000-0000-0000000ad0f2', '00000000-0000-0000-0000-0000000ab0f1', 'Walk In', ''),
+  ('00000000-0000-0000-0000-0000000ad0f3', '00000000-0000-0000-0000-0000000ab0f1', 'Viewer Case', ''),
+  ('00000000-0000-0000-0000-0000000ad0f4', '00000000-0000-0000-0000-0000000ab0f1', 'Back Again', '');
+SELECT public.rental_add_member('00000000-0000-0000-0000-0000000ab0f1', '00000000-0000-0000-0000-0000000aa002', 'manager');
+
+DO $$ DECLARE
+  v_today date := (now() AT TIME ZONE 'Asia/Manila')::date;
+  v_house uuid := '00000000-0000-0000-0000-0000000ab0f1';
+  v_owner text := '00000000-0000-0000-0000-0000000aa001'; v_friend text := '00000000-0000-0000-0000-0000000aa002';
+  v_stranger text := '00000000-0000-0000-0000-0000000aa003';
+  v_png text := 'data:image/png;base64,iVBORw0KGgoTU9WRQ';
+  v_body jsonb := '["Lessee: {{lessee_name}}","Address: {{lessee_address}}"]';
+  v_stale text := 'The contract changed. Reload the page to read the latest version';
+  v_mgr text := 'Only managers can manage contracts'; v_unsent text := 'Only sent contracts can be signed';
+  v_details jsonb := '{"fullName":" Wally Walk ","phone":"0917","address":"3 Desk St","emergencyName":"Mom","emergencyPhone":"0918","occupants":2}';
+  v_t1 uuid; v_t2 uuid; v_t3 uuid; v_t4 uuid; v_x1 uuid; v_x2 uuid; v_x3 uuid; v_x4 uuid; v_tok1 text; v_tok2 text;
+  v_h text; v_hu text; v_hn text; v_hr text; v_hv text; v_j jsonb; v_ct public.rental_contract_texts; v_total bigint; v_sql text;
+BEGIN
+  -- Hashes up front: rental_contract_hash is not granted to clients.
+  RESET ROLE;
+  v_hu := public.rental_contract_hash(v_body, '');
+  v_hn := public.rental_contract_hash(public.rental_resolve_lessee(v_body, 'Nina New', '12 Link Rd'), '');
+  v_hr := public.rental_contract_hash('["Lessee: Rita Record","Address: 9 Renter St"]', '');
+  v_h := public.rental_contract_hash(public.rental_resolve_lessee(v_body, 'Wally Walk', '3 Desk St'), '');
+  v_hv := public.rental_contract_hash(public.rental_resolve_lessee(v_body, 'Viewer Case', 'X'), '');
+  SET LOCAL ROLE authenticated;
+  v_t1 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac0f0', '00000000-0000-0000-0000-0000000ad0f0',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000);
+  v_t2 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac0f1', '00000000-0000-0000-0000-0000000ad0f1',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000);
+  v_t3 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac0f2', '00000000-0000-0000-0000-0000000ad0f2',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000);
+  v_t4 := public.rental_start_tenancy('00000000-0000-0000-0000-0000000ac0f3', '00000000-0000-0000-0000-0000000ad0f3',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000);
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode) VALUES
+    ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t1), v_house, v_body, 'esign') RETURNING id INTO v_x1;
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode) VALUES
+    ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t2), v_house, v_body, 'esign') RETURNING id INTO v_x2;
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode) VALUES
+    ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t3), v_house, v_body, 'notarize') RETURNING id INTO v_x3;
+  INSERT INTO public.rental_contract_texts (contract_id, property_id, body, sign_mode) VALUES
+    ((SELECT id FROM public.rental_contracts WHERE tenancy_id = v_t4), v_house, v_body, 'esign') RETURNING id INTO v_x4;
+  PERFORM public.rental_send_contract(v_x1);
+  PERFORM public.rental_send_contract(v_x2);
+  PERFORM public.rental_send_contract(v_x4);
+  v_tok1 := public.rental_create_link(v_t1, 'new');
+  v_tok2 := public.rental_create_link(v_t2, 'existing');
+  PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET signed_in_person = true WHERE id = %L', v_x4), '42501');
+  PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET witnessed_by = %L WHERE id = %L', v_owner, v_x4), '42501');
+
+  -- Link, kind new: the lessee is what the tenant typed. (Status set directly: the ID upload path is tested in Step C.)
+  RESET ROLE;
+  UPDATE public.rental_tenancy_links SET status = 'submitted', submitted_at = now(),
+    submitted_details = '{"fullName":"Nina New","address":"12 Link Rd","phone":"1"}' WHERE tenancy_id = v_t1;
+  SET LOCAL ROLE anon;
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  v_j := public.rental_link_get(v_tok1);
+  IF v_j->'lessee' IS DISTINCT FROM '{"name":"Nina New","address":"12 Link Rd"}'::jsonb OR v_j->'contract'->'body' <> v_body
+  THEN RAISE EXCEPTION 'Link page lessee or body is wrong: %', v_j->'lessee'; END IF;
+  -- A hash over the unresolved text is stale.
+  PERFORM pg_temp.refused(format('SELECT public.rental_link_sign(%L, %L, NULL, %L, %L, %L)', v_tok1, 'Nina New', v_png, 'UA', v_hu), v_stale);
+  PERFORM public.rental_link_sign(v_tok1, 'Nina New', NULL, v_png, 'UA', v_hn);
+  RESET ROLE;
+  SELECT * INTO v_ct FROM public.rental_contract_texts WHERE id = v_x1;
+  IF v_ct.body <> '["Lessee: Nina New","Address: 12 Link Rd"]'::jsonb
+    OR v_ct.content_hash <> public.rental_contract_hash(v_ct.body, v_ct.special_terms) OR v_ct.signed_in_person
+    OR v_ct.witnessed_by IS NOT NULL
+  THEN RAISE EXCEPTION 'Link signing did not store the resolved body and its hash: %', v_ct.body; END IF;
+
+  -- Link, kind existing: the lessee is the renter record.
+  SET LOCAL ROLE anon;
+  IF public.rental_link_get(v_tok2)->'lessee' IS DISTINCT FROM '{"name":"Rita Record","address":"9 Renter St"}'::jsonb
+  THEN RAISE EXCEPTION 'Existing-tenant link shows the wrong lessee'; END IF;
+  PERFORM public.rental_link_sign(v_tok2, 'Rita Record', 'esign', v_png, 'UA', v_hr);
+  RESET ROLE;
+  IF (SELECT body FROM public.rental_contract_texts WHERE id = v_x2) <> '["Lessee: Rita Record","Address: 9 Renter St"]'::jsonb
+  THEN RAISE EXCEPTION 'Existing-tenant signing did not use the renter record'; END IF;
+
+  -- In person: managers only, same answer for strangers; a draft can't be signed.
+  SET LOCAL ROLE authenticated;
+  v_sql := format('SELECT public.rental_sign_in_person(%L, %L, %L, %%L, %L)', v_x3, 'Wally Walk', v_png, v_details);
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  PERFORM pg_temp.refused(format(v_sql, v_h), v_mgr);
+  PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', gen_random_uuid(), 'X', v_png, v_h, v_details), v_mgr);
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  PERFORM pg_temp.refused(format(v_sql, v_h), v_unsent);
+  PERFORM public.rental_send_contract(v_x3);
+  PERFORM pg_temp.refused(format(v_sql, v_hu), v_stale);
+  PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', v_x3, 'Wally Walk', v_png, v_h,
+    v_details - 'phone'), 'Fill in your full name, mobile number, home address and emergency contact');
+  PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', v_x3, 'Wally Walk', v_png, v_h,
+    v_details || '{"occupants":0}'), 'People living there must be between 1 and 50');
+  PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', v_x3, 'Wally Walk', 'nope', v_h, v_details),
+    'Draw your signature again');
+  PERFORM public.rental_sign_in_person(v_x3, ' Wally Walk ', v_png, v_h, v_details);
+  SELECT * INTO v_ct FROM public.rental_contract_texts WHERE id = v_x3;
+  IF v_ct.status <> 'signed' OR NOT v_ct.signed_in_person OR v_ct.witnessed_by IS DISTINCT FROM v_friend::uuid
+    OR v_ct.tenant_name <> 'Wally Walk' OR v_ct.sign_mode <> 'notarize' OR v_ct.content_hash <> v_h
+    OR v_ct.body <> '["Lessee: Wally Walk","Address: 3 Desk St"]'::jsonb
+  THEN RAISE EXCEPTION 'In-person signing stored the wrong fields'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.rental_renters WHERE id = '00000000-0000-0000-0000-0000000ad0f2' AND full_name = 'Wally Walk'
+    AND phone = '0917' AND address = '3 Desk St' AND emergency_name = 'Mom' AND emergency_phone = '0918' AND occupants = 2)
+  THEN RAISE EXCEPTION 'In-person details did not reach the renter row'; END IF;
+  PERFORM pg_temp.refused(format(v_sql, v_h), v_unsent);
+  RESET ROLE;
+  PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET signed_in_person = false WHERE id = %L', v_x3),
+    'A signed contract can''t be changed');
+  PERFORM pg_temp.refused(format('UPDATE public.rental_contract_texts SET witnessed_by = NULL WHERE id = %L', v_x3),
+    'A signed contract can''t be changed');
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  PERFORM public.rental_countersign(v_x3, v_png);
+  IF (SELECT status FROM public.rental_contract_texts WHERE id = v_x3) <> 'countersigned' THEN RAISE EXCEPTION 'Countersign after in-person failed'; END IF;
+
+  -- One-step move-in. New renter paying the full move-in bill: 21 days' rent 350000 + advance 500000 + deposit 500000.
+  v_j := public.rental_move_in('00000000-0000-0000-0000-0000000ac0f4', NULL, '{"fullName":" Mo Full ","phone":"0917","occupants":2}',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000,
+    jsonb_build_object('amount', 1350000, 'paidOn', v_today, 'method', 'cash', 'reference', 'R-1', 'notes', 'all in'));
+  SELECT public.rental_bill_total(lines) INTO v_total FROM public.rental_bills
+  WHERE id = (v_j->>'billId')::uuid AND tenancy_id = (v_j->>'tenancyId')::uuid AND kind = 'move_in';
+  IF v_total IS DISTINCT FROM 1350000
+    OR NOT EXISTS (SELECT 1 FROM public.rental_renters WHERE id = (v_j->>'renterId')::uuid AND property_id = v_house
+      AND full_name = 'Mo Full' AND phone = '0917' AND occupants = 2)
+    OR NOT EXISTS (SELECT 1 FROM public.rental_tenancies WHERE id = (v_j->>'tenancyId')::uuid
+      AND renter_id = (v_j->>'renterId')::uuid AND unit_id = '00000000-0000-0000-0000-0000000ac0f4')
+    OR NOT EXISTS (SELECT 1 FROM public.rental_payments WHERE id = (v_j->>'paymentId')::uuid AND amount_centavos = 1350000
+      AND method = 'cash' AND reference = 'R-1' AND notes = 'all in')
+    OR (SELECT sum(amount_centavos) FROM public.rental_payment_allocations WHERE bill_id = (v_j->>'billId')::uuid) <> 1350000
+  THEN RAISE EXCEPTION 'Move-in with full payment is wrong: %', v_j; END IF;
+
+  -- Partial payment: pinned to the move-in bill.
+  v_j := public.rental_move_in('00000000-0000-0000-0000-0000000ac0f5', NULL, '{"fullName":"Pat Partial"}',
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000,
+    jsonb_build_object('amount', 100000, 'paidOn', v_today, 'method', 'gcash', 'reference', 'R-2', 'notes', ''));
+  IF (SELECT sum(amount_centavos) FROM public.rental_payment_allocations
+      WHERE bill_id = (v_j->>'billId')::uuid AND payment_id = (v_j->>'paymentId')::uuid AND pinned) <> 100000
+  THEN RAISE EXCEPTION 'Partial move-in payment was not pinned to the move-in bill: %', v_j; END IF;
+
+  -- Existing renter, pay later: an unpaid move-in bill and no payment.
+  v_j := public.rental_move_in('00000000-0000-0000-0000-0000000ac0f6', '00000000-0000-0000-0000-0000000ad0f4', NULL,
+    '2026-11-10', '2026-11-10', '2027-11-10', 500000, 1, 1, 500000, NULL);
+  IF v_j->>'renterId' <> '00000000-0000-0000-0000-0000000ad0f4' OR v_j->'paymentId' <> 'null'::jsonb OR v_j->>'billId' IS NULL
+    OR EXISTS (SELECT 1 FROM public.rental_payments WHERE tenancy_id = (v_j->>'tenancyId')::uuid)
+  THEN RAISE EXCEPTION 'Move-in for an existing renter without payment is wrong: %', v_j; END IF;
+
+  -- Exactly one of renter id / new renter.
+  v_sql := 'SELECT public.rental_move_in(%L, %L, %L, ''2026-11-10'', ''2026-11-10'', ''2027-11-10'', 500000, 1, 1, 500000, %L)';
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', '00000000-0000-0000-0000-0000000ad0f3',
+    '{"fullName":"Both"}', NULL), 'Choose an existing tenant or add a new one');
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', NULL, NULL, NULL),
+    'Choose an existing tenant or add a new one');
+  -- rental_record_payment's rules still apply, and a refused payment leaves no renter, tenancy or bill behind.
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', NULL, '{"fullName":"Roll Back"}',
+    jsonb_build_object('amount', 0, 'paidOn', v_today, 'method', 'cash')), 'Amount must be more than zero');
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', NULL, '{"fullName":"Roll Back"}',
+    jsonb_build_object('amount', 100, 'paidOn', v_today + 5, 'method', 'cash')), 'Payment date is too far ahead');
+  IF EXISTS (SELECT 1 FROM public.rental_renters WHERE full_name = 'Roll Back')
+    OR EXISTS (SELECT 1 FROM public.rental_tenancies WHERE unit_id = '00000000-0000-0000-0000-0000000ac0f7')
+    OR EXISTS (SELECT 1 FROM public.rental_bills b JOIN public.rental_tenancies t ON t.id = b.tenancy_id
+      WHERE t.unit_id = '00000000-0000-0000-0000-0000000ac0f7')
+  THEN RAISE EXCEPTION 'A refused move-in payment left rows behind'; END IF;
+
+  -- Viewers and strangers can't move anyone in or sign in person.
+  UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = v_friend::uuid AND property_id = v_house;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', NULL, '{"fullName":"Viewer New"}', NULL), '42501');
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', '00000000-0000-0000-0000-0000000ad0f3', NULL, NULL), '42501');
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', '00000000-0000-0000-0000-0000000ad0f3', NULL,
+    jsonb_build_object('amount', 100, 'paidOn', v_today, 'method', 'cash')), '42501');
+  PERFORM pg_temp.refused(format('SELECT public.rental_sign_in_person(%L, %L, %L, %L, %L)', v_x4, 'Viewer Case', v_png, v_hv,
+    v_details || '{"fullName":"Viewer Case","address":"X"}'), v_mgr);
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  PERFORM pg_temp.refused(format(v_sql, '00000000-0000-0000-0000-0000000ac0f7', NULL, '{"fullName":"Stranger New"}', NULL), 'Unit not found');
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  IF EXISTS (SELECT 1 FROM public.rental_tenancies WHERE unit_id = '00000000-0000-0000-0000-0000000ac0f7')
+    OR (SELECT status FROM public.rental_contract_texts WHERE id = v_x4) <> 'sent'
+  THEN RAISE EXCEPTION 'A viewer or stranger moved someone in or signed'; END IF;
+END $$;
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

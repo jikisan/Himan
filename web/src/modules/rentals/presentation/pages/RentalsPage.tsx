@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { DEFAULT_CLAUSES, billPaid, depositToReturn, formatPesos, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
-import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
+import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy, SignMode } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { PropertyForm } from '../components/PropertyForm';
@@ -61,6 +61,8 @@ function RentalsContent(state: RentalsState) {
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
   const [paying, setPaying] = useState<{ tenancyId: string; billId?: string } | null>(null);
   const [settlingId, setSettlingId] = useState<string | null>(null);
+  // How each just-added pending tenant's contract is signed, to start their contract with.
+  const [signModes, setSignModes] = useState<Record<string, SignMode>>({});
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -70,7 +72,11 @@ function RentalsContent(state: RentalsState) {
   const tryAct = (action: RentalAction, message: string) => act(action, message).catch((e) => toast.error(errorMessage(e)));
   const propertyRenters = state.renters.filter((r) => r.propertyId === property?.id);
   const propertyTenancies = tenancies.filter((t) => t.propertyId === property?.id);
-  const activeTenancies = propertyTenancies.filter((t) => t.moveOut === null);
+  // Pending tenants hold a bed but have no bills: only rooms, the tenant list and their sheet see them.
+  const allPending = state.pendingTenancies ?? [];
+  const propertyPending = allPending.filter((t) => t.propertyId === property?.id);
+  const occupancy = [...propertyTenancies, ...propertyPending];
+  const activeTenancies = occupancy.filter((t) => t.moveOut === null);
   const unitName = (id: string) => property?.units.find((u) => u.id === id)?.name ?? 'Room';
   const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Tenant';
   const propertyBills = state.bills.filter((b) => b.propertyId === property?.id);
@@ -153,7 +159,7 @@ function RentalsContent(state: RentalsState) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-72">
                       {ordered.map((p) => {
-                        const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
+                        const taken = [...tenancies, ...allPending].filter((t) => t.propertyId === p.id && t.moveOut === null).length;
                         const total = p.units.reduce((sum, u) => sum + u.capacity, 0);
                         return <DropdownMenuItem key={p.id} className="gap-3 py-2" onSelect={() => setSelectedId(p.id)}>
                           <Check aria-hidden className={cn('h-4 w-4 shrink-0', p.id !== property.id && 'invisible')} />
@@ -204,7 +210,7 @@ function RentalsContent(state: RentalsState) {
             <Plus className="h-4 w-4" />Add room</Button>}
         </div>
 
-        {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
+        {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} pendingTenancies={propertyPending} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
               readings={propertyReadings} canManage={isManager} canEdit={isOwner} contractTexts={state.contractTexts} links={state.links}
               onReadMeters={() => { setView('bills'); setMetersFromHome(true); }} onOpenBills={() => setView('bills')}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
@@ -216,14 +222,17 @@ function RentalsContent(state: RentalsState) {
           : view === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
               <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
-          : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links}
+          : <RoomsBoard property={property} tenancies={occupancy} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links}
               onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
               onMoveOut={setMovingOutId}
+              onCancelPending={(t) => setConfirm({ title: `Cancel ${renterName(t.renterId)}?`, confirmText: 'Cancel tenant', done: 'Pending tenant cancelled',
+                description: 'Cancel this pending tenant? The bed becomes free.',
+                action: { type: 'endTenancy', id: t.id, moveOut: t.moveIn > manilaToday() ? t.moveIn : manilaToday() } })}
               onEditRoom={(id) => setDialog({ type: 'room', id })}
               onDeleteRoom={(id) => setConfirm({ title: `Delete ${unitName(id)}?`, confirmText: 'Delete room', done: 'Room deleted',
                 action: { type: 'removeUnit', id }, description: 'Rooms that have had tenants can’t be deleted.' })} />
-          : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links}
+          : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={occupancy} unitName={unitName} links={state.links}
               onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
           : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
               readings={propertyReadings} bills={propertyBills} payments={propertyPayments} utilityBills={propertyUtilityBills} startWithAmounts={amountsFromHome} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
@@ -308,14 +317,16 @@ function RentalsContent(state: RentalsState) {
                 {room.defaultRentCentavos > 0 && ` · ${formatPesos(room.defaultRentCentavos)}`}
                 {room.extraPersonRentCentavos > 0 && room.defaultRentCentavos > 0 && ` + ${formatPesos(room.extraPersonRentCentavos)} per extra person`}
               </DialogDescription></DialogHeader>
-            <AddTenantForm unit={room} rentDueDay={property.rentDueDay} renters={propertyRenters.filter((r) => !here.has(r.id))} others={isManager ? others : []}
+            <AddTenantForm unit={room} rentDueDay={property.rentDueDay} requireContract={!!property.requireContract} renters={propertyRenters.filter((r) => !here.has(r.id))} others={isManager ? others : []}
               busy={busy} onCancel={() => setDialog(null)}
-              onSave={async (action, sendLink) => {
-                const { tenancyId, warnings } = await run(action) as { tenancyId: string; warnings: string[] };
+              onSave={async (action, sendLink, signMode) => {
+                const { renterId, tenancyId, warnings } = await run(action) as { renterId: string; tenancyId: string; warnings: string[] };
                 const name = action.renter?.fullName ?? renterName(action.renterId ?? '');
-                toast.success(`${name} moved in`);
+                toast.success(action.pending ? `${name} saved as pending. Create their contract next.` : `${name} moved in`);
                 warnings.forEach((w) => toast.warning(w));
-                setDialog(sendLink ? { type: 'linkReady', tenancyId, name } : null);
+                if (signMode) setSignModes((m) => ({ ...m, [tenancyId]: signMode }));
+                // A pending tenant continues on their sheet with Create contract.
+                setDialog(sendLink ? { type: 'linkReady', tenancyId, name } : action.pending ? { type: 'tenant', renterId } : null);
               }} />
           </>;
         })()}
@@ -336,10 +347,10 @@ function RentalsContent(state: RentalsState) {
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[480px]">
         {dialog?.type === 'tenant' && property && (() => {
           const renter = propertyRenters.find((r) => r.id === dialog.renterId);
-          return renter && <TenantSheet renter={renter} tenancies={propertyTenancies}
+          return renter && <TenantSheet renter={renter} tenancies={occupancy}
             bills={propertyBills} payments={propertyPayments} settlements={state.settlements} onOpenSettlement={setSettlingId} unitName={unitName} canManage={isManager} busy={busy} run={run}
             fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} receipt={receipt}
-            contractInfo={{ property, texts: state.contractTexts, template: state.templates[property.id] ?? DEFAULT_CLAUSES, links: state.links }} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
+            contractInfo={{ property, texts: state.contractTexts, template: state.templates[property.id] ?? DEFAULT_CLAUSES, links: state.links, signModes }} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}
             onSaveDetails={async (input) => { await run({ type: 'saveRenter', propertyId: property.id, id: renter.id, input }); toast.success('Tenant saved'); }}
             deleteAction={<Button type="button" variant="ghost" className="px-2 text-destructive hover:text-destructive" onClick={() => setConfirm({
               title: `Delete ${renter.fullName}?`, confirmText: 'Delete', done: 'Tenant deleted', action: { type: 'removeRenter', id: renter.id },

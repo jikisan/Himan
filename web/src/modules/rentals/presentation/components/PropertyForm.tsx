@@ -9,7 +9,7 @@ import { errorMessage } from '../utils/errorMessage';
 const empty: PropertyInput = { name: '', address: '', ownerName: '', ownerAddress: '', lessorName: '',
   lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'INV',
   lateFeeCentavos: 0, rentDueDay: null };
-type TextKey = Exclude<keyof PropertyInput, 'lessorCapacity' | 'lateFeeCentavos' | 'rentDueDay'>;
+type TextKey = Exclude<keyof PropertyInput, 'lessorCapacity' | 'lateFeeCentavos' | 'rentDueDay' | 'requireContract'>;
 type NameKey = 'ownerName' | 'lessorName';
 
 /** `accounts` is the owner's payment-accounts section, shown after Bills; `contract` (template and signature) follows the contract details. */
@@ -23,6 +23,9 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel, account
   const [error, setError] = useState('');
   const [due, setDue] = useState(property?.rentDueDay ? String(property.rentDueDay) : '');
   const [fee, setFee] = useState(centavosToInput(property?.lateFeeCentavos ?? 0));
+  // Owner only: the setting is never sent from anyone else's form.
+  const isOwner = property?.role === 'owner';
+  const [requireContract, setRequireContract] = useState(!!property?.requireContract);
   const isMine = (key: NameKey) => !!myName && (mine[key] ?? (property ? property[key] === myName : true));
   const set = (key: TextKey) => (event: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: event.target.value }));
   const text = (key: TextKey, label: string, extra?: { hint?: string; placeholder?: string; wide?: boolean }) =>
@@ -52,7 +55,7 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel, account
     try { lateFeeCentavos = fee.trim() ? parsePesos(fee) : 0; } catch (failure) { setError(`Late fee: ${errorMessage(failure)}`); return; }
     const value = { ...form, ownerName: isMine('ownerName') ? myName : form.ownerName,
       lessorName: isMine('lessorName') ? myName : form.lessorName, rentDueDay: due.trim() ? Number(due) : null, lateFeeCentavos,
-      invoicePrefix: form.invoicePrefix || billPrefix(form.name) };
+      invoicePrefix: form.invoicePrefix || billPrefix(form.name), ...(isOwner ? { requireContract } : {}) };
     const result = propertySchema.safeParse(value);
     if (!result.success) { setError(result.error.issues[0].message); return; }
     setError('');
@@ -75,6 +78,12 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel, account
         {text('invoicePrefix', 'Bill numbers start with', { hint: `${form.invoicePrefix || 'INV'}-${manilaToday().slice(0, 4)}-0001` })}
       </FormSection>
       {accounts}
+      {isOwner && <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={requireContract}
+          onChange={(e) => setRequireContract(e.target.checked)} />
+        <span><span className="block font-medium">Require a signed contract before move-in</span>
+          <span className="block text-xs text-muted-foreground">New tenants stay Pending until they sign and you countersign. Their move-in bill is made then.</span></span>
+      </label>}
       <details open={!!property && hasContractDetails(property)} className="group rounded-lg border p-4 [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex min-h-6 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold">
           <span><span className="block">Contract details – fill in later</span><span className="block text-xs font-normal text-muted-foreground">Only needed when you print a contract.</span></span>

@@ -2,9 +2,9 @@ import { useId, useState } from 'react';
 import { canonicalText, sha256Hex } from '@himan/shared/rentals';
 import type { PublicLink, SignMode } from '@himan/shared/rentals';
 import { Button } from '@/components/ui/button';
-import { cn } from '@core/presentation/utils';
 import { LinkRepository } from '../../infrastructure';
 import { SignaturePad } from '../components/SignaturePad';
+import { SignModeChoice } from '../components/ContractPanel';
 import { ContractPaper } from '../components/ContractPaper';
 import { PdfButton } from '../components/PdfButton';
 import { inputClass } from '../components/Field';
@@ -46,18 +46,16 @@ const Plain = ({ children }: { children: React.ReactNode }) => <p className="rou
 
 type SignInput = { name: string; signMode: SignMode; signature: string; userAgent: string; contentHash: string };
 
+/** The landlord chooses how it's signed; only contracts sent before that choice existed (sign mode null) let the tenant choose. */
 function SignForm({ contract, onSign }: { contract: Contract; onSign(input: SignInput): Promise<void> }) {
   const id = useId();
-  const [mode, setMode] = useState<SignMode | null>(null);
+  const [chosen, setMode] = useState<SignMode | null>(null);
+  const mode = contract.signMode ?? chosen;
   const [name, setName] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const ready = !!mode && !!name.trim() && !!signature && !busy;
-  const options: [SignMode, string, string][] = [
-    ['esign', 'Sign online only', 'Your drawn signature is enough.'],
-    ['notarize', 'Sign online, then notarize', 'You also sign a printed copy in front of a notary.'],
-  ];
   return <form className="space-y-4 rounded-xl border bg-card p-4" onSubmit={async (e) => {
     e.preventDefault();
     if (!ready) return;
@@ -69,15 +67,9 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
     } catch (err) { setError(errorMessage(err)); } finally { setBusy(false); }
   }}>
     <h3 className="text-base font-semibold">Sign the contract</h3>
-    <fieldset className="space-y-2">
-      <legend className="mb-2 text-sm font-medium">How do you want to sign?</legend>
-      {options.map(([value, label, hint]) => <label key={value}
-        className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3', mode === value && 'border-primary bg-primary/5')}>
-        <input type="radio" name={`${id}-mode`} value={value} checked={mode === value} disabled={busy} className="mt-1 size-5 shrink-0"
-          onChange={() => setMode(value)} />
-        <span><span className="block text-base font-medium">{label}</span><span className="block text-sm text-muted-foreground">{hint}</span></span>
-      </label>)}
-    </fieldset>
+    {contract.signMode ? <p className="text-base">{contract.signMode === 'notarize'
+      ? 'Your landlord asked you to sign online and then have it notarized.' : 'You can sign online. No notary needed.'}</p>
+      : <SignModeChoice legend="How do you want to sign?" value={mode} onChange={setMode} disabled={busy} />}
     <div className="space-y-1.5">
       <label htmlFor={`${id}-name`} className="text-sm font-medium">Type your full name</label>
       <input id={`${id}-name`} autoComplete="name" value={name} disabled={busy} className={inputClass} onChange={(e) => setName(e.target.value)} />
@@ -102,13 +94,14 @@ const pdfData = (c: Contract, data: PublicLink): ContractPdfData => ({
 function SignedView({ contract: c, data }: { contract: Contract; data: PublicLink }) {
   const pdf = pdfData(c, data);
   return <div className="space-y-4 rounded-xl border bg-card p-4">
-    <p role="status" className="text-base font-semibold">{c.status === 'countersigned' ? 'Fully signed' : 'Waiting for your landlord to countersign'}</p>
+    <p role="status" className="text-base font-semibold">{c.status === 'countersigned' ? 'Fully signed'
+      : data.pending ? 'Waiting for your landlord to countersign. You’ll be a tenant once they do.' : 'Waiting for your landlord to countersign'}</p>
     <div className="grid gap-4 sm:grid-cols-2">
       <Signed title="You" image={c.tenantSignature} alt="Your signature" name={pdf.tenantName} at={c.tenantSignedAt} />
       {c.lessorSignature && <Signed title="Your landlord" image={c.lessorSignature} alt="Your landlord’s signature" name={data.property.lessorName}
         at={c.lessorSignedAt ?? null} />}
     </div>
-    {c.signMode === 'notarize' && <p className="text-sm text-muted-foreground">You chose to notarize: print the PDF and sign it in front of a notary with your landlord.</p>}
+    {c.signMode === 'notarize' && <p className="text-sm text-muted-foreground">To be notarized: print the PDF and sign it in front of a notary with your landlord.</p>}
     <PdfButton className="h-12 w-full text-base" make={async () => (await import('../pdf/download')).downloadContractPdf(pdf)}>Download PDF</PdfButton>
   </div>;
 }

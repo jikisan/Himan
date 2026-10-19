@@ -43,3 +43,10 @@ export function detailsStatus(links: TenancyLink[], tenancyId: string): 'Waiting
 /** The ready-to-send message for a link token (the page lives at /r/:token). */
 export const tenantLinkMessage = (token: string, tenantName: string, kind: LinkKind) =>
   linkMessage(`${location.origin}/r/${token}`, tenantName, kind);
+
+/** The two ways a contract is signed: value, label, hint. */
+export const SIGN_MODES: [SignMode, string, string][] = [
+  ['esign', 'Sign online only', 'A drawn signature is enough.'],
+  ['notarize', 'Sign online, then notarize', 'A printed copy is also signed in front of a notary.'],
+];
+export const signModeWords = (mode: SignMode) => SIGN_MODES.find(([value]) => value === mode)![1];

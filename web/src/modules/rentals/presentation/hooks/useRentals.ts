@@ -6,7 +6,7 @@ import { ProfileRepository } from '@himan/shared/profile';
 import { DEFAULT_CLAUSES, addTenant, issueBills, moveOut, setupProperty } from '@himan/shared/rentals';
 import { Logger } from '@core/infrastructure/services';
 import type { AddTenantInput, BillLine, Clause, LinkKind, ContractTermsInput, IssueBillInput, MeterKind, PaymentAccountInput, PaymentInput, PropertyInput,
-  ReadingInput, RenterInput, SettlementInput, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
+  ReadingInput, RenterInput, SettlementInput, SignMode, StartTenancyInput, TenancyCharge, UnitInput, UtilityBillInput } from '@himan/shared/rentals';
 import { BillRepository, ContractRepository, LinkRepository, PaymentAccountRepository, PaymentRepository, PropertyRepository, RenterRepository, SettlementRepository, TenancyRepository } from '../../infrastructure';
 
 type FileInput = { name: string; mimeType?: string | null; bytes: ArrayBuffer };
@@ -23,6 +23,8 @@ export type RentalAction =
   | { type: 'removeRenterFile'; id: string }
   | { type: 'startTenancy'; input: StartTenancyInput }
   | { type: 'endTenancy'; id: string; moveOut: string }
+  /** Makes a pending tenancy active (needs the contract signed by both) and issues its move-in bill. */
+  | { type: 'activateTenancy'; tenancyId: string }
   | ({ type: 'addTenant' } & AddTenantInput)
   | { type: 'updateTerms'; contractId: string; input: ContractTermsInput }
   | { type: 'setupProperty'; input: PropertyInput; rooms: UnitInput[] }
@@ -52,8 +54,8 @@ export type RentalAction =
   | { type: 'removeAccount'; id: string }
   | { type: 'uploadQr'; propertyId: string; accountId: string; file: FileInput }
   /** Resolves to the new contract text's id. */
-  | { type: 'createContractText'; contractId: string; propertyId: string; body: string[]; specialTerms: string }
-  | { type: 'updateContractText'; id: string; changes: { body?: string[]; specialTerms?: string } }
+  | { type: 'createContractText'; contractId: string; propertyId: string; body: string[]; specialTerms: string; signMode: SignMode }
+  | { type: 'updateContractText'; id: string; changes: { body?: string[]; specialTerms?: string; signMode?: SignMode } }
   | { type: 'sendContract'; id: string }
   /** Without a signature, the property's saved one is used. */
   | { type: 'countersign'; id: string; signature?: string }
@@ -122,6 +124,7 @@ export function useRentals() {
         case 'removeRenterFile': return repos.renters.removeFile(a.id);
         case 'startTenancy': return repos.tenancies.start(a.input);
         case 'endTenancy': return repos.tenancies.end(a.id, a.moveOut);
+        case 'activateTenancy': return repos.tenancies.activate(a.tenancyId);
         case 'addTenant': return addTenant(repos, a);
         case 'updateTerms': return repos.tenancies.updateTerms(a.contractId, a.input);
         case 'setupProperty': return setupProperty(repos, a);
@@ -170,7 +173,7 @@ export function useRentals() {
         case 'saveAccount': return repos.accounts.save(a.propertyId, a.id, a.input);
         case 'removeAccount': return repos.accounts.remove(a.id);
         case 'uploadQr': return repos.accounts.uploadQr(a.propertyId, a.accountId, a.file);
-        case 'createContractText': return repos.contracts.createText(a.contractId, a.propertyId, a.body, a.specialTerms);
+        case 'createContractText': return repos.contracts.createText(a.contractId, a.propertyId, a.body, a.specialTerms, a.signMode);
         case 'updateContractText': return repos.contracts.updateText(a.id, a.changes);
         case 'sendContract': return repos.contracts.send(a.id);
         case 'countersign': return repos.contracts.countersign(a.id, a.signature);
@@ -186,8 +189,11 @@ export function useRentals() {
     onSettled: () => client.invalidateQueries({ queryKey: ['rentals'] }),
   });
   const data = online && userId ? query.data : undefined;
+  // Pending tenancies hold a bed but have no bills yet: kept apart so every bill, payment and deposit figure ignores them.
+  const tenancies = useMemo(() => data?.tenancies.filter((t) => !t.pending) ?? [], [data]);
+  const pendingTenancies = useMemo(() => data?.tenancies.filter((t) => t.pending) ?? [], [data]);
   return {
-    properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
+    properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies, pendingTenancies, myName: data?.myName ?? '',
     bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
     payments: data?.payments ?? [], accounts: data?.accounts ?? [], settlements: data?.settlements ?? [],
     contractTexts: data?.contractTexts ?? [], links: data?.links ?? [], templates: data?.templates ?? {},

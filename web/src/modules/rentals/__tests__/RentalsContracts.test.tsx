@@ -79,7 +79,7 @@ describe('Contract on the tenant sheet', () => {
     expect(preview.getByText(/Special terms: The storage room is not included\./)).toBeInTheDocument();
     fireEvent.click(contract.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createContractText', contractId: 'c-t3', propertyId: 'p',
-      body: body(), specialTerms: 'The storage room is not included.' }));
+      body: body(), specialTerms: 'The storage room is not included.', signMode: 'esign' }));
   });
 
   it('uses the property’s own template', () => {
@@ -90,7 +90,8 @@ describe('Contract on the tenant sheet', () => {
   });
 
   it('sends a draft, makes a link, and copies it for Messenger', async () => {
-    state.contractTexts = [text()];
+    // Sending needs the owner's sign-mode choice.
+    state.contractTexts = [text({ signMode: 'esign' })];
     state.run.mockImplementation(async (a: { type: string }) => (a.type === 'createLink' ? 'tok123' : undefined));
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
@@ -116,7 +117,7 @@ describe('Contract on the tenant sheet', () => {
     fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
     fireEvent.change(contract.getByLabelText('Special terms'), { target: { value: 'No pets.' } });
     fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: body(), specialTerms: 'No pets.' } }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: body(), specialTerms: 'No pets.', signMode: 'esign' } }));
   });
 
   it('countersigns in one tap with the saved signature, and offers no Edit once signed', async () => {

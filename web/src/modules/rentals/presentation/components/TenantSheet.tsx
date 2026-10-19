@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
+import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone, UserCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { addPeriods, centavosToInput, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
@@ -38,7 +39,9 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   contractInfo?: ContractInfo;
 } & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
-  const mine = tenancies.filter((t) => t.renterId === renter.id);
+  // Pending tenancies (waiting for the contract) show only their contract: no rent, bills, payments or deposit yet.
+  const pending = tenancies.filter((t) => t.renterId === renter.id && t.pending && t.moveOut === null);
+  const mine = tenancies.filter((t) => t.renterId === renter.id && !t.pending);
   const active = mine.filter((t) => t.moveOut === null);
   const last = [...mine].sort((a, b) => (b.moveOut ?? '').localeCompare(a.moveOut ?? ''))[0];
   const contracts = active.flatMap((t) => t.contracts.filter((c) => c.status === 'active'));
@@ -56,7 +59,8 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     .filter(({ deposit }) => deposit.state !== 'none');
   const links = contractInfo?.links ?? [];
   const linkOf = (t: RentalTenancy) => links.find((l) => l.tenancyId === t.id);
-  const waiting = active.map((t) => detailsStatus(links, t.id)).find(Boolean);
+  const living = [...pending, ...active];
+  const waiting = living.map((t) => detailsStatus(links, t.id)).find(Boolean) ?? (pending.length ? 'Pending contract' : undefined);
   const contact: [string, string][] = [['Mobile', renter.phone], ['Messenger', renter.facebook], ['Email', renter.email],
     ['Home address', renter.address], ['Emergency', [renter.emergencyName, renter.emergencyPhone].filter(Boolean).join(' · ')],
     ['Living with them', `${renter.occupants} ${renter.occupants === 1 ? 'person' : 'people'}`], ['Notes', renter.notes]];
@@ -68,7 +72,8 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         <div className="min-w-0">
           <SheetTitle className="truncate text-xl">{renter.fullName}</SheetTitle>
           <SheetDescription>
-            {active.length ? active.map((t) => `Lives in ${unitName(t.unitId)} since ${day(t.moveIn)}`).join(' · ')
+            {pending.length && !active.length ? pending.map((t) => `Pending for ${unitName(t.unitId)} from ${day(t.moveIn)}`).join(' · ')
+              : active.length ? active.map((t) => `Lives in ${unitName(t.unitId)} since ${day(t.moveIn)}`).join(' · ')
               : last?.moveOut ? `Moved out of ${unitName(last.unitId)} on ${day(last.moveOut)}` : 'Not renting a room right now'}
           </SheetDescription>
           {waiting && <p className="mt-1.5 w-fit rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">{waiting}</p>}
@@ -85,10 +90,22 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
 
     {/* Every section gets a line above it: same spacing around each line. */}
     <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
-      {canManage && active.map((t) => {
+      {canManage && living.map((t) => {
         const link = linkOf(t);
         return link?.status === 'submitted' && link.submittedDetails
           && <DetailsReview key={`review-${t.id}`} tenancyId={t.id} details={link.submittedDetails} busy={busy} run={run} />;
+      })}
+      {pending.map((t) => {
+        const contract = t.contracts[0];
+        const signedByBoth = contractInfo?.texts.some((x) => x.contractId === contract?.id && x.status === 'countersigned');
+        return <section key={`pending-${t.id}`} aria-label="Contract" className="space-y-3">
+          <h3 className="text-sm font-semibold">Contract{pending.length > 1 && ` · ${unitName(t.unitId)}`}</h3>
+          <p className="text-sm text-muted-foreground">Their bed in {unitName(t.unitId)} is held. They become an active tenant once they sign and you countersign. Their move-in bill is made then.</p>
+          {canManage && signedByBoth && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void run({ type: 'activateTenancy', tenancyId: t.id })
+            .then(() => toast.success(`${renter.fullName} is now an active tenant`), (e: unknown) => toast.error(errorMessage(e)))}>
+            <UserCheck className="h-4 w-4" />Make active tenant</Button>}
+          {contract && contractInfo && <ContractPanel contract={contract} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} />}
+        </section>;
       })}
       {nextDue && <section aria-labelledby="sheet-rent" className="rounded-xl border p-4">
         <div className="flex items-center justify-between">
@@ -148,7 +165,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         {contractInfo && <div className="mt-4"><ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} /></div>}
       </section>)}
 
-      {canManage && active.map((t) => {
+      {canManage && living.map((t) => {
         const link = linkOf(t);
         return link && <TenantLinkPanel key={`link-${t.id}`} link={link} name={renter.fullName} busy={busy} run={run} />;
       })}

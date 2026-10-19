@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DEFAULT_CLAUSES } from '@himan/shared/rentals';
 import { useRentals } from '../presentation/hooks/useRentals';
 
-const calls = vi.hoisted(() => ({ contracts: {} as Record<string, ReturnType<typeof vi.fn>>, links: {} as Record<string, ReturnType<typeof vi.fn>>,
+const calls = vi.hoisted(() => ({ activate: vi.fn(), contracts: {} as Record<string, ReturnType<typeof vi.fn>>, links: {} as Record<string, ReturnType<typeof vi.fn>>,
   settlements: {} as Record<string, ReturnType<typeof vi.fn>> }));
 vi.mock('@auth/index', () => ({ useAuth: () => ({ user: { id: 'u' } }) }));
 vi.mock('@himan/shared/friends', () => ({ FriendRepository: class { getFriends = vi.fn(async () => []); } }));
@@ -15,7 +15,7 @@ vi.mock('../infrastructure', () => {
   return {
     PropertyRepository: class { findAll = vi.fn(async () => [{ id: 'p1', role: 'owner' }, { id: 'p2', role: 'manager' }]); },
     RenterRepository: class { findAll = list(); fileUrl = vi.fn(); },
-    TenancyRepository: class { findAll = vi.fn(async () => [{ id: 't', propertyId: 'p1' }]); },
+    TenancyRepository: class { findAll = vi.fn(async () => [{ id: 't', propertyId: 'p1' }, { id: 'tp', propertyId: 'p1', pending: true }]); activate = calls.activate; },
     BillRepository: class { findAll = list(); findReadings = list(); findUtilityBills = list(); },
     PaymentRepository: class { findAll = list(); proofUrl = vi.fn(); },
     PaymentAccountRepository: class { findAll = list(); qrUrl = vi.fn(); },
@@ -70,7 +70,7 @@ describe('useRentals contracts', () => {
     const { result } = renderHook(() => useRentals(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
     const file = { name: 'scan.pdf', mimeType: 'application/pdf', bytes: new ArrayBuffer(1) };
-    expect(await result.current.run({ type: 'createContractText', contractId: 'c', propertyId: 'p1', body: ['a'], specialTerms: 'x' })).toBe('new-id');
+    expect(await result.current.run({ type: 'createContractText', contractId: 'c', propertyId: 'p1', body: ['a'], specialTerms: 'x', signMode: 'esign' })).toBe('new-id');
     await result.current.run({ type: 'updateContractText', id: 'ct', changes: { specialTerms: 'y' } });
     await result.current.run({ type: 'sendContract', id: 'ct' });
     await result.current.run({ type: 'countersign', id: 'ct', signature: 'data:image/png;base64,A' });
@@ -81,7 +81,7 @@ describe('useRentals contracts', () => {
     await result.current.run({ type: 'revokeLink', tenancyId: 't' });
     await result.current.run({ type: 'reopenLink', tenancyId: 't' });
     const c = calls.contracts;
-    expect(c.createText).toHaveBeenCalledWith('c', 'p1', ['a'], 'x');
+    expect(c.createText).toHaveBeenCalledWith('c', 'p1', ['a'], 'x', 'esign');
     expect(c.updateText).toHaveBeenCalledWith('ct', { specialTerms: 'y' });
     expect(c.send).toHaveBeenCalledWith('ct');
     expect(c.countersign).toHaveBeenCalledWith('ct', 'data:image/png;base64,A');
@@ -119,5 +119,14 @@ describe('useRentals contracts', () => {
     await result.current.run({ type: 'removeSettlementProof', id: 'f' });
     expect(s.removeProof).toHaveBeenCalledWith('f');
     expect(await result.current.settlementProofUrl('f')).toBe('https://signed');
+  });
+
+  it('keeps pending tenancies out of tenancies (billing ignores them) and lists them apart', async () => {
+    const { result } = renderHook(() => useRentals(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.tenancies.map((t) => t.id)).toEqual(['t']);
+    expect(result.current.pendingTenancies.map((t) => t.id)).toEqual(['tp']);
+    await result.current.run({ type: 'activateTenancy', tenancyId: 'tp' });
+    expect(calls.activate).toHaveBeenCalledWith('tp');
   });
 });

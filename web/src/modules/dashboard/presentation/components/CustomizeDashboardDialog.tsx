@@ -1,3 +1,4 @@
+import { FormErrorBanner } from '@core/presentation/components';
 import { useState } from 'react';
 import {
   Button,
@@ -19,11 +20,13 @@ interface CustomizeDashboardDialogProps {
   apps: DashboardApp[];
   hidden: DashboardAppId[];
   saving: boolean;
+  /** Save refusal, shown in a banner at the top of the dialog. */
+  error?: string;
   onSave: (hidden: DashboardAppId[]) => void;
 }
 
 /** Edits a draft of the hidden apps; nothing is saved until Save. */
-const CustomizeForm = ({ apps, hidden, saving, onSave, onCancel }: Omit<CustomizeDashboardDialogProps, 'open' | 'onOpenChange'> & { onCancel: () => void }) => {
+const CustomizeForm = ({ apps, hidden, saving, error, onSave, onCancel }: Omit<CustomizeDashboardDialogProps, 'open' | 'onOpenChange'> & { onCancel: () => void }) => {
   const [draft, setDraft] = useState<DashboardAppId[]>(hidden);
   const shown = (id: DashboardAppId) => !draft.includes(id);
   const toggle = (id: DashboardAppId, show: boolean) =>
@@ -31,6 +34,7 @@ const CustomizeForm = ({ apps, hidden, saving, onSave, onCancel }: Omit<Customiz
 
   return (
     <>
+      <FormErrorBanner message={error} />
       <ul className="-mx-2 max-h-[60dvh] divide-y divide-border overflow-y-auto">
         {apps.map((app) => (
           <li key={app.id} className="flex items-center gap-3 px-2 py-2.5">

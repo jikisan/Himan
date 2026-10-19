@@ -45,6 +45,8 @@ const state = vi.hoisted(() => ({
 vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toasts }));
+const pdfs = vi.hoisted(() => ({ downloadContractPdf: vi.fn() }));
+vi.mock('../presentation/pdf/download', () => pdfs);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -182,6 +184,32 @@ describe('Contract on the tenant sheet', () => {
     expect(contract.getByText(contractStatusLabel('signed', null))).toBeInTheDocument();
     expect(contract.queryByRole('button', { name: 'Countersign' })).not.toBeInTheDocument();
     state.contractTexts = [];
+  });
+
+  it('opens a draft as the paper contract and downloads it as an unsigned copy', async () => {
+    state.contractTexts = [text({ specialTerms: 'No pets.' })];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'View contract' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    const paper = within(dialog.getByRole('article', { name: 'Contract of Lease' }));
+    expect(paper.getByText(/Special terms: No pets\./)).toBeInTheDocument();
+    expect(paper.queryByRole('img')).toBeNull();
+    fireEvent.click(dialog.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(pdfs.downloadContractPdf).toHaveBeenCalledWith(expect.objectContaining({
+      tenantName: 'Carlo Lim', tenantSignature: null, lessorAddress: 'Cebu City', lines: expect.arrayContaining([expect.stringMatching(/Special terms: No pets\./)]) })));
+  });
+
+  it('lets a viewer read the signed contract with both signatures', async () => {
+    state.properties = [{ ...property, role: 'viewer' }];
+    state.contractTexts = [text({ status: 'countersigned', signMode: 'esign', tenantName: 'Carlo Lim', tenantSignature: PNG,
+      tenantSignedAt: '2026-10-09T01:00:00Z', lessorSignature: PNG, lessorSignedAt: '2026-10-09T02:00:00Z' })];
+    const contract = openSheet();
+    expect(contract.getAllByRole('button', { name: 'Download PDF' })).toHaveLength(1);
+    fireEvent.click(contract.getByRole('button', { name: 'View contract' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByRole('img', { name: 'Lessee signature' })).toHaveAttribute('src', PNG);
+    expect(dialog.getByRole('img', { name: 'Lessor signature' })).toHaveAttribute('src', PNG);
+    expect(dialog.getByRole('button', { name: 'Download PDF' })).toBeInTheDocument();
   });
 
   it('lists a tenant who signed on Home', () => {

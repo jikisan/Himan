@@ -9,6 +9,8 @@ import type { RentalsState } from '../pages/RentalsPage';
 import { contractLines, contractPdfData } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
 import { inputClass } from './Field';
+import { ContractPaper } from './ContractPaper';
+import { PaperDialog } from './PaperDialog';
 import { PdfButton } from './PdfButton';
 import { SignaturePad } from './SignaturePad';
 
@@ -79,6 +81,8 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
   const notarize = text.signMode === 'notarize' && !!text.tenantSignedAt;
   // The saved signature is the owner's: other managers draw their own.
   const saved = property.role === 'owner' && !!property.lessorSignature;
+  const pdfData = contractPdfData(text, property, renter.fullName);
+  const downloadPdf = async () => (await import('../pdf/download')).downloadContractPdf(pdfData);
   return <div className="space-y-3">
     <p className="rounded-md bg-muted/50 px-3 py-2 text-sm font-medium" role="status">{contractStatusLabel(text.status, text.signMode)}</p>
     {text.notarizedScanPath && <p className="text-xs text-muted-foreground">Notarized copy attached.</p>}
@@ -117,8 +121,12 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
         <Button className="h-11 sm:h-9" disabled={busy || !drawing} onClick={() => void countersign(drawing!)}>Sign and countersign</Button>
       </div>
     </div>}
-    {text.status === 'countersigned' && <PdfButton className="h-11 sm:h-9"
-      make={async () => (await import('../pdf/download')).downloadContractPdf(contractPdfData(text, property, renter.fullName))}>Download PDF</PdfButton>}
+    {/* A draft or unsigned contract downloads as an unsigned copy. */}
+    <div className="flex flex-wrap gap-2">
+      <PaperDialog label="View contract" title="Contract of lease" description={contractStatusLabel(text.status, text.signMode)} className="h-11 sm:h-9"
+        make={downloadPdf}>{() => <ContractPaper doc={pdfData} />}</PaperDialog>
+      <PdfButton className="h-11 sm:h-9" make={downloadPdf}>Download PDF</PdfButton>
+    </div>
     <ConfirmDialog open={replaceScan} onOpenChange={setReplaceScan} title="Replace the notarized copy?" confirmText="Choose new file"
       description="The copy you attached before is replaced by the new file." onConfirm={() => { replaceConfirmed.current = true; scanInput.current?.click(); }} />
   </div>;

@@ -1744,7 +1744,8 @@ DO $$ BEGIN
   -- A value carrying a placeholder, a line break or another control character could inject text: refused.
   PERFORM pg_temp.refused(format('SELECT public.rental_resolve_lessee(%L, %L, %L)', '["{{lessee_name}} of {{lessee_address}}"]',
     v, 'Pajo'), 'Remove line breaks and braces from the name and address')
-  FROM unnest(ARRAY['{{lessee_address}}', E'Ben\nCruz', E'Ben\tCruz', 'Ben }}', E'Ben\x7f']) v;
+  FROM unnest(ARRAY['{{lessee_address}}', E'Ben\nCruz', E'Ben\tCruz', 'Ben }}', E'Ben\x7f', E'Ben\u0085Cruz', E'Ben\u2028Cruz',
+    E'Pajo\u2029', E'\u202eBen', E'\u2066Pajo', E'Ben\u200e', E'Pajo\ufeff']) v;
   PERFORM pg_temp.refused(format('SELECT public.rental_resolve_lessee(%L, %L, %L)', '["x"]', 'Ben', E'Pajo\r\nCebu'),
     'Remove line breaks and braces from the name and address');
   -- Only spaces are trimmed; the same vector (and hex) is in contracts.domain.test.ts, so both sides hash it identically.

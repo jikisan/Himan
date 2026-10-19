@@ -9,10 +9,11 @@
 
 -- A lessee value with a control character (line breaks included) or "{{" / "}}" could inject text into the signed
 -- contract. Refused where the tenant types them (rental_link_submit_details, rental_sign_in_person) and, defensively,
--- at resolution. Must match unsafeLessee in the shared domain's contracts.ts. (PostgreSQL text can't hold U+0000.)
+-- at resolution: control characters (C0, DEL, C1), Unicode line separators, direction overrides, the BOM and braces.
+-- Must match unsafeLessee in the shared domain's contracts.ts. (PostgreSQL text can't hold U+0000.)
 CREATE FUNCTION public.rental_unsafe_lessee(v text) RETURNS boolean
 LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
-  SELECT coalesce(v, '') ~ '[\x01-\x1f\x7f]|\{\{|\}\}'
+  SELECT coalesce(v, '') ~ '[\x01-\x1f\x7f-\x9f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]|\{\{|\}\}'
 $$;
 
 -- Must match resolveLessee in the shared domain's contracts.ts: plain replacement in every line, values trimmed of

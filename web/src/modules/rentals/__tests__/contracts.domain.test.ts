@@ -166,7 +166,8 @@ describe('lessee placeholders', () => {
   it('refuses a name or address that could inject text into the contract', () => {
     const body = ['{{lessee_name}} of {{lessee_address}}'];
     for (const [name, address] of [['{{lessee_address}}', 'Pajo'], ['Ben\nCruz', 'Pajo'], ['Ben', 'Pajo\tCebu'], ['Ben }}', 'Pajo'],
-      ['Ben', 'Pajo\u007f']]) {
+      ['Ben', 'Pajo\u007f'], ['Ben\u0085Cruz', 'Pajo'], ['Ben\u2028Cruz', 'Pajo'], ['Ben', 'Pajo\u2029'], ['\u202eBen', 'Pajo'],
+      ['Ben', '\u2066Pajo'], ['Ben\u200e', 'Pajo'], ['Ben', 'Pajo\ufeff']]) {
       expect(() => resolveLessee(body, name, address)).toThrow(UNSAFE_LESSEE_MESSAGE);
     }
     const details = { fullName: 'Ben Cruz', phone: '0917', address: 'Pajo', emergencyName: 'Rosa', emergencyPhone: '0918',

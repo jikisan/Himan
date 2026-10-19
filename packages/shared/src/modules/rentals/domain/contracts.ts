@@ -36,7 +36,10 @@ export const ID_PATH = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(pdf|jpe?g|png)$/;
 export const UNSAFE_LESSEE_MESSAGE = 'Remove line breaks and braces from the name and address';
 /** A control character (line breaks included) or `{{`/`}}` in a lessee name or address could inject text into the signed contract.
  * Same rule as the database (`rental_resolve_lessee`, `rental_link_submit_details`, `rental_sign_in_person`). */
-const unsafeLessee = (v: string) => v.includes('{{') || v.includes('}}') || Array.from(v).some((c) => c < ' ' || c === '\x7f');
+// Control characters (C0, DEL, C1), Unicode line/paragraph separators, direction overrides and the BOM could change how the signed
+// text reads, and braces could inject a placeholder. Must match rental_unsafe_lessee in SQL.
+const UNSAFE_CHARS = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]|\{\{|\}\}/;
+const unsafeLessee = (v: string) => UNSAFE_CHARS.test(v);
 
 const required = (message: string, max: number) => z.string().trim().min(1, message).max(max);
 const lesseeValue = (message: string, max: number) => required(message, max).refine((v) => !unsafeLessee(v), UNSAFE_LESSEE_MESSAGE);

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLogin } from '@auth/presentation/hooks';
-import { Button } from '@/components/ui';
+import { Button, Label } from '@/components/ui';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { getCallbackError } from './getCallbackError';
 
 export const LoginPage = () => {
@@ -13,10 +15,17 @@ export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { loading, error, loginWithEmail, loginWithGoogle } = useLogin();
+  const fe = useFieldErrors();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCallbackError(null);
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (!email.trim()) invalid.push(['email', 'Enter your email address']);
+    else if (!/^\S+@\S+\.\S+$/.test(email.trim())) invalid.push(['email', 'Enter a valid email address']);
+    if (!password) invalid.push(['password', 'Enter your password']);
+    if (invalid.length) { fe.failMany(invalid); return; }
     try {
       await loginWithEmail(email, password);
     } catch {
@@ -39,41 +48,40 @@ export const LoginPage = () => {
         Sign in to your account
       </h2>
 
-      {(error || callbackError) && (
-        <div role="alert" className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
-          {error || callbackError}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <FormErrorBanner message={error || callbackError || undefined} />
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="email" required className="block text-foreground mb-2">
             Email address
-          </label>
+          </Label>
           <input
             id="email"
             type="email"
             required
+            {...fe.invalid('email')}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+            onChange={(e) => { setEmail(e.target.value); fe.clear('email'); }}
+            className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/25"
             placeholder="you@example.com"
           />
+          <FieldError id="email" message={fe.errors.email} />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+          <Label htmlFor="password" required className="block text-foreground mb-2">
             Password
-          </label>
+          </Label>
           <input
             id="password"
             type="password"
             required
+            {...fe.invalid('password')}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+            onChange={(e) => { setPassword(e.target.value); fe.clear('password'); }}
+            className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/25"
             placeholder="••••••••"
           />
+          <FieldError id="password" message={fe.errors.password} />
         </div>
 
         <Button

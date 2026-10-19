@@ -126,23 +126,31 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
   const btn = 'h-10 sm:h-8';
   const amount = (centavos: number) => <span className="text-base font-bold tabular-nums">{formatBillPesos(centavos)}</span>;
   const due = (date: string) =>
-    <span className="inline-flex items-center gap-1 text-sm font-semibold"><CalendarClock aria-hidden className="h-4 w-4 text-muted-foreground" />Due {short(date)}</span>;
-  /** One tenant: details on the left (name, room, then the amount and due date that matter), buttons on the right. */
-  const row = (r: MonthRow, { sub, facts, badge, note, actions, label, key, dim }: { sub: ReactNode; facts?: ReactNode; badge?: ReactNode;
-    note?: ReactNode; actions?: ReactNode; label?: string; key?: string; dim?: boolean }) =>
-    <li key={key ?? r.t.id} aria-label={label ?? `${name(r.t)} · ${room(r.t)}`} className={cn('px-4 py-3', dim && 'opacity-70')}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 gap-3">
-          <Initials name={name(r.t)} />
-          <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><p className="font-medium">{name(r.t)}</p>{badge}</div>
-            <p className="text-sm text-muted-foreground">{sub}</p>
-            {facts && <div className="flex flex-wrap items-center gap-x-3 gap-y-1">{facts}</div>}
-            {note && <p className="text-sm italic text-muted-foreground">{note}</p>}
+    <span className="inline-flex items-center gap-1"><CalendarClock aria-hidden className="h-3.5 w-3.5" />Due {short(date)}</span>;
+  /**
+   * One tenant. Left: name (+ kind), then room · SOA number, then small facts. Right: amount over its status, so amounts line up
+   * down the list. Actions are always labelled buttons (older, non-technical users): never icon-only or tap-the-row.
+   */
+  const row = (r: MonthRow, { badge, number, total, status, facts, note, actions, label, key, dim }: {
+    badge?: ReactNode; number?: string; total?: ReactNode; status?: ReactNode; facts?: ReactNode; note?: ReactNode;
+    actions?: ReactNode; label?: string; key?: string; dim?: boolean }) =>
+    <li key={key ?? r.t.id} aria-label={label ?? `${name(r.t)} · ${room(r.t)}`}
+      className={cn('px-4 py-3.5 sm:flex sm:items-center sm:gap-6', dim && 'opacity-70')}>
+      <div className="flex gap-3 sm:min-w-0 sm:flex-1">
+        <Initials name={name(r.t)} />
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><p className="font-medium">{name(r.t)}</p>{badge}</div>
+            {total && <div className="shrink-0 text-right">{total}</div>}
           </div>
+          <p className="text-sm text-muted-foreground">{room(r.t)}
+            {number && <><span aria-hidden> · </span><span className="text-xs tabular-nums text-muted-foreground">{number}</span></>}</p>
+          {(status || facts) && <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">{status}{facts}</div>}
+          {note && <p className="text-xs text-muted-foreground">{note}</p>}
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap justify-end gap-2">{actions}</div>}
       </div>
+      {/* Phone: full width under the row, the labelled buttons share it. Wider: beside the row, right of the amount. */}
+      {actions && <div className="mt-3 flex flex-wrap gap-2 [&>*]:flex-1 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:[&>*]:flex-none">{actions}</div>}
     </li>;
   /** On a move-in SOA: which months' rent its advance covers, and when monthly SOAs start. */
   const advanceNote = (t: RentalTenancy) => {
@@ -151,7 +159,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     if (!first || !start || first.advanceMonths < 1) return undefined;
     const end = addPeriods(start, first.advanceMonths - 1);
     const months = start === end ? periodLabel(start).split(' ')[0] : `${periodLabel(start).split(' ')[0]}–${periodLabel(end)}`;
-    return `Includes ${months} rent as advance. First monthly SOA: ${periodLabel(addPeriods(start, first.advanceMonths))}.`;
+    return `Advance covers ${months} · monthly SOAs from ${periodLabel(addPeriods(start, first.advanceMonths))}`;
   };
 
   return <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -185,8 +193,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
           {hasMonthly && todo.amounts.size > 0 && <Button className="h-11 sm:h-9" onClick={() => setAmountsOpen(true)}>
             <ReceiptText className="h-4 w-4" />Add bill amounts</Button>}
         </div>
-        <ul className="divide-y">{todo.waiting.map((r) => row(r, { sub: room(r.t), facts: due(r.due),
-          badge: <span className={cn(chip, 'bg-amber-500/15 text-amber-800 dark:text-amber-300')}>{r.pending.state === 'needs-reading'
+        <ul className="divide-y">{todo.waiting.map((r) => row(r, { facts: due(r.due),
+          status: <span className={cn(chip, 'bg-amber-500/15 text-amber-800 dark:text-amber-300')}>{r.pending.state === 'needs-reading'
             && r.pending.kinds.every((k) => isMonthly(r.t.unitId, k)) ? 'Needs bill amount' : 'Needs reading'}</span>,
           actions: canManage && <Button variant="outline" size="sm" className={btn}
             onClick={() => setSkipped((s) => new Set(s).add(`${r.t.id}:${period}`))}>Skip utilities this month</Button> }))}</ul>
@@ -198,8 +206,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
           {canManage && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void issue(readyInputs)}>
             Generate all {todo.ready.length} SOA{todo.ready.length === 1 ? '' : 's'} · {formatBillPesos(todo.readyTotal)}</Button>}
         </div>
-        <ul className="divide-y border-t">{todo.ready.map((r) => r.pending.state === 'ready' && row(r, { sub: room(r.t),
-          facts: <>{amount(billTotal(r.pending.lines))}{due(r.due)}</>,
+        <ul className="divide-y border-t">{todo.ready.map((r) => r.pending.state === 'ready' && row(r, {
+          total: amount(billTotal(r.pending.lines)), facts: due(r.due),
           actions: <>
             <Button variant="outline" size="sm" className={btn} onClick={() => onOpenPending(r.t.id, period, r.skip)}>View SOA</Button>
             {canManage && <Button size="sm" className={btn} disabled={busy}
@@ -232,13 +240,12 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         <ul className="divide-y border-t empty:hidden">{shownSoas.map(({ r, bill }) => {
           const cancelled = bill.status === 'void';
           return row(r, { key: bill.id, dim: cancelled, label: `${KIND[bill.kind]} ${bill.number} · ${name(r.t)} · ${room(r.t)}`,
-            sub: room(r.t), note: bill.kind === 'move_in' && !cancelled ? advanceNote(r.t) : undefined,
-            badge: <>
-              {bill.kind !== 'monthly' && <span className={cn(chip, 'bg-primary/10 text-primary')}>{KIND[bill.kind]}</span>}
-              {cancelled && <span className={cn(chip, 'bg-muted text-muted-foreground')}>Cancelled</span>}
-            </>,
-            facts: !cancelled && <>{amount(billTotal(bill.lines))}{!overdue(bill) && due(bill.dueOn)}
-              <BillStateBadge bill={bill} payments={payments} today={today} /></>,
+            number: bill.number, note: bill.kind === 'move_in' && !cancelled ? advanceNote(r.t) : undefined,
+            badge: bill.kind !== 'monthly' && <span className={cn(chip, 'bg-primary/10 text-primary')}>{KIND[bill.kind]}</span>,
+            total: amount(billTotal(bill.lines)),
+            status: cancelled ? <span className={cn(chip, 'bg-muted text-muted-foreground')}>Cancelled</span>
+              : <BillStateBadge bill={bill} payments={payments} today={today} />,
+            facts: !cancelled && !overdue(bill) && due(bill.dueOn),
             actions: <>
               {!cancelled && <Button variant="outline" size="sm" className={btn} aria-label={`Copy ${name(r.t)}’s ${kindOf(bill)} as text`}
                 onClick={() => void copy(bill, r.t)}><Copy className="h-4 w-4" />Copy as text</Button>}

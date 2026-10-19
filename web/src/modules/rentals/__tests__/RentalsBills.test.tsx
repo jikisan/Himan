@@ -122,10 +122,10 @@ describe('Bills view', () => {
     fireEvent.click(row('Ana Reyes').getByRole('button', { name: 'Generate SOA' }));
     await waitFor(() => expect(toasts.warning).toHaveBeenCalledWith('Couldn’t generate the SOA for Ana Reyes. Try again.'));
   });
-  it('shows generated and cancelled SOAs without cluttering rows with the number', () => {
+  it('shows generated and cancelled SOAs, each with its number kept quiet', () => {
     state.bills = [issued('t1'), issued('t2', { id: 'void', status: 'void', number: 'LU-2026-0003' })];
     openBills();
-    expect(row('Juan Dela Cruz').queryByText(/LU-2026-0002/)).not.toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('LU-2026-0002')).toHaveClass('text-xs', 'text-muted-foreground');
     expect(row('Juan Dela Cruz').getByText('₱5,900')).toBeInTheDocument();
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Ready for SOA · 1' })).getByText('Ana Reyes')).toBeInTheDocument();
@@ -289,11 +289,21 @@ describe('Issued bills', () => {
     openBills();
     expect(row('Juan Dela Cruz').queryByRole('button', { name: /^Juan Dela Cruz/ })).not.toBeInTheDocument();
   });
+  it('shows each SOA number quietly beside the room, with labelled buttons to copy and view it', () => {
+    state.bills = [issued('t1')];
+    openBills();
+    const soa = row('Juan Dela Cruz');
+    const number = soa.getByText('LU-2026-0002');
+    expect(number.className).toMatch(/text-muted-foreground/);
+    expect(number.className).toMatch(/text-xs/);
+    expect(soa.getByRole('button', { name: 'Copy Juan Dela Cruz’s monthly SOA as text' })).toHaveTextContent('Copy as text');
+    expect(soa.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' })).toHaveTextContent('View SOA');
+  });
   it('notes on a move-in SOA which months its advance covers', () => {
     state.bills = [issued('t3', { id: 'mi', kind: 'move_in', number: 'LU-2026-0001', period: '2026-11', dueOn: '2026-11-01' })];
     openBills();
     const soa = within(screen.getByRole('listitem', { name: /^Move-in SOA LU-2026-0001/ }));
-    expect(soa.getByText('Includes November rent as advance. First monthly SOA: December 2026.')).toBeInTheDocument();
+    expect(soa.getByText('Advance covers November · monthly SOAs from December 2026')).toBeInTheDocument();
     expect(screen.queryByText(/Paid by advance/)).not.toBeInTheDocument();
   });
   it('flags a cancelled SOA with no replacement while cancelled ones are hidden', () => {

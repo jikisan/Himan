@@ -1695,6 +1695,43 @@ BEGIN
   IF FOUND THEN RAISE EXCEPTION 'A viewer set a sign mode'; END IF;
   PERFORM set_config('request.jwt.claim.sub', v_owner, true);
 END $$;
+-- ── Contract not needed: managers dismiss the contract nudge, viewers and strangers can't ───────────────
+-- Sign House (ab081) from Step E: friend aa002 is a viewer there now.
+SET LOCAL ROLE authenticated;
+DO $$ DECLARE
+  v_house uuid := '00000000-0000-0000-0000-0000000ab081';
+  v_owner text := '00000000-0000-0000-0000-0000000aa001'; v_friend text := '00000000-0000-0000-0000-0000000aa002';
+  v_stranger text := '00000000-0000-0000-0000-0000000aa003';
+  v_t uuid := (SELECT id FROM public.rental_tenancies WHERE renter_id = '00000000-0000-0000-0000-0000000ad081');
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  IF (SELECT contract_not_needed FROM public.rental_tenancies WHERE id = v_t) THEN RAISE EXCEPTION 'contract_not_needed defaults to true'; END IF;
+
+  -- A manager (not the owner) sets and unsets it.
+  UPDATE public.rental_property_members SET role = 'manager' WHERE user_id = v_friend::uuid AND property_id = v_house;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  UPDATE public.rental_tenancies SET contract_not_needed = true WHERE id = v_t;
+  IF NOT FOUND THEN RAISE EXCEPTION 'A manager could not mark the contract not needed'; END IF;
+  UPDATE public.rental_tenancies SET contract_not_needed = false WHERE id = v_t;
+  IF NOT FOUND THEN RAISE EXCEPTION 'A manager could not undo contract not needed'; END IF;
+
+  -- A viewer and a stranger can't.
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  UPDATE public.rental_property_members SET role = 'viewer' WHERE user_id = v_friend::uuid AND property_id = v_house;
+  PERFORM set_config('request.jwt.claim.sub', v_friend, true);
+  UPDATE public.rental_tenancies SET contract_not_needed = true WHERE id = v_t;
+  IF FOUND THEN RAISE EXCEPTION 'A viewer marked the contract not needed'; END IF;
+  PERFORM set_config('request.jwt.claim.sub', v_stranger, true);
+  UPDATE public.rental_tenancies SET contract_not_needed = true WHERE id = v_t;
+  IF FOUND THEN RAISE EXCEPTION 'A stranger marked the contract not needed'; END IF;
+
+  -- The owner can; NULL is refused.
+  PERFORM set_config('request.jwt.claim.sub', v_owner, true);
+  UPDATE public.rental_tenancies SET contract_not_needed = true WHERE id = v_t;
+  IF NOT FOUND THEN RAISE EXCEPTION 'The owner could not mark the contract not needed'; END IF;
+  PERFORM pg_temp.refused(format('UPDATE public.rental_tenancies SET contract_not_needed = NULL WHERE id = %L', v_t), '23502');
+  IF NOT (SELECT contract_not_needed FROM public.rental_tenancies WHERE id = v_t) THEN RAISE EXCEPTION 'contract_not_needed was not kept'; END IF;
+END $$;
 RESET ROLE;
 DO $$ BEGIN
   IF (SELECT public FROM storage.buckets WHERE id = 'rental-files') THEN RAISE EXCEPTION 'Rental bucket is public'; END IF;

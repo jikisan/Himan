@@ -188,6 +188,6 @@ Plan: [[2026-10-18-rentals-settlement]]. Migration `20261018300000_add_rental_se
 
 ## Deploy order for the whole payments → settlement run (2026-10-19)
 Applied to hosted: `20261018100000`, `20261018150000`, `20261018200000`, `20261018300000` (all additive).
-**Not applied:** `20261018210000_lock_rental_lessor_signature.sql` — apply it only after the web build from these branches is live
-(the live build runs `select('*')` on `rental_properties`). Branches are stacked: payments → pdfs → contracts → settlement.
+Also applied: `20261018210000_lock_rental_lessor_signature.sql`, ahead of the deploy. **Until the web build from these branches is live,
+the old build's Rentals page fails** (it runs `select('*')` on `rental_properties`; `lessor_signature` is now owner-only). To undo: `GRANT SELECT (lessor_signature) ON public.rental_properties TO authenticated`. Branches are stacked: payments → pdfs → contracts → settlement.
 

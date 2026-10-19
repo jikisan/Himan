@@ -5,6 +5,25 @@ import { DEFAULT_CLAUSES } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
+/** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
+const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
+/** A failed submit focuses the field, marks it invalid and shows the message under it, before (never after) the buttons. */
+function expectFieldError(id: string, message: string, button: HTMLElement) {
+  const field = document.getElementById(id);
+  expect(document.activeElement).toBe(field);
+  expect(field).toHaveAttribute('aria-invalid', 'true');
+  expect(field).toHaveAttribute('aria-describedby', `${id}-error`);
+  const error = document.getElementById(`${id}-error`)!;
+  expect(error).toHaveTextContent(message);
+  expect(precedes(error, button)).toBe(true);
+}
+/** The label shows the hidden `*` and the input itself is required. */
+function expectRequired(id: string) {
+  expect(document.querySelector(`label[for="${id}"] span[aria-hidden="true"]`)).toHaveTextContent('*');
+  const field = document.getElementById(id)!;
+  expect(field.hasAttribute('required') || field.getAttribute('aria-required') === 'true').toBe(true);
+}
+
 const unit = (id: string, name: string): RentalUnit => ({ id, propertyId: 'p', name, kind: 'room', capacity: 1, electricMode: 'none',
   electricAmountCentavos: 0, waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 350000, extraPersonRentCentavos: 0 });
 const property: RentalProperty = {
@@ -66,7 +85,7 @@ const openAdd = () => {
 };
 const toPay = (name = 'Elle Tan') => {
   openAdd();
-  fireEvent.change(screen.getByLabelText('Full name'), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: name } });
   fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
 };
 const steps = () => within(screen.getByRole('list', { name: 'Move-in steps' })).getAllByRole('listitem');
@@ -94,13 +113,13 @@ describe('Move-in flow', () => {
     expect(bill.getByText('Advance · 1 month').nextElementSibling).toHaveTextContent('₱3,500.00');
     expect(bill.getByText('Deposit').nextElementSibling).toHaveTextContent('₱3,500.00');
     expect(bill.getByText('Total').nextElementSibling).toHaveTextContent('₱7,000.00');
-    expect(screen.getByLabelText('Amount')).toHaveValue('7000.00');
+    expect(screen.getByLabelText(/^Amount/)).toHaveValue('7000.00');
   });
 
   it('charges the days before the first due date, like the database', () => {
     openAdd();
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
-    fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-10-15' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Move-in date/), { target: { value: '2026-10-15' } });
     fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
     const bill = within(screen.getByRole('region', { name: 'Move-in bill' }));
@@ -110,15 +129,19 @@ describe('Move-in flow', () => {
 
   it('still checks step 1 before going on', async () => {
     openAdd();
-    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s name');
+    const next = screen.getByRole('button', { name: 'Next: payment' });
+    fireEvent.click(next);
+    expectFieldError('add-fullName', 'Enter the tenant’s name', next);
     expect(current()).toBe('1Add tenant');
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle' } });
+    expect(document.getElementById('add-fullName-error')).toBeNull();
+    expect(document.getElementById('add-fullName')).not.toHaveAttribute('aria-invalid');
   });
 
   it('records a partial payment and adds the tenant in one go, then offers the receipt and the contract', async () => {
     toPay();
-    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '5,000' } });
-    fireEvent.change(screen.getByLabelText('How they paid'), { target: { value: 'cash' } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '5,000' } });
+    fireEvent.change(screen.getByLabelText(/^How they paid/), { target: { value: 'cash' } });
     fireEvent.click(screen.getByRole('button', { name: 'Record payment and add tenant' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn', propertyId: 'p', unitId: 'u1', renterId: null,
       renter: expect.objectContaining({ fullName: 'Elle Tan', phone: '' }), moveIn: '2026-10-10',
@@ -149,6 +172,23 @@ describe('Move-in flow', () => {
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn', renterId: 'r4', renter: null })));
   });
 
+  it('marks amount, date and method as required and points at a bad payment field', async () => {
+    toPay();
+    ['pay-amount', 'pay-date', 'pay-method'].forEach(expectRequired);
+    expect(document.querySelector('label[for="pay-reference"] span[aria-hidden="true"]')).toBeNull();
+    const submit = screen.getByRole('button', { name: 'Record payment and add tenant' });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: 'lots' } });
+    fireEvent.click(submit);
+    await waitFor(() => expectFieldError('pay-amount', 'Enter an amount like 10,000 or 1,500.50', submit));
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '5,000' } });
+    expect(document.getElementById('pay-amount-error')).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^Date paid/), { target: { value: '2026-12-01' } });
+    fireEvent.click(submit);
+    await waitFor(() => expectFieldError('pay-date', 'The payment date can’t be in the future', submit));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(state.run).not.toHaveBeenCalled();
+  });
+
   it('warns about a reference no. already used', () => {
     toPay();
     fireEvent.change(screen.getByLabelText(/Reference no/), { target: { value: 'gc-123' } });
@@ -159,7 +199,11 @@ describe('Move-in flow', () => {
     state.run.mockRejectedValue(new Error('This room is full. Move someone out first, or add a bed.'));
     toPay();
     fireEvent.click(screen.getByRole('button', { name: 'Record payment and add tenant' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('This room is full');
+    const banner = await screen.findByRole('alert');
+    expect(banner).toHaveTextContent('This room is full');
+    expect(banner).toHaveAttribute('data-form-error');
+    // At the top of the form, above the fields and the buttons.
+    expect(precedes(banner, screen.getByLabelText(/^Amount/))).toBe(true);
     expect(current()).toMatch(/Pay/);
   });
 

@@ -8,8 +8,9 @@ import { DEFAULT_CLAUSES, formatBillPesos, formatPesos, proratedRent, receiptDoc
 import type { ReceiptContext, RentalPayment, RentalProperty, RentalUnit, Renter } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 import type { RentalsState } from '../pages/RentalsPage';
-import { errorMessage } from '../utils/errorMessage';
-import { paymentDraft, readPayment } from '../utils/payment';
+import { paymentDraft, readPayment, showPaymentError } from '../utils/payment';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 import { AddTenantForm } from './AddTenantForm';
 import type { MoveInDraft } from './AddTenantForm';
 import { ContractPanel } from './ContractPanel';
@@ -43,7 +44,7 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
   const [draft, setDraft] = useState<MoveInDraft | null>(null);
   const [pay, setPay] = useState(() => paymentDraft(0));
   const [saved, setSaved] = useState<Saved | null>(null);
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
   const [discarding, setDiscarding] = useState(false);
   const close = () => (saved ? onClose() : setDiscarding(true));
   const nameOf = (tenancyId: string) =>
@@ -59,13 +60,13 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
 
   const save = async (withPayment: boolean) => {
     if (!draft) return;
-    setError('');
+    fe.clear();
     try {
       const paid = withPayment ? await readPayment(pay) : null;
       const result = await run({ ...draft, payment: paid?.input ?? null, proofs: paid?.proofs ?? [] }) as Saved & { warnings: string[] };
       result.warnings.forEach((w) => toast.warning(w));
       setSaved(result);
-    } catch (e) { setError(errorMessage(e)); }
+    } catch (e) { showPaymentError(fe, e); }
   };
 
   return <Dialog open onOpenChange={(open) => !open && close()}>
@@ -116,11 +117,11 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
             <Button className="h-11 sm:h-9" onClick={() => setStep(3)}>Next: contract</Button>
           </div>
         </div> : <form noValidate className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save(true); }}>
+          <FormErrorBanner message={fe.formError} />
           <p className="text-sm">Record what {name.split(' ')[0] || 'they'} paid now. A part is fine; the rest stays on the bill.</p>
           <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-            <PaymentFields value={pay} onChange={setPay} owed={total} propertyId={property.id} payments={payments} nameOf={nameOf} />
+            <PaymentFields value={pay} onChange={setPay} owed={total} propertyId={property.id} payments={payments} nameOf={nameOf} fe={fe} />
           </fieldset>
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="sticky bottom-0 z-10 -mx-6 flex flex-col-reverse gap-2 border-t bg-card px-6 py-4 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void save(false)}>
               Add without payment (pay later)</Button>

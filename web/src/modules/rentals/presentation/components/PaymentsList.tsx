@@ -11,6 +11,8 @@ import { Field, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 import { METHOD, billName } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 import { PaperDialog } from './PaperDialog';
 import { PdfButton } from './PdfButton';
 import { ReceiptPaper } from './ReceiptPaper';
@@ -120,23 +122,24 @@ function VoidDialog({ payment, busy, onVoid, onClose }: {
   payment: RentalPayment | null; busy: boolean; onVoid(reason: string): Promise<void>; onClose(): void;
 }) {
   const [reason, setReason] = useState('');
-  const [error, setError] = useState('');
-  const close = () => { setReason(''); setError(''); onClose(); };
+  const fe = useFieldErrors();
+  const close = () => { setReason(''); fe.clear(); onClose(); };
   return <Dialog open={!!payment} onOpenChange={(open) => !open && close()}>
     <DialogContent>
       <form noValidate className="grid gap-4" onSubmit={async (event) => {
         event.preventDefault();
-        if (!reason.trim()) { setError('Say why you’re voiding this payment'); return; }
-        try { await onVoid(reason.trim()); setReason(''); setError(''); } catch (e) { setError(errorMessage(e)); }
+        fe.clear();
+        if (!reason.trim()) { fe.fail('void-reason', 'Say why you’re voiding this payment'); return; }
+        try { await onVoid(reason.trim()); setReason(''); } catch (e) { fe.setFormError(errorMessage(e)); }
       }}>
         <DialogHeader><DialogTitle>Void this payment?</DialogTitle>
           <DialogDescription>{payment && `${formatBillPesos(payment.amountCentavos)} on ${day(payment.paidOn)}. `}
             The record stays, marked voided. The bills it paid go back to unpaid.</DialogDescription></DialogHeader>
-        <Field id="void-reason" label="Reason">
-          <textarea id="void-reason" rows={2} maxLength={300} className={`${inputClass} h-auto py-2`} value={reason} placeholder="e.g. Transfer bounced"
-            onChange={(e) => { setReason(e.target.value); setError(''); }} />
+        <FormErrorBanner message={fe.formError} />
+        <Field id="void-reason" label="Reason" required error={fe.errors['void-reason']}>
+          <textarea id="void-reason" required {...fe.invalid('void-reason')} rows={2} maxLength={300} className={`${inputClass} h-auto py-2`} value={reason}
+            placeholder="e.g. Transfer bounced" onChange={(e) => { setReason(e.target.value); fe.clear('void-reason'); }} />
         </Field>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={close}>Keep payment</Button>
           <Button type="submit" variant="destructive" className="h-11 sm:h-9" disabled={busy}>Void payment</Button>

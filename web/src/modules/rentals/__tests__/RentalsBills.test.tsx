@@ -55,6 +55,23 @@ const openBills = () => {
   render(<MemoryRouter><RentalsPage /></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
 };
+/** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
+const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
+/** A failed submit focuses the field, marks it invalid and shows the message under it, before (never after) the buttons. */
+function expectFieldError(field: HTMLElement, message: string, button: HTMLElement) {
+  expect(document.activeElement).toBe(field);
+  expect(field).toHaveAttribute('aria-invalid', 'true');
+  expect(field).toHaveAttribute('aria-describedby', `${field.id}-error`);
+  const error = document.getElementById(`${field.id}-error`)!;
+  expect(error).toHaveTextContent(message);
+  expect(precedes(error, button)).toBe(true);
+}
+const banner = async (message: string) => {
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent(message);
+  expect(alert).toHaveAttribute('data-form-error');
+  return alert;
+};
 const showCancelled = () => fireEvent.click(screen.getByRole('button', { name: /^Cancelled \d/ }));
 const row = (name: string) => within(screen.getByRole('listitem', { name: new RegExp(name) }));
 
@@ -142,7 +159,7 @@ describe('Meter readings', () => {
     expect(screen.getByText('Last: 1,200 on Oct 15')).toBeInTheDocument();
     fireEvent.change(input(), { target: { value: '1350' } });
     expect(screen.getByText('Used 150 kWh → ₱2,400')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Date you read them'), { target: { value: '2026-11-09' } });
+    fireEvent.change(screen.getByLabelText(/^Date you read them/), { target: { value: '2026-11-09' } });
     save();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveReadings', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', readOn: '2026-11-09', value: 1350, isReset: false }] }));
@@ -153,12 +170,30 @@ describe('Meter readings', () => {
     fireEvent.change(input(), { target: { value: '1100' } });
     expect(screen.getByText('Lower than 1,200 on Oct 15. Tick “Meter was reset or replaced” if it was.')).toBeInTheDocument();
     save();
+    expectFieldError(input(), 'Lower than 1,200 on Oct 15. Tick “Meter was reset or replaced” if it was.',
+      screen.getByRole('button', { name: /^Save (readings|\d+ reading)/ }));
+    expect(screen.getAllByText(/^Lower than 1,200/)).toHaveLength(1);
     expect(state.run).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Meter was reset or replaced' }));
     state.run.mockResolvedValue([]);
     save();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveReadings', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', readOn: '2026-11-10', value: 1100, isReset: true }] }));
+  });
+  it('marks the reading date as required and shows a refused save at the top', async () => {
+    openAdd();
+    const date = screen.getByLabelText(/^Date you read them/);
+    expect(date).toBeRequired();
+    expect(document.querySelector(`label[for="${date.id}"] span[aria-hidden="true"]`)).toHaveTextContent('*');
+    fireEvent.change(input(), { target: { value: '1350.123' } });
+    save();
+    expectFieldError(input(), 'Use at most 2 decimals', screen.getByRole('button', { name: /^Save \d+ reading/ }));
+    fireEvent.change(input(), { target: { value: '1350' } });
+    expect(input()).not.toHaveAttribute('aria-invalid');
+    state.run.mockRejectedValue(new Error('A reading for that day is on an SOA'));
+    save();
+    const alert = await banner('A reading for that day is on an SOA');
+    expect(precedes(alert, date)).toBe(true);
   });
   it('replaces a reading made earlier the same day, comparing with the one before', async () => {
     state.run.mockResolvedValue([]);
@@ -203,7 +238,13 @@ describe('Meter readings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Meters' }));
     fireEvent.click(screen.getByRole('button', { name: 'Show Room 1 electricity history' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit Nov 5 reading' }));
-    fireEvent.change(screen.getByLabelText('New value for Nov 5'), { target: { value: '1310' } });
+    const value = screen.getByLabelText('New value for Nov 5');
+    expect(value).toBeRequired();
+    fireEvent.change(value, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expectFieldError(value, 'Type the number on the meter', screen.getByRole('button', { name: 'Save' })));
+    fireEvent.change(value, { target: { value: '1310' } });
+    expect(value).not.toHaveAttribute('aria-invalid');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveReadings', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', readOn: '2026-11-05', value: 1310, isReset: false }] }));
@@ -421,6 +462,28 @@ describe('Statement and bill sheet', () => {
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateBillLines', id: 'b-t1', lines: [
       { ...issued('t1').lines[0], amount: 300000 }, issued('t1').lines[1], { kind: 'other', label: 'Discount', amount: -50000 }] }));
   });
+  it('points at a bad amount or a half-filled extra line, and shows a refused save at the top', async () => {
+    const sheet = openJuanBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Edit SOA' }));
+    const rent = sheet.getByRole('textbox', { name: 'Rent (Nov 15 – Dec 14) amount' });
+    const save = sheet.getByRole('button', { name: 'Save SOA' });
+    fireEvent.change(rent, { target: { value: 'abc' } });
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(rent, 'Enter an amount like 10,000 or 1,500.50', save));
+    fireEvent.change(rent, { target: { value: '3,000' } });
+    expect(rent).not.toHaveAttribute('aria-invalid');
+    fireEvent.click(sheet.getByRole('button', { name: 'Add other charge' }));
+    fireEvent.change(sheet.getByRole('textbox', { name: 'Other charge amount' }), { target: { value: '100' } });
+    const name = sheet.getByRole('textbox', { name: 'Other charge name' });
+    expect(name).toBeRequired();
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(name, 'Enter a name and amount for each extra line', save));
+    fireEvent.change(name, { target: { value: 'Fee' } });
+    state.run.mockRejectedValue(new Error('This SOA was cancelled'));
+    fireEvent.click(save);
+    const alert = await banner('This SOA was cancelled');
+    expect(precedes(alert, rent)).toBe(true);
+  });
   it('keeps meter lines read-only while editing', () => {
     const sheet = openJuanBill();
     fireEvent.click(sheet.getByRole('button', { name: 'Edit SOA' }));
@@ -478,6 +541,23 @@ describe('Electricity billed by the month’s bill amount', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Save amounts' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUtilityBills', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', period: '2026-11', amountCentavos: 234500 }] }));
+  });
+  it('points at a bad bill amount and shows a refused save at the top', async () => {
+    openBills();
+    fireEvent.click(within(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).getByRole('button', { name: 'Add bill amounts' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'November 2026 bill amounts' }));
+    const amount = dialog.getByLabelText('Room 1 · Electricity');
+    const save = dialog.getByRole('button', { name: 'Save amounts' });
+    fireEvent.change(amount, { target: { value: 'x' } });
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(amount, 'Enter an amount like 10,000 or 1,500.50', save));
+    expect(dialog.queryByRole('alert')).toBeNull();
+    fireEvent.change(amount, { target: { value: '2,345' } });
+    expect(amount).not.toHaveAttribute('aria-invalid');
+    state.run.mockRejectedValue(new Error('Not allowed'));
+    fireEvent.click(save);
+    const alert = await banner('Not allowed');
+    expect(precedes(alert, amount)).toBe(true);
   });
   it('puts the month’s amount on the SOA', async () => {
     state.utilityBills = [{ id: 'ub', propertyId: 'p', unitId: U1, kind: 'electric', period: '2026-11', amountCentavos: 234500 }];

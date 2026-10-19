@@ -56,6 +56,25 @@ beforeEach(() => {
   state.run.mockResolvedValue({ id: 's1', failed: [] });
 });
 const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+
+/** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
+const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
+/** A failed submit focuses the field, marks it invalid and shows the message under it, before (never after) the buttons. */
+function expectFieldError(id: string, message: string, button: HTMLElement) {
+  const field = document.getElementById(id);
+  expect(document.activeElement).toBe(field);
+  expect(field).toHaveAttribute('aria-invalid', 'true');
+  expect(field).toHaveAttribute('aria-describedby', `${id}-error`);
+  const error = document.getElementById(`${id}-error`)!;
+  expect(error).toHaveTextContent(message);
+  expect(precedes(error, button)).toBe(true);
+}
+/** The label shows the hidden `*` and the input itself is required. */
+function expectRequired(id: string) {
+  expect(document.querySelector(`label[for="${id}"] span[aria-hidden="true"]`)).toHaveTextContent('*');
+  const field = document.getElementById(id)!;
+  expect(field.hasAttribute('required') || field.getAttribute('aria-required') === 'true').toBe(true);
+}
 const openFromHome = () => {
   page();
   fireEvent.click(screen.getByRole('button', { name: 'Settle Juan Dela Cruz’s deposit' }));
@@ -99,7 +118,8 @@ describe('Settling a deposit', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Add Cleaning' }));
     fireEvent.change(dialog.getByRole('textbox', { name: 'Amount for Cleaning' }), { target: { value: '500' } });
     expect(dialog.getByText('Refund to tenant').nextElementSibling).toHaveTextContent('₱7,500');
-    expect(dialog.getByLabelText('Refund date')).toHaveValue('2026-11-10');
+    expect(dialog.getByLabelText(/^Refund date/)).toHaveValue('2026-11-10');
+    ['settle-date', 'settle-method'].forEach(expectRequired);
     fireEvent.change(dialog.getByRole('combobox', { name: 'How you refunded' }), { target: { value: 'bank' } });
     fireEvent.change(dialog.getByRole('textbox', { name: 'Reference no.' }), { target: { value: 'BDO-1' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save settlement' }));
@@ -115,11 +135,20 @@ describe('Settling a deposit', () => {
     const dialog = openFromHome();
     fireEvent.click(dialog.getByRole('checkbox', { name: 'Keep the whole deposit (early termination)' }));
     expect(dialog.getByText('Refund to tenant').nextElementSibling).toHaveTextContent('₱0');
-    expect(dialog.queryByLabelText('Refund date')).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText(/^Refund date/)).not.toBeInTheDocument();
     fireEvent.click(dialog.getByRole('button', { name: 'Save settlement' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Yes, settle deposit' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({
       forfeit: true, refundedOn: null, refundMethod: null }) })));
+  });
+
+  it('points at a refund date in the future', () => {
+    const dialog = openFromHome();
+    fireEvent.change(dialog.getByLabelText(/^Refund date/), { target: { value: '2026-12-01' } });
+    const save = dialog.getByRole('button', { name: 'Save settlement' });
+    fireEvent.click(save);
+    expectFieldError('settle-date', 'The refund date can’t be in the future', save);
+    expect(state.run).not.toHaveBeenCalled();
   });
 
   it('shows what the tenant still owes when deductions exceed the deposit', () => {
@@ -127,7 +156,7 @@ describe('Settling a deposit', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Add Damage' }));
     fireEvent.change(dialog.getByRole('textbox', { name: 'Amount for Damage' }), { target: { value: '9,000' } });
     expect(dialog.getByText('Tenant still owes').nextElementSibling).toHaveTextContent('₱1,000');
-    expect(dialog.queryByLabelText('Refund date')).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText(/^Refund date/)).not.toBeInTheDocument();
   });
 
   it('adds the tenant credit to the refund', () => {
@@ -145,13 +174,20 @@ describe('Settling a deposit', () => {
     const dialog = openFromHome();
     fireEvent.click(dialog.getByRole('button', { name: 'Add Other' }));
     fireEvent.change(dialog.getByRole('textbox', { name: 'Label for Other' }), { target: { value: '' } });
-    fireEvent.click(dialog.getByRole('button', { name: 'Save settlement' }));
-    expect(dialog.getByRole('alert')).toHaveTextContent('Add a label and an amount for each deduction');
+    const label = dialog.getByRole('textbox', { name: 'Label for Other' });
+    expect(label).toBeRequired();
+    const save = dialog.getByRole('button', { name: 'Save settlement' });
+    fireEvent.click(save);
+    expectFieldError(label.id, 'Add a label and an amount for each deduction', save);
+    expect(dialog.queryByRole('alert')).toBeNull();
+    fireEvent.change(label, { target: { value: 'Key' } });
+    expect(document.getElementById(`${label.id}-error`)).toBeNull();
     fireEvent.click(dialog.getByRole('button', { name: /Remove/ }));
     state.run.mockRejectedValue(new Error('This deposit is already settled'));
     fireEvent.click(dialog.getByRole('button', { name: 'Save settlement' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Yes, settle deposit' }));
     await waitFor(() => expect(dialog.getByRole('alert')).toHaveTextContent('This deposit is already settled'));
+    expect(precedes(dialog.getByRole('alert'), dialog.getByText('Deposit held'))).toBe(true);
   });
 });
 

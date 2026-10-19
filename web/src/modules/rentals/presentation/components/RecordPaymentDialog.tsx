@@ -6,8 +6,9 @@ import type { PaymentInput, RentalBill, RentalPayment } from '@himan/shared/rent
 import { Field, inputClass } from './Field';
 import { PaymentFields } from './PaymentFields';
 import { billName } from '../utils/billingMonth';
-import { errorMessage } from '../utils/errorMessage';
-import { paymentDraft, readPayment } from '../utils/payment';
+import { paymentDraft, readPayment, showPaymentError } from '../utils/payment';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 import type { Proof } from '../utils/payment';
 
 /** "Record payment" for one tenant; amount starts at what they still owe. `billId` pre-picks the bill to pay first. */
@@ -32,30 +33,30 @@ function PaymentForm({ tenancyId, billId: startBill, name, nameOf, propertyId, b
     .sort((a, b) => a.dueOn.localeCompare(b.dueOn));
   const [draft, setDraft] = useState(() => paymentDraft(owed));
   const [billId, setBillId] = useState(startBill && unpaid.some((b) => b.id === startBill) ? startBill : '');
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
 
   return <form noValidate className="grid gap-4" onSubmit={async (event) => {
     event.preventDefault();
+    fe.clear();
     try {
       const { input, proofs } = await readPayment(draft, billId || null);
-      setError('');
       await onSave(input, proofs);
-    } catch (failure) { setError(errorMessage(failure)); }
+    } catch (failure) { showPaymentError(fe, failure); }
   }}>
     <DialogHeader><DialogTitle>Record payment</DialogTitle>
       <DialogDescription>Money received from {name}. {owed > 0 ? `They owe ${formatBillPesos(owed)}.` : 'They owe nothing right now.'}</DialogDescription>
     </DialogHeader>
+    <FormErrorBanner message={fe.formError} />
     <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-      <PaymentFields value={draft} onChange={setDraft} owed={owed} propertyId={propertyId} payments={payments} nameOf={nameOf}>
-        {unpaid.length > 0 && <Field id="pay-bill" label="Pay this bill first" className="sm:col-span-2">
-          <select id="pay-bill" className={inputClass} value={billId} onChange={(e) => setBillId(e.target.value)}>
+      <PaymentFields value={draft} onChange={setDraft} owed={owed} propertyId={propertyId} payments={payments} nameOf={nameOf} fe={fe}>
+        {unpaid.length > 0 && <Field id="pay-bill" label="Pay this bill first" className="sm:col-span-2" error={fe.errors['pay-bill']}>
+          <select id="pay-bill" {...fe.invalid('pay-bill')} className={inputClass} value={billId} onChange={(e) => { setBillId(e.target.value); fe.clear('pay-bill'); }}>
             <option value="">Oldest unpaid bill first</option>
             {unpaid.map((b) => <option key={b.id} value={b.id}>{billName(b)} · {formatBillPesos(billBalance(b, payments))} left</option>)}
           </select>
         </Field>}
       </PaymentFields>
     </fieldset>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
       <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={onClose}>Cancel</Button>
       <Button type="submit" className="h-11 sm:h-9" disabled={busy}>Save payment</Button>

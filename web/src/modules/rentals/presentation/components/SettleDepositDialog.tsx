@@ -14,10 +14,16 @@ import { PdfButton } from './PdfButton';
 import { METHOD } from '../utils/billingMonth';
 import { errorMessage } from '../utils/errorMessage';
 import { cn } from '@core/presentation/utils';
+import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 
 const PRESETS = ['Cleaning', 'Damage', 'Other'];
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
 type Row = { name: string; label: string; amount: string };
+const FIELD_ID: Record<string, string> = { refundedOn: 'settle-date', refundMethod: 'settle-method', refundReference: 'settle-reference', notes: 'settle-notes' };
+/** Input id of a schema path: `lines.<i>.<label|amount>` is that deduction's box; null (e.g. too many lines) goes to the banner. */
+const fieldId = (path: PropertyKey[]) => (path[0] === 'lines' ? (path.length > 2 ? `settle-line-${String(path[1])}-${String(path[2])}` : null)
+  : FIELD_ID[String(path[0])] ?? null);
 
 /**
  * Settling a moved-out tenant's deposit (managers), or the settled summary (everyone). The figures shown before saving
@@ -51,14 +57,17 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCe
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [proofs, setProofs] = useState<File[]>([]);
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
   const [confirming, setConfirming] = useState<SettlementInput | null>(null);
   const [saved, setSaved] = useState(false);
   const amountOf = (text: string) => { try { return text.trim() ? parsePesos(text) : 0; } catch { return 0; } };
   const preview = settlementPreview({ depositCentavos, unpaidBillsCentavos: unpaidCentavos, creditCentavos, forfeit,
     lines: rows.map((r) => ({ label: r.label, amount: amountOf(r.amount) })) });
   const refunding = preview.refundCentavos > 0;
-  const edit = (i: number, change: Partial<Row>) => { setRows((list) => list.map((r, j) => j === i ? { ...r, ...change } : r)); setError(''); };
+  const edit = (i: number, change: Partial<Row>) => {
+    setRows((list) => list.map((r, j) => j === i ? { ...r, ...change } : r));
+    Object.keys(change).forEach((k) => fe.clear(`settle-line-${i}-${k}`));
+  };
   const add = (preset: string) => setRows((list) => {
     const n = list.filter((r) => r.name.split(' ')[0] === preset).length;
     return [...list, { name: n ? `${preset} ${n + 1}` : preset, label: preset, amount: '' }];
@@ -73,21 +82,30 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCe
       toast.success('Deposit settled');
       if (failed.length) toast.warning(`Couldn’t attach ${failed.join(', ')}. Add it again from the settlement.`);
       setSaved(true);
-    } catch (failure) { setError(errorMessage(failure)); setConfirming(null); }
+    } catch (failure) { fe.setFormError(errorMessage(failure)); setConfirming(null); }
   };
 
   return <form noValidate className="grid gap-4" onSubmit={(event) => {
     event.preventDefault();
-    try {
-      const result = settlementSchema.safeParse({ lines: rows.map((r) => ({ label: r.label, amount: r.amount.trim() ? parsePesos(r.amount) : 0 })), forfeit,
-        refundedOn: refunding ? refundedOn : null, refundMethod: refunding ? method : null, refundReference: refunding ? reference : '', notes });
-      if (!result.success) { setError(result.error.issues[0].message); return; }
-      if (result.data.refundedOn && result.data.refundedOn > today) { setError('The refund date can’t be in the future'); return; }
-      if (refunding) for (const f of proofs) validateRentalFile(f.name, f.type, f.size);
-      setError('');
-      setConfirming({ ...result.data, refundReference: refunding ? result.data.refundReference : '' });
-    } catch (failure) { setError(errorMessage(failure)); }
+    fe.clear();
+    // An amount that isn't a number keeps that message rather than the schema's.
+    const failed: [string, string][] = [];
+    const lines = rows.map((r, i) => {
+      try { return { label: r.label, amount: r.amount.trim() ? parsePesos(r.amount) : 0 }; }
+      catch (e) { failed.push([`settle-line-${i}-amount`, errorMessage(e)]); return { label: r.label, amount: 1 }; }
+    });
+    const result = settlementSchema.safeParse({ lines, forfeit,
+      refundedOn: refunding ? refundedOn : null, refundMethod: refunding ? method : null, refundReference: refunding ? reference : '', notes });
+    if (!result.success) {
+      failed.push(...zodFieldErrors(result.error, fieldId).filter(([id]) => !failed.some(([f]) => f === id)));
+      if (!failed.length) { fe.setFormError(result.error.issues[0].message); return; }
+    } else if (result.data.refundedOn && result.data.refundedOn > today) failed.push(['settle-date', 'The refund date can’t be in the future']);
+    if (!result.success || failed.length) { fe.failMany(failed); return; }
+    try { if (refunding) for (const f of proofs) validateRentalFile(f.name, f.type, f.size); }
+    catch (failure) { fe.fail('settle-proofs', errorMessage(failure)); return; }
+    setConfirming({ ...result.data, refundReference: refunding ? result.data.refundReference : '' });
   }}>
+    <FormErrorBanner message={fe.formError} />
     <fieldset disabled={busy || !!confirming} className="grid gap-4">
       <dl className="divide-y rounded-lg border text-sm">
         <Line label="Deposit held" value={formatBillPesos(depositCentavos)} strong />
@@ -101,13 +119,17 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCe
 
       <section aria-label="Other deductions" className="space-y-2">
         <h3 className="text-sm font-semibold">Other deductions</h3>
-        {rows.map((r, i) => <div key={r.name} className="flex items-center gap-2">
-          <input aria-label={`Label for ${r.name}`} className={cn(inputClass, 'min-w-0 flex-1')} maxLength={80} value={r.label}
-            onChange={(e) => edit(i, { label: e.target.value })} />
-          <div className="w-32 shrink-0"><MoneyInput aria-label={`Amount for ${r.name}`} placeholder="0.00" value={r.amount}
-            onChange={(e) => edit(i, { amount: e.target.value })} /></div>
-          <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 sm:size-9" aria-label={`Remove ${r.name}`}
-            onClick={() => setRows((list) => list.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>
+        {rows.map((r, i) => <div key={r.name} className="space-y-1">
+          <div className="flex items-center gap-2">
+            <input id={`settle-line-${i}-label`} aria-label={`Label for ${r.name}`} required {...fe.invalid(`settle-line-${i}-label`)}
+              className={cn(inputClass, 'min-w-0 flex-1')} maxLength={80} value={r.label} onChange={(e) => edit(i, { label: e.target.value })} />
+            <div className="w-32 shrink-0"><MoneyInput id={`settle-line-${i}-amount`} aria-label={`Amount for ${r.name}`} required
+              {...fe.invalid(`settle-line-${i}-amount`)} placeholder="0.00" value={r.amount} onChange={(e) => edit(i, { amount: e.target.value })} /></div>
+            <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 sm:size-9" aria-label={`Remove ${r.name}`}
+              onClick={() => { setRows((list) => list.filter((_, j) => j !== i)); fe.clear(); }}><X className="h-4 w-4" /></Button>
+          </div>
+          <FieldError id={`settle-line-${i}-label`} message={fe.errors[`settle-line-${i}-label`]} />
+          <FieldError id={`settle-line-${i}-amount`} message={fe.errors[`settle-line-${i}-amount`]} />
         </div>)}
         <div className="flex flex-wrap gap-2">{PRESETS.map((p) => <Button key={p} type="button" variant="outline" className="h-11 sm:h-9"
           aria-label={`Add ${p}`} onClick={() => add(p)}><Plus className="h-4 w-4" />{p}</Button>)}</div>
@@ -126,35 +148,38 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCe
       </dl>
 
       {refunding && <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="settle-date" label="Refund date">
-          <input id="settle-date" type="date" max={today} className={inputClass} value={refundedOn} onChange={(e) => setRefundedOn(e.target.value)} />
+        <Field id="settle-date" label="Refund date" required error={fe.errors['settle-date']}>
+          <input id="settle-date" type="date" required {...fe.invalid('settle-date')} max={today} className={inputClass} value={refundedOn}
+            onChange={(e) => { setRefundedOn(e.target.value); fe.clear('settle-date'); }} />
         </Field>
-        <Field id="settle-method" label="How you refunded">
-          <select id="settle-method" className={inputClass} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+        <Field id="settle-method" label="How you refunded" required error={fe.errors['settle-method']}>
+          <select id="settle-method" required {...fe.invalid('settle-method')} className={inputClass} value={method}
+            onChange={(e) => { setMethod(e.target.value as PaymentMethod); fe.clear('settle-method'); }}>
             {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{METHOD[m]}</option>)}
           </select>
         </Field>
-        <Field id="settle-reference" label="Reference no." hint="optional" className="sm:col-span-2">
-          <input id="settle-reference" className={inputClass} maxLength={80} value={reference} onChange={(e) => setReference(e.target.value)} />
+        <Field id="settle-reference" label="Reference no." hint="optional" className="sm:col-span-2" error={fe.errors['settle-reference']}>
+          <input id="settle-reference" {...fe.invalid('settle-reference')} className={inputClass} maxLength={80} value={reference}
+            onChange={(e) => { setReference(e.target.value); fe.clear('settle-reference'); }} />
         </Field>
         <div className="space-y-2 sm:col-span-2">
-          <Field id="settle-proofs" label="Proof of refund" hint="screenshots, optional">
-            <input id="settle-proofs" type="file" multiple accept="image/jpeg,image/png"
+          <Field id="settle-proofs" label="Proof of refund" hint="screenshots, optional" error={fe.errors['settle-proofs']}>
+            <input id="settle-proofs" type="file" multiple accept="image/jpeg,image/png" {...fe.invalid('settle-proofs')}
               className="block w-full text-sm file:mr-3 file:h-10 file:rounded-lg file:border file:bg-background file:px-3 file:text-sm file:font-medium"
-              onChange={(e) => { const chosen = [...(e.target.files ?? [])]; setProofs((p) => [...p, ...chosen]); e.target.value = ''; }} />
+              onChange={(e) => { const chosen = [...(e.target.files ?? [])]; setProofs((p) => [...p, ...chosen]); e.target.value = ''; fe.clear('settle-proofs'); }} />
           </Field>
           {proofs.length > 0 && <ul className="space-y-1 text-sm">{proofs.map((f, i) => <li key={i} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate">{f.name}</span>
             <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-8" aria-label={`Remove ${f.name}`}
-              onClick={() => setProofs((p) => p.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>
+              onClick={() => { setProofs((p) => p.filter((_, j) => j !== i)); fe.clear('settle-proofs'); }}><X className="h-4 w-4" /></Button>
           </li>)}</ul>}
         </div>
       </div>}
-      <Field id="settle-notes" label="Notes" hint="optional">
-        <textarea id="settle-notes" rows={2} maxLength={500} className={`${inputClass} h-auto py-2`} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <Field id="settle-notes" label="Notes" hint="optional" error={fe.errors['settle-notes']}>
+        <textarea id="settle-notes" {...fe.invalid('settle-notes')} rows={2} maxLength={500} className={`${inputClass} h-auto py-2`} value={notes}
+          onChange={(e) => { setNotes(e.target.value); fe.clear('settle-notes'); }} />
       </Field>
     </fieldset>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {confirming ? <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
       <p><strong>{refunding ? `Refund ${formatBillPesos(preview.refundCentavos)} to ${name}?` : `Settle ${name}’s deposit with no refund?`}</strong>{' '}
         This can’t be undone here. The deposit held becomes ₱0.</p>

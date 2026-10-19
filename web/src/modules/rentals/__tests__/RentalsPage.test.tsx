@@ -4,6 +4,25 @@ import { MemoryRouter } from 'react-router-dom';
 import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter, UtilityBill } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
 
+/** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
+const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
+/** A failed submit focuses the field, marks it invalid and shows the message under it, before (never after) the buttons. */
+function expectFieldError(id: string, message: string, button: HTMLElement) {
+  const field = document.getElementById(id);
+  expect(document.activeElement).toBe(field);
+  expect(field).toHaveAttribute('aria-invalid', 'true');
+  expect(field).toHaveAttribute('aria-describedby', `${id}-error`);
+  const error = document.getElementById(`${id}-error`)!;
+  expect(error).toHaveTextContent(message);
+  expect(precedes(error, button)).toBe(true);
+}
+/** The label shows the hidden `*` and the input itself is required. */
+function expectRequired(id: string) {
+  expect(document.querySelector(`label[for="${id}"] span[aria-hidden="true"]`)).toHaveTextContent('*');
+  const field = document.getElementById(id)!;
+  expect(field.hasAttribute('required') || field.getAttribute('aria-required') === 'true').toBe(true);
+}
+
 const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: number, extra: Partial<RentalUnit> = {}): RentalUnit => ({
   id, propertyId: 'p', name, kind, capacity, electricMode: 'none', electricAmountCentavos: 0, waterMode: 'none',
   waterAmountCentavos: 0, defaultRentCentavos: 0, extraPersonRentCentavos: 0, ...extra });
@@ -122,16 +141,22 @@ describe('Add tenant', () => {
   const openAdd = () => { page(); fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]); };
   it('needs only name, move-in and rent, and fills the rest', async () => {
     openAdd();
-    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3500.00');
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    expect(screen.getByLabelText(/^Monthly rent/)).toHaveValue('3500.00');
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
-    fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-11-15' } });
+    fireEvent.change(screen.getByLabelText(/^Move-in date/), { target: { value: '2026-11-15' } });
     payLater();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
       type: 'moveIn', payment: null, propertyId: 'p', unitId: 'u1', renterId: null, moveIn: '2026-11-15',
       renter: expect.objectContaining({ fullName: 'Elle Tan', phone: '0918' }),
       terms: { startDate: '2026-11-15', endDate: '2027-11-15', monthlyRentCentavos: 350000, dueDay: 15,
         advanceMonths: 1, depositCentavos: 350000 } })));
+  });
+  it('marks name, move-in date and rent as required', () => {
+    openAdd();
+    ['add-fullName', 'add-move-in', 'add-rent'].forEach(expectRequired);
+    expect(document.querySelector('label[for="add-phone"] span[aria-hidden="true"]')).toBeNull();
+    expect(document.getElementById('add-fullName')!.closest('form')).toHaveAttribute('novalidate');
   });
   it('shows what is due on move-in', () => {
     openAdd();
@@ -154,7 +179,7 @@ describe('Add tenant', () => {
   });
   it('leaves the mobile number optional: the tenant gives it when signing', () => {
     openAdd();
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('region', { name: 'Move-in bill' })).toBeInTheDocument();
@@ -162,11 +187,18 @@ describe('Add tenant', () => {
   });
   it('explains a zero rent in plain words', async () => {
     openAdd();
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
-    fireEvent.change(screen.getByLabelText('Monthly rent'), { target: { value: '0' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the monthly rent');
+    fireEvent.change(screen.getByLabelText(/^Monthly rent/), { target: { value: '0' } });
+    const next = screen.getByRole('button', { name: 'Next: payment' });
+    fireEvent.click(next);
+    expectFieldError('add-rent', 'Enter the monthly rent', next);
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^Monthly rent/), { target: { value: 'abc' } });
+    expect(document.getElementById('add-rent-error')).toBeNull();
+    expect(document.getElementById('add-rent')).not.toHaveAttribute('aria-invalid');
+    fireEvent.click(next);
+    expectFieldError('add-rent', 'Enter an amount like 10,000 or 1,500.50', next);
   });
   it('keeps contact in its own section, and explains it for someone already on file', () => {
     openAdd();
@@ -183,17 +215,19 @@ describe('Add tenant', () => {
   });
   it('opens More details when the problem is hidden inside it', async () => {
     openAdd();
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     fireEvent.change(screen.getByLabelText('Lease ends'), { target: { value: '2020-01-01' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('The lease must end after it starts');
+    const next = screen.getByRole('button', { name: 'Next: payment' });
+    fireEvent.click(next);
     expect(screen.getByText('Due date and lease end', { selector: 'summary span' }).closest('details')).toHaveAttribute('open');
+    expectFieldError('add-end', 'The lease must end after it starts', next);
   });
   it('asks for a name before saving', async () => {
     openAdd();
-    fireEvent.click(screen.getByRole('button', { name: 'Next: payment' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter the tenant’s name');
+    const next = screen.getByRole('button', { name: 'Next: payment' });
+    fireEvent.click(next);
+    expectFieldError('add-fullName', 'Enter the tenant’s name', next);
     expect(state.run).not.toHaveBeenCalled();
   });
 });
@@ -265,7 +299,7 @@ describe('Tenant sheet and move out', () => {
   it('shows contact read-only until Edit, then saves without closing the sheet', async () => {
     page();
     fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
-    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Full name/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Edit contact' }));
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0999' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save tenant' }));
@@ -278,10 +312,13 @@ describe('Tenant sheet and move out', () => {
     state.run.mockResolvedValue({ warnings: [], finalBillId: null });
     page();
     fireEvent.click(card('Room B').getByRole('button', { name: 'Move out Carlo Lim' }));
-    const date = screen.getByLabelText('Move-out date');
+    const date = screen.getByLabelText(/^Move-out date/);
     fireEvent.change(date, { target: { value: '2026-02-01' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Move-out can’t be before move-in (Mar 1, 2026)');
+    expectRequired('move-out-date');
+    const confirm = screen.getByRole('button', { name: 'Confirm move out' });
+    fireEvent.click(confirm);
+    expectFieldError('move-out-date', 'Move-out can’t be before move-in (Mar 1, 2026)', confirm);
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(state.run).not.toHaveBeenCalled();
     fireEvent.change(date, { target: { value: '2026-09-30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
@@ -297,14 +334,14 @@ describe('Per-person room price', () => {
     page();
     expect(card('Room C').getByText('Private room · +₱500.00 per extra person')).toBeInTheDocument();
     fireEvent.click(card('Room C').getByRole('button', { name: 'Add tenant' }));
-    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3000.00');
+    expect(screen.getByLabelText(/^Monthly rent/)).toHaveValue('3000.00');
     fireEvent.change(screen.getByLabelText('People in the room'), { target: { value: '2' } });
-    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3500.00');
+    expect(screen.getByLabelText(/^Monthly rent/)).toHaveValue('3500.00');
     expect(screen.getByText('₱3,000.00 + ₱500.00 × 1 extra person')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Monthly rent'), { target: { value: '3,200' } });
+    fireEvent.change(screen.getByLabelText(/^Monthly rent/), { target: { value: '3,200' } });
     fireEvent.change(screen.getByLabelText('People in the room'), { target: { value: '3' } });
-    expect(screen.getByLabelText('Monthly rent')).toHaveValue('3,200');
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    expect(screen.getByLabelText(/^Monthly rent/)).toHaveValue('3,200');
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     payLater();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveIn', unitId: 'u3',
@@ -453,7 +490,7 @@ describe('Bills in the existing screens', () => {
     state.properties = [{ ...property, units: [metered(property.units[0]), property.units[1]] }];
     page();
     fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]);
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     openDetails();
     fireEvent.change(screen.getByLabelText('Electricity reading today'), { target: { value: '1200' } });
@@ -465,16 +502,35 @@ describe('Bills in the existing screens', () => {
       readings: [{ kind: 'electric', value: 1200 }], charges: [{ label: 'Parking', amount: 100000 }] })));
     expect(await screen.findByText('Tenant added')).toBeInTheDocument();
   });
+  it('points at a bad starting reading or a half-filled charge inside the closed section', () => {
+    state.properties = [{ ...property, units: [metered(property.units[0]), property.units[1]] }];
+    page();
+    fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]);
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText('Electricity reading today'), { target: { value: '-5' } });
+    const next = screen.getByRole('button', { name: 'Next: payment' });
+    fireEvent.click(next);
+    expect(screen.getByLabelText('Electricity reading today').closest('details')).toHaveAttribute('open');
+    expectFieldError('add-reading-electric', 'Meter readings must be 0 or more', next);
+    fireEvent.change(screen.getByLabelText('Electricity reading today'), { target: { value: '1200' } });
+    expect(document.getElementById('add-reading-electric-error')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Other' }));
+    fireEvent.change(screen.getByLabelText('Charge name'), { target: { value: 'Parking' } });
+    fireEvent.click(next);
+    expect(document.activeElement).toBe(screen.getByLabelText('Charge amount'));
+    expect(document.getElementById('add-charge-0-amount-error')).toHaveTextContent('Enter a name and amount for each charge');
+    expect(state.run).not.toHaveBeenCalled();
+  });
   it('uses the property due date and charges the days until it on move-in', async () => {
     state.run.mockResolvedValue({ renterId: 'r9', warnings: [] });
     state.properties = [{ ...property, rentDueDay: 5 }];
     page();
     fireEvent.click(card('Room A').getAllByRole('button', { name: 'Add tenant' })[0]);
-    fireEvent.change(screen.getByLabelText('Move-in date'), { target: { value: '2026-10-15' } });
+    fireEvent.change(screen.getByLabelText(/^Move-in date/), { target: { value: '2026-10-15' } });
     expect(screen.getByText('₱9,450.00')).toBeInTheDocument();
     expect(screen.getByText('Rent for 21 days before the first due date')).toBeInTheDocument();
     expect(screen.getByText('Advance · 1 month')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Elle Tan' } });
+    fireEvent.change(screen.getByLabelText(/^Full name/), { target: { value: 'Elle Tan' } });
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0918' } });
     payLater();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ terms: expect.objectContaining({ dueDay: 5 }) })));

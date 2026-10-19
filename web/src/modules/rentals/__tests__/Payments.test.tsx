@@ -58,6 +58,25 @@ beforeEach(() => {
   state.run.mockResolvedValue({ id: 'new', failed: [] });
 });
 const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+
+/** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
+const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
+/** A failed submit focuses the field, marks it invalid and shows the message under it, before (never after) the buttons. */
+function expectFieldError(id: string, message: string, button: HTMLElement) {
+  const field = document.getElementById(id);
+  expect(document.activeElement).toBe(field);
+  expect(field).toHaveAttribute('aria-invalid', 'true');
+  expect(field).toHaveAttribute('aria-describedby', `${id}-error`);
+  const error = document.getElementById(`${id}-error`)!;
+  expect(error).toHaveTextContent(message);
+  expect(precedes(error, button)).toBe(true);
+}
+/** The label shows the hidden `*` and the input itself is required. */
+function expectRequired(id: string) {
+  expect(document.querySelector(`label[for="${id}"] span[aria-hidden="true"]`)).toHaveTextContent('*');
+  const field = document.getElementById(id)!;
+  expect(field.hasAttribute('required') || field.getAttribute('aria-required') === 'true').toBe(true);
+}
 const openBill = () => {
   page();
   fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
@@ -92,13 +111,32 @@ describe('Recording a payment', () => {
     fireEvent.click(sheet.getByRole('button', { name: 'Record payment' }));
     const dialog = recordDialog();
     expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('3500.00');
-    expect(dialog.getByLabelText('Date paid')).toHaveValue('2026-11-10');
+    expect(dialog.getByLabelText(/^Date paid/)).toHaveValue('2026-11-10');
     fireEvent.change(dialog.getByRole('combobox', { name: 'How they paid' }), { target: { value: 'cash' } });
     fireEvent.change(dialog.getByRole('textbox', { name: 'Reference no.' }), { target: { value: 'OR-9' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save payment' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'recordPayment', tenancyId: 't1', proofs: [],
       input: { amountCentavos: 350000, paidOn: '2026-11-10', method: 'cash', reference: 'OR-9', notes: '', billId: BILL } }));
     expect(toasts.success).toHaveBeenCalledWith('Payment recorded');
+  });
+  it('points at a zero amount, then shows a refusal at the top', async () => {
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Record payment' }));
+    const dialog = recordDialog();
+    ['pay-amount', 'pay-date', 'pay-method'].forEach(expectRequired);
+    const save = dialog.getByRole('button', { name: 'Save payment' });
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Amount' }), { target: { value: '0' } });
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError('pay-amount', 'Amount must be more than zero', save));
+    expect(dialog.queryByRole('alert')).toBeNull();
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Amount' }), { target: { value: '100' } });
+    expect(document.getElementById('pay-amount-error')).toBeNull();
+    state.run.mockRejectedValue(new Error('This bill is cancelled'));
+    fireEvent.click(save);
+    const banner = await dialog.findByRole('alert');
+    expect(banner).toHaveTextContent('This bill is cancelled');
+    expect(precedes(banner, dialog.getByRole('textbox', { name: 'Amount' }))).toBe(true);
   });
   it('warns when the reference number was used before', () => {
     state.payments = [pay('old', 50000, [[BILL, 50000]], { reference: 'GC-123' })];
@@ -132,12 +170,27 @@ describe('Payments list', () => {
     const sheet = openBill();
     fireEvent.click(sheet.getByRole('button', { name: /^Void payment of ₱3,500/ }));
     const dialog = within(screen.getByRole('dialog', { name: 'Void this payment?' }));
-    fireEvent.click(dialog.getByRole('button', { name: 'Void payment' }));
-    expect(dialog.getByRole('alert')).toHaveTextContent('Say why');
+    expectRequired('void-reason');
+    const submit = dialog.getByRole('button', { name: 'Void payment' });
+    fireEvent.click(submit);
+    expectFieldError('void-reason', 'Say why you’re voiding this payment', submit);
+    expect(dialog.queryByRole('alert')).toBeNull();
     expect(state.run).not.toHaveBeenCalled();
     fireEvent.change(dialog.getByRole('textbox', { name: 'Reason' }), { target: { value: 'Bounced transfer' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Void payment' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'voidPayment', id: 'p1', reason: 'Bounced transfer' }));
+  });
+  it('shows a refused void at the top of its form', async () => {
+    state.payments = [pay('p1', 350000, [[BILL, 350000]])];
+    state.run.mockRejectedValue(new Error('Already voided'));
+    const sheet = openBill();
+    fireEvent.click(sheet.getByRole('button', { name: /^Void payment of ₱3,500/ }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Void this payment?' }));
+    fireEvent.change(dialog.getByRole('textbox', { name: 'Reason' }), { target: { value: 'Bounced' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Void payment' }));
+    const banner = await dialog.findByRole('alert');
+    expect(banner).toHaveTextContent('Already voided');
+    expect(precedes(banner, dialog.getByRole('textbox', { name: 'Reason' }))).toBe(true);
   });
   it('asks before editing or cancelling a paid bill, and says the extra goes back to credit', async () => {
     state.payments = [pay('p1', 100000, [[BILL, 100000]])];

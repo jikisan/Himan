@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ImagePlus, Loader2, Star, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 import { Button, Label } from '@/components/ui';
 import { useAuth } from '@auth/presentation/hooks';
 import { CompressionService } from '@storage/infrastructure';
@@ -21,12 +22,14 @@ export const ProjectScreenshots = ({ value, onChange }: ProjectScreenshotsProps)
   const { user } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
+  const fe = useFieldErrors();
   const room = MAX_SCREENSHOTS - value.length;
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || !user) return;
     const picked = [...files].slice(0, room);
     setUploading(picked.length);
+    fe.clear();
     const added: string[] = [];
     for (const file of picked) {
       try {
@@ -34,7 +37,7 @@ export const ProjectScreenshots = ({ value, onChange }: ProjectScreenshotsProps)
         const bytes = new Uint8Array(await compressed.arrayBuffer());
         added.push(await media.upload(user.id, bytes, compressed.type));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to upload screenshot');
+        fe.fail('project-screenshots', error instanceof Error ? error.message : 'Failed to upload screenshot');
       } finally {
         setUploading((n) => n - 1);
       }
@@ -84,7 +87,9 @@ export const ProjectScreenshots = ({ value, onChange }: ProjectScreenshotsProps)
         ))}
         {room > 0 && (
           <Button
+            id="project-screenshots"
             type="button"
+            aria-describedby={fe.errors['project-screenshots'] ? 'project-screenshots-error' : undefined}
             variant="outline"
             className="h-24 w-20 flex-col gap-1 text-xs"
             onClick={() => inputRef.current?.click()}
@@ -95,6 +100,7 @@ export const ProjectScreenshots = ({ value, onChange }: ProjectScreenshotsProps)
           </Button>
         )}
       </div>
+      <FieldError id="project-screenshots" message={fe.errors['project-screenshots']} />
       <p className="text-xs text-muted-foreground">
         Phone screens for mobile apps, full-page captures for websites and automations. WebP, JPEG or PNG.
       </p>

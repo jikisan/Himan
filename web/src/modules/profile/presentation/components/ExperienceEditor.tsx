@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Switch, Textarea } from '@/components/ui';
 import type { ExperienceType } from '@himan/shared/profile';
@@ -34,20 +36,38 @@ interface ExperienceEditorProps {
 
 export const ExperienceEditor = ({ experience, onSave, onCancel, isSaving }: ExperienceEditorProps) => {
   const [values, setValues] = useState<ExperienceFormValues>(() => toFormValues(experience));
+  const fe = useFieldErrors();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (!values.company.trim()) invalid.push(['exp-company', 'Enter the company']);
+    if (!values.title.trim()) invalid.push(['exp-title', 'Enter the title']);
+    if (invalid.length) { fe.failMany(invalid); return; }
+    try {
+      await onSave(values);
+    } catch {
+      fe.setFormError(experience ? 'Failed to save experience' : 'Failed to create experience');
+    }
+  };
 
   const set = <K extends keyof ExperienceFormValues>(key: K, value: ExperienceFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
+    <form noValidate onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border p-4">
+      <FormErrorBanner message={fe.formError} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="exp-company">Company</Label>
-          <Input id="exp-company" value={values.company} onChange={(e) => set('company', e.target.value)} />
+          <Label htmlFor="exp-company" required>Company</Label>
+          <Input id="exp-company" required {...fe.invalid('exp-company')} value={values.company} onChange={(e) => { set('company', e.target.value); fe.clear('exp-company'); }} />
+          <FieldError id="exp-company" message={fe.errors['exp-company']} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="exp-title">Title</Label>
-          <Input id="exp-title" value={values.title} onChange={(e) => set('title', e.target.value)} />
+          <Label htmlFor="exp-title" required>Title</Label>
+          <Input id="exp-title" required {...fe.invalid('exp-title')} value={values.title} onChange={(e) => { set('title', e.target.value); fe.clear('exp-title'); }} />
+          <FieldError id="exp-title" message={fe.errors['exp-title']} />
         </div>
       </div>
 
@@ -88,12 +108,12 @@ export const ExperienceEditor = ({ experience, onSave, onCancel, isSaving }: Exp
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(values)} disabled={isSaving || !values.company.trim() || !values.title.trim()}>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={isSaving}>
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>
-    </div>
+    </form>
   );
 };

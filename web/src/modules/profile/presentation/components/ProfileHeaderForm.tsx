@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Plus, X } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea } from '@/components/ui';
 import { useProfile } from '../hooks/useProfile';
+import { FormErrorBanner } from '@core/presentation/components';
 
 // Social links promoted to their own fields; their keys double as CV block
 // tokens ({{github}}, ...). Everything else lives in `otherLinks`.
@@ -26,6 +27,7 @@ export const ProfileHeaderForm = () => {
   const [named, setNamed] = useState<Record<string, string>>({});
   const [otherLinks, setOtherLinks] = useState<{ key: string; value: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form when profile loads or changes
@@ -43,6 +45,7 @@ export const ProfileHeaderForm = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError('');
     try {
       const links: Record<string, string> = {};
       for (const [key, value] of Object.entries(named)) {
@@ -61,6 +64,9 @@ export const ProfileHeaderForm = () => {
         website: website || null,
         links,
       });
+    } catch {
+      // No field to blame here; the banner sits at the top of the card.
+      setSaveError('Failed to save profile');
     } finally {
       setIsSaving(false);
     }
@@ -74,6 +80,7 @@ export const ProfileHeaderForm = () => {
         <CardTitle>Profile</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <FormErrorBanner message={saveError} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="fullName">Full name</Label>

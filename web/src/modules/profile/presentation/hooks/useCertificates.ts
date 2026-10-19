@@ -33,7 +33,6 @@ export const useCertificates = () => {
     },
     onError: (err) => {
       Logger.error('Error creating certificate', err);
-      toast.error('Failed to create certificate');
     },
   });
 
@@ -45,7 +44,6 @@ export const useCertificates = () => {
     },
     onError: (err) => {
       Logger.error('Error updating certificate', err);
-      toast.error('Failed to save certificate');
     },
   });
 

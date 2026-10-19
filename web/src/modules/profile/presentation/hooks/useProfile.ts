@@ -31,7 +31,6 @@ export const useProfile = () => {
     },
     onError: (err) => {
       Logger.error('Error saving profile', err);
-      toast.error('Failed to save profile');
     },
   });
 

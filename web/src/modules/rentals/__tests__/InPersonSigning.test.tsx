@@ -115,6 +115,14 @@ describe('Sign on this device', () => {
     expect(toasts.success).toHaveBeenCalledWith('Contract signed by both');
   });
 
+  it('keeps the tenant screen open on a tap outside it or Escape, so nothing typed is lost', () => {
+    toDetails();
+    fill('Mobile number', '0917');
+    fireEvent.pointerDown(document.body);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(screen.getByLabelText('Mobile number')).toHaveValue('0917');
+  });
+
   it('uses the corrected name in the contract and the hash', async () => {
     toDetails();
     fill('Full name', 'Carlo M. Lim');

@@ -88,7 +88,9 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
   };
 
   return <Dialog open onOpenChange={(open) => !open && onClose()}>
-    <DialogContent className="flex h-dvh max-h-dvh w-full max-w-none flex-col gap-5 overflow-y-auto rounded-none p-5 sm:h-auto sm:max-h-[92dvh] sm:max-w-xl sm:rounded-lg">
+    {/* The phone is in the tenant's hands: only the Close button ends this screen, so a stray tap or Escape loses nothing. */}
+    <DialogContent onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}
+      className="flex h-dvh max-h-dvh w-full max-w-none flex-col gap-5 overflow-y-auto rounded-none p-5 sm:h-auto sm:max-h-[92dvh] sm:max-w-xl sm:rounded-lg">
       <DialogHeader className="pr-8 text-left">
         <DialogTitle className="text-xl">{titles[screen][0]}</DialogTitle>
         <DialogDescription className="text-base">{titles[screen][1]}</DialogDescription>

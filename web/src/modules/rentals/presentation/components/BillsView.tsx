@@ -1,24 +1,28 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { CalendarClock, ChevronLeft, ChevronRight, Copy, Gauge, ReceiptText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Copy, Gauge, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, billState, billTotal, finalBillLines, utilityLine, firstBillablePeriod, formatBillPesos, manilaToday, periodLabel, periodOf, statementText } from '@himan/shared/rentals';
+import { addPeriods, billState, billTotal, finalBillLines, utilityLine, formatBillPesos, manilaToday, periodLabel, periodOf, statementText } from '@himan/shared/rentals';
 import type { BillLine, IssueBillInput, MeterReading, ReadingInput, UtilityBill, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
 import type { RentalsState } from '../pages/RentalsPage';
 import { AddReadingsDialog, MeterReadings } from './MeterReadings';
 import { BillAmountsDialog } from './BillAmountsDialog';
 import type { ReadingSoa } from './MeterReadings';
-import { BillStateBadge, Initials } from './Badges';
+import { Initials } from './Badges';
 import type { StatementInfo } from './Statement';
 import { errorMessage } from '../utils/errorMessage';
 import { monthRows, monthTodo, unreplacedCancelled, useWide } from '../utils/billingMonth';
 import type { MonthRow } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
+import { billMoney } from '../utils/billMoney';
+import type { MoneyTone } from '../utils/billMoney';
 
 const chip = 'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold';
+const MONEY_TONE: Record<MoneyTone, string> = { due: 'text-foreground', late: 'text-destructive', paid: 'text-emerald-700 dark:text-emerald-400',
+  cancelled: 'text-muted-foreground line-through decoration-1' };
 const KIND: Record<RentalBill['kind'], string> = { move_in: 'Move-in SOA', monthly: 'Monthly SOA', final: 'Final SOA' };
 const short = (date: string) => format(parseISO(date), 'MMM d');
 
@@ -124,43 +128,31 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     onOpenBill={onOpenBill} />;
 
   const btn = 'h-10 sm:h-8';
-  const amount = (centavos: number) => <span className="text-base font-bold tabular-nums">{formatBillPesos(centavos)}</span>;
-  const due = (date: string) =>
-    <span className="inline-flex items-center gap-1"><CalendarClock aria-hidden className="h-3.5 w-3.5" />Due {short(date)}</span>;
   /**
-   * One tenant. Left: name (+ kind), then room · SOA number, then small facts. Right: amount over its status, so amounts line up
-   * down the list. Actions are always labelled buttons (older, non-technical users): never icon-only or tap-the-row.
+   * One tenant, read like a sentence for older users: who and which room on the left, then how much is left to pay and whether it is
+   * late, in words and large type. The SOA number sits quietly underneath. Actions are always labelled buttons, never icon-only.
    */
-  const row = (r: MonthRow, { badge, number, total, status, facts, note, actions, label, key, dim }: {
-    badge?: ReactNode; number?: string; total?: ReactNode; status?: ReactNode; facts?: ReactNode; note?: ReactNode;
-    actions?: ReactNode; label?: string; key?: string; dim?: boolean }) =>
+  const row = (r: MonthRow, { badge, number, money, actions, label, key, dim }: {
+    badge?: ReactNode; number?: string; money?: { tone: MoneyTone; headline: string; detail: string }; actions?: ReactNode;
+    label?: string; key?: string; dim?: boolean }) =>
     <li key={key ?? r.t.id} aria-label={label ?? `${name(r.t)} · ${room(r.t)}`}
-      className={cn('px-4 py-3.5 sm:flex sm:items-center sm:gap-6', dim && 'opacity-70')}>
-      <div className="flex gap-3 sm:min-w-0 sm:flex-1">
+      className={cn('px-4 py-4 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-6', dim && 'opacity-70')}>
+      <div className="flex min-w-0 gap-3">
         <Initials name={name(r.t)} />
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><p className="font-medium">{name(r.t)}</p>{badge}</div>
-            {total && <div className="shrink-0 text-right">{total}</div>}
-          </div>
-          <p className="text-sm text-muted-foreground">{room(r.t)}
-            {number && <><span aria-hidden> · </span><span className="text-xs tabular-nums text-muted-foreground">{number}</span></>}</p>
-          {(status || facts) && <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">{status}{facts}</div>}
-          {note && <p className="text-xs text-muted-foreground">{note}</p>}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><p className="text-base font-semibold">{name(r.t)}</p>{badge}</div>
+          <p className="text-sm text-muted-foreground">{room(r.t)}</p>
+          {number && <p className="mt-1 text-xs tabular-nums text-muted-foreground">SOA no. {number}</p>}
         </div>
       </div>
-      {/* Phone: full width under the row, the labelled buttons share it. Wider: beside the row, right of the amount. */}
-      {actions && <div className="mt-3 flex flex-wrap gap-2 [&>*]:flex-1 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:[&>*]:flex-none">{actions}</div>}
+      {money && <div className="mt-3 pl-12 sm:mt-0 sm:pl-0">
+        <p className={cn('flex items-center gap-1.5 text-lg font-bold tabular-nums', MONEY_TONE[money.tone])}>
+          {money.tone === 'paid' ? <CircleCheck aria-hidden className="h-5 w-5 shrink-0" />
+            : money.tone === 'late' ? <CircleAlert aria-hidden className="h-5 w-5 shrink-0" /> : null}{money.headline}</p>
+        <p className={cn('text-sm', money.tone === 'late' ? 'font-medium text-destructive' : 'text-muted-foreground')}>{money.detail}</p>
+      </div>}
+      {actions && <div className="mt-3 flex flex-wrap gap-2 [&>*]:flex-1 sm:mt-0 sm:flex-nowrap sm:justify-end sm:[&>*]:flex-none">{actions}</div>}
     </li>;
-  /** On a move-in SOA: which months' rent its advance covers, and when monthly SOAs start. */
-  const advanceNote = (t: RentalTenancy) => {
-    const first = [...t.contracts].sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
-    const start = firstBillablePeriod(t);
-    if (!first || !start || first.advanceMonths < 1) return undefined;
-    const end = addPeriods(start, first.advanceMonths - 1);
-    const months = start === end ? periodLabel(start).split(' ')[0] : `${periodLabel(start).split(' ')[0]}–${periodLabel(end)}`;
-    return `Advance covers ${months} · monthly SOAs from ${periodLabel(addPeriods(start, first.advanceMonths))}`;
-  };
 
   return <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
     <div className="min-w-0 flex-1 space-y-4">
@@ -193,9 +185,9 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
           {hasMonthly && todo.amounts.size > 0 && <Button className="h-11 sm:h-9" onClick={() => setAmountsOpen(true)}>
             <ReceiptText className="h-4 w-4" />Add bill amounts</Button>}
         </div>
-        <ul className="divide-y">{todo.waiting.map((r) => row(r, { facts: due(r.due),
-          status: <span className={cn(chip, 'bg-amber-500/15 text-amber-800 dark:text-amber-300')}>{r.pending.state === 'needs-reading'
-            && r.pending.kinds.every((k) => isMonthly(r.t.unitId, k)) ? 'Needs bill amount' : 'Needs reading'}</span>,
+        <ul className="divide-y">{todo.waiting.map((r) => row(r, {
+          money: { tone: 'due', headline: r.pending.state === 'needs-reading' && r.pending.kinds.every((k) => isMonthly(r.t.unitId, k))
+            ? 'Needs the bill amount' : 'Needs a meter reading', detail: `Due ${short(r.due)}` },
           actions: canManage && <Button variant="outline" size="sm" className={btn}
             onClick={() => setSkipped((s) => new Set(s).add(`${r.t.id}:${period}`))}>Skip utilities this month</Button> }))}</ul>
       </section>}
@@ -207,7 +199,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
             Generate all {todo.ready.length} SOA{todo.ready.length === 1 ? '' : 's'} · {formatBillPesos(todo.readyTotal)}</Button>}
         </div>
         <ul className="divide-y border-t">{todo.ready.map((r) => r.pending.state === 'ready' && row(r, {
-          total: amount(billTotal(r.pending.lines)), facts: due(r.due),
+          money: { tone: 'due', headline: formatBillPesos(billTotal(r.pending.lines)), detail: `Not generated yet. Due ${short(r.due)}` },
           actions: <>
             <Button variant="outline" size="sm" className={btn} onClick={() => onOpenPending(r.t.id, period, r.skip)}>View SOA</Button>
             {canManage && <Button size="sm" className={btn} disabled={busy}
@@ -240,12 +232,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         <ul className="divide-y border-t empty:hidden">{shownSoas.map(({ r, bill }) => {
           const cancelled = bill.status === 'void';
           return row(r, { key: bill.id, dim: cancelled, label: `${KIND[bill.kind]} ${bill.number} · ${name(r.t)} · ${room(r.t)}`,
-            number: bill.number, note: bill.kind === 'move_in' && !cancelled ? advanceNote(r.t) : undefined,
+            number: bill.number, money: billMoney(bill, payments, today),
             badge: bill.kind !== 'monthly' && <span className={cn(chip, 'bg-primary/10 text-primary')}>{KIND[bill.kind]}</span>,
-            total: amount(billTotal(bill.lines)),
-            status: cancelled ? <span className={cn(chip, 'bg-muted text-muted-foreground')}>Cancelled</span>
-              : <BillStateBadge bill={bill} payments={payments} today={today} />,
-            facts: !cancelled && !overdue(bill) && due(bill.dueOn),
             actions: <>
               {!cancelled && <Button variant="outline" size="sm" className={btn} aria-label={`Copy ${name(r.t)}’s ${kindOf(bill)} as text`}
                 onClick={() => void copy(bill, r.t)}><Copy className="h-4 w-4" />Copy as text</Button>}

@@ -97,7 +97,7 @@ describe('Bills view', () => {
   });
   it('shows each tenant’s state for the month', () => {
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Needs reading')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('Needs a meter reading')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Ready for SOA · 1' })).getByText('Ana Reyes')).toBeInTheDocument();
     expect(row('Ana Reyes').getByText('₱3,500')).toBeInTheDocument();
     expect(screen.queryByRole('listitem', { name: /^Ben Lim/ })).not.toBeInTheDocument();
@@ -125,8 +125,8 @@ describe('Bills view', () => {
   it('shows generated and cancelled SOAs, each with its number kept quiet', () => {
     state.bills = [issued('t1'), issued('t2', { id: 'void', status: 'void', number: 'LU-2026-0003' })];
     openBills();
-    expect(row('Juan Dela Cruz').getByText('LU-2026-0002')).toHaveClass('text-xs', 'text-muted-foreground');
-    expect(row('Juan Dela Cruz').getByText('₱5,900')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('SOA no. LU-2026-0002')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('₱5,900 to pay')).toBeInTheDocument();
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Ready for SOA · 1' })).getByText('Ana Reyes')).toBeInTheDocument();
   });
@@ -279,8 +279,9 @@ describe('Issued bills', () => {
   it('marks an unpaid late bill Overdue and lists it first', () => {
     state.bills = [issued('t2', { id: 'b2', number: 'LU-2026-0003', dueOn: '2026-11-15' }), issued('t1', { dueOn: '2026-11-03' })];
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Overdue · 7 days')).toBeInTheDocument();
-    expect(row('Ana Reyes').getByText('Unpaid')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('₱5,900 to pay')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('7 days late')).toBeInTheDocument();
+    expect(row('Ana Reyes').getByText('Due Nov 15')).toBeInTheDocument();
     const names = within(screen.getByRole('region', { name: 'SOAs generated · 2' })).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'));
     expect(names).toEqual(['Monthly SOA LU-2026-0002 · Juan Dela Cruz · Room 1', 'Monthly SOA LU-2026-0003 · Ana Reyes · Room A']);
   });
@@ -289,22 +290,20 @@ describe('Issued bills', () => {
     openBills();
     expect(row('Juan Dela Cruz').queryByRole('button', { name: /^Juan Dela Cruz/ })).not.toBeInTheDocument();
   });
-  it('shows each SOA number quietly beside the room, with labelled buttons to copy and view it', () => {
+  it('shows each SOA number quietly on its own line, with labelled buttons to copy and view it', () => {
     state.bills = [issued('t1')];
     openBills();
     const soa = row('Juan Dela Cruz');
-    const number = soa.getByText('LU-2026-0002');
-    expect(number.className).toMatch(/text-muted-foreground/);
-    expect(number.className).toMatch(/text-xs/);
+    expect(soa.getByText('SOA no. LU-2026-0002')).toHaveClass('text-xs', 'text-muted-foreground');
     expect(soa.getByRole('button', { name: 'Copy Juan Dela Cruz’s monthly SOA as text' })).toHaveTextContent('Copy as text');
     expect(soa.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' })).toHaveTextContent('View SOA');
   });
-  it('notes on a move-in SOA which months its advance covers', () => {
+  it('keeps the move-in advance details in the SOA, not in the row', () => {
     state.bills = [issued('t3', { id: 'mi', kind: 'move_in', number: 'LU-2026-0001', period: '2026-11', dueOn: '2026-11-01' })];
     openBills();
     const soa = within(screen.getByRole('listitem', { name: /^Move-in SOA LU-2026-0001/ }));
-    expect(soa.getByText('Advance covers November · monthly SOAs from December 2026')).toBeInTheDocument();
-    expect(screen.queryByText(/Paid by advance/)).not.toBeInTheDocument();
+    expect(soa.getByText('Move-in SOA')).toBeInTheDocument();
+    expect(soa.queryByText(/Advance covers/)).not.toBeInTheDocument();
   });
   it('flags a cancelled SOA with no replacement while cancelled ones are hidden', () => {
     state.bills = [issued('t1'), issued('t3', { id: 'mi', kind: 'move_in', status: 'void', number: 'LU-2026-0001', period: '2026-11', dueOn: '2026-11-01' })];
@@ -543,7 +542,7 @@ describe('Electricity billed by the month’s bill amount', () => {
   it('waits for the bill amount and saves it from the dialog', async () => {
     state.run.mockResolvedValue(undefined);
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Needs bill amount')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('Needs the bill amount')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).getByRole('button', { name: 'Add bill amounts' }));
     const dialog = within(screen.getByRole('dialog', { name: 'November 2026 bill amounts' }));

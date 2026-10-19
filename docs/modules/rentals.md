@@ -207,3 +207,5 @@ optional but is nudged everywhere: `contractStage(tenancy, texts)` (shared `doma
 not_needed. Home lists contract to-dos first for active tenancies (managers; "Not needed" on none/draft), the tenant sheet shows the
 Contract section first with the next step until done or dismissed ("Contract not needed" + Undo), the Tenants list and Rooms board show
 a short badge, and Add tenant opens the new tenant's sheet at the Contract section. No gating: nothing waits on the contract.
+
+Migration `20261019100000_contract_not_needed.sql` applied to hosted 2026-10-19 (additive column, safe for the older web build).

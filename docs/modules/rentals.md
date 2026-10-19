@@ -212,8 +212,8 @@ a short badge, and Add tenant opens the new tenant's sheet at the Contract secti
 Migration `20261019100000_contract_not_needed.sql` applied to hosted 2026-10-19 (additive column, safe for the older web build).
 
 ## Guided move-in (2026-10-19)
-Spec: "Guided move-in flow" in [[2026-10-16-rentals-design]]. Migration `20261019200000_guided_move_in.sql` (**NOT yet applied to
-hosted**). It is safe for the currently deployed build: texts that build creates are already resolved, so lessee resolution is a no-op
+Spec: "Guided move-in flow" in [[2026-10-16-rentals-design]]. Migration `20261019200000_guided_move_in.sql` (applied to hosted
+2026-10-19; verified anon can still run only the four link functions). It is safe for the currently deployed build: texts that build creates are already resolved, so lessee resolution is a no-op
 (same body, same hash), and the extra jsonb keys `rental_link_get` returns (`lessee`, `contract.signedInPerson`) are ignored by its zod
 schema.
 - `MoveInFlow` (replaces `addTenant`): one dialog, "1 Add tenant · 2 Pay · 3 Contract". Step 2 runs the `moveIn` flow → `rental_move_in`

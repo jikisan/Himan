@@ -30,6 +30,9 @@ const tenancy: RentalTenancy = { id: 't3', propertyId: 'p', unitId: 'u2', renter
     dueDay: 30, advanceMonths: 1, depositCentavos: 350000, status: 'active' }] };
 const body = (signingDate = '2026-10-10') =>
   renderClauses(DEFAULT_CLAUSES, contractValues({ property, renter: carlo, contract: tenancy.contracts[0], signingDate }));
+// What a new contract stores: everything resolved except the tenant's name and address, filled in when they sign.
+const stored = (signingDate = '2026-10-10') =>
+  renderClauses(DEFAULT_CLAUSES, contractValues({ property, contract: tenancy.contracts[0], signingDate }), { keepLessee: true });
 const text = (extra: Partial<ContractText> = {}): ContractText => ({ id: 'ct', propertyId: 'p', contractId: 'c-t3', body: body(),
   specialTerms: '', status: 'draft', signMode: null, contentHash: null, tenantName: null, tenantSignature: null, tenantSignedAt: null,
   lessorSignedAt: null, lessorSignature: null, notarizedScanPath: null, createdAt: '', updatedAt: '', ...extra });
@@ -79,7 +82,8 @@ describe('Contract on the tenant sheet', () => {
     expect(preview.getByText(/Special terms: The storage room is not included\./)).toBeInTheDocument();
     fireEvent.click(contract.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createContractText', contractId: 'c-t3', propertyId: 'p',
-      body: body(), specialTerms: 'The storage room is not included.', signMode: 'esign' }));
+      body: stored(), specialTerms: 'The storage room is not included.', signMode: 'esign' }));
+    expect(stored().join('\n')).toContain('{{lessee_name}}, also of legal age, and residing at {{lessee_address}}');
   });
 
   it('uses the property’s own template', () => {
@@ -120,7 +124,7 @@ describe('Contract on the tenant sheet', () => {
     expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
     fireEvent.change(contract.getByLabelText('Special terms'), { target: { value: 'No pets.' } });
     fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: body(), specialTerms: 'No pets.' } }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: stored(), specialTerms: 'No pets.' } }));
   });
 
   it('lets the sign mode change while the contract is a draft', async () => {
@@ -130,7 +134,7 @@ describe('Contract on the tenant sheet', () => {
     fireEvent.click(contract.getByRole('radio', { name: /then notarize/ }));
     fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct',
-      changes: { body: body(), specialTerms: '', signMode: 'notarize' } }));
+      changes: { body: stored(), specialTerms: '', signMode: 'notarize' } }));
   });
 
   it('chooses the sign mode on a new draft, online only by default', async () => {

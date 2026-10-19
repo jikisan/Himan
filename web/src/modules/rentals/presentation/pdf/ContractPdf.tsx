@@ -23,7 +23,7 @@ export function ContractPdf({ doc }: { doc: ContractPdfData }) {
         {closing && <Clause text={closing} />}
         <View style={{ flexDirection: 'row', gap: 32, marginTop: 18 }}>
           <Signer role="Lessor" name={doc.lessorName} image={doc.lessorSignature} signedAt={doc.lessorSignedAt} />
-          <Signer role="Lessee" name={doc.tenantName} image={doc.tenantSignature} signedAt={doc.tenantSignedAt} />
+          <Signer role="Lessee" name={doc.tenantName} image={doc.tenantSignature} signedAt={doc.tenantSignedAt} inPerson={doc.signedInPerson} />
         </View>
       </View>
 
@@ -49,12 +49,12 @@ function Clause({ text }: { text: string }) {
   return <Text hyphenationPenalty={10000} style={{ marginBottom: 6 }}>{text}</Text>;
 }
 
-function Signer({ role, name, image, signedAt }: { role: string; name: string; image: string | null; signedAt: string | null }) {
+function Signer({ role, name, image, signedAt, inPerson }: { role: string; name: string; image: string | null; signedAt: string | null; inPerson?: boolean }) {
   return <View style={{ flex: 1 }}>
     <View style={{ height: 48, justifyContent: 'flex-end' }}>{image && <Image src={image} style={{ height: 44, objectFit: 'contain', objectPosition: 'left' }} />}</View>
     <View style={styles.line} />
     <Text style={styles.bold}>{name || ' '}</Text>
     <Text style={styles.muted}>{role.toUpperCase()}</Text>
-    {signedAt && <Text style={[styles.muted, { fontSize: 8 }]}>Signed online {manilaDate(signedAt)}</Text>}
+    {signedAt && <Text style={[styles.muted, { fontSize: 8 }]}>{`${inPerson ? 'Signed in person on' : 'Signed online'} ${manilaDate(signedAt)}`}</Text>}
   </View>;
 }

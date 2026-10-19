@@ -20,7 +20,7 @@ describe('ContractPaper (the on-screen copy of the contract PDF)', () => {
   const paper = () => within(screen.getByRole('article', { name: 'Contract of Lease' }));
 
   it('shows the lessor, title, every clause with special terms last, and the witness lines', () => {
-    const doc = contractPdfData(text(), property, 'Ben Cruz');
+    const doc = contractPdfData(text(), property, { fullName: 'Ben Cruz', address: '' });
     render(<ContractPaper doc={doc} />);
     const sheet = paper();
     expect(sheet.getAllByText(doc.lessorName).length).toBeGreaterThan(0);
@@ -58,6 +58,18 @@ describe('ContractPaper (the on-screen copy of the contract PDF)', () => {
     expect(screen.getByText(`Signed online ${manilaDate(doc.lessorSignedAt!)}`)).toBeInTheDocument();
     expect(screen.getByText('Document fingerprint: abcdef012345 (changes if the signed text changes)')).toBeInTheDocument();
     expect(screen.queryByText(doc.contentHash!)).toBeNull();
+  });
+
+  it('says the tenant signed in person when they signed on the owner’s device', () => {
+    const doc = contractPdfData(signed({ signedInPerson: true }), property);
+    render(<ContractPaper doc={doc} />);
+    expect(screen.getByText(`Signed in person on ${manilaDate(doc.tenantSignedAt!)}`)).toBeInTheDocument();
+    expect(screen.queryByText(`Signed online ${manilaDate(doc.tenantSignedAt!)}`)).toBeNull();
+  });
+
+  it('fills the tenant’s current name and address into an unsigned text’s placeholders', () => {
+    const doc = contractPdfData(text({ body: ['{{lessee_name}}, residing at {{lessee_address}},'] }), property, { fullName: 'Ben Cruz', address: ' ' });
+    expect(doc.lines).toEqual(['Ben Cruz, residing at __________,', '1. Special terms: No pets.']);
   });
 
   it('adds the notary acknowledgment only for notarize', () => {

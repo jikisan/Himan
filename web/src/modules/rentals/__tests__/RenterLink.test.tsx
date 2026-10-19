@@ -37,7 +37,7 @@ const base = (extra: Partial<PublicLink> = {}): PublicLink => ({
   kind: 'existing', status: 'open', tenantName: 'Ben Cruz', roomName: 'Room A',
   property: { name: 'Bakilid House', address: 'Lot 1, Mandaue', lessorName: 'Maria Santos', lessorCapacity: 'owner', signingCity: 'Cebu City',
     invoicePrefix: 'BAK', ownerName: 'Maria Santos', ownerAddress: 'Banilad', lessorAddress: 'Talamban, Cebu City', lateFeeCentavos: 0 },
-  contract: sent, bills: [], payments: [], accounts: [], ...extra });
+  contract: sent, bills: [], payments: [], accounts: [], lessee: { name: 'Ben Cruz', address: '' }, ...extra });
 
 const fill = (label: string | RegExp, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const open = async (data: PublicLink | Error) => {
@@ -170,6 +170,17 @@ describe('renter link page', () => {
       contentHash: await sha256Hex(canonicalText(sent.body, sent.specialTerms)) });
     expect(await screen.findByText('Waiting for your landlord to countersign')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull();
+  });
+
+  it('fills the name and address the database will use into the contract, and signs that exact text', async () => {
+    const body = ['{{lessee_name}}, of legal age, residing at {{lessee_address}},', '1. Rent is ₱5,000.'];
+    await open(base({ contract: { ...sent, body }, lessee: { name: ' Ben Cruz ', address: 'Pajo, Lapu-Lapu City' } }));
+    const paper = within(screen.getByRole('article', { name: 'Contract of Lease' }));
+    expect(paper.getByText('Ben Cruz, of legal age, residing at Pajo, Lapu-Lapu City,')).toBeInTheDocument();
+    await signNow();
+    await waitFor(() => expect(repo.sign).toHaveBeenCalled());
+    expect(repo.sign).toHaveBeenCalledWith(TOKEN, expect.objectContaining({
+      contentHash: await sha256Hex(canonicalText(['Ben Cruz, of legal age, residing at Pajo, Lapu-Lapu City,', '1. Rent is ₱5,000.'], sent.specialTerms)) }));
   });
 
   it('reloads and asks to read again when the landlord changed the contract', async () => {

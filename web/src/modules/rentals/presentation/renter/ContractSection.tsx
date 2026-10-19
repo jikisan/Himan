@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { canonicalText, sha256Hex } from '@himan/shared/rentals';
+import { canonicalText, resolveLessee, sha256Hex } from '@himan/shared/rentals';
 import type { PublicLink, SignMode } from '@himan/shared/rentals';
 import { Button } from '@/components/ui/button';
 import { LinkRepository } from '../../infrastructure';
@@ -27,7 +27,7 @@ export function ContractSection({ token, data, reload }: { token: string; data: 
     <ContractPaper doc={pdfData(c, data)} />
     <p className="text-sm text-muted-foreground">Something wrong? Tell your landlord.</p>
     {c.status === 'sent'
-      ? <SignForm contract={c} onSign={async (input) => {
+      ? <SignForm contract={{ ...c, body: resolved(c, data) }} onSign={async (input) => {
         try { await links.sign(token, input); } catch (error) {
           const message = errorMessage(error);
           if (!/contract changed|reload the page/i.test(message)) throw error;
@@ -83,12 +83,15 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
   </form>;
 }
 
+/** The text exactly as the database will sign it: `lessee` filled into the name and address placeholders (a signed text has none left). */
+const resolved = (c: Contract, data: PublicLink) => resolveLessee(c.body, data.lessee.name, data.lessee.address);
+
 const pdfData = (c: Contract, data: PublicLink): ContractPdfData => ({
   // Same address as the landlord's PDF (rental_link_get already falls back to the property address).
   lessorName: data.property.lessorName, lessorAddress: data.property.lessorAddress || data.property.address, signingCity: data.property.signingCity,
-  lines: contractLines(c.body, c.specialTerms), signMode: c.signMode, tenantName: c.tenantName || data.tenantName,
+  lines: contractLines(resolved(c, data), c.specialTerms), signMode: c.signMode, tenantName: c.tenantName || data.tenantName,
   tenantSignature: c.tenantSignature, tenantSignedAt: c.tenantSignedAt, lessorSignature: c.lessorSignature ?? null,
-  lessorSignedAt: c.lessorSignedAt ?? null, contentHash: c.contentHash,
+  lessorSignedAt: c.lessorSignedAt ?? null, contentHash: c.contentHash, signedInPerson: c.signedInPerson,
 });
 
 function SignedView({ contract: c, data }: { contract: Contract; data: PublicLink }) {

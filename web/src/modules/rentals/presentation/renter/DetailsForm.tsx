@@ -4,6 +4,7 @@ import type { LinkDetails, PublicLink } from '@himan/shared/rentals';
 import { Button } from '@/components/ui/button';
 import { Field, inputClass } from '../components/Field';
 import { errorMessage } from '../utils/errorMessage';
+import { OPTIONAL_FIELDS, PRIVACY_CONSENT, TEXT_FIELDS } from '../utils/details';
 import { LinkRepository } from '../../infrastructure';
 
 const MAX_IDS = 3;
@@ -20,12 +21,6 @@ const Note = ({ children }: { children: React.ReactNode }) =>
   <p role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-base">{children}</p>;
 
 type Upload = { key: number; name: string; state: 'uploading' | 'done' | 'error'; path?: string; error?: string };
-const TEXT_FIELDS = [
-  ['fullName', 'Full name', 'name', 'text'], ['phone', 'Mobile number', 'tel', 'tel'], ['address', 'Home address', 'street-address', 'text'],
-  ['emergencyName', 'Emergency contact name', 'off', 'text'], ['emergencyPhone', 'Emergency contact number', 'off', 'tel'],
-] as const;
-const OPTIONAL_FIELDS = [['facebook', 'Facebook or Messenger name (optional)', 'off', 'text'], ['email', 'Email (optional)', 'email', 'email']] as const;
-
 function DetailsForm({ token, onSent }: { token: string; onSent(): Promise<void> }) {
   const id = useId();
   const [values, setValues] = useState({ fullName: '', phone: '', address: '', emergencyName: '', emergencyPhone: '', facebook: '', email: '', occupants: '' });
@@ -94,8 +89,7 @@ function DetailsForm({ token, onSent }: { token: string; onSent(): Promise<void>
 
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-base">
       <input type="checkbox" className="mt-1 size-5 shrink-0" checked={agreed} disabled={busy} onChange={(e) => setAgreed(e.target.checked)} />
-      {/* TODO owner: legal review of this wording (Data Privacy Act 2012) */}
-      <span>I agree that my landlord stores these details to manage my rental.</span>
+      <span>{PRIVACY_CONSENT}</span>
     </label>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Button type="submit" className="h-12 w-full text-base" disabled={!parsed.success || !agreed || uploading || busy}>

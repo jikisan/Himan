@@ -1,5 +1,5 @@
-import { linkMessage } from '@himan/shared/rentals';
-import type { ContractStage, ContractText, LinkKind, RentalProperty, SignMode, TenancyLink } from '@himan/shared/rentals';
+import { linkMessage, resolveLessee } from '@himan/shared/rentals';
+import type { ContractStage, ContractText, LinkKind, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
 
 /**
  * The contract as printed and shown: the frozen `body`, with the special terms as the last numbered clause, placed before
@@ -19,14 +19,18 @@ export interface ContractPdfData {
   lessorName: string; lessorAddress: string; signingCity: string; lines: string[]; signMode: SignMode | null;
   tenantName: string; tenantSignature: string | null; tenantSignedAt: string | null;
   lessorSignature: string | null; lessorSignedAt: string | null; contentHash: string | null;
+  /** The tenant signed on the owner's device: printed "Signed in person" instead of "Signed online". */
+  signedInPerson?: boolean;
 }
 
+/** An unsigned text shows the renter's current name and address in its lessee placeholders; a signed one is already resolved. */
 export function contractPdfData(text: ContractText,
-  property: Pick<RentalProperty, 'lessorName' | 'lessorAddress' | 'address' | 'signingCity'>, renterName = ''): ContractPdfData {
+  property: Pick<RentalProperty, 'lessorName' | 'lessorAddress' | 'address' | 'signingCity'>,
+  renter: Pick<Renter, 'fullName' | 'address'> = { fullName: '', address: '' }): ContractPdfData {
   return { lessorName: property.lessorName, lessorAddress: property.lessorAddress || property.address, signingCity: property.signingCity,
-    lines: contractLines(text.body, text.specialTerms), signMode: text.signMode, tenantName: text.tenantName || renterName,
-    tenantSignature: text.tenantSignature, tenantSignedAt: text.tenantSignedAt, lessorSignature: text.lessorSignature,
-    lessorSignedAt: text.lessorSignedAt, contentHash: text.contentHash };
+    lines: contractLines(resolveLessee(text.body, renter.fullName, renter.address), text.specialTerms), signMode: text.signMode,
+    tenantName: text.tenantName || renter.fullName, tenantSignature: text.tenantSignature, tenantSignedAt: text.tenantSignedAt,
+    lessorSignature: text.lessorSignature, lessorSignedAt: text.lessorSignedAt, contentHash: text.contentHash, signedInPerson: text.signedInPerson };
 }
 
 /** "Oct 19, 2026" in Manila time for a timestamp. */

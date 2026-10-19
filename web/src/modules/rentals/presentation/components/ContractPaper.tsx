@@ -23,7 +23,7 @@ export function ContractPaper({ doc }: { doc: ContractPdfData }) {
 
     <div className="grid grid-cols-2 gap-6 pt-4 text-left sm:gap-8">
       <Signer role="Lessor" name={doc.lessorName} image={doc.lessorSignature} signedAt={doc.lessorSignedAt} />
-      <Signer role="Lessee" name={doc.tenantName} image={doc.tenantSignature} signedAt={doc.tenantSignedAt} />
+      <Signer role="Lessee" name={doc.tenantName} image={doc.tenantSignature} signedAt={doc.tenantSignedAt} inPerson={doc.signedInPerson} />
     </div>
 
     <div className="pt-6 text-left">
@@ -42,12 +42,12 @@ export function ContractPaper({ doc }: { doc: ContractPdfData }) {
   </article>;
 }
 
-function Signer({ role, name, image, signedAt }: { role: string; name: string; image: string | null; signedAt: string | null }) {
+function Signer({ role, name, image, signedAt, inPerson }: { role: string; name: string; image: string | null; signedAt: string | null; inPerson?: boolean }) {
   return <div className="min-w-0">
     <div className="flex h-14 items-end">{image && <img src={image} alt={`${role} signature`} className="h-12 max-w-full object-contain object-left" />}</div>
     <div className="border-b border-neutral-400" />
     <p className="font-bold">{name || ' '}</p>
     <p className={muted}>{role.toUpperCase()}</p>
-    {signedAt && <p className={`text-[11px] ${muted}`}>Signed online {manilaDate(signedAt)}</p>}
+    {signedAt && <p className={`text-[11px] ${muted}`}>{`${inPerson ? 'Signed in person on' : 'Signed online'} ${manilaDate(signedAt)}`}</p>}
   </div>;
 }

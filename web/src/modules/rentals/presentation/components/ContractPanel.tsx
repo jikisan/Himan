@@ -1,9 +1,9 @@
 import { useId, useRef, useState } from 'react';
-import { Copy, FilePlus2, PenLine, Send, Share2, Upload } from 'lucide-react';
+import { Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { contractStatusLabel, contractValues, linkMessage, manilaToday, renderClauses } from '@himan/shared/rentals';
+import { contractStatusLabel, contractValues, linkMessage, manilaToday, renderClauses, resolveLessee } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalContract, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 import type { RentalsState } from '../pages/RentalsPage';
@@ -14,6 +14,7 @@ import { ContractPaper } from './ContractPaper';
 import { PaperDialog } from './PaperDialog';
 import { PdfButton } from './PdfButton';
 import { SignaturePad } from './SignaturePad';
+import { InPersonSigning } from './InPersonSigning';
 
 export interface ContractInfo { property: RentalProperty; texts: ContractText[]; template: Clause[]; links: TenancyLink[] }
 
@@ -33,20 +34,23 @@ export function SignModeChoice({ legend, value, onChange, disabled, className }:
   </fieldset>;
 }
 
-/** The written contract for one tenancy on the tenant sheet: create → send → tenant signs → countersign → PDF. */
-export function ContractPanel({ contract, renter, info, canManage, busy, run }: {
-  contract: RentalContract; renter: Renter; info: ContractInfo; canManage: boolean;
+/** The written contract for one tenancy on the tenant sheet: create → send (or sign on this device) → tenant signs → countersign → PDF.
+ * `startEditing`: open straight at the new-contract form (the move-in flow's last step). */
+export function ContractPanel({ contract, renter, info, canManage, busy, run, startEditing = false }: {
+  contract: RentalContract; renter: Renter; info: ContractInfo; canManage: boolean; startEditing?: boolean;
 } & Pick<RentalsState, 'busy' | 'run'>) {
   const { property } = info;
   const text = info.texts.find((t) => t.contractId === contract.id);
   const link = info.links.find((l) => l.tenancyId === contract.tenancyId && !l.revokedAt);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
+  const [inPerson, setInPerson] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [drawing, setDrawing] = useState<string | null | undefined>(undefined); // undefined = pad closed
   const [replaceScan, setReplaceScan] = useState(false);
   const scanInput = useRef<HTMLInputElement>(null);
   const replaceConfirmed = useRef(false);
-  const body = () => renderClauses(info.template, contractValues({ property, renter, contract, signingDate: manilaToday() }));
+  // Stored with the tenant's name and address as placeholders: they are filled in from what the tenant gives when signing.
+  const body = () => renderClauses(info.template, contractValues({ property, contract, signingDate: manilaToday() }), { keepLessee: true });
   const fail = (e: unknown) => toast.error(errorMessage(e));
 
   // Reuses the open link; replaces a turned-off one with the same kind; else makes one (kind "existing": they're already a tenant).
@@ -86,7 +90,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
       <FilePlus2 className="h-4 w-4" />Create contract</Button>;
     return <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? (modeLocked ? null : 'esign')}
       modeLocked={modeLocked}
-      body={body()} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
+      preview={resolveLessee(body(), renter.fullName, renter.address)} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
       note={text?.status === 'sent' ? 'Your tenant’s page will ask them to reload and read the new version.' : undefined}
       onCancel={() => setEditing(false)}
       onSave={async (specialTerms, signMode) => {
@@ -101,13 +105,20 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
   const notarize = text.signMode === 'notarize' && !!text.tenantSignedAt;
   // The saved signature is the owner's: other managers draw their own.
   const saved = property.role === 'owner' && !!property.lessorSignature;
-  const pdfData = contractPdfData(text, property, renter.fullName);
+  const pdfData = contractPdfData(text, property, renter);
+  const signHere = canManage && (text.status === 'sent' || (text.status === 'draft' && !!text.signMode));
   const downloadPdf = async () => (await import('../pdf/download')).downloadContractPdf(pdfData);
   return <div className="space-y-3">
     <p className="rounded-md bg-muted/50 px-3 py-2 text-sm font-medium" role="status">{contractStatusLabel(text.status, text.signMode)}</p>
     {text.signMode ? <p className="text-xs text-muted-foreground">Signing: {signModeWords(text.signMode)}</p>
       : text.status === 'draft' && canManage && <p className="text-xs text-muted-foreground">Choose how the contract is signed before sending it: tap Edit.</p>}
     {text.notarizedScanPath && <p className="text-xs text-muted-foreground">Notarized copy attached.</p>}
+    {signHere && <Button className="h-12 w-full text-base sm:h-10" disabled={busy} onClick={async () => {
+      try {
+        if (text.status === 'draft') await run({ type: 'sendContract', id: text.id });
+        setInPerson(true);
+      } catch (e) { fail(e); }
+    }}><Smartphone className="h-5 w-5" />Sign on this device</Button>}
     {canManage && <div className="flex flex-wrap gap-2">
       {text.status === 'draft' && <Button className="h-11 sm:h-9" disabled={busy || !text.signMode} onClick={async () => {
         try {
@@ -149,14 +160,15 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
         make={downloadPdf}>{() => <ContractPaper doc={pdfData} />}</PaperDialog>
       <PdfButton className="h-11 sm:h-9" make={downloadPdf}>Download PDF</PdfButton>
     </div>
+    {inPerson && <InPersonSigning text={text} renter={renter} property={property} busy={busy} run={run} onClose={() => setInPerson(false)} />}
     <ConfirmDialog open={replaceScan} onOpenChange={setReplaceScan} title="Replace the notarized copy?" confirmText="Choose new file"
       description="The copy you attached before is replaced by the new file." onConfirm={() => { replaceConfirmed.current = true; scanInput.current?.click(); }} />
   </div>;
 }
 
 /** `modeLocked`: sent, so the tenant may be reading it; the sign mode is fixed (the database refuses a change). */
-function ContractEditor({ initialTerms, initialMode, modeLocked, body, busy, submit, note, onSave, onCancel }: {
-  initialTerms: string; initialMode: SignMode | null; modeLocked: boolean; body: string[]; busy: boolean; submit: string; note?: string;
+function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, submit, note, onSave, onCancel }: {
+  initialTerms: string; initialMode: SignMode | null; modeLocked: boolean; preview: string[]; busy: boolean; submit: string; note?: string;
   onSave(terms: string, signMode?: SignMode): Promise<void>; onCancel(): void;
 }) {
   const [terms, setTerms] = useState(initialTerms);
@@ -164,7 +176,7 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, body, busy, sub
   const [error, setError] = useState('');
   return <div className="space-y-3">
     <section aria-label="Preview" className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-3 text-xs leading-relaxed [scrollbar-width:thin]">
-      {contractLines(body, terms).map((line, i) => <p key={i}>{line}</p>)}
+      {contractLines(preview, terms).map((line, i) => <p key={i}>{line}</p>)}
     </section>
     <div className="space-y-1">
       <label htmlFor="contract-terms" className="text-sm font-medium">Special terms</label>

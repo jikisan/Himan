@@ -54,6 +54,14 @@ describe('contract pdf', () => {
     expect(out).toContain('Cebu City');
   });
 
+  it('says signed in person for a contract signed on the owner’s device', async () => {
+    const out = await pdfText(await renderToBuffer(<ContractPdf doc={contractPdfData({ ...text, signedInPerson: true }, property)} />), 'contract-in-person');
+    if (out === null) return;
+    const flat = out.replace(/\s+/g, ' ');
+    expect(flat).toContain('Signed in person on Oct 19, 2026');
+    expect(flat).toContain('Signed online Oct 20, 2026');
+  });
+
   it('prints blank signature lines on an unsigned draft', async () => {
     const out = await pdfText(await renderToBuffer(<ContractPdf doc={contractPdfData({ ...text, status: 'draft', tenantSignature: null,
       tenantSignedAt: null, lessorSignature: null, lessorSignedAt: null, contentHash: null, signMode: null }, property)} />), 'contract-draft');

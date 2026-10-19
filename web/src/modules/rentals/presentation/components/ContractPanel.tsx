@@ -3,15 +3,16 @@ import { Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'luci
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { contractStatusLabel, contractValues, linkMessage, manilaToday, renderClauses } from '@himan/shared/rentals';
-import type { Clause, ContractText, RentalContract, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
+import { BLANK, contractStatusLabel, contractValues, linkMessage, manilaToday, missingContractDetails, renderClauses } from '@himan/shared/rentals';
+import type { Clause, ContractText, MissingContractDetail, PropertyInput, RentalContract, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
 import { useFieldErrors } from '@core/presentation/hooks';
 import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import type { RentalsState } from '../pages/RentalsPage';
 import { SIGN_MODES, contractLines, contractPdfData, previewLessee, signModeWords } from '../utils/contract';
 import { errorMessage } from '../utils/errorMessage';
-import { inputClass } from './Field';
+import { Field, inputClass } from './Field';
+import { propertyInput } from './PropertyForm';
 import { ContractPaper } from './ContractPaper';
 import { PaperDialog } from './PaperDialog';
 import { PdfButton } from './PdfButton';
@@ -46,10 +47,13 @@ export function SignModeChoice({ legend, value, onChange, disabled, className, i
 export function ContractPanel({ contract, renter, info, canManage, busy, run, startEditing = false }: {
   contract: RentalContract; renter: Renter; info: ContractInfo; canManage: boolean; startEditing?: boolean;
 } & Pick<RentalsState, 'busy' | 'run'>) {
-  const { property } = info;
+  // What was just saved in "Fill these in first", until the refetched property has it.
+  const [filled, setFilled] = useState<Partial<PropertyInput>>({});
+  const property = { ...info.property, ...filled };
   const text = info.texts.find((t) => t.contractId === contract.id);
   const link = info.links.find((l) => l.tenancyId === contract.tenancyId && !l.revokedAt);
   const [editing, setEditing] = useState(startEditing);
+  const [filling, setFilling] = useState(false); // "Send" or "Sign on this device" waits for the missing details
   const [inPerson, setInPerson] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [drawing, setDrawing] = useState<string | null | undefined>(undefined); // undefined = pad closed
@@ -60,8 +64,18 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   const body = () => renderClauses(info.template, contractValues({ property, contract, signingDate: manilaToday() }), { keepLessee: true });
   const fail = (e: unknown) => toast.error(errorMessage(e));
 
-  // Reuses the open link; replaces a turned-off one with the same kind; else makes one (kind "existing": they're already a tenant).
-  const kind = info.links.find((l) => l.tenancyId === contract.tenancyId)?.kind ?? 'existing';
+  const missing = canManage ? missingContractDetails(info.template, property) : [];
+  // A draft is re-made from the template before it goes out, so details filled in after it was saved are in it.
+  const send = async (draft: ContractText) => {
+    const fresh = body();
+    if (fresh.join('\n') !== draft.body.join('\n')) await run({ type: 'updateContractText', id: draft.id, changes: { body: fresh } });
+    await run({ type: 'sendContract', id: draft.id });
+  };
+
+  // Reuses the open link; replaces a turned-off one with the same kind; else makes one: "new" asks the tenant for the details
+  // we lack (their address goes in the contract), "existing" goes straight to signing.
+  const kind = info.links.find((l) => l.tenancyId === contract.tenancyId)?.kind
+    ?? (renter.address.trim() && renter.phone.trim() ? 'existing' : 'new');
   const linkToken = async () => token ?? link?.token ?? await run({ type: 'createLink', tenancyId: contract.tenancyId, kind }) as string;
   const message = (t: string) => linkMessage(`${location.origin}/r/${t}`, renter.fullName, kind);
   const copy = async () => {
@@ -91,6 +105,14 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   };
 
   if (!text && !canManage) return <p className="text-sm text-muted-foreground">No written contract yet.</p>;
+  if ((editing || filling) && missing.length) {
+    return <ContractDetailsForm missing={missing} busy={busy} onCancel={() => { setEditing(false); setFilling(false); }}
+      onSave={async (values) => {
+        await run({ type: 'saveProperty', id: property.id, input: { ...propertyInput(info.property), ...values } });
+        setFilled(values);
+        setFilling(false);
+      }} />;
+  }
   if (!text || editing) {
     const modeLocked = !!text && text.status !== 'draft';
     if (!editing && !text) return <Button variant="outline" className="h-11 sm:h-9" onClick={() => setEditing(true)}>
@@ -114,22 +136,27 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   const saved = property.role === 'owner' && !!property.lessorSignature;
   const pdfData = contractPdfData(text, property, renter);
   const signHere = canManage && (text.status === 'sent' || (text.status === 'draft' && !!text.signMode));
+  // The tenant's own name and address stay placeholders until they sign, so any blank left is one of ours.
+  const blanks = text.status === 'sent' && text.body.some((line) => line.includes(BLANK));
   const downloadPdf = async () => (await import('../pdf/download')).downloadContractPdf(pdfData);
   return <div className="space-y-3">
     <p className="rounded-md bg-muted/50 px-3 py-2 text-sm font-medium" role="status">{contractStatusLabel(text.status, text.signMode)}</p>
     {text.signMode ? <p className="text-xs text-muted-foreground">Signing: {signModeWords(text.signMode)}</p>
       : text.status === 'draft' && canManage && <p className="text-xs text-muted-foreground">Choose how the contract is signed before sending it: tap Edit.</p>}
     {text.notarizedScanPath && <p className="text-xs text-muted-foreground">Notarized copy attached.</p>}
+    {blanks && canManage && <p className="text-sm text-muted-foreground">This contract has blank spaces. Press Edit and Save changes to fill them in.</p>}
     {signHere && <Button className="h-12 w-full text-base sm:h-10" disabled={busy} onClick={async () => {
       try {
-        if (text.status === 'draft') await run({ type: 'sendContract', id: text.id });
+        if (text.status === 'draft' && missing.length) return setFilling(true);
+        if (text.status === 'draft') await send(text);
         setInPerson(true);
       } catch (e) { fail(e); }
     }}><Smartphone className="h-5 w-5" />Sign on this device</Button>}
     {canManage && <div className="flex flex-wrap gap-2">
       {text.status === 'draft' && <Button className="h-11 sm:h-9" disabled={busy || !text.signMode} onClick={async () => {
+        if (missing.length) return setFilling(true);
         try {
-          await run({ type: 'sendContract', id: text.id });
+          await send(text);
           setToken(await linkToken());
           toast.success('Contract ready. Copy the link and send it to your tenant.');
         } catch (e) { fail(e); }
@@ -208,4 +235,44 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
       }}>{submit}</Button>
     </div>
   </div>;
+}
+
+const CIVIL_STATUSES = ['Single', 'Married', 'Widowed', 'Separated'];
+
+/** The property details the contract would print as blanks, asked for before the editor; saved to the property for every contract. */
+function ContractDetailsForm({ missing, busy, onSave, onCancel }: {
+  missing: MissingContractDetail[]; busy: boolean; onSave(values: Partial<PropertyInput>): Promise<void>; onCancel(): void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  const fe = useFieldErrors();
+  const id = (d: MissingContractDetail) => `contract-detail-${d.field}`;
+  return <form noValidate className="space-y-4" onSubmit={async (event) => {
+    event.preventDefault();
+    fe.clear();
+    const empty = missing.filter((d) => !values[d.field]?.trim());
+    if (empty.length) return fe.failMany(empty.map((d) => [id(d), 'Fill this in']));
+    try { await onSave(Object.fromEntries(missing.map((d) => [d.field, values[d.field].trim()]))); } catch (e) { fe.setFormError(errorMessage(e)); }
+  }}>
+    <FormErrorBanner message={fe.formError} />
+    <div>
+      <h4 className="text-base font-semibold">Fill these in first</h4>
+      <p className="text-xs text-muted-foreground">They go into every contract for this property, so it has no blank spaces.</p>
+    </div>
+    <fieldset disabled={busy} className="space-y-3">
+      {missing.map((d) => {
+        const props = { id: id(d), className: inputClass, required: true, value: values[d.field] ?? '', ...fe.invalid(id(d)),
+          onChange: (e: { target: { value: string } }) => { setValues((v) => ({ ...v, [d.field]: e.target.value })); fe.clear(id(d)); } };
+        return <Field key={d.field} id={id(d)} label={d.label} required error={fe.errors[id(d)]}>
+          {d.field === 'lessorCivilStatus'
+            ? <select {...props}><option value="">Choose…</option>
+              {CIVIL_STATUSES.map((s) => <option key={s} value={s.toLowerCase()}>{s}</option>)}</select>
+            : <input {...props} />}
+        </Field>;
+      })}
+    </fieldset>
+    <div className="flex justify-end gap-2">
+      <Button type="button" variant="ghost" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
+      <Button type="submit" className="h-11 sm:h-9" disabled={busy}>Save and continue</Button>
+    </div>
+  </form>;
 }

@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { DEFAULT_CLAUSES, contractStatusLabel, contractValues, linkMessage, renderClauses } from '@himan/shared/rentals';
+import { BLANK, DEFAULT_CLAUSES, contractStatusLabel, contractValues, linkMessage, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalProperty, RentalTenancy, Renter, TenancyLink } from '@himan/shared/rentals';
 import { RentalsPage } from '../presentation/pages/RentalsPage';
-import { expectBanner, expectNoErrorAfter } from './formErrors';
+import { propertyInput } from '../presentation/components/PropertyForm';
+import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
 const PNG = 'data:image/png;base64,AAAA';
 const pad = vi.hoisted(() => ({ fire: () => {} }));
@@ -267,6 +268,138 @@ describe('Contract on the tenant sheet', () => {
     render(<MemoryRouter><RentalsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Countersign contract for Carlo Lim' }));
     expect(within(screen.getByRole('region', { name: 'Contract' })).getByRole('button', { name: 'Countersign' })).toBeInTheDocument();
+  });
+});
+
+describe('Contract details the property still needs', () => {
+  // The owner's report: an empty signing city and civil status printed as blanks in the sent contract.
+  const unfinished = { ...property, signingCity: '', lessorCivilStatus: '' };
+
+  it('asks for the missing details before a new contract, saves them to the property, then shows the editor', async () => {
+    state.properties = [unfinished];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
+    expect(contract.getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
+    expect(contract.getByText('They go into every contract for this property, so it has no blank spaces.')).toBeInTheDocument();
+    expect(contract.queryByRole('button', { name: 'Save draft' })).toBeNull();
+    const city = contract.getByLabelText(/^City where the contract is signed/);
+    const status = contract.getByLabelText(/^Your civil status/);
+    expectRequired(city);
+    expectRequired(status);
+    expect(within(status).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose…', 'Single', 'Married', 'Widowed', 'Separated']);
+    fireEvent.change(city, { target: { value: ' Mandaue City ' } });
+    fireEvent.change(status, { target: { value: 'married' } });
+    fireEvent.click(contract.getByRole('button', { name: 'Save and continue' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveProperty', id: 'p',
+      input: { ...propertyInput(unfinished), signingCity: 'Mandaue City', lessorCivilStatus: 'married' } }));
+    // The editor follows, its preview made from the details just saved.
+    const preview = within(await contract.findByRole('region', { name: 'Preview' }));
+    expect(preview.getByText(/at Mandaue City, by and between: Maria Santos, of legal age, married and residing/)).toBeInTheDocument();
+    expect(contract.queryByText(BLANK, { exact: false })).toBeNull();
+  });
+
+  it('focuses the first empty detail with its message under it', async () => {
+    state.properties = [unfinished];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
+    const save = contract.getByRole('button', { name: 'Save and continue' });
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(contract.getByLabelText(/^City where the contract is signed/), 'Fill this in'));
+    expect(contract.getByLabelText(/^Your civil status/)).toHaveAttribute('aria-invalid', 'true');
+    expectNoErrorAfter(save);
+    expect(state.run).not.toHaveBeenCalled();
+  });
+
+  it('shows a refused save in a banner and stays on the form; Cancel goes back', async () => {
+    state.properties = [{ ...unfinished, lessorCivilStatus: 'single' }];
+    state.run.mockRejectedValue(new Error('The database said no'));
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
+    expect(contract.queryByLabelText(/^Your civil status/)).toBeNull();
+    fireEvent.change(contract.getByLabelText(/^City where the contract is signed/), { target: { value: 'Cebu City' } });
+    fireEvent.click(contract.getByRole('button', { name: 'Save and continue' }));
+    await waitFor(() => expectBanner('The database said no', contract.getByLabelText(/^City where the contract is signed/)));
+    fireEvent.click(contract.getByRole('button', { name: 'Cancel' }));
+    expect(contract.getByRole('button', { name: 'Create contract' })).toBeInTheDocument();
+  });
+
+  it('asks for them before editing a sent contract, and before sending a draft', () => {
+    state.properties = [unfinished];
+    state.contractTexts = [text({ status: 'sent', signMode: 'esign' })];
+    let contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
+    expect(contract.getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
+    expect(contract.queryByLabelText('Special terms')).toBeNull();
+    cleanup();
+    state.contractTexts = [text({ signMode: 'esign' })];
+    contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    expect(contract.getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
+    expect(state.run).not.toHaveBeenCalled();
+  });
+
+  it('shows a viewer only the status, never the form', () => {
+    state.properties = [{ ...unfinished, role: 'viewer' }];
+    const contract = openSheet();
+    expect(contract.getByText('No written contract yet.')).toBeInTheDocument();
+    expect(contract.queryByRole('heading', { name: 'Fill these in first' })).toBeNull();
+  });
+});
+
+describe('Sending a draft made before the details were filled in', () => {
+  const old = stored().map((line) => line.replace('Mandaue City', BLANK));
+
+  it('re-renders the draft from the template with the latest details, then sends it', async () => {
+    state.contractTexts = [text({ signMode: 'esign', body: old })];
+    state.run.mockImplementation(async (a: { type: string }) => (a.type === 'createLink' ? 'tok123' : undefined));
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' }));
+    const types = state.run.mock.calls.map(([a]) => a.type);
+    expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: stored() } });
+    expect(types.indexOf('updateContractText')).toBeLessThan(types.indexOf('sendContract'));
+  });
+
+  it('does the same when signing on this device', async () => {
+    state.contractTexts = [text({ signMode: 'esign', body: old })];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Sign on this device' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' }));
+    expect(state.run.mock.calls[0][0]).toEqual({ type: 'updateContractText', id: 'ct', changes: { body: stored() } });
+  });
+
+  it('sends an up-to-date draft as it is', async () => {
+    state.contractTexts = [text({ signMode: 'esign', body: stored() })];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' }));
+    expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateContractText' }));
+  });
+
+  it('never changes a sent text by itself, but says when it has blank spaces', () => {
+    state.contractTexts = [text({ status: 'sent', signMode: 'esign', body: old })];
+    const contract = openSheet();
+    expect(contract.getByText('This contract has blank spaces. Press Edit and Save changes to fill them in.')).toBeInTheDocument();
+    expect(state.run).not.toHaveBeenCalled();
+    cleanup();
+    // The tenant's own name and address are filled in when they sign, so those placeholders are not blanks.
+    state.contractTexts = [text({ status: 'sent', signMode: 'esign', body: stored() })];
+    expect(openSheet().queryByText(/has blank spaces/)).toBeNull();
+  });
+});
+
+describe('The link a sent contract goes out with', () => {
+  it('asks a tenant with no address or phone on file for their details first', async () => {
+    for (const missing of [{ address: '' }, { phone: ' ' }]) {
+      state.renters = [{ ...carlo, ...missing }];
+      state.contractTexts = [text({ signMode: 'esign', body: stored() })];
+      state.run.mockImplementation(async (a: { type: string }) => (a.type === 'createLink' ? 'tok123' : undefined));
+      const contract = openSheet();
+      fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+      await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'new' }));
+      cleanup();
+      state.run.mockClear();
+    }
   });
 });
 

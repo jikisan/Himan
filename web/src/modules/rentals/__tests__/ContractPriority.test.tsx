@@ -9,8 +9,9 @@ import { RentalsPage } from '../presentation/pages/RentalsPage';
 const unit = (n: number): RentalUnit => ({ id: `u${n}`, propertyId: 'p', name: `Room ${n}`, kind: 'room', capacity: 1, electricMode: 'none',
   electricAmountCentavos: 0, waterMode: 'none', waterAmountCentavos: 0, defaultRentCentavos: 350000, extraPersonRentCentavos: 0 });
 const property: RentalProperty = {
-  id: 'p', createdBy: 'owner', name: 'Bakilid House', address: '', ownerName: '', ownerAddress: '', lessorName: 'Maria Santos',
-  lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'INV', lateFeeCentavos: 0, rentDueDay: null,
+  // Every detail the default contract prints is filled in, so creating a contract goes straight to the editor.
+  id: 'p', createdBy: 'owner', name: 'Bakilid House', address: '12 Bakilid Road, Mandaue City', ownerName: '', ownerAddress: '', lessorName: 'Maria Santos',
+  lessorCivilStatus: 'married', lessorAddress: 'Cebu City', lessorCapacity: 'owner', signingCity: 'Mandaue City', invoicePrefix: 'INV', lateFeeCentavos: 0, rentDueDay: null,
   paymentsTrackedFrom: null, lessorSignature: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
   units: [1, 2, 3, 4, 5, 6, 7].map(unit),
 };

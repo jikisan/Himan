@@ -238,12 +238,12 @@ describe('Tenant sheet and move out', () => {
     fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
     expect(screen.getByText(/Lives in Room B since Mar 1, 2026/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
-    fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '32' } });
+    fireEvent.change(screen.getByLabelText(/^Due day/), { target: { value: '32' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Due day is 1–31')).toBeInTheDocument();
     expect(state.run).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Due day'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('Rent per month'), { target: { value: '4,000' } });
+    fireEvent.change(screen.getByLabelText(/^Due day/), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText(/^Rent per month/), { target: { value: '4,000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     fireEvent.change(screen.getByLabelText('Advance months'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('Deposit'), { target: { value: '8,000' } });
@@ -350,7 +350,7 @@ describe('Per-person room price', () => {
   it('saves the extra-person price on a room', async () => {
     page();
     fireEvent.click(screen.getByRole('button', { name: 'Add room' }));
-    fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'Room C' } });
+    fireEvent.change(screen.getByLabelText(/^Room name/), { target: { value: 'Room C' } });
     fireEvent.change(screen.getByLabelText('Usual rent'), { target: { value: '3,000' } });
     fireEvent.change(screen.getByLabelText('Extra per added person'), { target: { value: '500' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save room' }));
@@ -388,15 +388,15 @@ describe('First property setup', () => {
     state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
     start();
     expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    fireEvent.change(screen.getByLabelText(/^Property name/), { target: { value: 'Lahug House' } });
     next();
-    fireEvent.change(screen.getAllByLabelText('Room name')[0], { target: { value: 'Room A' } });
+    fireEvent.change(screen.getAllByLabelText(/^Room name/)[0], { target: { value: 'Room A' } });
     fireEvent.change(screen.getAllByLabelText('Usual rent')[0], { target: { value: '3,000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add another room' }));
-    expect(screen.getAllByLabelText('Room name')[1]).toHaveValue('Room B');
+    expect(screen.getAllByLabelText(/^Room name/)[1]).toHaveValue('Room B');
     next();
     fireEvent.change(screen.getByLabelText('Electricity'), { target: { value: 'submeter' } });
-    fireEvent.change(screen.getByLabelText('Price per kWh'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText(/^Price per kWh/), { target: { value: '20' } });
     fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'setupProperty',
       input: expect.objectContaining({ name: 'Lahug House', ownerName: 'Maria Santos', lessorName: 'Maria Santos' }),
@@ -406,10 +406,10 @@ describe('First property setup', () => {
   it('makes a shared room from the room type switch and counts its beds', async () => {
     state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
     start();
-    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    fireEvent.change(screen.getByLabelText(/^Property name/), { target: { value: 'Lahug House' } });
     next();
     fireEvent.click(screen.getByRole('radio', { name: 'Shared room' }));
-    fireEvent.change(screen.getByLabelText('Beds'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText(/^Beds/), { target: { value: '4' } });
     expect(screen.getByText('1 room · 4 beds')).toBeInTheDocument();
     next();
     fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
@@ -419,16 +419,16 @@ describe('First property setup', () => {
   it('needs a property name before moving on', () => {
     start();
     next();
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a property name');
+    expect(document.getElementById('setup-name-error')).toHaveTextContent('Enter a property name');
     expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
   });
   it('makes one whole-house room when the house is rented as a whole', async () => {
     state.run.mockResolvedValue({ propertyId: 'p2', failed: [] });
     start();
-    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    fireEvent.change(screen.getByLabelText(/^Property name/), { target: { value: 'Lahug House' } });
     next();
     fireEvent.click(screen.getByRole('checkbox', { name: 'I rent out the whole house to one household' }));
-    expect(screen.queryByLabelText('Room name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Room name/)).not.toBeInTheDocument();
     next();
     fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
@@ -437,7 +437,7 @@ describe('First property setup', () => {
   it('names the rooms that could not be saved', async () => {
     state.run.mockResolvedValue({ propertyId: 'p2', failed: ['Room B'] });
     start();
-    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug House' } });
+    fireEvent.change(screen.getByLabelText(/^Property name/), { target: { value: 'Lahug House' } });
     next();
     fireEvent.click(screen.getByRole('button', { name: 'Add another room' }));
     next();
@@ -459,12 +459,12 @@ describe('Property and room forms', () => {
   it('saves a room with its usual rent and a readable error for a bad rate', async () => {
     page();
     fireEvent.click(screen.getByRole('button', { name: 'Add room' }));
-    fireEvent.change(screen.getByLabelText('Room name'), { target: { value: 'Room C' } });
+    fireEvent.change(screen.getByLabelText(/^Room name/), { target: { value: 'Room C' } });
     fireEvent.change(screen.getByLabelText('Electricity'), { target: { value: 'submeter' } });
-    fireEvent.change(screen.getByLabelText('Price per kWh'), { target: { value: 'twelve' } });
+    fireEvent.change(screen.getByLabelText(/^Price per kWh/), { target: { value: 'twelve' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save room' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter an amount like 10,000 or 1,500.50');
-    fireEvent.change(screen.getByLabelText('Price per kWh'), { target: { value: '12.50' } });
+    await waitFor(() => expect(document.getElementById('unit-electric-amount-error')).toHaveTextContent('Enter an amount like 10,000 or 1,500.50'));
+    fireEvent.change(screen.getByLabelText(/^Price per kWh/), { target: { value: '12.50' } });
     fireEvent.change(screen.getByLabelText('Usual rent'), { target: { value: '4,500' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save room' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUnit', propertyId: 'p', id: null,
@@ -565,7 +565,7 @@ describe('Bills in the existing screens', () => {
     page();
     fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
-    expect(screen.queryByLabelText('Rent per month')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Rent per month/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('Advance months')).toHaveAttribute('readonly');
     expect(screen.getAllByText('On the move-in bill').length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText('New rent'), { target: { value: '4,000' } });
@@ -588,7 +588,7 @@ describe('Bills in the existing screens', () => {
     state.properties = [];
     page();
     fireEvent.click(screen.getByRole('button', { name: 'New property' }));
-    fireEvent.change(screen.getByLabelText('Property name'), { target: { value: 'Lahug Units' } });
+    fireEvent.change(screen.getByLabelText(/^Property name/), { target: { value: 'Lahug Units' } });
     fireEvent.change(screen.getByLabelText('Rent is due every'), { target: { value: '5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));

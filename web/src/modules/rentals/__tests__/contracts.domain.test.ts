@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_FIELDS, DEFAULT_CLAUSES, NOTARY_ACKNOWLEDGMENT, canonicalText, contractStage, contractStatusLabel, contractValues, linkMessage,
+  missingContractDetails,
   UNSAFE_LESSEE_MESSAGE, inPersonDetailsSchema, linkDetailsSchema, ordinal, renderClauses, resolveLessee, sha256Hex,
 } from '@himan/shared/rentals';
 import type { ContractText, RentalContract, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
@@ -185,5 +186,27 @@ describe('lessee placeholders', () => {
     const body = resolveLessee(['Lessee: {{lessee_name}}', 'Address: {{lessee_address}}'], '  \u00a0Ana Cruz  ', ' 1 Pajo, Cebu ');
     expect(body).toEqual(['Lessee: \u00a0Ana Cruz', 'Address: 1 Pajo, Cebu']);
     expect(await sha256Hex(canonicalText(body, ''))).toBe('7bb4f76e6aba5ccb7172bfb86c50754c44075e4669178effab91477456261007');
+  });
+});
+
+describe('missingContractDetails', () => {
+  const empty = { ...property, lessorName: '', lessorCivilStatus: ' ', lessorAddress: '', signingCity: '', address: '' } as RentalProperty;
+
+  it('lists every property detail the default template uses that is empty, in template order', () => {
+    expect(missingContractDetails(DEFAULT_CLAUSES, empty)).toEqual([
+      { field: 'signingCity', placeholder: 'signing_city', label: 'City where the contract is signed' },
+      { field: 'lessorName', placeholder: 'lessor_name', label: 'Your full name (lessor)' },
+      { field: 'lessorCivilStatus', placeholder: 'lessor_civil_status', label: 'Your civil status' },
+      { field: 'lessorAddress', placeholder: 'lessor_address', label: 'Your home address' },
+      { field: 'address', placeholder: 'property_address', label: 'Property address' },
+    ]);
+  });
+
+  it('leaves out filled details and ones the template does not use', () => {
+    expect(missingContractDetails(DEFAULT_CLAUSES, property)).toEqual([]);
+    expect(missingContractDetails([{ id: 'a', text: 'Signed at {{signing_city}} by {{lessee_name}}' }], empty))
+      .toEqual([expect.objectContaining({ field: 'signingCity' })]);
+    expect(missingContractDetails([{ id: 'a', text: '{{property_address}}, then {{lessor_name}} and {{property_address}}' }], empty)
+      .map((d) => d.field)).toEqual(['address', 'lessorName']);
   });
 });

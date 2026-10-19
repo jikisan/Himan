@@ -89,7 +89,8 @@ export const CONTRACT_FIELDS = [
 export type ContractField = (typeof CONTRACT_FIELDS)[number]['key'];
 export type ContractValues = Partial<Record<ContractField, string>>;
 
-const BLANK = '__________';
+/** What an empty field prints as: a line to write on. */
+export const BLANK = '__________';
 
 // The owner's Philippine contract of lease, personal details replaced by fields. Numbered clauses get "1. ", "2. "…
 // from their order; the parts below (and the notary page) are not numbered.
@@ -165,6 +166,25 @@ export function resolveLessee(body: string[], name: string, address: string): st
   const n = name.replace(/^ +| +$/g, '') || BLANK;
   const a = address.replace(/^ +| +$/g, '') || BLANK;
   return body.map((line) => line.split('{{lessee_name}}').join(n).split('{{lessee_address}}').join(a));
+}
+
+/** The property details a contract's text comes from, in plain words for the owner. */
+const PROPERTY_DETAILS = {
+  lessor_name: { field: 'lessorName', label: 'Your full name (lessor)' },
+  lessor_civil_status: { field: 'lessorCivilStatus', label: 'Your civil status' },
+  lessor_address: { field: 'lessorAddress', label: 'Your home address' },
+  signing_city: { field: 'signingCity', label: 'City where the contract is signed' },
+  property_address: { field: 'address', label: 'Property address' },
+} as const;
+type PropertyDetail = (typeof PROPERTY_DETAILS)[keyof typeof PROPERTY_DETAILS];
+export interface MissingContractDetail { field: PropertyDetail['field']; placeholder: keyof typeof PROPERTY_DETAILS; label: string }
+
+/** The property details the template uses but are still empty (they would print as blanks), in the order the template uses them. */
+export function missingContractDetails(clauses: Clause[], property: Pick<RentalProperty, PropertyDetail['field']>): MissingContractDetail[] {
+  const keys = new Set(clauses.flatMap(({ text }) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])));
+  return [...keys].filter((key): key is keyof typeof PROPERTY_DETAILS => Object.hasOwn(PROPERTY_DETAILS, key))
+    .map((placeholder) => ({ placeholder, ...PROPERTY_DETAILS[placeholder] }))
+    .filter(({ field }) => !property[field].trim());
 }
 
 const longDate = (date: string) => format(parseISO(date), 'MMMM d, yyyy');

@@ -95,7 +95,8 @@ export class LinkRepository {
     if (error) throw rentalError(error, 'Could not send your details');
   }
 
-  /** `signMode` only counts for contracts sent before the owner chose it (sign mode null); otherwise the database uses the owner's.
+  /** `signMode`: the mode the page showed. For contracts sent before the owner chose one (sign mode null) it is the tenant's choice;
+   * otherwise the database uses the owner's and refuses a different one as a stale page.
    * `contentHash` = `sha256Hex(canonicalText(body, specialTerms))` of the text the tenant was shown; the database refuses a stale one. */
   async sign(token: string, input: { name: string; signMode: SignMode; signature: string; userAgent: string; contentHash: string }): Promise<void> {
     if (!/^[0-9a-f]{64}$/.test(input.contentHash)) throw new Error('Please reload the page to read the latest contract');

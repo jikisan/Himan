@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CalendarClock, CircleCheck, DoorOpen, Gauge, HandCoins, History, Hourglass, PenLine, ReceiptText, UserCheck } from 'lucide-react';
+import { BedDouble, CalendarClock, CircleCheck, DoorOpen, Gauge, HandCoins, History, PenLine, ReceiptText, UserCheck } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { billBalance, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
 import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
@@ -11,11 +11,10 @@ import { cn } from '@core/presentation/utils';
 const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.slice(0, 2).join(', ')} and ${list.length - 2} more`;
 
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
-/** `pendingTenancies` hold beds (Beds taken, free beds) and get contract to-dos; every money figure uses `tenancies` only. */
-export function HomeView({ property, tenancies, pendingTenancies = [], renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
+export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
   onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [], links = [],
   settlements = [], onSettleDeposit }: {
-  property: RentalProperty; tenancies: RentalTenancy[]; pendingTenancies?: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
+  property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
   utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void; contractTexts?: ContractText[]; links?: TenancyLink[];
@@ -28,8 +27,6 @@ export function HomeView({ property, tenancies, pendingTenancies = [], renters, 
   const name = (t: Pick<RentalTenancy, 'renterId'>) => renters.find((r) => r.id === t.renterId)?.fullName ?? 'Tenant';
   const roomName = (unitId: string) => property.units.find((u) => u.id === unitId)?.name ?? 'Room';
   const active = tenancies.filter((t) => t.moveOut === null);
-  const waitingToSign = pendingTenancies.filter((t) => t.moveOut === null);
-  const holding = [...active, ...waitingToSign];
   const rows = monthRows({ property, tenancies, readings, bills, utilityBills }, period);
   const todo = monthTodo(rows, bills, today, property.units, payments);
   // Bills from before payment tracking have no payments on record; they wait in their own banner, not in Overdue.
@@ -42,8 +39,8 @@ export function HomeView({ property, tenancies, pendingTenancies = [], renters, 
   const held = deposits.reduce((sum, d) => sum + (d.state === 'held' ? d.amountCentavos : 0), 0);
   const pending = deposits.reduce((sum, d) => sum + (d.state === 'pending' ? d.amountCentavos : 0), 0);
   const meterRooms = [...new Set([...todo.meters].map((key) => roomName(key.split(':')[0])))];
-  const freeUnits = property.units.filter((u) => holding.filter((t) => t.unitId === u.id).length < u.capacity);
-  const freeBeds = freeUnits.reduce((sum, u) => sum + u.capacity - holding.filter((t) => t.unitId === u.id).length, 0);
+  const freeUnits = property.units.filter((u) => active.filter((t) => t.unitId === u.id).length < u.capacity);
+  const freeBeds = freeUnits.reduce((sum, u) => sum + u.capacity - active.filter((t) => t.unitId === u.id).length, 0);
   const beds = property.units.reduce((sum, u) => sum + u.capacity, 0);
   const rent = active.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
   const toBill = rows.filter((r) => r.pending.state !== 'covered' && r.pending.state !== 'none').length;
@@ -90,15 +87,6 @@ export function HomeView({ property, tenancies, pendingTenancies = [], renters, 
     if (signed) tasks.push(<Task key={`sign-${t.id}`} icon={PenLine} tone="primary" title={`Countersign contract for ${name(t)}`}
       detail={`${roomName(t.unitId)} · the tenant signed`} action="Countersign" label={`Countersign contract for ${name(t)}`}
       onAction={() => onOpenTenant(t.renterId)} />);
-  }
-  if (canManage) for (const t of waitingToSign) {
-    const status = contractTexts.find((x) => t.contracts.some((c) => c.id === x.contractId))?.status;
-    if (status === 'signed') tasks.push(<Task key={`sign-${t.id}`} icon={PenLine} tone="primary" title={`Countersign contract for ${name(t)}`}
-      detail={`${roomName(t.unitId)} · the tenant signed. Countersigning makes them an active tenant.`} action="Countersign"
-      label={`Countersign contract for ${name(t)}`} onAction={() => onOpenTenant(t.renterId)} />);
-    else if (status !== 'countersigned') tasks.push(<Task key={`pending-${t.id}`} icon={Hourglass} tone="amber" title={`Waiting for ${name(t)} to sign`}
-      detail={`${roomName(t.unitId)} · ${status === 'sent' ? 'contract sent' : 'create and send their contract'}`} action="Open"
-      label={`Open ${name(t)}’s contract`} onAction={() => onOpenTenant(t.renterId)} />);
   }
   if (canManage) for (const t of active) {
     const contract = t.contracts.find((c) => c.status === 'active');
@@ -165,7 +153,7 @@ export function HomeView({ property, tenancies, pendingTenancies = [], renters, 
         <h3 id="rentals-glance" className="font-semibold">At a glance</h3>
         <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-1">
           <Figure label="Monthly rent" value={formatPesos(rent)} className="col-span-2 lg:col-span-1" />
-          <Figure label="Beds taken" value={<>{holding.length} <span className="text-sm font-medium text-muted-foreground">of {beds}</span></>} />
+          <Figure label="Beds taken" value={<>{active.length} <span className="text-sm font-medium text-muted-foreground">of {beds}</span></>} />
           <Figure label={`${month} SOAs generated`} value={<>{issued} <span className="text-sm font-medium text-muted-foreground">of {toBill}</span></>} />
           <Figure label="Deposits held" value={<>{formatBillPesos(held)}{pending > 0 && <span className="block text-xs font-medium text-muted-foreground">
             {formatBillPesos(pending)} pending</span>}</>} />

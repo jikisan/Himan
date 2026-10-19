@@ -59,6 +59,12 @@ describe('ContractRepository', () => {
     mock.from.mockReturnValue(query);
     await new ContractRepository().updateText('c1', { specialTerms: 'x' });
     expect(query.update).toHaveBeenCalledWith({ special_terms: 'x' });
+    await new ContractRepository().updateText('c1', { signMode: 'notarize' });
+    expect(query.update).toHaveBeenLastCalledWith({ sign_mode: 'notarize' });
+  });
+  it('passes the send refusal through when no sign mode is chosen', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Choose how the contract is signed' } });
+    await expect(new ContractRepository().send('c1')).rejects.toThrow('Choose how the contract is signed');
   });
   it('sends and countersigns through RPCs, passing database messages through', async () => {
     mock.rpc.mockResolvedValue({ data: null, error: null });

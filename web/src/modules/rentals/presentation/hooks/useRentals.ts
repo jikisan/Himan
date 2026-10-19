@@ -23,8 +23,6 @@ export type RentalAction =
   | { type: 'removeRenterFile'; id: string }
   | { type: 'startTenancy'; input: StartTenancyInput }
   | { type: 'endTenancy'; id: string; moveOut: string }
-  /** Makes a pending tenancy active (needs the contract signed by both) and issues its move-in bill. */
-  | { type: 'activateTenancy'; tenancyId: string }
   | ({ type: 'addTenant' } & AddTenantInput)
   | { type: 'updateTerms'; contractId: string; input: ContractTermsInput }
   | { type: 'setupProperty'; input: PropertyInput; rooms: UnitInput[] }
@@ -124,7 +122,6 @@ export function useRentals() {
         case 'removeRenterFile': return repos.renters.removeFile(a.id);
         case 'startTenancy': return repos.tenancies.start(a.input);
         case 'endTenancy': return repos.tenancies.end(a.id, a.moveOut);
-        case 'activateTenancy': return repos.tenancies.activate(a.tenancyId);
         case 'addTenant': return addTenant(repos, a);
         case 'updateTerms': return repos.tenancies.updateTerms(a.contractId, a.input);
         case 'setupProperty': return setupProperty(repos, a);
@@ -189,11 +186,8 @@ export function useRentals() {
     onSettled: () => client.invalidateQueries({ queryKey: ['rentals'] }),
   });
   const data = online && userId ? query.data : undefined;
-  // Pending tenancies hold a bed but have no bills yet: kept apart so every bill, payment and deposit figure ignores them.
-  const tenancies = useMemo(() => data?.tenancies.filter((t) => !t.pending) ?? [], [data]);
-  const pendingTenancies = useMemo(() => data?.tenancies.filter((t) => t.pending) ?? [], [data]);
   return {
-    properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies, pendingTenancies, myName: data?.myName ?? '',
+    properties: data?.properties ?? [], renters: data?.renters ?? [], tenancies: data?.tenancies ?? [], myName: data?.myName ?? '',
     bills: data?.bills ?? [], readings: data?.readings ?? [], utilityBills: data?.utilityBills ?? [],
     payments: data?.payments ?? [], accounts: data?.accounts ?? [], settlements: data?.settlements ?? [],
     contractTexts: data?.contractTexts ?? [], links: data?.links ?? [], templates: data?.templates ?? {},

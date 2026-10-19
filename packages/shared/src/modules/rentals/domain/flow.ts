@@ -7,7 +7,7 @@ export function moveInDefaults(moveIn: string, rentCentavos: number, rentDueDay?
     dueDay: rentDueDay ?? Number(moveIn.slice(8, 10)), advanceMonths: 1 as const, depositCentavos: rentCentavos };
 }
 
-/** One entry per bed: active and pending tenancies (a pending one holds its bed) oldest first, then null for each free bed. */
+/** One entry per bed: active tenancies oldest first, then null for each free bed. */
 export function roomSpots(unit: Pick<RentalUnit, 'id' | 'capacity'>, tenancies: RentalTenancy[]): (RentalTenancy | null)[] {
   const living = tenancies.filter((t) => t.unitId === unit.id && t.moveOut === null)
     .sort((a, b) => a.moveIn.localeCompare(b.moveIn));

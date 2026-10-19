@@ -15,8 +15,7 @@ import { PaperDialog } from './PaperDialog';
 import { PdfButton } from './PdfButton';
 import { SignaturePad } from './SignaturePad';
 
-/** `signModes`: the choice made in Add tenant, by tenancy id, to start a new contract with. */
-export interface ContractInfo { property: RentalProperty; texts: ContractText[]; template: Clause[]; links: TenancyLink[]; signModes?: Record<string, SignMode> }
+export interface ContractInfo { property: RentalProperty; texts: ContractText[]; template: Clause[]; links: TenancyLink[] }
 
 /** The two ways a contract is signed, as radio cards. */
 export function SignModeChoice({ legend, value, onChange, disabled, className }: {
@@ -82,15 +81,17 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
 
   if (!text && !canManage) return <p className="text-sm text-muted-foreground">No written contract yet.</p>;
   if (!text || editing) {
+    const modeLocked = !!text && text.status !== 'draft';
     if (!editing && !text) return <Button variant="outline" className="h-11 sm:h-9" onClick={() => setEditing(true)}>
       <FilePlus2 className="h-4 w-4" />Create contract</Button>;
-    return <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? info.signModes?.[contract.tenancyId] ?? 'esign'}
+    return <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? (modeLocked ? null : 'esign')}
+      modeLocked={modeLocked}
       body={body()} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
       note={text?.status === 'sent' ? 'Your tenant’s page will ask them to reload and read the new version.' : undefined}
       onCancel={() => setEditing(false)}
       onSave={async (specialTerms, signMode) => {
-        if (text) await run({ type: 'updateContractText', id: text.id, changes: { body: body(), specialTerms, signMode } });
-        else await run({ type: 'createContractText', contractId: contract.id, propertyId: property.id, body: body(), specialTerms, signMode });
+        if (text) await run({ type: 'updateContractText', id: text.id, changes: { body: body(), specialTerms, ...(signMode && { signMode }) } });
+        else await run({ type: 'createContractText', contractId: contract.id, propertyId: property.id, body: body(), specialTerms, signMode: signMode ?? 'esign' });
         toast.success(text ? 'Contract saved' : 'Draft saved. Send it when ready.');
         setEditing(false);
       }} />;
@@ -153,9 +154,10 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run }: 
   </div>;
 }
 
-function ContractEditor({ initialTerms, initialMode, body, busy, submit, note, onSave, onCancel }: {
-  initialTerms: string; initialMode: SignMode; body: string[]; busy: boolean; submit: string; note?: string;
-  onSave(terms: string, signMode: SignMode): Promise<void>; onCancel(): void;
+/** `modeLocked`: sent, so the tenant may be reading it; the sign mode is fixed (the database refuses a change). */
+function ContractEditor({ initialTerms, initialMode, modeLocked, body, busy, submit, note, onSave, onCancel }: {
+  initialTerms: string; initialMode: SignMode | null; modeLocked: boolean; body: string[]; busy: boolean; submit: string; note?: string;
+  onSave(terms: string, signMode?: SignMode): Promise<void>; onCancel(): void;
 }) {
   const [terms, setTerms] = useState(initialTerms);
   const [mode, setMode] = useState(initialMode);
@@ -170,14 +172,15 @@ function ContractEditor({ initialTerms, initialMode, body, busy, submit, note, o
         placeholder="Anything only for this tenant, e.g. “The storage room is not included.”" onChange={(e) => setTerms(e.target.value)} />
       <p className="text-xs text-muted-foreground">Added as the last clause. Change the other clauses in Edit property → Contract template.</p>
     </div>
-    <SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} />
+    {modeLocked ? mode && <p className="text-xs text-muted-foreground">Signing: {signModeWords(mode)}</p>
+      : <SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} />}
     {note && <p className="text-xs text-muted-foreground">{note}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex justify-end gap-2">
       <Button variant="ghost" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
       <Button className="h-11 sm:h-9" disabled={busy} onClick={async () => {
         setError('');
-        try { await onSave(terms.trim(), mode); } catch (e) { setError(errorMessage(e)); }
+        try { await onSave(terms.trim(), modeLocked ? undefined : mode ?? undefined); } catch (e) { setError(errorMessage(e)); }
       }}>{submit}</Button>
     </div>
   </div>;

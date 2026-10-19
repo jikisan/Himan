@@ -17,7 +17,7 @@ export function TenantsList({ renters, tenancies, unitName, onOpen, links = [] }
     const active = tenancies.filter((t) => t.renterId === r.id && t.moveOut === null);
     const rent = active.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
     const since = active.map((t) => t.moveIn).sort()[0];
-    return { renter: r, rooms: active.map((t) => unitName(t.unitId)), rent, since, status: active.map((t) => detailsStatus(links, t.id)).find(Boolean) ?? (active.some((t) => t.pending) ? 'Pending contract' : undefined) };
+    return { renter: r, rooms: active.map((t) => unitName(t.unitId)), rent, since, status: active.map((t) => detailsStatus(links, t.id)).find(Boolean) };
   })
     .filter(({ renter, rooms }) => (showPast || rooms.length > 0) && renter.fullName.toLowerCase().includes(query.trim().toLowerCase()));
   return <div className="space-y-4">

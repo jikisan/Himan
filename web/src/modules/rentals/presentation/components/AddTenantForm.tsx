@@ -4,8 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { ChevronRight, Minus, Plus } from 'lucide-react';
 import { centavosToInput, formatPesos, manilaToday, moveInDefaults, parsePesos, proratedRent, renterSchema, roomRent, tenancyTermsSchema } from '@himan/shared/rentals';
 import type { MeterKind } from '@himan/shared/rentals';
-import type { RentalUnit, Renter, RenterInput, SignMode } from '@himan/shared/rentals';
-import { SignModeChoice } from './ContractPanel';
+import type { RentalUnit, Renter, RenterInput } from '@himan/shared/rentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { Field, FormActions, FormSection, MoneyInput, inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
@@ -20,14 +19,11 @@ const blankPerson: RenterInput = { fullName: '', phone: '', facebook: '', email:
 const peso = (value: string) => { try { return value.trim() ? parsePesos(value) : null; } catch { return null; } };
 
 /** `others`: people from the owner's other properties; picking one copies their contact details (not their ID) into a new tenant here. */
-/** `requireContract`: the tenant is saved as pending, with how their contract will be signed. */
-export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, requireContract = false, busy, onSave, onCancel }: {
-  unit: RentalUnit; renters: Renter[]; others?: { renter: Renter; propertyName: string }[]; rentDueDay?: number | null;
-  requireContract?: boolean; busy: boolean;
-  /** `sendLink`: the tenant fills in their own details through a link made after saving. `signMode`: only when pending. */
-  onSave(action: AddTenant, sendLink: boolean, signMode?: SignMode): Promise<void>; onCancel(): void;
+export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, busy, onSave, onCancel }: {
+  unit: RentalUnit; renters: Renter[]; others?: { renter: Renter; propertyName: string }[]; rentDueDay?: number | null; busy: boolean;
+  /** `sendLink`: the tenant fills in their own details through a link made after saving. */
+  onSave(action: AddTenant, sendLink: boolean): Promise<void>; onCancel(): void;
 }) {
-  const [signMode, setSignMode] = useState<SignMode>('esign');
   const [person, setPerson] = useState(blankPerson);
   // A renter id of this property, or `other:<id>` for someone from another property.
   const [existingId, setExistingId] = useState<string | null>(null);
@@ -94,15 +90,10 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, r
       if (starting.some((r) => !Number.isFinite(r.value) || r.value < 0)) { fail('Meter readings must be 0 or more', 'readings'); return; }
       const { moveIn: date, ...rest } = terms.data;
       await onSave({ type: 'addTenant', propertyId: unit.propertyId, unitId: unit.id, renterId: renter ? null : existingId,
-        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra, ...(requireContract ? { pending: true } : {}) },
-        !existingId && sendLink, requireContract ? signMode : undefined);
+        renter: renter?.data ?? null, moveIn: date, terms: rest, readings: starting, charges: extra }, !existingId && sendLink);
     } catch (failure) { setError(errorMessage(failure)); }
   }}>
     <fieldset disabled={busy} className="space-y-6">
-      {requireContract && <div className="space-y-3 rounded-lg border p-3">
-        <p className="text-sm">This tenant will be Pending until the contract is signed.</p>
-        <SignModeChoice legend="How is the contract signed?" value={signMode} onChange={setSignMode} />
-      </div>}
       <FormSection title="Who is moving in?">
         {(renters.length > 0 || others.length > 0) && <div role="group" aria-label="New or existing tenant" className="flex rounded-lg bg-muted p-1 sm:col-span-2">
           {([['New person', null], ['Already a tenant', renters[0]?.id ?? `other:${others[0].renter.id}`]] as const).map(([label, id]) =>
@@ -215,7 +206,7 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, r
         </Collapsible>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <FormActions submit={requireContract ? 'Save as pending' : 'Move in'} onCancel={onCancel} />
+      <FormActions submit="Move in" onCancel={onCancel} />
     </fieldset>
   </form>;
 }

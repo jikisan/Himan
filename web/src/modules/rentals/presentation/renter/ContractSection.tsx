@@ -94,8 +94,7 @@ const pdfData = (c: Contract, data: PublicLink): ContractPdfData => ({
 function SignedView({ contract: c, data }: { contract: Contract; data: PublicLink }) {
   const pdf = pdfData(c, data);
   return <div className="space-y-4 rounded-xl border bg-card p-4">
-    <p role="status" className="text-base font-semibold">{c.status === 'countersigned' ? 'Fully signed'
-      : data.pending ? 'Waiting for your landlord to countersign. You’ll be a tenant once they do.' : 'Waiting for your landlord to countersign'}</p>
+    <p role="status" className="text-base font-semibold">{c.status === 'countersigned' ? 'Fully signed' : 'Waiting for your landlord to countersign'}</p>
     <div className="grid gap-4 sm:grid-cols-2">
       <Signed title="You" image={c.tenantSignature} alt="Your signature" name={pdf.tenantName} at={c.tenantSignedAt} />
       {c.lessorSignature && <Signed title="Your landlord" image={c.lessorSignature} alt="Your landlord’s signature" name={data.property.lessorName}

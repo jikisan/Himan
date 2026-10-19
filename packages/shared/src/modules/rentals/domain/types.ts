@@ -22,9 +22,6 @@ export interface RentalContract {
 export interface RentalTenancy {
   id: string; propertyId: string; unitId: string; renterId: string;
   moveIn: string; moveOut: string | null; contracts: RentalContract[]; charges: TenancyCharge[];
-  /** Holds the bed while the contract waits for both signatures; no bills or payments until it is activated.
-   * Always set when loaded; optional so hand-built tenancies default to active. */
-  pending?: boolean;
 }
 export interface RentalMember { userId: string; email: string; role: RentalRole }
 export interface MeterReading {

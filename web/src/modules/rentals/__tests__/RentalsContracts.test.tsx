@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DEFAULT_CLAUSES, contractStatusLabel, contractValues, linkMessage, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalProperty, RentalTenancy, Renter, TenancyLink } from '@himan/shared/rentals';
@@ -104,8 +104,8 @@ describe('Contract on the tenant sheet', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(linkMessage(`${location.origin}/r/tok123`, 'Carlo Lim', 'existing')));
   });
 
-  it('reuses the open link and allows edits while waiting for the tenant', async () => {
-    state.contractTexts = [text({ status: 'sent' })];
+  it('reuses the open link and allows edits while waiting for the tenant, with the sign mode read-only', async () => {
+    state.contractTexts = [text({ status: 'sent', signMode: 'notarize' })];
     state.links = [link()];
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
@@ -115,9 +115,43 @@ describe('Contract on the tenant sheet', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(linkMessage(`${location.origin}/r/tok-old`, 'Carlo Lim', 'existing')));
     expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'createLink' }));
     fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
+    // Sent: the tenant may already be reading it, so how it's signed is fixed.
+    expect(contract.queryByRole('radio')).toBeNull();
+    expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
     fireEvent.change(contract.getByLabelText('Special terms'), { target: { value: 'No pets.' } });
     fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: body(), specialTerms: 'No pets.', signMode: 'esign' } }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: body(), specialTerms: 'No pets.' } }));
+  });
+
+  it('lets the sign mode change while the contract is a draft', async () => {
+    state.contractTexts = [text({ signMode: 'esign' })];
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(contract.getByRole('radio', { name: /then notarize/ }));
+    fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct',
+      changes: { body: body(), specialTerms: '', signMode: 'notarize' } }));
+  });
+
+  it('chooses the sign mode on a new draft, online only by default', async () => {
+    const contract = openSheet();
+    fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
+    expect(contract.getByRole('radio', { name: /Sign online only/ })).toBeChecked();
+    fireEvent.click(contract.getByRole('radio', { name: /then notarize/ }));
+    fireEvent.click(contract.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'createContractText', signMode: 'notarize' })));
+  });
+
+  it('shows the sign mode in plain words and needs one before sending', () => {
+    state.contractTexts = [text({ signMode: 'notarize' })];
+    let contract = openSheet();
+    expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
+    expect(contract.getByRole('button', { name: 'Send to tenant' })).toBeEnabled();
+    cleanup();
+    state.contractTexts = [text({ signMode: null })];
+    contract = openSheet();
+    expect(contract.getByRole('button', { name: 'Send to tenant' })).toBeDisabled();
+    expect(contract.getByText(/Choose how the contract is signed/)).toBeInTheDocument();
   });
 
   it('countersigns in one tap with the saved signature, and offers no Edit once signed', async () => {

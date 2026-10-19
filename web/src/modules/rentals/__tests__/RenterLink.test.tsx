@@ -34,7 +34,7 @@ const TOKEN = 'Zk3o9VQm2c1oZb8m3gq0bQ3n6zS6xKXr0a7b5pK1wQe';
 const sent = { id: 'ct1', status: 'sent' as const, body: ['KNOW ALL MEN BY THESE PRESENTS:', '1. Rent is ₱5,000.'], specialTerms: 'No pets.',
   signMode: null, tenantSignedAt: null, lessorSigned: false, contentHash: null, tenantName: null, tenantSignature: null };
 const base = (extra: Partial<PublicLink> = {}): PublicLink => ({
-  kind: 'existing', status: 'open', tenantName: 'Ben Cruz', roomName: 'Room A', pending: false,
+  kind: 'existing', status: 'open', tenantName: 'Ben Cruz', roomName: 'Room A',
   property: { name: 'Bakilid House', address: 'Lot 1, Mandaue', lessorName: 'Maria Santos', lessorCapacity: 'owner', signingCity: 'Cebu City',
     invoicePrefix: 'BAK', ownerName: 'Maria Santos', ownerAddress: 'Banilad', lessorAddress: 'Talamban, Cebu City', lateFeeCentavos: 0 },
   contract: sent, bills: [], payments: [], accounts: [], ...extra });
@@ -267,11 +267,5 @@ describe('renter link page', () => {
     await open(base({ contract: { ...sent, signMode: 'esign' } }));
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.getByText('You can sign online. No notary needed.')).toBeInTheDocument();
-  });
-
-  it('tells a pending tenant they become a tenant once the landlord countersigns', async () => {
-    await open(base({ pending: true, contract: { ...sent, status: 'signed', signMode: 'esign', tenantName: 'Ben Cruz', tenantSignature: PNG,
-      tenantSignedAt: '2026-10-19T02:00:00Z' } }));
-    expect(screen.getByText('Waiting for your landlord to countersign. You’ll be a tenant once they do.')).toBeInTheDocument();
   });
 });

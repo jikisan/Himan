@@ -1,4 +1,5 @@
 import { Input, Label, Textarea } from '@/components/ui';
+import { FieldError } from '@core/presentation/components';
 import { CurrencySelect } from './CurrencySelect';
 import { SavedOptionSelect } from './SavedOptionSelect';
 import { DatePicker } from '@/components/ui';
@@ -9,9 +10,11 @@ interface InvoiceHeaderProps {
   onChange: (updates: Partial<InvoiceData>) => void;
   savedCompanyOptions?: InvoiceSavedOptionType[];
   savedBillToOptions?: InvoiceSavedOptionType[];
-  onSaveOption?: (type: SavedOptionType, label: string, value: string) => void;
+  onSaveOption?: (type: SavedOptionType, label: string, value: string) => Promise<void> | void;
   onManageSavedOptions?: (type: SavedOptionType) => void;
   autoInvoiceNumber?: string | null;
+  /** Message shown under the invoice number after a failed generate. */
+  invoiceNumberError?: string;
 }
 
 export const InvoiceHeader = ({
@@ -22,6 +25,7 @@ export const InvoiceHeader = ({
   onSaveOption,
   onManageSavedOptions,
   autoInvoiceNumber,
+  invoiceNumberError,
 }: InvoiceHeaderProps) => {
   const invoiceNumberValue = autoInvoiceNumber ?? data.invoiceNumber;
 
@@ -30,14 +34,18 @@ export const InvoiceHeader = ({
       {/* Invoice Number and PO Number */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="invoiceNumber">Invoice Number *</Label>
+          <Label htmlFor="invoiceNumber" required>Invoice Number</Label>
           <Input
             id="invoiceNumber"
+            required
+            aria-invalid={invoiceNumberError ? true : undefined}
+            aria-describedby={invoiceNumberError ? 'invoiceNumber-error' : undefined}
             value={invoiceNumberValue}
             onChange={(e) => onChange({ invoiceNumber: e.target.value })}
             placeholder="INV-001"
             maxLength={50}
           />
+          <FieldError id="invoiceNumber" message={invoiceNumberError} />
           {autoInvoiceNumber && (
             <p className="text-xs text-muted-foreground">Auto-generated from folder settings</p>
           )}

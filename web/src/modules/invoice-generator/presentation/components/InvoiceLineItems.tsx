@@ -3,6 +3,7 @@ import { Trash2, Copy } from "lucide-react";
 import {
   Button,
   Input,
+  Label,
   Textarea,
   Dialog,
   DialogContent,
@@ -14,6 +15,8 @@ import {
 import type { LineItem, CurrencyCode } from "@invoice-generator/domain/types";
 import { generateLineItemId } from "@invoice-generator/domain/types";
 import { formatCurrency } from "../utils/currency";
+import { useFieldErrors } from "@core/presentation/hooks";
+import { FieldError } from "@core/presentation/components";
 
 interface InvoiceLineItemsProps {
   items: LineItem[];
@@ -109,7 +112,7 @@ export const InvoiceLineItems = ({
   onBulkDialogOpenChange,
 }: InvoiceLineItemsProps) => {
   const [bulkText, setBulkText] = useState("");
-  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  const fe = useFieldErrors();
   const [copied, setCopied] = useState(false);
 
   const aiPrompt = `Generate invoice line items in this exact format, one per line:
@@ -157,12 +160,12 @@ SEO Package | 15000 | 1
     const { items: parsed, errors } = parseLineItems(bulkText);
 
     if (errors.length > 0) {
-      setBulkErrors(errors);
+      fe.fail("bulk-items", errors.join("\n"));
       return;
     }
 
     if (parsed.length === 0) {
-      setBulkErrors(["No valid items found. Enter at least one item."]);
+      fe.fail("bulk-items", "No valid items found. Enter at least one item.");
       return;
     }
 
@@ -174,7 +177,7 @@ SEO Package | 15000 | 1
 
     onBulkDialogOpenChange(false);
     setBulkText("");
-    setBulkErrors([]);
+    fe.clear();
   };
 
   return (
@@ -258,7 +261,7 @@ SEO Package | 15000 | 1
           onBulkDialogOpenChange(open);
           if (!open) {
             setBulkText("");
-            setBulkErrors([]);
+            fe.clear();
           }
         }}
       >
@@ -294,11 +297,15 @@ SEO Package | 15000 | 1
                 </pre>
               </div>
             </details>
+            <Label htmlFor="bulk-items" required>Line items</Label>
             <Textarea
+              id="bulk-items"
+              required
+              {...fe.invalid("bulk-items")}
               value={bulkText}
               onChange={(e) => {
                 setBulkText(e.target.value);
-                setBulkErrors([]);
+                fe.clear("bulk-items");
               }}
               placeholder={
                 "Website Design | 75000 | 1\nSEO Package | 15000 | 1\nMonthly Hosting | 3500 | 3"
@@ -306,15 +313,9 @@ SEO Package | 15000 | 1
               rows={8}
               className="font-mono text-sm"
             />
-            {bulkErrors.length > 0 && (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-1">
-                {bulkErrors.map((error, i) => (
-                  <p key={i} className="text-sm text-destructive">
-                    {error}
-                  </p>
-                ))}
-              </div>
-            )}
+            <div className="whitespace-pre-line">
+              <FieldError id="bulk-items" message={fe.errors["bulk-items"]} />
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button

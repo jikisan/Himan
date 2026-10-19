@@ -39,6 +39,10 @@ describe('career application workspace', () => {
     await user.click(screen.getByRole('tab', { name: 'Cover letter' }));
     const copy = screen.getByRole('button', { name: 'Copy cover letter' });
     expect(copy).toBeDisabled();
+    for (const input of [screen.getByLabelText(/Job title/), screen.getByLabelText(/Company/)]) {
+      expect(input).toBeRequired();
+      expect(document.querySelector(`label[for="${input.id}"] [aria-hidden="true"]`)).toHaveTextContent('*');
+    }
     await user.type(screen.getByLabelText(/Job title/), 'Frontend Engineer');
     await user.type(screen.getByLabelText(/Company/), 'Acme');
     expect(copy).toBeEnabled();

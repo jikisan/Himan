@@ -9,6 +9,8 @@ import { useAuth } from '@auth/presentation/hooks';
 import { CompressionService } from '@storage/infrastructure';
 import { toast } from 'sonner';
 import { Button, Label, Switch } from '@/components/ui';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 
 interface PortfolioSharePanelProps {
   shareToken: string;
@@ -36,16 +38,18 @@ const PortfolioLinkForm = ({ slug, handle, onChange }: Pick<PortfolioSharePanelP
   const [handleDraft, setHandleDraft] = useState(handle ?? '');
   const [slugDraft, setSlugDraft] = useState(slug);
   const [savingLink, setSavingLink] = useState(false);
+  const fe = useFieldErrors();
   const linkDirty = handleDraft !== (handle ?? '') || slugDraft !== slug;
 
   const handleSaveLink = async (event: FormEvent) => {
     event.preventDefault();
     const nextHandle = slugify(handleDraft);
     const nextSlug = slugify(slugDraft);
-    if (nextHandle.length < 3 || !SLUG_PATTERN.test(nextHandle) || !SLUG_PATTERN.test(nextSlug)) {
-      toast.error('Use letters, numbers and hyphens. Your handle needs at least 3 characters.');
-      return;
-    }
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (nextHandle.length < 3 || !SLUG_PATTERN.test(nextHandle)) invalid.push(['portfolio-handle', 'Use letters, numbers and hyphens. Your handle needs at least 3 characters.']);
+    if (!SLUG_PATTERN.test(nextSlug)) invalid.push(['portfolio-slug', 'Use letters, numbers and hyphens.']);
+    if (invalid.length) { fe.failMany(invalid); return; }
     if (!user || savingLink) return;
     setSavingLink(true);
     try {
@@ -53,7 +57,7 @@ const PortfolioLinkForm = ({ slug, handle, onChange }: Pick<PortfolioSharePanelP
         try {
           await profiles.upsert({ userId: user.id, handle: nextHandle });
         } catch {
-          toast.error(`The handle "${nextHandle}" is taken. Try another.`);
+          fe.fail('portfolio-handle', `The handle "${nextHandle}" is taken. Try another.`);
           return;
         }
         await queryClient.invalidateQueries({ queryKey: profileKeys.all });
@@ -68,13 +72,15 @@ const PortfolioLinkForm = ({ slug, handle, onChange }: Pick<PortfolioSharePanelP
   };
 
   return (
-    <form onSubmit={handleSaveLink} className="space-y-2">
-      <div className="flex min-h-11 items-center rounded-lg border border-border bg-background px-3 text-xs text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
+    <form onSubmit={handleSaveLink} noValidate className="space-y-2">
+      <div className="flex min-h-11 items-center rounded-lg border border-border bg-background px-3 text-xs text-muted-foreground focus-within:ring-2 focus-within:ring-ring has-[[aria-invalid=true]]:border-destructive has-[[aria-invalid=true]]:ring-2 has-[[aria-invalid=true]]:ring-destructive/25">
         <span className="shrink-0">/p/</span>
-        <input aria-label="Your handle" value={handleDraft} onChange={(e) => setHandleDraft(draftSlug(e.target.value))} placeholder="handle" className="field-sizing-content min-w-[4ch] max-w-[45%] bg-transparent py-2.5 text-foreground outline-none" />
+        <input id="portfolio-handle" aria-label="Your handle" required {...fe.invalid('portfolio-handle')} value={handleDraft} onChange={(e) => { setHandleDraft(draftSlug(e.target.value)); fe.clear('portfolio-handle'); }} placeholder="handle" className="field-sizing-content min-w-[4ch] max-w-[45%] bg-transparent py-2.5 text-foreground outline-none" />
         <span className="shrink-0 px-0.5">/</span>
-        <input aria-label="Portfolio slug" value={slugDraft} onChange={(e) => setSlugDraft(draftSlug(e.target.value))} placeholder="android-developer" className="min-w-0 flex-1 bg-transparent py-2.5 text-foreground outline-none" />
+        <input id="portfolio-slug" aria-label="Portfolio slug" required {...fe.invalid('portfolio-slug')} value={slugDraft} onChange={(e) => { setSlugDraft(draftSlug(e.target.value)); fe.clear('portfolio-slug'); }} placeholder="android-developer" className="min-w-0 flex-1 bg-transparent py-2.5 text-foreground outline-none" />
       </div>
+      <FieldError id="portfolio-handle" message={fe.errors['portfolio-handle']} />
+      <FieldError id="portfolio-slug" message={fe.errors['portfolio-slug']} />
       {linkDirty ? (
         <Button type="submit" variant="outline" className="h-11 w-full" disabled={savingLink}>{savingLink ? 'Saving link…' : 'Save link'}</Button>
       ) : (
@@ -90,6 +96,7 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  const photoErrors = useFieldErrors();
   const url = `${window.location.origin}${portfolioPath({ shareToken, portfolioSlug: slug }, handle)}`;
   const portraitUrl = portraitPath ? ProjectMediaService.publicUrl(portraitPath) : null;
   // Stored on the profile, so one photo serves every career's portfolio.
@@ -102,8 +109,9 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || !user || savingPhoto) return;
+    photoErrors.clear();
     if (!ProjectMediaService.acceptedTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
-      toast.error('Choose a PNG, JPEG or WebP photo up to 5 MB');
+      photoErrors.fail('portfolio-photo', 'Choose a PNG, JPEG or WebP photo up to 5 MB');
       return;
     }
     setSavingPhoto(true);
@@ -116,7 +124,7 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
       toast.success('Portfolio photo saved');
     } catch {
       if (uploaded) await media.remove([uploaded]);
-      toast.error('Could not save your photo. Try again.');
+      photoErrors.fail('portfolio-photo', 'Could not save your photo. Try again.');
     } finally {
       setSavingPhoto(false);
     }
@@ -125,12 +133,13 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
   const handleRemove = async () => {
     if (!portraitPath || savingPhoto) return;
     setSavingPhoto(true);
+    photoErrors.clear();
     try {
       await savePortrait(null);
       await media.remove([portraitPath]);
       toast.success('Portfolio photo removed');
     } catch {
-      toast.error('Could not remove your photo. Try again.');
+      photoErrors.fail('portfolio-photo', 'Could not remove your photo. Try again.');
     } finally {
       setSavingPhoto(false);
     }
@@ -175,10 +184,13 @@ export const PortfolioSharePanel = ({ shareToken, slug, handle, enabled, showEma
             <p className="text-xs text-muted-foreground">{savingPhoto ? 'Saving…' : 'Shown on all your portfolios'}</p>
           </div>
           <input ref={input} type="file" accept={ProjectMediaService.acceptedTypes.join(',')} aria-label="Upload hero photo" className="sr-only" tabIndex={-1} disabled={savingPhoto || !user} onChange={handleUpload} />
-          <Button variant="outline" className="h-9 px-3" disabled={savingPhoto || !user} onClick={() => input.current?.click()}>
+          {/* A button can't be aria-invalid; the message is linked through aria-describedby. */}
+          <Button id="portfolio-photo" aria-describedby={photoErrors.errors['portfolio-photo'] ? 'portfolio-photo-error' : undefined}
+            variant="outline" className="h-9 px-3" disabled={savingPhoto || !user} onClick={() => input.current?.click()}>
             <Upload className="size-4" /> {portraitUrl ? 'Change' : 'Add photo'}
           </Button>
         </div>
+        <FieldError id="portfolio-photo" message={photoErrors.errors['portfolio-photo']} />
         {portraitPath && (
           <button type="button" disabled={savingPhoto} onClick={handleRemove} className="-mt-2 ml-15 text-xs text-muted-foreground underline-offset-4 hover:text-destructive hover:underline disabled:opacity-50">Remove photo</button>
         )}

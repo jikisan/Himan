@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +45,8 @@ export const CvBlockEditor = ({ open, onOpenChange, block, tokens, onSave }: CvB
   const [body, setBody] = useState('');
   const [tags, setTags] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const fe = useFieldErrors();
+  const clearErrors = fe.clear;
 
   useEffect(() => {
     if (!open) return;
@@ -52,10 +56,13 @@ export const CvBlockEditor = ({ open, onOpenChange, block, tokens, onSave }: CvB
     setTitle(block?.title ?? '');
     setBody(block?.body ?? '');
     setTags(block?.tags.join(', ') ?? '');
-  }, [open, block]);
+    clearErrors();
+  }, [open, block, clearErrors]);
 
-  const handleSave = async () => {
-    if (!title.trim()) return;
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    if (!title.trim()) { fe.fail('cv-block-title', 'Enter a title'); return; }
     setIsSaving(true);
     try {
       await onSave({
@@ -69,6 +76,8 @@ export const CvBlockEditor = ({ open, onOpenChange, block, tokens, onSave }: CvB
           .filter(Boolean),
       });
       onOpenChange(false);
+    } catch {
+      fe.setFormError('Failed to save CV block');
     } finally {
       setIsSaving(false);
     }
@@ -81,7 +90,8 @@ export const CvBlockEditor = ({ open, onOpenChange, block, tokens, onSave }: CvB
           <DialogTitle>{block ? 'Edit CV block' : 'New CV block'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form noValidate onSubmit={handleSave} className="space-y-4">
+          <FormErrorBanner message={fe.formError} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cv-block-kind">Kind</Label>
@@ -112,14 +122,17 @@ export const CvBlockEditor = ({ open, onOpenChange, block, tokens, onSave }: CvB
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cv-block-title">Title</Label>
+            <Label htmlFor="cv-block-title" required>Title</Label>
             <Input
               id="cv-block-title"
+              required
+              {...fe.invalid('cv-block-title')}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); fe.clear('cv-block-title'); }}
               placeholder="e.g. Objective"
               maxLength={100}
             />
+            <FieldError id="cv-block-title" message={fe.errors['cv-block-title']} />
           </div>
 
           <div className="space-y-2">
@@ -162,14 +175,14 @@ export const CvBlockEditor = ({ open, onOpenChange, block, tokens, onSave }: CvB
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving || !title.trim()}>
+            <Button type="submit" disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save block'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

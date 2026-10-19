@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useState } from 'react';
 import { ArrowLeft, Plus, Sparkles, UserCog } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -36,6 +37,9 @@ export const BlocksPage = () => {
       for (const seed of SEED_BLOCKS) {
         await createBlock(seed);
       }
+    } catch {
+      // The block editor reports its own save failures; seeding has no form, so it toasts.
+      toast.error('Failed to save block');
     } finally {
       setIsSeeding(false);
     }

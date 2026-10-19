@@ -81,6 +81,9 @@ describe('portfolio photo settings', () => {
     expect(screen.getByRole('button', { name: /Add photo/ })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Upload hero photo'), { target: { files: [new File(['text'], 'photo.svg', { type: 'image/svg+xml' })] } });
     expect(media.upload).not.toHaveBeenCalled();
+    const button = screen.getByRole('button', { name: /Add photo/ });
+    expect(document.activeElement).toBe(button);
+    expect(document.getElementById('portfolio-photo-error')).toHaveTextContent('Choose a PNG, JPEG or WebP photo up to 5 MB');
   });
 
   it('removes the photo only after saving succeeds', async () => {
@@ -121,6 +124,10 @@ describe('portfolio link settings', () => {
     editLink('taken', 'android-dev');
     await waitFor(() => expect(profiles.upsert).toHaveBeenCalledWith({ userId: 'owner', handle: 'taken' }));
     expect(save).not.toHaveBeenCalled();
+    const handle = screen.getByLabelText('Your handle');
+    await waitFor(() => expect(document.activeElement).toBe(handle));
+    expect(handle).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('portfolio-handle-error')).toHaveTextContent('The handle "taken" is taken. Try another.');
   });
 
   it('rejects a handle shorter than 3 characters', () => {
@@ -129,6 +136,22 @@ describe('portfolio link settings', () => {
     editLink('jk', 'android-developer');
     expect(profiles.upsert).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
+    const handle = screen.getByLabelText('Your handle');
+    expect(document.activeElement).toBe(handle);
+    expect(handle).toHaveAttribute('aria-invalid', 'true');
+    expect(handle).toBeRequired();
+    expect(document.getElementById('portfolio-handle-error')).toHaveTextContent('Your handle needs at least 3 characters.');
+    fireEvent.change(handle, { target: { value: 'jkl' } });
+    expect(handle).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('focuses an empty slug and shows the message under the link', () => {
+    render(<Panel onChange={vi.fn()} />);
+    editLink('junekyle', '');
+    const slug = screen.getByLabelText('Portfolio slug');
+    expect(document.activeElement).toBe(slug);
+    expect(slug).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('portfolio-slug-error')).toHaveTextContent('Use letters, numbers and hyphens.');
   });
 
   it('toggles the CV download, and only once a CV exists', () => {

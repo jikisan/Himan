@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CalendarClock, CircleCheck, DoorOpen, Gauge, HandCoins, History, PenLine, ReceiptText, UserCheck } from 'lucide-react';
+import { BedDouble, CalendarClock, CircleCheck, DoorOpen, FilePlus2, Gauge, HandCoins, History, PenLine, ReceiptText, Send, UserCheck } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { billBalance, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
+import { billBalance, contractStage, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
 import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
@@ -13,12 +13,14 @@ const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.s
 /** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
   onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [], links = [],
-  settlements = [], onSettleDeposit }: {
+  settlements = [], onSettleDeposit, onOpenContract = onOpenTenant, onContractNotNeeded }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; bills: RentalBill[]; readings: MeterReading[]; payments?: RentalPayment[];
   canManage: boolean; canEdit: boolean; onReadMeters(): void; onOpenBills(): void; onOpenBill(billId: string): void;
   onAddTenant(unitId: string): void; onAddRoom(): void; onOpenTenant(renterId: string): void; onReviewCancelled(period: string): void;
   utilityBills: UtilityBill[]; onAddBillAmounts(): void; onMarkEarlierPaid?(): void; contractTexts?: ContractText[]; links?: TenancyLink[];
   settlements?: RentalSettlement[]; onSettleDeposit?(tenancyId: string): void;
+  /** Opens the tenant sheet at the Contract section. */
+  onOpenContract?(renterId: string): void; onContractNotNeeded?(tenancyId: string): void;
 }) {
   const [confirmEarlier, setConfirmEarlier] = useState(false);
   const today = manilaToday();
@@ -54,7 +56,21 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
     return inDays <= 7 ? [{ tenancy, rent: contract.monthlyRentCentavos, date, inDays }] : [];
   }).sort((a, b) => a.inDays - b.inDays);
 
+  // The written contract is optional but a priority: its to-dos come first, until it's done or dismissed.
   const tasks: ReactNode[] = [];
+  if (canManage) for (const t of active) {
+    const stage = contractStage(t, contractTexts);
+    const who = name(t);
+    const task = stage === 'none' ? { icon: FilePlus2, title: `Create contract for ${who}`, detail: 'Not written yet', action: 'Create contract' }
+      : stage === 'draft' ? { icon: Send, title: `Send contract to ${who}`, detail: 'Draft saved, not sent yet', action: 'Send' }
+      : stage === 'sent' ? { icon: PenLine, title: `Waiting for ${who} to sign`, detail: 'Sent through their link', action: 'Open' }
+      : stage === 'signed' ? { icon: PenLine, title: `Countersign contract for ${who}`, detail: 'The tenant signed', action: 'Countersign' }
+      : null;
+    if (task) tasks.push(<Task key={`contract-${t.id}`} tone="primary" {...task} detail={`${roomName(t.unitId)} · ${task.detail}`} label={task.title}
+      onAction={() => onOpenContract(t.renterId)}
+      secondary={onContractNotNeeded && (stage === 'none' || stage === 'draft')
+        ? { action: 'Not needed', label: `Contract not needed for ${who}`, onAction: () => onContractNotNeeded(t.id) } : undefined} />);
+  }
   if (property.units.length === 0 && canEdit) tasks.push(<Task key="room" icon={DoorOpen} tone="primary" title="Add your first room"
     detail="Then you can move tenants in." action="Add room" primary onAction={onAddRoom} />);
   if (canManage && todo.meters.size) tasks.push(<Task key="meters" icon={Gauge} tone="amber"
@@ -83,10 +99,6 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
     if (links.some((l) => l.tenancyId === t.id && l.status === 'submitted')) tasks.push(<Task key={`review-${t.id}`} icon={UserCheck} tone="primary"
       title={`Review details from ${name(t)}`} detail={`${roomName(t.unitId)} · sent through their link`} action="Review"
       label={`Review details from ${name(t)}`} onAction={() => onOpenTenant(t.renterId)} />);
-    const signed = t.contracts.some((c) => contractTexts.some((x) => x.contractId === c.id && x.status === 'signed'));
-    if (signed) tasks.push(<Task key={`sign-${t.id}`} icon={PenLine} tone="primary" title={`Countersign contract for ${name(t)}`}
-      detail={`${roomName(t.unitId)} · the tenant signed`} action="Countersign" label={`Countersign contract for ${name(t)}`}
-      onAction={() => onOpenTenant(t.renterId)} />);
   }
   if (canManage) for (const t of active) {
     const contract = t.contracts.find((c) => c.status === 'active');
@@ -181,14 +193,19 @@ const TONE = {
   emerald: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
 } as const;
 
-function Task({ icon: Icon, tone, title, detail, action, label, primary, onAction }: {
+const BUTTON = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:w-auto';
+
+function Task({ icon: Icon, tone, title, detail, action, label, primary, onAction, secondary }: {
   icon: typeof Gauge; tone: keyof typeof TONE; title: string; detail: string; action: string; label?: string; primary?: boolean; onAction(): void;
+  secondary?: { action: string; label: string; onAction(): void };
 }) {
   return <div className={cn('flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 shadow-sm', tone === 'destructive' && 'border-destructive/40')}>
     <span aria-hidden className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', TONE[tone])}><Icon className="h-5 w-5" /></span>
     <span className="min-w-0 flex-1"><span className="block font-semibold">{title}</span>
       <span className="block text-sm text-muted-foreground">{detail}</span></span>
-    <button type="button" aria-label={label} onClick={onAction} className={cn('inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:w-auto',
+    {secondary && <button type="button" aria-label={secondary.label} onClick={secondary.onAction}
+      className={cn(BUTTON, 'text-muted-foreground hover:bg-muted/50 hover:text-foreground')}>{secondary.action}</button>}
+    <button type="button" aria-label={label} onClick={onAction} className={cn(BUTTON,
       primary ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border bg-background hover:bg-muted/50')}>{action}</button>
   </div>;
 }

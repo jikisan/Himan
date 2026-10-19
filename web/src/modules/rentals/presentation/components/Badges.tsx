@@ -1,12 +1,20 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { cn } from '@core/presentation/utils';
 import { billBalance, billPaid, billState, formatBillPesos } from '@himan/shared/rentals';
-import type { RentalBill, RentalPayment, RentalRole } from '@himan/shared/rentals';
+import type { ContractStage, RentalBill, RentalPayment, RentalRole } from '@himan/shared/rentals';
+import { CONTRACT_BADGE } from '../utils/contract';
 
 export function Initials({ name, className }: { name: string; className?: string }) {
   const letters = name.split('@')[0].split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return <span aria-hidden className={cn('flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary', className)}>
     {letters || '?'}</span>;
+}
+
+/** Where the written contract stands, until it's done or not needed: amber when there's none yet. */
+export function ContractBadge({ stage }: { stage: ContractStage }) {
+  const text = CONTRACT_BADGE[stage];
+  return text && <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
+    stage === 'none' ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'bg-primary/10 text-primary')}>{text}</span>;
 }
 
 const ROLE_STYLE: Record<RentalRole, string> = {

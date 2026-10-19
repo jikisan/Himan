@@ -22,6 +22,8 @@ export interface RentalContract {
 export interface RentalTenancy {
   id: string; propertyId: string; unitId: string; renterId: string;
   moveIn: string; moveOut: string | null; contracts: RentalContract[]; charges: TenancyCharge[];
+  /** The owner dismissed the "write a contract" nudge: a written contract stays optional. */
+  contractNotNeeded?: boolean;
 }
 export interface RentalMember { userId: string; email: string; role: RentalRole }
 export interface MeterReading {

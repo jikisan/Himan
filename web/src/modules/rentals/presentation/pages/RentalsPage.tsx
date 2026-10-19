@@ -39,7 +39,7 @@ import { errorMessage } from '../utils/errorMessage';
 
 export type RentalsState = ReturnType<typeof useRentals>;
 type DialogState = { type: 'setup' } | { type: 'property'; id: string } | { type: 'room'; id: string | null }
-  | { type: 'addTenant'; unitId: string } | { type: 'tenant'; renterId: string } | { type: 'share' }
+  | { type: 'addTenant'; unitId: string } | { type: 'tenant'; renterId: string; focus?: 'contract' } | { type: 'share' }
   | { type: 'bill'; billId: string } | { type: 'pending'; tenancyId: string; period: string; skip: boolean }
   | { type: 'linkReady'; tenancyId: string; name: string } | null;
 type Confirm = { title: string; description: string; confirmText: string; action: RentalAction; done: string } | null;
@@ -212,18 +212,20 @@ function RentalsContent(state: RentalsState) {
               onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }}
               onAddBillAmounts={() => { setAmountsFromHome(true); setView('bills'); }} utilityBills={propertyUtilityBills}
               settlements={state.settlements} onSettleDeposit={setSettlingId}
+              onOpenContract={(renterId) => setDialog({ type: 'tenant', renterId, focus: 'contract' })}
+              onContractNotNeeded={(tenancyId) => void tryAct({ type: 'setContractNotNeeded', tenancyId, value: true }, 'Marked as not needed. Undo from the tenant.')}
               onMarkEarlierPaid={() => void tryAct({ type: 'markEarlierPaid', propertyId: property.id }, 'Earlier SOAs marked paid')} />
           : view === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
               <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
-          : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links}
+          : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links} contractTexts={state.contractTexts}
               onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
               onMoveOut={setMovingOutId}
               onEditRoom={(id) => setDialog({ type: 'room', id })}
               onDeleteRoom={(id) => setConfirm({ title: `Delete ${unitName(id)}?`, confirmText: 'Delete room', done: 'Room deleted',
                 action: { type: 'removeUnit', id }, description: 'Rooms that have had tenants can’t be deleted.' })} />
-          : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links}
+          : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links} contractTexts={state.contractTexts}
               onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
           : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
               readings={propertyReadings} bills={propertyBills} payments={propertyPayments} utilityBills={propertyUtilityBills} startWithAmounts={amountsFromHome} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
@@ -311,11 +313,12 @@ function RentalsContent(state: RentalsState) {
             <AddTenantForm unit={room} rentDueDay={property.rentDueDay} renters={propertyRenters.filter((r) => !here.has(r.id))} others={isManager ? others : []}
               busy={busy} onCancel={() => setDialog(null)}
               onSave={async (action, sendLink) => {
-                const { tenancyId, warnings } = await run(action) as { tenancyId: string; warnings: string[] };
+                const { renterId, tenancyId, warnings } = await run(action) as { renterId: string; tenancyId: string; warnings: string[] };
                 const name = action.renter?.fullName ?? renterName(action.renterId ?? '');
                 toast.success(`${name} moved in`);
                 warnings.forEach((w) => toast.warning(w));
-                setDialog(sendLink ? { type: 'linkReady', tenancyId, name } : null);
+                // The contract comes next: open their sheet at it (the link path says so in its dialog).
+                setDialog(sendLink ? { type: 'linkReady', tenancyId, name } : { type: 'tenant', renterId, focus: 'contract' });
               }} />
           </>;
         })()}
@@ -336,7 +339,7 @@ function RentalsContent(state: RentalsState) {
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[480px]">
         {dialog?.type === 'tenant' && property && (() => {
           const renter = propertyRenters.find((r) => r.id === dialog.renterId);
-          return renter && <TenantSheet renter={renter} tenancies={propertyTenancies}
+          return renter && <TenantSheet key={renter.id} renter={renter} tenancies={propertyTenancies} focusContract={dialog.focus === 'contract'}
             bills={propertyBills} payments={propertyPayments} settlements={state.settlements} onOpenSettlement={setSettlingId} unitName={unitName} canManage={isManager} busy={busy} run={run}
             fileUrl={fileUrl} paymentProofUrl={paymentProofUrl} receipt={receipt}
             contractInfo={{ property, texts: state.contractTexts, template: state.templates[property.id] ?? DEFAULT_CLAUSES, links: state.links }} onMoveOut={setMovingOutId} onRecordPayment={(tenancyId) => setPaying({ tenancyId })}

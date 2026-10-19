@@ -236,6 +236,18 @@ describe('TenancyRepository bills support', () => {
     await new TenancyRepository().setCharges('t', [{ label: 'Parking', amount: 100000 }]);
     expect(save.update).toHaveBeenCalledWith({ charges: [{ label: 'Parking', amount: 100000 }] });
   });
+  it('maps and saves contract not needed, false when the column is missing', async () => {
+    mock.from.mockReturnValueOnce(result([{ id: 't', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01', move_out: null },
+      { id: 't2', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01', move_out: null, contract_not_needed: true }]));
+    const [t, t2] = await new TenancyRepository().findAll();
+    expect([t.contractNotNeeded, t2.contractNotNeeded]).toEqual([false, true]);
+    const save = result({ id: 't' });
+    mock.from.mockReturnValueOnce(save);
+    await new TenancyRepository().setContractNotNeeded('t', true);
+    expect(mock.from).toHaveBeenLastCalledWith('rental_tenancies');
+    expect(save.update).toHaveBeenCalledWith({ contract_not_needed: true });
+    expect(save.eq).toHaveBeenCalledWith('id', 't');
+  });
   it('changes rent from a date through the renewal RPC', async () => {
     mock.rpc.mockResolvedValue({ data: 'c2', error: null });
     await new TenancyRepository().changeRent('c', '2026-12-01', 400000);

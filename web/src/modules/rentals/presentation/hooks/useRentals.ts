@@ -33,6 +33,7 @@ export type RentalAction =
   | { type: 'updateBillLines'; id: string; lines: BillLine[] }
   | { type: 'voidBill'; id: string; reason: string }
   | { type: 'setCharges'; tenancyId: string; charges: TenancyCharge[] }
+  | { type: 'setContractNotNeeded'; tenancyId: string; value: boolean }
   | { type: 'changeRent'; contractId: string; from: string; rentCentavos: number }
   | { type: 'moveOut'; tenancyId: string; moveOut: string; readings: { kind: MeterKind; value: number }[] }
   | { type: 'addMember'; propertyId: string; userId: string; role: 'manager' | 'viewer' }
@@ -132,6 +133,7 @@ export function useRentals() {
         case 'updateBillLines': return repos.bills.updateLines(a.id, a.lines);
         case 'voidBill': return repos.bills.void(a.id, a.reason);
         case 'setCharges': return repos.tenancies.setCharges(a.tenancyId, a.charges);
+        case 'setContractNotNeeded': return repos.tenancies.setContractNotNeeded(a.tenancyId, a.value);
         case 'changeRent': return repos.tenancies.changeRent(a.contractId, a.from, a.rentCentavos);
         case 'moveOut': {
           const data = query.data;

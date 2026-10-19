@@ -199,3 +199,11 @@ tenant still chooses. **Until the matching web build is deployed, the old build 
 Decision: renters get the room by paying advance and deposit and the contract follows; "reserve a room" is a separate, unbuilt
 feature (a pending-tenant design was built and removed for this reason).
 
+
+## Contract as a priority (2026-10-19)
+Migration `20261019100000_contract_not_needed.sql` (**NOT yet applied to hosted**; backward compatible: a new column with a default,
+which the deployed build's `select('*')` ignores, and the new build reads as false while it is missing). A written contract stays
+optional but is nudged everywhere: `contractStage(tenancy, texts)` (shared `domain/contracts.ts`) → none / draft / sent / signed / done /
+not_needed. Home lists contract to-dos first for active tenancies (managers; "Not needed" on none/draft), the tenant sheet shows the
+Contract section first with the next step until done or dismissed ("Contract not needed" + Undo), the Tenants list and Rooms board show
+a short badge, and Add tenant opens the new tenant's sheet at the Contract section. No gating: nothing waits on the contract.

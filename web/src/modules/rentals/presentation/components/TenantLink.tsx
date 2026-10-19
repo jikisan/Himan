@@ -30,7 +30,7 @@ export function LinkReady({ name, tenancyId, busy, run, onDone }: { name: string
   const message = token ? tenantLinkMessage(token, name, 'new') : '';
   return <div className="space-y-4 pb-6">
     {failed ? <p role="alert" className="text-sm">{name} moved in, but the link wasn’t made. Tap Try again.</p>
-      : <p className="text-sm">Send this to {name} so they can fill in their details. Their bed is reserved and the move-in SOA is ready.</p>}
+      : <p className="text-sm">Send this to {name} so they can fill in their details. Their bed is reserved and the move-in SOA is ready. Create their contract next.</p>}
     {token && <textarea readOnly aria-label="Message to send" rows={5} className={`${inputClass} h-auto py-2 text-sm`} value={message}
       onFocus={(e) => e.currentTarget.select()} />}
     <div className="flex flex-wrap justify-end gap-2">

@@ -67,9 +67,11 @@ export const tenancyRow = z.object({
   id: z.string(), property_id: z.string(), unit_id: z.string(), renter_id: z.string(),
   move_in: z.string(), move_out: z.string().nullable(), contracts: z.array(contractRow).default([]),
   charges: z.array(storedChargeSchema).default([]),
+  // Missing before migration 20261019100000.
+  contract_not_needed: z.boolean().default(false),
 }).transform((r): RentalTenancy => ({
   id: r.id, propertyId: r.property_id, unitId: r.unit_id, renterId: r.renter_id,
-  moveIn: r.move_in, moveOut: r.move_out, charges: r.charges,
+  moveIn: r.move_in, moveOut: r.move_out, charges: r.charges, contractNotNeeded: r.contract_not_needed,
   contracts: [...r.contracts].sort((a, b) => b.startDate.localeCompare(a.startDate)),
 }));
 

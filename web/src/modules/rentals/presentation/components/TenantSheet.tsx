@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, centavosToInput, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
+import { addPeriods, centavosToInput, contractStage, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
   tenancyOwed } from '@himan/shared/rentals';
-import type { ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalSettlement, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import type { ContractStage, ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalSettlement, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
 import { PaymentsList } from './PaymentsList';
 import { ContractPanel } from './ContractPanel';
 import type { ContractInfo } from './ContractPanel';
 import { DetailsReview, TenantLinkPanel } from './TenantLink';
-import { detailsStatus } from '../utils/contract';
+import { contractOpen, detailsStatus } from '../utils/contract';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
 import { Initials } from './Badges';
@@ -28,7 +29,7 @@ const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
 export function TenantSheet({ renter, tenancies, bills = [], payments = [], settlements = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
-  onMoveOut, onRecordPayment, onOpenSettlement, receipt, deleteAction, contractInfo }: {
+  onMoveOut, onRecordPayment, onOpenSettlement, receipt, deleteAction, contractInfo, focusContract = false }: {
   renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; payments?: RentalPayment[]; unitName(id: string): string; canManage: boolean;
   deleteAction?: ReactNode; onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void; onRecordPayment?(tenancyId: string): void;
   receipt?(payment: RentalPayment): ReceiptContext;
@@ -36,8 +37,16 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   settlements?: RentalSettlement[]; onOpenSettlement?(tenancyId: string): void;
   /** The property's contract texts, template and links; without it the sheet shows the terms only. */
   contractInfo?: ContractInfo;
+  /** Opened from a contract to-do or right after Add tenant: scroll to and focus the Contract section. */
+  focusContract?: boolean;
 } & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
+  const contractRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!focusContract) return;
+    contractRef.current?.scrollIntoView?.({ block: 'start' });
+    contractRef.current?.focus();
+  }, [focusContract]);
   const mine = tenancies.filter((t) => t.renterId === renter.id);
   const active = mine.filter((t) => t.moveOut === null);
   const last = [...mine].sort((a, b) => (b.moveOut ?? '').localeCompare(a.moveOut ?? ''))[0];
@@ -60,6 +69,36 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   const contact: [string, string][] = [['Mobile', renter.phone], ['Messenger', renter.facebook], ['Email', renter.email],
     ['Home address', renter.address], ['Emergency', [renter.emergencyName, renter.emergencyPhone].filter(Boolean).join(' · ')],
     ['Living with them', `${renter.occupants} ${renter.occupants === 1 ? 'person' : 'people'}`], ['Notes', renter.notes]];
+
+  // Until the written contract is done (or dismissed), it's the first thing on the sheet.
+  const stageOf = (tenancyId: string): ContractStage =>
+    contractInfo ? contractStage(active.find((t) => t.id === tenancyId)!, contractInfo.texts) : 'done';
+  const contractFirst = contracts.some((c) => contractOpen(stageOf(c.tenancyId)));
+  const setNotNeeded = (tenancyId: string, value: boolean) => run({ type: 'setContractNotNeeded', tenancyId, value })
+    .then(() => toast.success(value ? 'Marked as not needed' : 'Contract is back on your to-do list'), (e) => toast.error(errorMessage(e)));
+  const contractSections = contracts.map((c, i) => {
+    const stage = stageOf(c.tenancyId);
+    return <section key={c.id} ref={i === 0 ? contractRef : undefined} tabIndex={-1} aria-label="Contract" className="scroll-mt-4 focus:outline-none">
+      <h3 className="mb-2 text-sm font-semibold">Contract</h3>
+      {contractOpen(stage) && <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md bg-primary/10 px-3 py-2 text-sm">
+        <p className="min-w-0 flex-1 font-medium">{NEXT_STEP[stage]}</p>
+        {canManage && (stage === 'none' || stage === 'draft') && <Button variant="ghost" className="h-11 sm:h-8" disabled={busy}
+          onClick={() => void setNotNeeded(c.tenancyId, true)}>Not needed</Button>}
+      </div>}
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <Item label="Started" value={day(c.startDate)} />
+        <Item label="Ends" value={day(c.endDate)} />
+        <Item label="Deposit" value={formatPesos(c.depositCentavos)} />
+        <Item label="Advance" value={`${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'}`} />
+      </dl>
+      {contractInfo && (stage === 'not_needed'
+        ? <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+          <p className="min-w-0 flex-1 text-muted-foreground">Contract not needed</p>
+          {canManage && <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void setNotNeeded(c.tenancyId, false)}>Undo</Button>}
+        </div>
+        : <div className="mt-4"><ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} /></div>)}
+    </section>;
+  });
 
   return <>
     <SheetHeader className="space-y-4 border-b p-5 pr-12 text-left">
@@ -90,6 +129,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         return link?.status === 'submitted' && link.submittedDetails
           && <DetailsReview key={`review-${t.id}`} tenancyId={t.id} details={link.submittedDetails} busy={busy} run={run} />;
       })}
+      {contractFirst && contractSections}
       {nextDue && <section aria-labelledby="sheet-rent" className="rounded-xl border p-4">
         <div className="flex items-center justify-between">
           <h3 id="sheet-rent" className="text-sm font-semibold">Rent</h3>
@@ -137,16 +177,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         </div>)}
       </section>}
 
-      {contracts.map((c) => <section key={c.id} aria-label="Contract">
-        <h3 className="mb-2 text-sm font-semibold">Contract</h3>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <Item label="Started" value={day(c.startDate)} />
-          <Item label="Ends" value={day(c.endDate)} />
-          <Item label="Deposit" value={formatPesos(c.depositCentavos)} />
-          <Item label="Advance" value={`${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'}`} />
-        </dl>
-        {contractInfo && <div className="mt-4"><ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} /></div>}
-      </section>)}
+      {!contractFirst && contractSections}
 
       {canManage && active.map((t) => {
         const link = linkOf(t);
@@ -189,6 +220,11 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     {canManage && deleteAction && <div className="border-t px-4 py-3">{deleteAction}</div>}
   </>;
 }
+
+const NEXT_STEP: Partial<Record<ContractStage, string>> = {
+  none: 'Next step: the written contract.', draft: 'Next step: send it to the tenant to sign.',
+  sent: 'Next step: the tenant signs through their link.', signed: 'Next step: your signature.',
+};
 
 const ordinal = (n: number) => {
   const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';

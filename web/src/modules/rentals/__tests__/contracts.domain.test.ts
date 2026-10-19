@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CONTRACT_FIELDS, DEFAULT_CLAUSES, NOTARY_ACKNOWLEDGMENT, canonicalText, contractStatusLabel, contractValues, linkMessage,
+  CONTRACT_FIELDS, DEFAULT_CLAUSES, NOTARY_ACKNOWLEDGMENT, canonicalText, contractStage, contractStatusLabel, contractValues, linkMessage,
   linkDetailsSchema, ordinal, renderClauses, sha256Hex,
 } from '@himan/shared/rentals';
-import type { RentalContract, RentalProperty, Renter } from '@himan/shared/rentals';
+import type { ContractText, RentalContract, RentalProperty, RentalTenancy, Renter } from '@himan/shared/rentals';
 
 const property = {
   name: 'House', address: 'Lot 1, Sample St., Sample City', lessorName: 'Ana Reyes', lessorCivilStatus: 'married',
@@ -115,5 +115,34 @@ describe('linkDetailsSchema ID paths', () => {
     for (const bad of ['../x/a.png', 'tok/../a.png', 'tok/sub/a.png', 'tok/a.exe', '/tok/a.png', 'tok/a.png/']) {
       expect(linkDetailsSchema.safeParse({ ...base, idPaths: [bad] }).success).toBe(false);
     }
+  });
+});
+
+describe('contractStage', () => {
+  const c = (id: string, status: RentalContract['status']) => ({ ...contract, id, tenancyId: 't', status });
+  const tenancy = (extra: Partial<RentalTenancy> = {}) => ({ id: 't', propertyId: 'p', unitId: 'u', renterId: 'r', moveIn: '2026-01-01',
+    moveOut: null, charges: [], contracts: [c('c1', 'active')], ...extra }) as RentalTenancy;
+  const text = (status: ContractText['status'], contractId = 'c1') => ({ id: `x-${contractId}`, contractId, status }) as ContractText;
+
+  it('follows the written contract from none to done', () => {
+    expect(contractStage(tenancy(), [])).toBe('none');
+    expect(contractStage(tenancy(), [text('draft', 'other')])).toBe('none');
+    expect(contractStage(tenancy(), [text('draft')])).toBe('draft');
+    expect(contractStage(tenancy(), [text('sent')])).toBe('sent');
+    expect(contractStage(tenancy(), [text('signed')])).toBe('signed');
+    expect(contractStage(tenancy(), [text('countersigned')])).toBe('done');
+  });
+
+  it('is not needed once dismissed, unless the contract was already sent', () => {
+    expect(contractStage(tenancy({ contractNotNeeded: true }), [])).toBe('not_needed');
+    expect(contractStage(tenancy({ contractNotNeeded: true }), [text('draft')])).toBe('not_needed');
+    expect(contractStage(tenancy({ contractNotNeeded: true }), [text('sent')])).toBe('sent');
+    expect(contractStage(tenancy({ contractNotNeeded: true }), [text('countersigned')])).toBe('done');
+  });
+
+  it('keeps a signed contract done after a rent change renews it without text', () => {
+    const renewed = tenancy({ contracts: [c('c2', 'active'), c('c1', 'ended')] });
+    expect(contractStage(renewed, [text('countersigned', 'c1')])).toBe('done');
+    expect(contractStage(renewed, [text('countersigned', 'c1'), text('draft', 'c2')])).toBe('draft');
   });
 });

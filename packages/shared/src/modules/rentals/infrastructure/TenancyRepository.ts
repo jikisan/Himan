@@ -43,6 +43,12 @@ export class TenancyRepository {
     if (error) throw rentalError(error, 'Could not save the extra charges');
   }
 
+  /** Dismisses (or brings back) the nudge to write this tenant's contract. */
+  async setContractNotNeeded(tenancyId: string, value: boolean): Promise<void> {
+    const { error } = await getSupabase().from('rental_tenancies').update({ contract_not_needed: value }).eq('id', tenancyId).select('id').single();
+    if (error) throw rentalError(error, 'Could not save the contract choice');
+  }
+
   /** Ends the active contract and starts a renewal with the new rent from `from`. */
   async changeRent(contractId: string, from: string, rentCentavos: number): Promise<void> {
     const { error } = await getSupabase().rpc('rental_change_rent', { p_contract_id: contractId, p_from: from, p_rent: rentCentavos });

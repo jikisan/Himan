@@ -1,7 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { z } from 'zod';
 import { formatPesos } from './money.js';
-import type { RentalContract, RentalProperty, Renter } from './types.js';
+import type { RentalContract, RentalProperty, RentalTenancy, Renter } from './types.js';
 import { pesosInWords } from './words.js';
 
 export interface Clause { id: string; text: string }
@@ -190,6 +190,25 @@ export function contractStatusLabel(status: ContractStatus, signMode: SignMode |
     case 'signed': return 'Signed by the tenant, waiting for your signature';
     case 'countersigned': return signMode === 'notarize' ? 'Signed by both, to be notarized' : 'Signed by both';
   }
+}
+
+/** Where a tenancy's written contract stands: none, draft, sent (tenant to sign), signed (you to countersign), done or not_needed. */
+export type ContractStage = 'none' | 'draft' | 'sent' | 'signed' | 'done' | 'not_needed';
+const STAGE: Record<ContractStatus, ContractStage> = { draft: 'draft', sent: 'sent', signed: 'signed', countersigned: 'done' };
+const RANK: ContractStatus[] = ['draft', 'sent', 'signed', 'countersigned'];
+
+/**
+ * The active contract's text decides; without one (e.g. a rent change renewed the contract), the furthest-along text of the
+ * tenancy's earlier contracts does. A dismissed tenancy is not_needed until a text is sent.
+ */
+export function contractStage(tenancy: Pick<RentalTenancy, 'contracts' | 'contractNotNeeded'>,
+  texts: Pick<ContractText, 'contractId' | 'status'>[]): ContractStage {
+  const active = tenancy.contracts.find((c) => c.status === 'active');
+  const mine = texts.filter((t) => tenancy.contracts.some((c) => c.id === t.contractId));
+  const text = mine.find((t) => t.contractId === active?.id)
+    ?? [...mine].sort((a, b) => RANK.indexOf(b.status) - RANK.indexOf(a.status))[0];
+  const stage = text ? STAGE[text.status] : 'none';
+  return tenancy.contractNotNeeded && (stage === 'none' || stage === 'draft') ? 'not_needed' : stage;
 }
 
 /** The ready-to-paste Messenger message for a tenant's private link. */

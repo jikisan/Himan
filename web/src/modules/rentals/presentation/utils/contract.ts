@@ -1,5 +1,5 @@
 import { linkMessage } from '@himan/shared/rentals';
-import type { ContractText, LinkKind, RentalProperty, SignMode, TenancyLink } from '@himan/shared/rentals';
+import type { ContractStage, ContractText, LinkKind, RentalProperty, SignMode, TenancyLink } from '@himan/shared/rentals';
 
 /**
  * The contract as printed and shown: the frozen `body`, with the special terms as the last numbered clause, placed before
@@ -50,3 +50,10 @@ export const SIGN_MODES: [SignMode, string, string][] = [
   ['notarize', 'Sign online, then notarize', 'A printed copy is also signed in front of a notary.'],
 ];
 export const signModeWords = (mode: SignMode) => SIGN_MODES.find(([value]) => value === mode)![1];
+
+/** Short badge for the Tenants list and Rooms board; null once the contract is done or not needed. */
+export const CONTRACT_BADGE: Record<ContractStage, string | null> = {
+  none: 'No contract', draft: 'Contract not sent', sent: 'Waiting to sign', signed: 'Needs your signature', done: null, not_needed: null,
+};
+/** Open stages: the nudge shows on Home and the sheet puts the contract first. */
+export const contractOpen = (stage: ContractStage) => CONTRACT_BADGE[stage] !== null;

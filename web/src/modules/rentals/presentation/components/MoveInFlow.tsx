@@ -93,16 +93,18 @@ export function MoveInFlow({ property, unit, renters, others, state, receipt, on
       {step === 1 && <AddTenantForm unit={unit} rentDueDay={property.rentDueDay} renters={renters} others={others} busy={busy} onCancel={close}
         onNext={(next) => { setDraft(next); setPay(paymentDraft(moveInLines(next).reduce((sum, [, amount]) => sum + amount, 0))); setStep(2); }} />}
 
-      {step === 2 && draft && <div className="space-y-6">
+      {step === 2 && draft && <div className="divide-y [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+        <div>
         <section aria-label="Move-in bill" className="rounded-xl bg-primary/10 px-4 py-3 text-sm">
-          <p className="font-semibold">Move-in bill for {name}</p>
-          <dl className="mt-2 space-y-1 tabular-nums">
-            {lines.map(([label, amount]) => <div key={label} className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">{label}</dt><dd>{formatPesos(amount)}</dd></div>)}
-            <div className="flex items-baseline justify-between gap-3 border-t border-primary/20 pt-2">
-              <dt className="font-semibold">Total</dt><dd className="text-2xl font-bold text-primary">{formatPesos(total)}</dd></div>
-          </dl>
-        </section>
+            <p className="font-semibold">Move-in bill for {name}</p>
+            <dl className="mt-2 space-y-1 tabular-nums">
+              {lines.map(([label, amount]) => <div key={label} className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">{label}</dt><dd>{formatPesos(amount)}</dd></div>)}
+              <div className="flex items-baseline justify-between gap-3 border-t border-primary/20 pt-2">
+                <dt className="font-semibold">Total</dt><dd className="text-2xl font-bold text-primary">{formatPesos(total)}</dd></div>
+            </dl>
+          </section>
+        </div>
         {saved ? <div className="space-y-4">
           <p role="status" className="rounded-md bg-emerald-500/10 px-3 py-2 font-semibold text-emerald-800 dark:text-emerald-300">Tenant added</p>
           <p className="text-sm text-muted-foreground">{payment ? `${formatBillPesos(payment.amountCentavos)} recorded.` : 'Nothing paid yet: the move-in bill waits in Bills.'}

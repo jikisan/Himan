@@ -175,9 +175,12 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
   const [mode, setMode] = useState(initialMode);
   const [error, setError] = useState('');
   return <div className="space-y-5">
+    <div className="divide-y [&>*]:py-5 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+    <div>
     <section aria-label="Preview" className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-3 text-xs leading-relaxed [scrollbar-width:thin]">
-      {contractLines(preview, terms).map((line, i) => <p key={i}>{line}</p>)}
-    </section>
+        {contractLines(preview, terms).map((line, i) => <p key={i}>{line}</p>)}
+      </section>
+    </div>
     <div className="space-y-1.5">
       <label htmlFor="contract-terms" className="text-sm font-medium">Special terms</label>
       <textarea id="contract-terms" rows={3} maxLength={4000} className={`${inputClass} h-auto py-2`} value={terms}
@@ -185,7 +188,9 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
       <p className="text-xs text-muted-foreground">Added as the last clause. Change the other clauses in Edit property → Contract template.</p>
     </div>
     {modeLocked ? mode && <p className="text-xs text-muted-foreground">Signing: {signModeWords(mode)}</p>
-      : <SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} />}
+      // A legend sits in its fieldset's border box, so the section padding goes on a wrapper.
+      : <div><SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} /></div>}
+    </div>
     {note && <p className="text-xs text-muted-foreground">{note}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex justify-end gap-2 pt-1">

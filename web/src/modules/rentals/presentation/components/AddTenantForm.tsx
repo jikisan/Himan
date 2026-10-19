@@ -93,6 +93,8 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
     } catch (failure) { setError(errorMessage(failure)); }
   }}>
     <fieldset disabled={busy} className="space-y-6">
+      {/* One line between each section: Who · Move-in · More details. */}
+      <div className="divide-y [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
       <FormSection title="Who is moving in?">
         {(renters.length > 0 || others.length > 0) && <div role="group" aria-label="New or existing tenant" className="flex rounded-lg bg-muted p-1 sm:col-span-2">
           {([['New person', null], ['Already a tenant', renters[0]?.id ?? `other:${others[0].renter.id}`]] as const).map(([label, id]) =>
@@ -196,6 +198,7 @@ export function AddTenantForm({ unit, renters, others = [], rentDueDay = null, b
             </Field>
           </>}
         </Collapsible>
+      </div>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <FormActions submit="Next: payment" onCancel={onCancel} />

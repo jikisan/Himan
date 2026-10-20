@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../presentation/pages/DashboardPage';
 import { readHiddenApps } from '../domain/entities';
+import { initSupabase } from '@himan/shared';
 
 const auth = vi.hoisted(() => ({
   user: { id: 'u1', email: 'kyle@example.com', user_metadata: {} as Record<string, unknown> },
@@ -12,8 +13,9 @@ vi.mock('@auth/presentation/hooks', () => ({ useAuth: () => auth }));
 const sub = vi.hoisted(() => ({ tier: 'beta', isAdmin: false }));
 vi.mock('@subscriptions/presentation/hooks', () => ({ useSubscription: () => sub }));
 
-const supabase = vi.hoisted(() => ({ auth: { updateUser: vi.fn() } }));
-vi.mock('@core/infrastructure/config', () => ({ supabase }));
+// The shared repository saves through the shared client; spy on that client's updateUser.
+const client = initSupabase({ url: 'http://localhost:54321', anonKey: 'test-anon-key' });
+const supabase = { auth: { updateUser: vi.spyOn(client.auth, 'updateUser') as unknown as ReturnType<typeof vi.fn> } };
 
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toasts }));

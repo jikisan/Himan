@@ -225,7 +225,7 @@ export function MenuHost() {
     <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={() => pick()} className="flex-1 justify-end bg-black/50"
       style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: 12 }}>
       <Pressable accessible={false} onPress={() => undefined} className="gap-2 rounded-3xl bg-white p-3 dark:bg-gray-800">
-        {spec?.title ? <Text accessibilityRole="header" className={`px-2 pb-1 pt-2 text-center text-base font-semibold ${muted}`}>{spec.title}</Text> : null}
+        {spec?.title ? <Text accessibilityRole="header" className={`px-2 pb-2 pt-2 text-left text-xl font-bold ${text}`}>{spec.title}</Text> : null}
         {spec?.options.map((o) => <Pressable key={o.label} accessibilityRole="button" accessibilityState={{ selected: !!o.checked }} onPress={() => pick(o)}
           className={`min-h-14 flex-row items-center justify-center gap-2 rounded-2xl px-4 active:opacity-70 ${o.checked ? 'bg-indigo-50 dark:bg-indigo-950/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
           {/* The tick sits right beside the words (the text shrinks to its own width rather than filling the row). */}

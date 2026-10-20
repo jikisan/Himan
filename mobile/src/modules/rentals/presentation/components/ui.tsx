@@ -201,7 +201,7 @@ export function zodFieldErrors(error: { issues: { path: PropertyKey[]; message: 
 
 // ---- Menu: a list of big labelled choices over a dimmed screen (iOS 26's own action sheet has no dimming).
 
-export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; onPress(): void };
+export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; icon?: IconName; tone?: 'green'; onPress(): void };
 type MenuSpec = { title?: string; options: MenuOption[]; onCancel?(): void };
 // Hosts mount inside each open sheet: a native modal only shows above the modal it is rendered in, so the newest host shows the menu.
 const hosts: ((spec: MenuSpec | null) => void)[] = [];
@@ -228,13 +228,16 @@ export function MenuHost() {
         {spec?.title ? <Text accessibilityRole="header" className={`px-2 pb-1 pt-2 text-center text-base font-semibold ${muted}`}>{spec.title}</Text> : null}
         {spec?.options.map((o) => <Pressable key={o.label} accessibilityRole="button" accessibilityState={{ selected: !!o.checked }} onPress={() => pick(o)}
           className={`min-h-14 flex-row items-center justify-center gap-2 rounded-2xl px-4 active:opacity-70 ${o.checked ? 'bg-indigo-50 dark:bg-indigo-950/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
-          {o.checked && <Feather name="check" size={20} color="#4f46e5" />}
-          <Text className={`text-center text-lg font-semibold ${o.destructive ? 'text-red-600 dark:text-red-400' : o.checked ? 'text-indigo-700 dark:text-indigo-300' : text}`}>{o.label}</Text>
+          {/* The tick sits right beside the words (the text shrinks to its own width rather than filling the row). */}
+          {o.checked ? <Feather accessible={false} name="check" size={20} color="#6366f1" />
+            : o.icon ? <Feather accessible={false} name={o.icon} size={20} color={o.tone === 'green' ? '#059669' : '#6b7280'} /> : null}
+          <Text className={`shrink text-center text-lg font-semibold ${o.destructive ? 'text-red-600 dark:text-red-400' : o.tone === 'green' ? 'text-emerald-700 dark:text-emerald-400'
+            : o.checked ? 'text-indigo-700 dark:text-indigo-300' : text}`}>{o.label}</Text>
         </Pressable>)}
       </Pressable>
       <View className="h-2" />
       <Pressable accessibilityRole="button" onPress={() => pick()} className="min-h-14 items-center justify-center rounded-3xl bg-white active:opacity-70 dark:bg-gray-800">
-        <Text className={`text-lg font-bold ${text}`}>Cancel</Text>
+        <Text className="text-lg font-bold text-red-600 dark:text-red-400">Cancel</Text>
       </Pressable>
     </Pressable>
   </Modal>;

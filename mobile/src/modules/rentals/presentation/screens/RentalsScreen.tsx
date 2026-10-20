@@ -102,11 +102,8 @@ function RentalsContent(state: RentalsState) {
       .sort((a, b) => b.since.localeCompare(a.since)).filter(({ renter }) => !here.has(key(renter)) && !seen.has(key(renter)) && !!seen.add(key(renter)));
   })();
   const openBills = (start: Omit<typeof billsStart, 'key'>) => { setBillsStart((s) => ({ ...start, key: s.key + 1 })); setView('bills'); };
-  const switchProperty = () => moreMenu('Switch property', [...ordered.map((p) => {
-    const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
-    return { checked: p.id === property?.id, label: `${p.name} · ${taken} of ${p.units.reduce((sum, u) => sum + u.capacity, 0)} beds${p.archivedAt ? ' · Archived' : ''}`,
-      onPress: () => setSelectedId(p.id) };
-  }), ...(canCreate ? [{ label: 'New property', onPress: () => setDialog({ type: 'setup' }) }] : [])]);
+  const switchProperty = () => moreMenu('Switch property', [...ordered.map((p) => ({ checked: p.id === property?.id, label: p.name, onPress: () => setSelectedId(p.id) })),
+    ...(canCreate ? [{ label: 'Add new property', icon: 'plus' as const, tone: 'green' as const, onPress: () => setDialog({ type: 'setup' }) }] : [])]);
 
   const bill = dialog?.type === 'bill' ? propertyBills.find((b) => b.id === dialog.billId) : undefined;
   const billTenancy = propertyTenancies.find((t) => t.id === (bill?.tenancyId ?? (dialog?.type === 'pending' ? dialog.tenancyId : '')));

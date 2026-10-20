@@ -4,12 +4,8 @@ import { billBalance, contractStage, depositHeld, depositToReturn, earlierUnpaid
   nextDueDate, periodLabel, periodOf, unreplacedCancelled } from '@himan/shared/rentals';
 import type { ContractText, MeterReading, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, TenancyLink,
   UtilityBill } from '@himan/shared/rentals';
-import { Btn, IconTile, Title, muted, text } from './ui';
+import { Btn, IconTile, Title, card, muted, text } from './ui';
 import type { IconName, Tone } from './ui';
-
-// Flat rows: one line between items, no boxes (the tab bar above is the only boxed thing).
-const row = 'gap-3 border-b border-gray-200 py-4 dark:border-gray-700';
-const section = 'gap-1 border-t border-gray-200 pt-5 dark:border-gray-700';
 
 const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.slice(0, 2).join(', ')} and ${list.length - 2} more`;
 
@@ -118,10 +114,10 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
     `This records one payment per tenant for the ${formatBillPesos(earlier.totalCentavos)} still unpaid on SOAs from before ${trackedSince}. If some weren’t paid in full, cancel and instead open a tenant and record what was actually paid.`,
     [{ text: 'Cancel', style: 'cancel' }, { text: 'Mark all as paid', onPress: onMarkEarlierPaid }]);
 
-  return <View className="gap-6">
-    <View className="gap-1">
+  return <View className="gap-5">
+    <View className="gap-3">
       <Title>To do for {month}</Title>
-      {tasks.length ? <View>{tasks.map((t, i) => <View key={t.key} className={i < tasks.length - 1 ? row : 'gap-3 py-4'}>
+      {tasks.length ? tasks.map((t) => <View key={t.key} className={`${card} gap-3`}>
         <View className="flex-row items-center gap-3">
           <IconTile icon={t.icon} tone={t.tone} />
           <View className="flex-1"><Text className={`text-base font-semibold ${text}`}>{t.title}</Text><Text className={`text-sm ${muted}`}>{t.detail}</Text></View>
@@ -130,20 +126,20 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
           {t.secondary && <Btn grow variant="ghost" label={t.secondary.action} a11y={t.secondary.a11y} onPress={t.secondary.onAction} />}
           <Btn grow variant={t.primary ? 'primary' : 'outline'} label={t.action} a11y={t.a11y} onPress={t.onAction} />
         </View>
-      </View>)}</View> : <View className="flex-row items-center gap-3 py-2">
+      </View>) : <View className={`${card} flex-row items-center gap-3`}>
         <IconTile icon="check-circle" tone="green" />
         <Text className={`flex-1 ${muted}`}><Text className={`font-semibold ${text}`}>Nothing to do right now. </Text>New tasks show up here when bills come due.</Text>
       </View>}
     </View>
 
-    {canManage && earlier.tenancyIds.length > 0 && <View className={`${section} gap-3`}>
+    {canManage && earlier.tenancyIds.length > 0 && <View className={`${card} gap-3`}>
       <View className="flex-row items-center gap-3"><IconTile icon="clock" tone="amber" />
         <View className="flex-1"><Text className={`text-base font-semibold ${text}`}>Bills from before payment tracking</Text>
           <Text className={`text-sm ${muted}`}>{earlier.tenancyIds.length} tenant{earlier.tenancyIds.length === 1 ? '' : 's'} · {formatBillPesos(earlier.totalCentavos)} shows as unpaid on SOAs from before {trackedSince}.</Text></View></View>
       <Btn label="Mark all as paid" onPress={markEarlier} />
     </View>}
 
-    {overdue.length > 0 && <View className={section}>
+    {overdue.length > 0 && <View className={`${card} gap-1 border-red-300 dark:border-red-800`}>
       <Text accessibilityRole="header" className="text-base font-semibold text-red-600 dark:text-red-400">Overdue</Text>
       <Text className={`text-sm ${muted}`}>Unpaid after the due date. Press View SOA to record a payment.</Text>
       {overdue.map((b) => {
@@ -160,7 +156,7 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
       })}
     </View>}
 
-    <View className={`${section} gap-3`}>
+    <View className={`${card} gap-3`}>
       <Title size="base">At a glance</Title>
       <View className="flex-row flex-wrap gap-y-3">
         <Figure label="Monthly rent" value={formatPesos(rent)} full />
@@ -170,7 +166,7 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
       </View>
     </View>
 
-    {dueSoon.length > 0 && <View className={section}>
+    {dueSoon.length > 0 && <View className={`${card} gap-1`}>
       <Title size="base">Rent due in the next 7 days</Title>
       {dueSoon.map(({ tenancy, rent: amount, date, inDays }) => <View key={tenancy.id} className="gap-2 border-t border-gray-200 py-3 dark:border-gray-700">
         <View className="flex-row items-center justify-between gap-3">

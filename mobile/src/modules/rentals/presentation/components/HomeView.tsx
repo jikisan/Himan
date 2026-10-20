@@ -1,6 +1,6 @@
 import { Alert, Text, View } from 'react-native';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { billBalance, contractStage, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, formatPesos, isEarlier, manilaToday, monthRows, monthTodo,
+import { billBalance, contractStage, depositToReturn, earlierUnpaid, formatBillPesos, formatPesos, isEarlier, manilaToday, monthRows, monthTodo,
   nextDueDate, periodLabel, periodOf, unreplacedCancelled } from '@himan/shared/rentals';
 import type { ContractText, MeterReading, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, TenancyLink,
   UtilityBill } from '@himan/shared/rentals';
@@ -34,16 +34,9 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
   const earlier = earlierUnpaid(property, bills, payments);
   const trackedSince = property.paymentsTrackedFrom ? format(parseISO(property.paymentsTrackedFrom), 'MMM d, yyyy') : '';
   const settlementOf = (t: RentalTenancy) => settlements.find((s) => s.tenancyId === t.id);
-  const deposits = tenancies.map((t) => depositHeld(t, bills, payments, settlementOf(t)));
-  const held = deposits.reduce((sum, d) => sum + (d.state === 'held' ? d.amountCentavos : 0), 0);
-  const pending = deposits.reduce((sum, d) => sum + (d.state === 'pending' ? d.amountCentavos : 0), 0);
   const meterRooms = [...new Set([...todo.meters].map((key) => roomName(key.split(':')[0])))];
   const freeUnits = property.units.filter((u) => active.filter((t) => t.unitId === u.id).length < u.capacity);
   const freeBeds = freeUnits.reduce((sum, u) => sum + u.capacity - active.filter((t) => t.unitId === u.id).length, 0);
-  const beds = property.units.reduce((sum, u) => sum + u.capacity, 0);
-  const rent = active.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
-  const toBill = rows.filter((r) => r.pending.state !== 'covered' && r.pending.state !== 'none').length;
-  const issued = rows.filter((r) => r.pending.state === 'issued').length;
   const tenancyOf = (b: RentalBill) => tenancies.find((t) => t.id === b.tenancyId);
   const dueSoon = active.flatMap((tenancy) => {
     const contract = tenancy.contracts.find((c) => c.status === 'active');
@@ -156,16 +149,6 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
       })}
     </View>}
 
-    <View className={`${card} gap-3`}>
-      <Title size="base">At a glance</Title>
-      <View className="flex-row flex-wrap gap-y-3">
-        <Figure label="Monthly rent" value={formatPesos(rent)} full />
-        <Figure label="Beds taken" value={`${active.length} of ${beds}`} />
-        <Figure label={`${month} SOAs generated`} value={`${issued} of ${toBill}`} />
-        <Figure label="Deposits held" value={formatBillPesos(held)} note={pending > 0 ? `${formatBillPesos(pending)} pending` : undefined} />
-      </View>
-    </View>
-
     {dueSoon.length > 0 && <View className={`${card} gap-1`}>
       <Title size="base">Rent due in the next 7 days</Title>
       {dueSoon.map(({ tenancy, rent: amount, date, inDays }) => <View key={tenancy.id} className="gap-2 border-t border-gray-200 py-3 dark:border-gray-700">
@@ -177,13 +160,5 @@ export function HomeView({ property, tenancies, renters, bills, readings, utilit
         <Btn icon="user" label="View tenant" a11y={`View ${name(tenancy)}`} onPress={() => onOpenTenant(tenancy.renterId)} />
       </View>)}
     </View>}
-  </View>;
-}
-
-function Figure({ label, value, note, full }: { label: string; value: string; note?: string; full?: boolean }) {
-  return <View className={full ? 'w-full' : 'w-1/2'}>
-    <Text className={`text-xs ${muted}`}>{label}</Text>
-    <Text className={`text-xl font-bold ${text}`}>{value}</Text>
-    {note ? <Text className={`text-xs ${muted}`}>{note}</Text> : null}
   </View>;
 }

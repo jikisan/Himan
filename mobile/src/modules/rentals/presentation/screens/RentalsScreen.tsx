@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { DEFAULT_CLAUSES, billPaid, depositToReturn, errorMessage, hasRentalRole, manilaToday, monthRows, monthTodo, paidChangeWarning, pendingBill, periodOf,
+import { DEFAULT_CLAUSES, billPaid, formatPesos, depositToReturn, errorMessage, hasRentalRole, manilaToday, monthRows, monthTodo, paidChangeWarning, pendingBill, periodOf,
   previousBalance, tenancyCredit, tenancyOwed, unreplacedCancelled } from '@himan/shared/rentals';
 import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
 import { useToast } from '@/modules/shared/components/useToast';
@@ -59,6 +59,8 @@ function RentalsContent(state: RentalsState) {
   const propertyRenters = state.renters.filter((r) => r.propertyId === property?.id);
   const propertyTenancies = tenancies.filter((t) => t.propertyId === property?.id);
   const activeTenancies = propertyTenancies.filter((t) => t.moveOut === null);
+  const monthlyRent = activeTenancies.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
+  const bedCount = property?.units.reduce((sum, u) => sum + u.capacity, 0) ?? 0;
   const unitName = (id: string) => property?.units.find((u) => u.id === id)?.name ?? 'Room';
   const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Tenant';
   const propertyBills = state.bills.filter((b) => b.propertyId === property?.id);
@@ -154,20 +156,33 @@ function RentalsContent(state: RentalsState) {
         : !property ? <Empty icon="home" title="No properties yet" action={<Btn variant="primary" icon="plus" label="New property" disabled={!canCreate} onPress={() => setDialog({ type: 'setup' })} />}>
           Add your property first, then its rooms. It takes about a minute.</Empty>
         : <>
-          <View className={`${card} gap-3`}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${property.name}. Switch property`} onPress={switchProperty} className="flex-row items-center gap-2 active:opacity-70">
-              <Text className={`flex-1 text-2xl font-bold ${text}`}>{property.name}</Text>
-              <Text className="font-semibold text-indigo-600 dark:text-indigo-400">Switch</Text><Feather name="chevron-down" size={20} color="#4f46e5" />
-            </Pressable>
-            <View className="flex-row flex-wrap items-center gap-2">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>
-            {property.address ? <Text className={muted}>{property.address}</Text> : null}
-            {isOwner && <View className="flex-row flex-wrap gap-2">
-              <Btn small icon="edit-2" label="Edit" onPress={() => setDialog({ type: 'property' })} />
-              <Btn small icon="share-2" label="Share" onPress={() => setDialog({ type: 'share' })} />
-              <Btn small icon="more-horizontal" label="More" a11y="More property actions" onPress={() => moreMenu(property.name, [
-                { label: property.archivedAt ? 'Unarchive' : 'Archive', onPress: () => void tryAct({ type: 'archiveProperty', id: property.id, archived: !property.archivedAt },
-                  property.archivedAt ? 'Property restored' : 'Property archived') }])} />
-            </View>}
+          <View className={`${card} gap-4`}>
+            <View className="flex-row items-start gap-3">
+              <View className="flex-1 gap-1">
+                <View className="flex-row flex-wrap items-center gap-x-2">
+                  <Text className={`text-2xl font-bold ${text}`}>{property.name}</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${property.name}`} onPress={switchProperty}
+                    className="min-h-11 flex-row items-center gap-1 rounded-lg px-1 active:opacity-70">
+                    <Text className="font-semibold text-indigo-600 dark:text-indigo-400">Switch</Text><Feather name="chevron-down" size={18} color="#4f46e5" />
+                  </Pressable>
+                </View>
+                {property.address ? <Text className={muted}>{property.address}</Text> : null}
+                <View className="flex-row flex-wrap items-center gap-2 pt-1">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>
+              </View>
+              {isOwner && <Btn small icon="menu" label="Menu" a11y="Property menu: edit, share, archive" onPress={() => moreMenu(property.name, [
+                { label: 'Edit property', onPress: () => setDialog({ type: 'property' }) },
+                { label: 'Share with a friend', onPress: () => setDialog({ type: 'share' }) },
+                { label: property.archivedAt ? 'Unarchive property' : 'Archive property', onPress: () => void tryAct({ type: 'archiveProperty', id: property.id,
+                  archived: !property.archivedAt }, property.archivedAt ? 'Property restored' : 'Property archived') }])} />}
+            </View>
+            {/* The two numbers an owner checks first, side by side under a line. */}
+            <View className="flex-row border-t border-gray-200 pt-3 dark:border-gray-700">
+              <View className="flex-1"><Text className={`text-xs ${muted}`}>Rent per month</Text>
+                <Text className={`text-xl font-bold ${text}`}>{formatPesos(monthlyRent)}</Text></View>
+              <View className="w-px bg-gray-200 dark:bg-gray-700" />
+              <View className="flex-1 pl-4"><Text className={`text-xs ${muted}`}>Beds taken</Text>
+                <Text className={`text-xl font-bold ${text}`}>{activeTenancies.length} <Text className={`text-base font-normal ${muted}`}>of {bedCount}</Text></Text></View>
+            </View>
           </View>
 
           <View accessibilityRole="tablist" className="flex-row gap-1 rounded-2xl bg-gray-200 p-1 dark:bg-gray-800">

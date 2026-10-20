@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import type { TextInputProps } from 'react-native';
@@ -197,6 +197,48 @@ export function zodFieldErrors(error: { issues: { path: PropertyKey[]; message: 
   return error.issues.flatMap((i): [string, string][] => { const f = id(i.path); return f ? [[f, i.message]] : []; });
 }
 
+
+// ---- Menu: a list of big labelled choices over a dimmed screen (iOS 26's own action sheet has no dimming).
+
+export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; onPress(): void };
+type MenuSpec = { title?: string; options: MenuOption[]; onCancel?(): void };
+// Hosts mount inside each open sheet: a native modal only shows above the modal it is rendered in, so the newest host shows the menu.
+const hosts: ((spec: MenuSpec | null) => void)[] = [];
+
+/** Shows a menu of choices with a Cancel button below, over a dimmed screen. */
+export function showMenu(title: string | undefined, options: MenuOption[], onCancel?: () => void) {
+  const host = hosts.at(-1);
+  if (host) host({ title, options, onCancel }); else onCancel?.();
+}
+
+export function MenuHost() {
+  const [spec, setSpec] = useState<MenuSpec | null>(null);
+  const [visible, setVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+  // The last menu stays rendered while it fades out, so the choices don't vanish first.
+  const show = useRef((next: MenuSpec | null) => { if (next) setSpec(next); setVisible(!!next); }).current;
+  useEffect(() => { hosts.push(show); return () => { hosts.splice(hosts.indexOf(show), 1); }; }, [show]);
+  // The menu fades out first: a picker or sheet opened by the choice can't show over a modal that is still closing.
+  const pick = (o?: MenuOption) => { const done = o ? o.onPress : spec?.onCancel; setVisible(false); if (done) setTimeout(done, 300); };
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => pick()}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={() => pick()} className="flex-1 justify-end bg-black/50"
+      style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: 12 }}>
+      <Pressable accessible={false} onPress={() => undefined} className="gap-2 rounded-3xl bg-white p-3 dark:bg-gray-800">
+        {spec?.title ? <Text accessibilityRole="header" className={`px-2 pb-1 pt-2 text-center text-base font-semibold ${muted}`}>{spec.title}</Text> : null}
+        {spec?.options.map((o) => <Pressable key={o.label} accessibilityRole="button" accessibilityState={{ selected: !!o.checked }} onPress={() => pick(o)}
+          className={`min-h-14 flex-row items-center justify-center gap-2 rounded-2xl px-4 active:opacity-70 ${o.checked ? 'bg-indigo-50 dark:bg-indigo-950/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
+          {o.checked && <Feather name="check" size={20} color="#4f46e5" />}
+          <Text className={`text-center text-lg font-semibold ${o.destructive ? 'text-red-600 dark:text-red-400' : o.checked ? 'text-indigo-700 dark:text-indigo-300' : text}`}>{o.label}</Text>
+        </Pressable>)}
+      </Pressable>
+      <View className="h-2" />
+      <Pressable accessibilityRole="button" onPress={() => pick()} className="min-h-14 items-center justify-center rounded-3xl bg-white active:opacity-70 dark:bg-gray-800">
+        <Text className={`text-lg font-bold ${text}`}>Cancel</Text>
+      </Pressable>
+    </Pressable>
+  </Modal>;
+}
+
 type Toast = { show(message: string, type?: 'success' | 'error' | 'warning'): void; view: ReactNode };
 export const ToastContext = createContext<Toast>({ show: () => undefined, view: null });
 export const useRentalToast = () => useContext(ToastContext).show;
@@ -233,6 +275,7 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, closeL
           className="gap-2 border-t border-gray-200 bg-white px-4 pt-3 dark:border-gray-800 dark:bg-gray-900">{footer}</View> : null}
       </KeyboardAvoidingView>
       {toast.view}
+      {open && <MenuHost />}
     </SafeAreaView>
     {overlay}
   </Modal>;

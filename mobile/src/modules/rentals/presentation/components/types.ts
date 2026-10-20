@@ -1,7 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
-import { ActionSheetIOS, Alert, Linking, Platform } from 'react-native';
+import { Alert, Linking } from 'react-native';
+import { showMenu } from './ui';
 import { validateRentalFile } from '@himan/shared/rentals';
 import type { RentalBill } from '@himan/shared/rentals';
 
@@ -12,15 +13,8 @@ type Source = 'photos' | 'camera' | 'files';
 /** Asks where the file comes from. Photos and camera first: IDs and payment screenshots usually live there. */
 function chooseSource(): Promise<Source | null> {
   const options: [Source, string][] = [['photos', 'Choose from Photos'], ['camera', 'Take a photo'], ['files', 'Choose a file']];
-  return new Promise((resolve) => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({ options: [...options.map(([, label]) => label), 'Cancel'], cancelButtonIndex: options.length },
-        (i) => resolve(i < options.length ? options[i][0] : null));
-    } else {
-      Alert.alert('Add a file', undefined, [...options.map(([source, label]) => ({ text: label, onPress: () => resolve(source) })),
-        { text: 'Cancel', style: 'cancel' as const, onPress: () => resolve(null) }], { cancelable: true, onDismiss: () => resolve(null) });
-    }
-  });
+  return new Promise((resolve) => showMenu('Add a picture or file', options.map(([source, label]) => ({ label, onPress: () => resolve(source) })),
+    () => resolve(null)));
 }
 
 /** Read each picked file, checked with the same rule as web (type and size). Copies in the app cache are removed afterwards. */

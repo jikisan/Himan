@@ -9,7 +9,7 @@ import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@
 import { useToast } from '@/modules/shared/components/useToast';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction, RentalsState } from '../hooks/useRentals';
-import { Badge, Btn, Empty, Sheet, ToastContext, card, muted, text, useIconColor, useRentalToast } from '../components/ui';
+import { Badge, Btn, Empty, MenuHost, Sheet, ToastContext, card, muted, text, useIconColor, useRentalToast } from '../components/ui';
 import { HomeView } from '../components/HomeView';
 import { RoomsBoard, TenantsList, moreMenu } from '../components/Lists';
 import { BillSheet, BillsView } from '../components/Bills';
@@ -29,6 +29,7 @@ export default function RentalsScreen() {
   const toast = useMemo(() => ({ show: showToast, view: ToastView }), [showToast, ToastView]);
   return <ToastContext.Provider value={toast}>
     <RentalsContent key={rentals.userId ?? 'signed-out'} {...rentals} />
+    <MenuHost />
     {ToastView}
   </ToastContext.Provider>;
 }
@@ -101,9 +102,9 @@ function RentalsContent(state: RentalsState) {
   const openBills = (start: Omit<typeof billsStart, 'key'>) => { setBillsStart((s) => ({ ...start, key: s.key + 1 })); setView('bills'); };
   const switchProperty = () => moreMenu('Switch property', [...ordered.map((p) => {
     const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
-    return { label: `${p.id === property?.id ? '✓ ' : ''}${p.name} · ${taken} of ${p.units.reduce((sum, u) => sum + u.capacity, 0)} beds${p.archivedAt ? ' · Archived' : ''}`,
+    return { checked: p.id === property?.id, label: `${p.name} · ${taken} of ${p.units.reduce((sum, u) => sum + u.capacity, 0)} beds${p.archivedAt ? ' · Archived' : ''}`,
       onPress: () => setSelectedId(p.id) };
-  }), ...(canCreate ? [{ label: '+ New property', onPress: () => setDialog({ type: 'setup' }) }] : [])]);
+  }), ...(canCreate ? [{ label: 'New property', onPress: () => setDialog({ type: 'setup' }) }] : [])]);
 
   const bill = dialog?.type === 'bill' ? propertyBills.find((b) => b.id === dialog.billId) : undefined;
   const billTenancy = propertyTenancies.find((t) => t.id === (bill?.tenancyId ?? (dialog?.type === 'pending' ? dialog.tenancyId : '')));

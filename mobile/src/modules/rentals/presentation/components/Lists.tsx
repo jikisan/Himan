@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { format, parseISO } from 'date-fns';
 import { CONTRACT_BADGE, contractOpen, contractStage, detailsStatus, formatPesos, ordinal, roomSpots } from '@himan/shared/rentals';
 import type { ContractStage, ContractText, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
-import { Badge, Btn, Check, Empty, Initials, Input, card, muted, text } from './ui';
+import { Badge, Btn, Check, Empty, Initials, Input, card, muted, showMenu, text } from './ui';
+import type { MenuOption } from './ui';
 
 /** Where the written contract stands, until it's done or not needed: amber when there's none yet. */
 export function ContractBadge({ stage }: { stage: ContractStage }) {
@@ -11,14 +12,8 @@ export function ContractBadge({ stage }: { stage: ContractStage }) {
   return label ? <Badge label={label} tone={stage === 'none' ? 'amber' : 'primary'} /> : null;
 }
 
-/** A small "More" menu: an action sheet on iOS, an alert with buttons on Android. */
-export function moreMenu(title: string, options: { label: string; destructive?: boolean; onPress(): void }[]) {
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions({ title, options: [...options.map((o) => o.label), 'Cancel'], cancelButtonIndex: options.length,
-      destructiveButtonIndex: options.findIndex((o) => o.destructive) }, (i) => { if (i < options.length) options[i].onPress(); });
-  } else Alert.alert(title, undefined, [...options.map((o) => ({ text: o.label, style: o.destructive ? 'destructive' as const : 'default' as const, onPress: o.onPress })),
-    { text: 'Cancel', style: 'cancel' }]);
-}
+/** A small "More" menu over a dimmed screen. */
+export function moreMenu(title: string, options: MenuOption[]) { showMenu(title, options); }
 
 const roomType = (unit: RentalUnit) =>
   (unit.kind === 'whole' ? 'Whole house' : unit.kind === 'room' ? 'Private room' : `Shared room · ${unit.capacity} beds`)

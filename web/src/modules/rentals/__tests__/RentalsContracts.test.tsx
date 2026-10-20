@@ -196,9 +196,10 @@ describe('Contract on the tenant sheet', () => {
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Countersign' }));
     expect(state.run).not.toHaveBeenCalled();
-    expect(contract.getByText('Draw your signature to countersign.')).toBeInTheDocument();
+    const sign = within(screen.getByRole('dialog', { name: 'Countersign the contract' }));
+    expect(sign.getByText('Draw your signature in the box to countersign.')).toBeInTheDocument();
     act(() => pad.fire());
-    fireEvent.click(contract.getByRole('button', { name: 'Sign and countersign' }));
+    fireEvent.click(sign.getByRole('button', { name: 'Sign and countersign' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'countersign', id: 'ct', signature: PNG }));
   });
 
@@ -219,7 +220,7 @@ describe('Contract on the tenant sheet', () => {
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Countersign' }));
     expect(state.run).not.toHaveBeenCalled();
-    const sign = contract.getByRole('button', { name: 'Sign and countersign' });
+    const sign = within(screen.getByRole('dialog', { name: 'Countersign the contract' })).getByRole('button', { name: 'Sign and countersign' });
     expect(sign).toBeDisabled();
     act(() => pad.fire());
     fireEvent.click(sign);

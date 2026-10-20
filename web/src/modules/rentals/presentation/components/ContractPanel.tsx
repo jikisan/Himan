@@ -226,16 +226,22 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
         <PdfButton className={SECONDARY} make={downloadPdf}>Download PDF</PdfButton></>}
       notNeeded={text.status === 'draft' ? notNeededButton : null}>
       {notarize && canManage && <p className="text-xs text-muted-foreground">Notarized copy: PDF, JPEG or PNG, up to 10 MB.</p>}
-      {drawing !== undefined && <div className="space-y-2 rounded-lg border p-3">
-        <p className="text-sm">{property.role === 'owner' ? 'You haven’t saved a signature yet. Sign here to countersign.' : 'Draw your signature to countersign.'}</p>
+    </StatusCard>
+    {formDialog}
+    <Dialog open={drawing !== undefined} onOpenChange={(open) => { if (!open) setDrawing(undefined); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Countersign the contract</DialogTitle>
+          <DialogDescription>{property.role === 'owner' ? 'You haven’t saved a signature yet. Sign in the box to countersign.'
+            : 'Draw your signature in the box to countersign.'}</DialogDescription>
+        </DialogHeader>
         <SignaturePad label="Draw your signature" onChange={setDrawing} disabled={busy} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" className="h-11 sm:h-9" onClick={() => setDrawing(undefined)}>Cancel</Button>
-          <Button className="h-11 sm:h-9" disabled={busy || !drawing} onClick={() => void countersign(drawing!)}>Sign and countersign</Button>
+          <Button className="h-11 sm:h-9" disabled={busy || !drawing} onClick={() => void countersign(drawing!)}><PenLine className="h-4 w-4" />Sign and countersign</Button>
         </div>
-      </div>}
-    </StatusCard>
-    {formDialog}
+      </DialogContent>
+    </Dialog>
     {choosingMode && <SignModeDialog busy={busy} onClose={() => setChoosingMode(false)} onSave={async (signMode) => {
       await run({ type: 'updateContractText', id: text.id, changes: { body: body(), signMode } });
       toast.success('Saved. You can send it now.');

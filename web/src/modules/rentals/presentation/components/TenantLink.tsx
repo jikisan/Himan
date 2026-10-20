@@ -21,7 +21,7 @@ export function TenantLinkPanel({ link, name, busy, run }: { link: TenancyLink; 
     try { await run(action); toast.success(done); } catch (e) { toast.error(errorMessage(e)); }
   };
   const off = !!link.revokedAt;
-  return <section aria-label="Tenant link" className="space-y-2">
+  return <section aria-label="Tenant link" className="space-y-3">
     <h3 className="text-sm font-semibold">Tenant link</h3>
     <p className="text-xs text-muted-foreground">{off ? 'The link is off.'
       : link.kind === 'new' ? 'Their private page for sending details and signing the contract.' : 'Their private page for signing the contract and seeing bills.'}</p>
@@ -57,7 +57,7 @@ export function DetailsReview({ tenancyId, details, busy, run }: { tenancyId: st
     fe.clear();
     try { await run(action); toast.success(done); } catch (e) { fe.setFormError(errorMessage(e)); }
   };
-  return <section aria-label="Details to review" className="space-y-2">
+  return <section aria-label="Details to review" className="space-y-3">
     <FormErrorBanner message={fe.formError} />
     <h3 className="text-sm font-semibold">Details to review</h3>
     <p className="text-xs text-muted-foreground">Sent by the tenant. Accept to save them and add the ID photos to their files.</p>

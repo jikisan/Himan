@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Children, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Image, Linking, Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -19,6 +19,12 @@ import { Paper, receiptHtml } from './papers';
 import { openSigned, pickFiles } from './types';
 
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
+/** The sheet's sections, each one the same distance from a line above it (like the web sheet). */
+function Sections({ children }: { children: ReactNode }) {
+  return <View>{Children.toArray(children).map((child, i) => <View key={i}
+    className={i ? 'border-t border-gray-200 py-6 dark:border-gray-700' : 'pb-6'}>{child}</View>)}</View>;
+}
+
 const STAGE_WORD: Partial<Record<ContractStage, string>> = { none: 'Not started', draft: 'Draft', sent: 'Waiting to sign', signed: 'Needs your signature' };
 
 /** Everything about one tenant in a full-screen sheet: checklist, contract, rent, money, deposit, link, charges, ID, contact, history. */
@@ -62,7 +68,7 @@ export function TenantSheet({ open, onClose, renter, tenancies, bills, payments,
     .then(() => toast(value ? 'Marked as not needed' : 'Contract is back on your to-do list'), (e) => toast(errorMessage(e), 'error'));
   const contractSections = contracts.map((c) => {
     const stage = stageOf(c.tenancyId);
-    return <View key={c.id} className="gap-2">
+    return <View key={c.id} className="gap-3">
       <Title size="base">Contract</Title>
       <Facts rows={[['Lease', `${day(c.startDate)} to ${day(c.endDate)}`],
         ['Deposit', `${formatPesos(c.depositCentavos)} · ${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'} advance`]]} />
@@ -74,33 +80,36 @@ export function TenantSheet({ open, onClose, renter, tenancies, bills, payments,
   });
   const sub = active.length ? active.map((t) => `Lives in ${unitName(t.unitId)} since ${day(t.moveIn)}`).join(' · ')
     : last?.moveOut ? `Moved out of ${unitName(last.unitId)} on ${day(last.moveOut)}` : 'Not renting a room right now';
-  const divider = <View className="h-px bg-gray-200 dark:bg-gray-700" />;
 
-  return <Sheet open={open} onClose={() => { setEditing(null); onClose(); }} title={renter.fullName} subtitle={sub} overlay={overlay}>
+  return <Sheet open={open} onClose={() => { setEditing(null); onClose(); }} title={renter.fullName} subtitle={sub} overlay={overlay}><Sections>
+    {(waiting || renter.phone || chat || (canManage && active.length > 0)) && <View className="gap-3">
     {waiting && <Badge tone="amber" label={waiting} />}
-    {(renter.phone || chat || (canManage && active.length > 0)) && <Row>
+    <Row>
       {renter.phone ? <Btn small icon="phone" label="Call" onPress={() => void Linking.openURL(`tel:${renter.phone}`)} /> : null}
       {renter.phone ? <Btn small icon="message-square" label="Text" onPress={() => void Linking.openURL(`sms:${renter.phone}`)} /> : null}
       {chat ? <Btn small icon="message-circle" label="Messenger" onPress={() => void Linking.openURL(chat)} /> : null}
       {canManage && active.map((t) => <Btn key={t.id} small variant="dangerOutline" icon="log-out" label="Move out" a11y={`Move ${renter.fullName} out of ${unitName(t.unitId)}`}
         onPress={() => onMoveOut(t.id)} />)}
-    </Row>}
+    </Row></View>}
 
     {checklists.map(({ t, stage, paid }) => <View key={`steps-${t.id}`} className="gap-2">
       {active.length > 1 && <Text className={`font-semibold ${text}`}>{unitName(t.unitId)}</Text>}
-      <View className="flex-row gap-2">{([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word]) =>
-        <View key={label} accessible accessibilityLabel={`${label}, ${ok ? 'done' : 'not yet'}`}
-          className={`flex-1 gap-1 rounded-xl border px-3 py-2.5 ${ok ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40' : 'border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800'}`}>
-          <Feather name={ok ? 'check-circle' : 'circle'} size={16} color={ok ? '#059669' : '#9ca3af'} />
-          <Text className={`font-semibold ${ok ? 'text-emerald-700 dark:text-emerald-400' : text}`}>{label}</Text>
-          {word ? <Text className={`text-xs ${muted}`}>{word}</Text> : null}
+      {/* A progress line, not cards: plain dots and words, so nothing here looks pressable. */}
+      <View className="flex-row">{([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word], i, all) =>
+        <View key={label} accessible accessibilityLabel={`${label}, ${ok ? 'done' : 'not yet'}${word ? `, ${word}` : ''}`} className="flex-1 items-center gap-1">
+          {i < all.length - 1 && <View style={{ position: 'absolute', left: '50%', width: '100%', top: 11, height: 2 }}
+            className={ok && all[i + 1][1] ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'} />}
+          <View className={`h-6 w-6 items-center justify-center rounded-full ${ok ? 'bg-emerald-600' : 'border-2 border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900'}`}>
+            {ok && <Feather name="check" size={14} color="#fff" />}</View>
+          <Text className={`text-center text-sm ${ok ? `font-semibold ${text}` : muted}`}>{label}</Text>
+          {word ? <Text className={`text-center text-xs ${muted}`}>{word}</Text> : null}
         </View>)}</View>
     </View>)}
     {canManage && active.map((t) => { const link = linkOf(t);
       return link?.status === 'submitted' && link.submittedDetails ? <DetailsReview key={`review-${t.id}`} tenancyId={t.id} details={link.submittedDetails} busy={busy} run={run} /> : null; })}
     {contractFirst && contractSections}
 
-    {nextDue && <View className={`${card} gap-2`}>
+    {nextDue && <View className="gap-3">
       <View className="flex-row items-center justify-between"><Title size="base">Rent</Title>
         {canManage && <Btn small variant="ghost" label={editing === 'rent' ? 'Done' : 'Change'} a11y={editing === 'rent' ? 'Done changing rent' : 'Change rent'}
           onPress={() => setEditing(editing === 'rent' ? null : 'rent')} />}</View>
@@ -118,7 +127,7 @@ export function TenantSheet({ open, onClose, renter, tenancies, bills, payments,
       })}
     </View>}
 
-    {mine.length > 0 && <View className="gap-2">
+    {mine.length > 0 && <View className="gap-3">
       <Title size="base">Money received</Title>
       <View className="flex-row flex-wrap items-center gap-2">
         <Text className={owed > 0 ? `font-semibold ${text}` : muted}>{owed > 0 ? `Owes ${formatBillPesos(owed)}` : 'Owes nothing'}</Text>
@@ -146,7 +155,6 @@ export function TenantSheet({ open, onClose, renter, tenancies, bills, payments,
       onSave={(charges) => run({ type: 'setCharges', tenancyId: t.id, charges })} />)}
     {canManage && <RenterFiles renter={renter} busy={busy} run={run} fileUrl={fileUrl} />}
 
-    {divider}
     <View className="gap-2">
       <View className="flex-row items-center justify-between"><Title size="base">Contact</Title>
         {canManage && editing !== 'contact' && <Btn small variant="ghost" icon="edit-2" label="Edit" a11y="Edit contact" onPress={() => setEditing('contact')} />}</View>
@@ -156,8 +164,8 @@ export function TenantSheet({ open, onClose, renter, tenancies, bills, payments,
     {history.length > 0 && <View className="gap-2"><Title size="base">History</Title>
       {history.map((h) => <View key={h.key} className="flex-row items-center gap-3"><View className="h-2 w-2 rounded-full bg-indigo-600" />
         <Text className={`flex-1 ${text}`}>{h.text}</Text><Text className={muted}>{day(h.date)}</Text></View>)}</View>}
-    {canManage && <>{divider}<Btn variant="dangerOutline" icon="trash-2" label="Delete tenant" onPress={onDelete} /></>}
-  </Sheet>;
+    {canManage && <Btn variant="dangerOutline" icon="trash-2" label="Delete tenant" onPress={onDelete} />}
+  </Sections></Sheet>;
 }
 
 const TERM_FIELD: Record<string, string> = { monthlyRentCentavos: 'rent', dueDay: 'due', advanceMonths: 'advance', depositCentavos: 'deposit' };

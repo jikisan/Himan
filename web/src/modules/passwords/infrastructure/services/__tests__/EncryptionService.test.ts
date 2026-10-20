@@ -101,8 +101,8 @@ describe('EncryptionService', () => {
 
     it('should throw error for corrupted encrypted data', async () => {
       const encrypted = await EncryptionService.encrypt(testPassword, testUserId);
-      // Corrupt the data by changing a character
-      const corrupted = encrypted.substring(0, 10) + 'X' + encrypted.substring(11);
+      // Corrupt the data by changing a character (always to a different one: the ciphertext is random, so it may already be 'X')
+      const corrupted = encrypted.substring(0, 10) + (encrypted[10] === 'X' ? 'Y' : 'X') + encrypted.substring(11);
 
       await expect(
         EncryptionService.decrypt(corrupted, testUserId)

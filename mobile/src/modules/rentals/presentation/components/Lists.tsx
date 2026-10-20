@@ -16,8 +16,7 @@ export function ContractBadge({ stage }: { stage: ContractStage }) {
 export function moreMenu(title: string, options: MenuOption[]) { showMenu(title, options); }
 
 const roomType = (unit: RentalUnit) =>
-  (unit.kind === 'whole' ? 'Whole house' : unit.kind === 'room' ? 'Private room' : `Shared room · ${unit.capacity} beds`)
-  + (unit.extraPersonRentCentavos && unit.defaultRentCentavos ? ` · +${formatPesos(unit.extraPersonRentCentavos)} per extra person` : '');
+  unit.kind === 'whole' ? 'Whole house' : unit.kind === 'room' ? 'Private room' : `Shared room · ${unit.capacity} beds`;
 const rentLine = (t: RentalTenancy) => {
   const c = t.contracts.find((x) => x.status === 'active') ?? t.contracts[0];
   return c ? `${formatPesos(c.monthlyRentCentavos)}/mo · due every ${ordinal(c.dueDay)}` : 'No contract';
@@ -36,9 +35,10 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, l
     return <View key={unit.id} accessibilityLabel={unit.name} className={`${card} gap-3`}>
       <View className="flex-row items-center gap-3">
         <View className="flex-1"><Text accessibilityRole="header" className={`text-base font-semibold ${text}`}>{unit.name}</Text>
-          <Text className={`text-sm ${muted}`}>{roomType(unit)}</Text></View>
-        <Badge label={free ? `${free} free` : 'Full'} tone={free ? 'red' : 'green'} />
-        {canEdit && <Btn small variant="ghost" icon="more-horizontal" label="More" a11y={`${unit.name} options`} onPress={() => moreMenu(unit.name, [
+          {/* The room type and whether it has space, read together: "Private room  Full". */}
+          <View className="flex-row flex-wrap items-center gap-2"><Text className={`text-sm ${muted}`}>{roomType(unit)}</Text>
+            <Badge label={free ? `${free} free` : 'Full'} tone={free ? 'red' : 'green'} /></View></View>
+        {canEdit && <Btn iconOnly variant="ghost" icon="more-vertical" label="More" a11y={`${unit.name} options`} onPress={() => moreMenu(unit.name, [
           { label: 'Edit room', onPress: () => onEditRoom(unit.id) }, { label: 'Delete room', destructive: true, onPress: () => onDeleteRoom(unit.id) }])} />}
       </View>
       {spots.map((t, i) => t ? <View key={t.id} className="gap-2 border-t border-gray-200 pt-3 dark:border-gray-700">

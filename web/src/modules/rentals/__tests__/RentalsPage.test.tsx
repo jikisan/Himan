@@ -76,6 +76,16 @@ const payLater = () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add without payment (pay later)' }));
 };
 
+// Older and non-technical people use rentals: every button shows a word, not only an icon (web/CLAUDE.md, "Buttons are labelled").
+describe('Labelled buttons', () => {
+  it.each(['Home', 'Rooms', 'Tenants', 'Bills'])('has no icon-only buttons on %s, or on a tenant sheet', (tab) => {
+    page(tab);
+    if (tab === 'Rooms') fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
+    const bare = screen.getAllByRole('button').filter((b) => !b.textContent?.trim());
+    expect(bare.map((b) => b.getAttribute('aria-label') ?? b.outerHTML.slice(0, 80))).toEqual([]);
+  });
+});
+
 describe('Rooms board', () => {
   it('shows each bed of a shared room, filled first, with an add slot per free bed', () => {
     page();
@@ -294,7 +304,9 @@ describe('Tenant sheet and move out', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Move Carlo Lim out of Room B' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveOut', tenancyId: 't3' })));
-    await waitFor(() => expect(toasts.success).toHaveBeenCalledWith('Moved out'));
+    await waitFor(() => expect(toasts.success).toHaveBeenCalledWith('Moved out. Settle their deposit next.'));
+    // The sheet stays open, so the deposit is settled from the same place.
+    expect(screen.getByRole('dialog', { name: /Carlo Lim/ })).toBeInTheDocument();
   });
   it('shows contact read-only until Edit, then saves without closing the sheet', async () => {
     page();

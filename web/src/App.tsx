@@ -15,7 +15,7 @@ function App() {
           <AuthProvider>
             <SubscriptionProvider>
               <Router />
-              <Toaster position="bottom-right" richColors />
+              <Toaster position="top-center" richColors />
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

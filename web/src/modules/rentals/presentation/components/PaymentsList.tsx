@@ -107,8 +107,8 @@ export function ProofFiles({ files, busy, proofUrl, canAdd, onUpload, onRemove }
       : <span key={f.id} className="inline-flex items-center rounded-md border">
         <Button variant="ghost" size="sm" className="h-9 max-w-40 gap-1 px-2 sm:h-7" disabled={!f.ready} aria-label={`View ${f.name}`}
           onClick={() => void open(f.id)}><Eye className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{f.ready ? f.name : 'Upload didn’t finish'}</span></Button>
-        <Button variant="ghost" size="icon" className="size-9 text-destructive hover:text-destructive sm:size-7" disabled={busy}
-          aria-label={`Remove ${f.name}`} onClick={() => setRemoving(f.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="sm" className="h-9 px-2.5 text-destructive hover:text-destructive sm:h-7" disabled={busy}
+          aria-label={`Remove ${f.name}`} onClick={() => setRemoving(f.id)}><Trash2 className="h-3.5 w-3.5" />Remove</Button>
       </span>)}
     {canAdd && <label className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-md border border-dashed px-2 text-xs font-medium hover:border-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:opacity-60 sm:h-7">
       <Upload aria-hidden className="h-3.5 w-3.5" />Add

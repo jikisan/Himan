@@ -60,10 +60,10 @@ export function MeterReadings({ units, readings, needed, period, soaOf, canManag
   };
 
   return <section aria-labelledby="meter-readings" className={cn('relative space-y-4', !bare && 'rounded-xl border bg-card p-4 shadow-sm sm:p-5')}>
-    {onClose && <Button variant="ghost" size="icon" className="absolute right-2 top-2 size-11 sm:size-9" aria-label="Close meters" onClick={onClose}>
-      <X className="h-4 w-4" /></Button>}
+    {onClose && <Button variant="ghost" size="sm" className="absolute right-2 top-2 h-11 px-2.5 sm:h-9" aria-label="Close meters" onClick={onClose}>
+      <X className="h-4 w-4" />Close</Button>}
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className={cn(onClose && 'pr-10')}>
+      <div className={cn(onClose && 'pr-24')}>
         <h3 id="meter-readings" className="text-lg font-semibold">Meters · {periodLabel(period)}</h3>
         <p className="text-sm text-muted-foreground">{neededCount ? `${neededCount} meter${neededCount === 1 ? '' : 's'} needed for ${month} SOAs.`
           : `Readings taken in ${month}.`}</p>
@@ -121,8 +121,8 @@ export function MeterReadings({ units, readings, needed, period, soaOf, canManag
                     <span className="font-semibold">{num(r.value)}</span>
                     {canManage && (soa
                       ? <Lock aria-label="On an SOA, can’t be edited" className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      : <Button type="button" variant="ghost" size="icon" className="size-9 sm:size-8" aria-label={`Edit ${short(r.readOn)} reading`}
-                          onClick={() => startEditing(isEditing ? null : { id: r.id, value: String(r.value) })}><Pencil className="h-4 w-4" /></Button>)}
+                      : <Button type="button" variant="ghost" size="sm" className="h-9 px-2.5 sm:h-8" aria-label={`Edit ${short(r.readOn)} reading`}
+                          onClick={() => startEditing(isEditing ? null : { id: r.id, value: String(r.value) })}><Pencil className="h-4 w-4" />Edit</Button>)}
                   </div>
                   {soa && canManage && <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     On {soa.label}. Cancel that SOA to change this reading.

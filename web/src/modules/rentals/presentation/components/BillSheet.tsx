@@ -73,7 +73,7 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
     {!editing && <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
       {canManage && saved && onRecordPayment && billBalance(saved, payments) > 0 && <Button className="h-11 sm:h-9" onClick={onRecordPayment}>
         <HandCoins className="h-4 w-4" />Record payment</Button>}
-      <Button variant="outline" className="h-11 sm:h-9" onClick={() => void copy()}><Copy className="h-4 w-4" />Copy for Messenger</Button>
+      <Button variant="outline" className="h-11 sm:h-9" onClick={() => void copy()}><Copy className="h-4 w-4" />Copy as text</Button>
       {bill.number && bill.id && <PdfButton className="h-11 sm:h-9"
         make={async () => (await import('../pdf/download')).downloadBillPdf(bill as RentalBill, info, qrUrl)}>Download PDF</PdfButton>}
       {lateFee && <Button variant="outline" className="h-11 sm:h-9" disabled={busy}
@@ -123,9 +123,9 @@ function EditLines({ lines, busy, onSave, onCancel }: {
           {isUtility(l) ? <span className="w-36 text-right text-sm tabular-nums text-muted-foreground">{formatBillPesos(l.amount)}</span>
             : <div className="w-36"><MoneyInput id={lineId(i)} aria-label={`${lineTitle(l)} amount`} required {...fe.invalid(lineId(i))} value={amounts[i]}
                 onChange={(e) => { setAmounts((a) => a.map((v, j) => (j === i ? e.target.value : v))); fe.clear(lineId(i)); }} /></div>}
-          {(l.kind === 'penalty' || l.kind === 'other') ? <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-9"
-            aria-label={`Remove ${l.label}`} onClick={() => { setKept((k) => k.map((v, j) => (j === i ? false : v))); fe.clear(lineId(i)); }}><X className="h-4 w-4" /></Button>
-            : <span className="w-11 sm:w-9" />}
+          {(l.kind === 'penalty' || l.kind === 'other') ? <Button type="button" variant="ghost" size="sm" className="h-11 w-[6.25rem] px-2.5 sm:h-9"
+            aria-label={`Remove ${l.label}`} onClick={() => { setKept((k) => k.map((v, j) => (j === i ? false : v))); fe.clear(lineId(i)); }}><X className="h-4 w-4" />Remove</Button>
+            : <span className="w-[6.25rem]" />}
         </div>
         <FieldError id={lineId(i)} message={fe.errors[lineId(i)]} />
       </li>)}
@@ -136,8 +136,8 @@ function EditLines({ lines, busy, onSave, onCancel }: {
             onChange={(e) => { setExtra((all) => all.map((v, j) => (j === i ? { ...v, label: e.target.value } : v))); fe.clear(extraId(i, 'label')); }} />
           <div className="w-36"><MoneyInput id={extraId(i, 'amount')} aria-label="Other charge amount" required {...fe.invalid(extraId(i, 'amount'))} value={x.amount}
             onChange={(e) => { setExtra((all) => all.map((v, j) => (j === i ? { ...v, amount: e.target.value } : v))); fe.clear(extraId(i, 'amount')); }} /></div>
-          <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-9" aria-label="Remove this line"
-            onClick={() => { setExtra((all) => all.filter((_, j) => j !== i)); fe.clear(); }}><X className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 sm:h-9" aria-label="Remove this line"
+            onClick={() => { setExtra((all) => all.filter((_, j) => j !== i)); fe.clear(); }}><X className="h-4 w-4" />Remove</Button>
         </div>
         <FieldError id={extraId(i, 'label')} message={fe.errors[extraId(i, 'label')]} />
         <FieldError id={extraId(i, 'amount')} message={fe.errors[extraId(i, 'amount')]} />

@@ -178,7 +178,7 @@ function RentalsContent(state: RentalsState) {
               <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'property', id: property.id })}><Pencil className="h-4 w-4" />Edit</Button>
               <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'share' })}><Share2 className="h-4 w-4" />Share</Button>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="size-11 sm:size-9" aria-label="More property actions"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-11 px-2.5 sm:h-9" aria-label="More property actions"><MoreHorizontal className="h-4 w-4" />More</Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem className="gap-2" onSelect={() => void tryAct({ type: 'archiveProperty', id: property.id, archived: !property.archivedAt },
                     property.archivedAt ? 'Property restored' : 'Property archived')}>
@@ -243,9 +243,9 @@ function RentalsContent(state: RentalsState) {
       onConfirm={(moveOut, readings) => {
         if (movingOut) void run({ type: 'moveOut', tenancyId: movingOut.id, moveOut, readings }).then((result) => {
           const { warnings, finalBillId } = result as { warnings: string[]; finalBillId: string | null };
-          toast.success(finalBillId ? 'Moved out. Final SOA generated.' : 'Moved out');
+          // The tenant sheet stays open: settling the deposit is the next step there.
+          toast.success(finalBillId ? 'Moved out. Final SOA generated.' : 'Moved out. Settle their deposit next.');
           warnings.forEach((w) => toast.warning(w));
-          setDialog(null);
         }, (e) => toast.error(errorMessage(e)));
         setMovingOutId(null);
       }} />

@@ -338,7 +338,7 @@ describe('Payment accounts', () => {
     expect(sheet.getByText('Previous balance').nextElementSibling).toHaveTextContent('₱2,000');
     expect(sheet.getByText('Amount due now').nextElementSibling).toHaveTextContent('₱5,000');
     expect(sheet.queryByText('Paid in full')).not.toBeInTheDocument();
-    fireEvent.click(sheet.getByRole('button', { name: 'Copy for Messenger' }));
+    fireEvent.click(sheet.getByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Pay to:\nGCash — Maria Santos 0917 555 1234')));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Previous balance ₱2,000'));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Paid ₱500'));

@@ -447,7 +447,7 @@ describe('Statement and bill sheet', () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const sheet = openJuanBill();
-    fireEvent.click(sheet.getByRole('button', { name: 'Copy for Messenger' }));
+    fireEvent.click(sheet.getByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('TOTAL ₱5,900')));
     expect(toasts.success).toHaveBeenCalledWith('Copied. Paste it in Messenger.');
   });
@@ -530,7 +530,7 @@ describe('Statement and bill sheet', () => {
   it('lets a viewer only copy', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     const sheet = openJuanBill();
-    expect(sheet.getByRole('button', { name: 'Copy for Messenger' })).toBeInTheDocument();
+    expect(sheet.getByRole('button', { name: 'Copy as text' })).toBeInTheDocument();
     expect(sheet.queryByRole('button', { name: 'Edit SOA' })).not.toBeInTheDocument();
     expect(sheet.queryByRole('button', { name: 'Cancel SOA' })).not.toBeInTheDocument();
   });

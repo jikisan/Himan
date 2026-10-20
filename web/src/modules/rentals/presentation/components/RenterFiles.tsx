@@ -93,8 +93,8 @@ function IdCard({ file, busy, fileUrl, onOpen, onRemove }: {
         : <div className="flex gap-1">
           <Button variant="outline" size="sm" className="h-9 flex-1 px-2 sm:h-8" disabled={!file.ready} onClick={onOpen}
             aria-label={`Open ${file.name}`}><Eye className="h-4 w-4" />View</Button>
-          <Button variant="ghost" size="icon" className="size-9 shrink-0 text-destructive hover:text-destructive sm:size-8" disabled={busy}
-            aria-label={`Remove ${file.name}`} onClick={() => setConfirming(true)}><Trash2 className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" className="h-9 px-2.5 shrink-0 text-destructive hover:text-destructive sm:h-8" disabled={busy}
+            aria-label={`Remove ${file.name}`} onClick={() => setConfirming(true)}><Trash2 className="h-4 w-4" />Remove</Button>
         </div>}
     </div>
   </li>;

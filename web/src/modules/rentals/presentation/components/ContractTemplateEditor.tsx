@@ -65,8 +65,8 @@ export function ContractTemplateEditor({ propertyId, template, busy, run }: {
             onClick={() => move(i, i - 1)}><ArrowUp className="h-4 w-4" /></Button>
           <Button type="button" variant="ghost" size="icon" className={iconButton} aria-label={`Move clause ${n} down`} disabled={i === clauses.length - 1}
             onClick={() => move(i, i + 1)}><ArrowDown className="h-4 w-4" /></Button>
-          <Button type="button" variant="ghost" size="icon" className={`${iconButton} text-destructive hover:text-destructive`} aria-label={`Remove clause ${n}`}
-            onClick={() => update(clauses.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 text-destructive hover:text-destructive sm:h-8" aria-label={`Remove clause ${n}`}
+            onClick={() => update(clauses.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" />Remove</Button>
         </div>
       </li>;
     })}</ol>

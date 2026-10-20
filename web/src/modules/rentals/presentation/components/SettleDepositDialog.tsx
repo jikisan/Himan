@@ -125,8 +125,8 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCe
               className={cn(inputClass, 'min-w-0 flex-1')} maxLength={80} value={r.label} onChange={(e) => edit(i, { label: e.target.value })} />
             <div className="w-32 shrink-0"><MoneyInput id={`settle-line-${i}-amount`} aria-label={`Amount for ${r.name}`} required
               {...fe.invalid(`settle-line-${i}-amount`)} placeholder="0.00" value={r.amount} onChange={(e) => edit(i, { amount: e.target.value })} /></div>
-            <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 sm:size-9" aria-label={`Remove ${r.name}`}
-              onClick={() => { setRows((list) => list.filter((_, j) => j !== i)); fe.clear(); }}><X className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 shrink-0 sm:h-9" aria-label={`Remove ${r.name}`}
+              onClick={() => { setRows((list) => list.filter((_, j) => j !== i)); fe.clear(); }}><X className="h-4 w-4" />Remove</Button>
           </div>
           <FieldError id={`settle-line-${i}-label`} message={fe.errors[`settle-line-${i}-label`]} />
           <FieldError id={`settle-line-${i}-amount`} message={fe.errors[`settle-line-${i}-amount`]} />
@@ -170,8 +170,8 @@ function SettleForm({ tenancyId, name, depositCentavos, unpaidCentavos, creditCe
           </Field>
           {proofs.length > 0 && <ul className="space-y-1 text-sm">{proofs.map((f, i) => <li key={i} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate">{f.name}</span>
-            <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-8" aria-label={`Remove ${f.name}`}
-              onClick={() => { setProofs((p) => p.filter((_, j) => j !== i)); fe.clear('settle-proofs'); }}><X className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 sm:h-8" aria-label={`Remove ${f.name}`}
+              onClick={() => { setProofs((p) => p.filter((_, j) => j !== i)); fe.clear('settle-proofs'); }}><X className="h-4 w-4" />Remove</Button>
           </li>)}</ul>}
         </div>
       </div>}

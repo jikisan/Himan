@@ -55,8 +55,8 @@ export function PaymentFields({ value, onChange, owed, propertyId, payments, nam
       </Field>
       {value.proofs.length > 0 && <ul className="space-y-1 text-sm">{value.proofs.map((f, i) => <li key={i} className="flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate">{f.name}</span>
-        <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-8" aria-label={`Remove ${f.name}`}
-          onClick={() => set('proofs', value.proofs.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>
+        <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 sm:h-8" aria-label={`Remove ${f.name}`}
+          onClick={() => set('proofs', value.proofs.filter((_, j) => j !== i))}><X className="h-4 w-4" />Remove</Button>
       </li>)}</ul>}
     </div>
   </>;

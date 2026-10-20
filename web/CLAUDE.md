@@ -60,6 +60,21 @@ When adding a new module, add its alias to all three config files.
 Older and non-technical people use this app (rentals co-managers, tenants on their own phones). Every action button shows
 a text label (an icon may sit beside it). No icon-only action buttons, and never make "tap the row" the only way to act.
 Dialogs and sheets show "Close" beside the X (from `components/ui`); month arrows read "Previous" and "Next".
+Remove, Edit and "…" menus are labelled too ("Remove", "Edit", "More"); only reorder arrows stay icon-only, with an `aria-label`.
+`RentalsPage.test.tsx` → "Labelled buttons" fails on any icon-only button on the main rentals screens.
+
+## Rentals e2e
+
+`e2e/rentals.e2e.ts` walks the whole owner and tenant flow (setup, move-in, contract, tenant link signing, countersign,
+bills, payment, move-out, deposit settlement) on desktop and phone, against a **local** Supabase stack with every
+migration applied. It signs up its own owner each run and is skipped unless `RENTALS_E2E_SERVICE_KEY` is set:
+
+```bash
+RENTALS_E2E_SERVICE_KEY=<local service_role key> VITE_SUPABASE_URL=<local API url> \
+  VITE_SUPABASE_ANON_KEY=<local anon key> npx playwright test rentals
+```
+
+Screenshots of each step land in the test output folder.
 
 ## Form errors
 

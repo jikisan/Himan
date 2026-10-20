@@ -42,7 +42,7 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
               {free ? `${free} free` : 'Full'}</span>
             {canEdit && <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-11 sm:size-9" aria-label={`${unit.name} options`}><MoreHorizontal className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-11 px-2.5 sm:h-9" aria-label={`${unit.name} options`}><MoreHorizontal className="h-4 w-4" />More</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem className="gap-2" onSelect={() => onEditRoom(unit.id)}><Pencil className="h-4 w-4" />Edit room</DropdownMenuItem>

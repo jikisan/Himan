@@ -39,8 +39,8 @@ export function ChargesEditor({ idPrefix, value, onChange, fe }: {
               value={row.label} {...fe?.invalid(name)} onChange={(e) => set(i, { label: e.target.value })} />
             <div className="w-32 shrink-0"><MoneyInput id={amount} aria-label="Charge amount" placeholder="0.00"
               value={row.amount} {...fe?.invalid(amount)} onChange={(e) => set(i, { amount: e.target.value })} /></div>
-            <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 text-muted-foreground hover:text-destructive sm:size-9"
-              aria-label={`Remove ${row.label || 'charge'}`} onClick={() => remove(i)}><X className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 shrink-0 text-muted-foreground hover:text-destructive sm:h-9"
+              aria-label={`Remove ${row.label || 'charge'}`} onClick={() => remove(i)}><X className="h-4 w-4" />Remove</Button>
           </div>
           <FieldError id={name} message={fe?.errors[name]} />
           <FieldError id={amount} message={fe?.errors[amount]} />

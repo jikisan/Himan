@@ -129,7 +129,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
       onSave={async (specialTerms, signMode) => {
         if (text) await run({ type: 'updateContractText', id: text.id, changes: { body: body(), specialTerms, ...(signMode && { signMode }) } });
         else await run({ type: 'createContractText', contractId: contract.id, propertyId: property.id, body: body(), specialTerms, signMode: signMode ?? 'esign' });
-        toast.success(text ? 'Contract saved' : 'Draft saved. Send it when ready.');
+        toast.success(text ? 'Contract saved' : 'Draft saved. Generate it when you’re ready.');
         setEditing(false);
       }} /> : null;
   if (inline && form) return form;

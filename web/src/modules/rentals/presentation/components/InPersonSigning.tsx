@@ -136,8 +136,8 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
             onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; pick(files); }} />}
           {ids.length > 0 && <ul className="space-y-1 text-base">{ids.map((f, i) => <li key={i} className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate">{f.name}</span>
-            <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={`Remove ${f.name}`}
-              onClick={() => { setIds((all) => all.filter((_, j) => j !== i)); fe.clear(fid('ids')); }}><X className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5" aria-label={`Remove ${f.name}`}
+              onClick={() => { setIds((all) => all.filter((_, j) => j !== i)); fe.clear(fid('ids')); }}><X className="h-4 w-4" />Remove</Button>
           </li>)}</ul>}
         </Field>
         <FieldGroup title="Optional" large>

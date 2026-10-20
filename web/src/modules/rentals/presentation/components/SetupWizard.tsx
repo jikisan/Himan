@@ -132,7 +132,7 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: {
             onChange={(e) => { setRows((all) => all.map((r, i) => (i === 0 ? { ...r, extra: e.target.value } : r))); fe.clear('setup-whole-extra'); }} />
         </Field>}
         {!whole && <>
-          <ul className="space-y-3">{rows.map((row) => <li key={row.key} className="relative rounded-lg border p-3 pr-12">
+          <ul className="space-y-3">{rows.map((row) => <li key={row.key} className="rounded-lg border p-3">
             <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
               <Field id={`setup-room-${row.key}`} label="Room name" required error={fe.errors[`setup-room-${row.key}`]}>
                 <input id={`setup-room-${row.key}`} className={inputClass} value={row.name} required {...fe.invalid(`setup-room-${row.key}`)}
@@ -156,8 +156,8 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: {
                   onChange={(e) => edit(row.key, { extra: e.target.value }, `setup-extra-${row.key}`)} />
               </Field>}
             </div>
-            {rows.length > 1 && <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 size-11 sm:size-9"
-              aria-label={`Remove ${row.name || 'room'}`} onClick={() => setRows((all) => all.filter((r) => r.key !== row.key))}><X className="h-4 w-4" /></Button>}
+            {rows.length > 1 && <Button type="button" variant="ghost" size="sm" className="mt-2 h-11 px-2.5 text-muted-foreground hover:text-destructive sm:h-9"
+              aria-label={`Remove ${row.name || 'room'}`} onClick={() => setRows((all) => all.filter((r) => r.key !== row.key))}><X className="h-4 w-4" />Remove</Button>}
           </li>)}</ul>
           <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={() => setRows((all) => [...all,
             { key: Math.max(...all.map((r) => r.key), -1) + 1, name: `Room ${letter(all.length)}`, shared: false, beds: '2', rent: '', extra: '' }])}>

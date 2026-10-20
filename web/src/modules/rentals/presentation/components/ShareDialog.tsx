@@ -28,9 +28,9 @@ export function ShareDialog({ propertyId, busy, run, listMembers, listFriends }:
       <Initials name={m.email} />
       <span className="min-w-0 flex-1 truncate text-sm">{m.email}</span>
       <RoleBadge role={m.role} />
-      {m.role !== 'owner' && <Button variant="ghost" size="icon" className="size-11 sm:size-9" aria-label={`Remove ${m.email}`} disabled={busy}
+      {m.role !== 'owner' && <Button variant="ghost" size="sm" className="h-11 px-2.5 sm:h-9" aria-label={`Remove ${m.email}`} disabled={busy}
         onClick={() => void run({ type: 'removeMember', propertyId, userId: m.userId })
-          .catch((e) => toast.error(errorMessage(e))).finally(() => void refresh())}><Trash2 className="h-4 w-4" /></Button>}
+          .catch((e) => toast.error(errorMessage(e))).finally(() => void refresh())}><Trash2 className="h-4 w-4" />Remove</Button>}
     </li>)}</ul>
     {candidates.length === 0 ? <p className="text-sm text-muted-foreground">{friends.data?.length
       ? 'All your friends already have access.' : 'No friends yet. Add them in the Himan mobile app (Grocery → people icon), then share here.'}</p>

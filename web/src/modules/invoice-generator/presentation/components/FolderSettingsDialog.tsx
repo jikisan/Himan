@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +35,8 @@ export const FolderSettingsDialog = ({
   const [format, setFormat] = useState('INV-{YYYY}-{NNN}');
   const [sequence, setSequence] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const fe = useFieldErrors();
+  const clearErrors = fe.clear;
 
   useEffect(() => {
     if (folder && open) {
@@ -40,12 +44,16 @@ export const FolderSettingsDialog = ({
       setPrefix(folder.invoiceNumberPrefix ?? '');
       setFormat(folder.invoiceNumberFormat);
       setSequence(folder.nextSequenceNumber);
+      clearErrors();
     }
-  }, [folder, open]);
+  }, [folder, open, clearErrors]);
 
   const preview = InvoiceNumberService.generate(format, sequence, prefix || null);
 
-  const handleSave = async () => {
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    if (!format.trim()) { fe.fail('format', 'Enter a format pattern'); return; }
     setIsSaving(true);
     try {
       await onSave({
@@ -54,6 +62,8 @@ export const FolderSettingsDialog = ({
         nextSequenceNumber: sequence,
       });
       onOpenChange(false);
+    } catch {
+      fe.setFormError('Failed to save folder settings');
     } finally {
       setIsSaving(false);
     }
@@ -73,7 +83,8 @@ export const FolderSettingsDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form noValidate onSubmit={handleSave} className="space-y-4">
+          <FormErrorBanner message={fe.formError} />
           <div className="space-y-2">
             <Label htmlFor="prefix">Prefix (optional)</Label>
             <Input
@@ -86,14 +97,17 @@ export const FolderSettingsDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="format">Format Pattern</Label>
+            <Label htmlFor="format" required>Format Pattern</Label>
             <Input
               id="format"
+              required
+              {...fe.invalid('format')}
               value={format}
-              onChange={(e) => setFormat(e.target.value)}
+              onChange={(e) => { setFormat(e.target.value); fe.clear('format'); }}
               placeholder="INV-{YYYY}-{NNN}"
               maxLength={50}
             />
+            <FieldError id="format" message={fe.errors.format} />
             <p className="text-xs text-muted-foreground">
               Tokens: {'{YYYY}'} year, {'{YY}'} short year, {'{MM}'} month, {'{PREFIX}'} prefix, {'{NNN}'} sequence (N count = padding width)
             </p>
@@ -110,7 +124,7 @@ export const FolderSettingsDialog = ({
                 min={1}
                 className="w-24"
               />
-              <Button variant="outline" size="sm" onClick={handleResetSequence}>
+              <Button type="button" variant="outline" size="sm" onClick={handleResetSequence}>
                 Reset to 1
               </Button>
             </div>
@@ -122,14 +136,14 @@ export const FolderSettingsDialog = ({
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving || !format.trim()}>
+            <Button type="submit" disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save Settings'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

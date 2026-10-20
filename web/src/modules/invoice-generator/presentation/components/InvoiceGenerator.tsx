@@ -20,6 +20,9 @@ import { CategoryList } from "./CategoryList";
 import { InvoiceList } from "./InvoiceList";
 import { SavedOptionDialog } from "./SavedOptionDialog";
 import { FolderSettingsDialog } from "./FolderSettingsDialog";
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from "@core/presentation/components";
+
 
 const UPLOAD_PREF_KEY = "invoice-upload-to-supabase";
 
@@ -37,6 +40,7 @@ export const InvoiceGenerator = () => {
   const [settingsFolder, setSettingsFolder] = useState<string | null>(null);
 
   const targetRef = useRef<HTMLDivElement>(null);
+  const fe = useFieldErrors();
 
   // Hooks
   const { folders, loading: foldersLoading, createFolder, updateFolder, deleteFolder, incrementSequence } = useInvoiceFolders();
@@ -67,11 +71,19 @@ export const InvoiceGenerator = () => {
   // Use the auto-generated number if available, otherwise the manually entered one
   const effectiveInvoiceNumber = autoInvoiceNumber ?? invoiceData.invoiceNumber;
 
+  const clearFieldError = fe.clear;
   const handleChange = useCallback((updates: Partial<InvoiceData>) => {
     setInvoiceData((prev) => ({ ...prev, ...updates }));
-  }, []);
+    if ('invoiceNumber' in updates) clearFieldError('invoiceNumber');
+  }, [clearFieldError]);
 
   const handleGeneratePDF = async () => {
+    fe.clear();
+    if (!effectiveInvoiceNumber.trim()) {
+      setActiveTab("form");
+      fe.fail("invoiceNumber", "Please enter an Invoice Number.");
+      return;
+    }
     if (!uploadToSupabase) {
       // Local-only download
       await generateLocal(targetRef as React.RefObject<HTMLDivElement>, effectiveInvoiceNumber);
@@ -104,7 +116,7 @@ export const InvoiceGenerator = () => {
     });
 
     if (!invoice) {
-      toast.error("Failed to save invoice metadata. PDF will still be downloaded locally.");
+      fe.setFormError("Failed to save invoice metadata. PDF will still be downloaded locally.");
       // Still generate locally
       await generateLocal(targetRef as React.RefObject<HTMLDivElement>, effectiveInvoiceNumber);
       return;
@@ -169,8 +181,9 @@ export const InvoiceGenerator = () => {
   // Saved options handlers
   const handleSaveOption = useCallback(async (type: SavedOptionType, label: string, value: string) => {
     const result = await createOption({ optionType: type, label, value });
-    if (result) toast.success("Option saved");
-    else toast.error("Failed to save option");
+    // SavedOptionSelect shows the failure under its label field.
+    if (!result) throw new Error("Failed to save option");
+    toast.success("Option saved");
   }, [createOption]);
 
   const handleManageSavedOptions = useCallback((type: SavedOptionType) => {
@@ -204,8 +217,9 @@ export const InvoiceGenerator = () => {
   }) => {
     if (!settingsFolder) return;
     const result = await updateFolder(settingsFolder, dto);
-    if (result) toast.success("Folder settings saved");
-    else toast.error("Failed to save folder settings");
+    // FolderSettingsDialog shows the failure in its banner.
+    if (!result) throw new Error("Failed to save folder settings");
+    toast.success("Folder settings saved");
   }, [settingsFolder, updateFolder]);
 
   // Map folders to categories for CategoryList
@@ -259,7 +273,7 @@ export const InvoiceGenerator = () => {
               </Button>
               <Button
                 onClick={handleGeneratePDF}
-                disabled={isGenerating || !effectiveInvoiceNumber}
+                disabled={isGenerating}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
@@ -312,6 +326,7 @@ export const InvoiceGenerator = () => {
 
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-auto p-6">
+            {fe.formError && <div className="max-w-4xl mx-auto mb-6"><FormErrorBanner message={fe.formError} /></div>}
             {activeTab === "form" ? (
               <div className="max-w-4xl mx-auto space-y-6">
                 {/* Invoice Details Section */}
@@ -328,6 +343,7 @@ export const InvoiceGenerator = () => {
                       onSaveOption={handleSaveOption}
                       onManageSavedOptions={handleManageSavedOptions}
                       autoInvoiceNumber={autoInvoiceNumber}
+                      invoiceNumberError={fe.errors.invoiceNumber}
                     />
                   </CardContent>
                 </Card>
@@ -384,13 +400,6 @@ export const InvoiceGenerator = () => {
                     />
                   </CardContent>
                 </Card>
-
-                {/* Validation Messages */}
-                {!effectiveInvoiceNumber && (
-                  <p className="text-sm text-amber-600 text-center">
-                    Please enter an Invoice Number to enable PDF generation.
-                  </p>
-                )}
               </div>
             ) : activeTab === "preview" ? (
               <div className="flex justify-center py-6">
@@ -432,10 +441,10 @@ export const InvoiceGenerator = () => {
           optionType={savedOptionDialogType}
           options={optionsByType[savedOptionDialogType]}
           onSave={async (label, value) => {
-            await createOption({ optionType: savedOptionDialogType, label, value });
+            if (!await createOption({ optionType: savedOptionDialogType, label, value })) throw new Error("Failed to save option");
           }}
           onUpdate={async (id, label, value) => {
-            await updateOption(id, { label, value });
+            if (!await updateOption(id, { label, value })) throw new Error("Failed to save option");
           }}
           onDelete={async (id) => {
             await deleteOption(id);

@@ -4,13 +4,22 @@ import { formatPesos, parsePesos } from '@himan/shared/rentals';
 import { MoneyInput, inputClass } from './Field';
 import type { ChargeRow } from '../utils/charges';
 import { cn } from '@core/presentation/utils';
+import type { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 
 const SUGGESTIONS = ['CUSA', 'Parking', 'Wi-Fi', 'Cleaning', 'Appliances'];
 const peso = (value: string) => { try { return value.trim() ? parsePesos(value) : 0; } catch { return 0; } };
 
 /** Optional extra monthly charges (name + amount) added to every SOA. Common ones are one tap away. */
-export function ChargesEditor({ idPrefix, value, onChange }: { idPrefix: string; value: ChargeRow[]; onChange(rows: ChargeRow[]): void }) {
-  const set = (i: number, patch: Partial<ChargeRow>) => onChange(value.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+export function ChargesEditor({ idPrefix, value, onChange, fe }: {
+  idPrefix: string; value: ChargeRow[]; onChange(rows: ChargeRow[]): void; fe?: ReturnType<typeof useFieldErrors>;
+}) {
+  const set = (i: number, patch: Partial<ChargeRow>) => {
+    fe?.clear(`${idPrefix}-charge-${i}-${'label' in patch ? 'name' : 'amount'}`);
+    onChange(value.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  };
+  // Row ids are positions: removing a row shifts the ones after it, so their messages go too.
+  const remove = (i: number) => { fe?.clear(); onChange(value.filter((_, j) => j !== i)); };
   const used = new Set(value.map((r) => r.label.trim().toLowerCase()));
   const unused = SUGGESTIONS.filter((s) => !used.has(s.toLowerCase()));
   const total = value.reduce((sum, r) => sum + peso(r.amount), 0);
@@ -22,14 +31,21 @@ export function ChargesEditor({ idPrefix, value, onChange }: { idPrefix: string;
 
   return <div className="space-y-3">
     {value.length > 0 && <ul className="divide-y rounded-lg border">
-      {value.map((row, i) => <li key={i} className="flex items-center gap-2 p-2">
-        <input id={`${idPrefix}-charge-${i}-name`} aria-label="Charge name" placeholder="Name, e.g. Parking" className={`${inputClass} min-w-0 flex-1`}
-          value={row.label} onChange={(e) => set(i, { label: e.target.value })} />
-        <div className="w-32 shrink-0"><MoneyInput id={`${idPrefix}-charge-${i}-amount`} aria-label="Charge amount" placeholder="0.00"
-          value={row.amount} onChange={(e) => set(i, { amount: e.target.value })} /></div>
-        <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 text-muted-foreground hover:text-destructive sm:size-9"
-          aria-label={`Remove ${row.label || 'charge'}`} onClick={() => onChange(value.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>
-      </li>)}
+      {value.map((row, i) => {
+        const name = `${idPrefix}-charge-${i}-name`, amount = `${idPrefix}-charge-${i}-amount`;
+        return <li key={i} className="space-y-1 p-2">
+          <div className="flex items-center gap-2">
+            <input id={name} aria-label="Charge name" placeholder="Name, e.g. Parking" className={`${inputClass} min-w-0 flex-1`}
+              value={row.label} {...fe?.invalid(name)} onChange={(e) => set(i, { label: e.target.value })} />
+            <div className="w-32 shrink-0"><MoneyInput id={amount} aria-label="Charge amount" placeholder="0.00"
+              value={row.amount} {...fe?.invalid(amount)} onChange={(e) => set(i, { amount: e.target.value })} /></div>
+            <Button type="button" variant="ghost" size="sm" className="h-11 px-2.5 shrink-0 text-muted-foreground hover:text-destructive sm:h-9"
+              aria-label={`Remove ${row.label || 'charge'}`} onClick={() => remove(i)}><X className="h-4 w-4" />Remove</Button>
+          </div>
+          <FieldError id={name} message={fe?.errors[name]} />
+          <FieldError id={amount} message={fe?.errors[amount]} />
+        </li>;
+      })}
       {total > 0 && <li className="flex items-baseline justify-between gap-3 px-3 py-2 text-sm">
         <span className="text-muted-foreground">Total each month</span>
         <span className="font-semibold tabular-nums">{formatPesos(total)}</span>

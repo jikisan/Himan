@@ -9,7 +9,7 @@ const unit = (id: string, kind: RentalUnit['kind'], capacity: number, extra: Par
 const property = (units: RentalUnit[]): RentalProperty => ({
   id: 'p', createdBy: 'o', name: 'Lahug Units', address: '', ownerName: 'Maria Santos', ownerAddress: 'Lahug, Cebu City',
   lessorName: '', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'LU',
-  lateFeeCentavos: 0, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner', units });
+  lateFeeCentavos: 0, rentDueDay: null, paymentsTrackedFrom: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner', units });
 const stay = (id: string, unitId: string, moveIn: string, o: { dueDay?: number; advance?: number; rent?: number; moveOut?: string } = {}): RentalTenancy => ({
   id, propertyId: 'p', unitId, renterId: `r-${id}`, moveIn, moveOut: o.moveOut ?? null, charges: [],
   contracts: [{ id: `c-${id}`, tenancyId: id, startDate: moveIn, endDate: '2030-01-01', monthlyRentCentavos: o.rent ?? 350000,

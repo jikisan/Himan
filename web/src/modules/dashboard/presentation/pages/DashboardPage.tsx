@@ -14,16 +14,18 @@ export const DashboardPage = () => {
   const { user } = useAuth();
   const { available, visible, hidden, saving, save } = useDashboardApps();
   const [customizing, setCustomizing] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const name = user?.email?.split("@")[0] || "User";
 
   const handleSave = async (next: DashboardAppId[]) => {
+    setSaveError("");
     try {
       await save(next);
       setCustomizing(false);
       toast.success("Dashboard updated");
     } catch {
-      toast.error("Couldn’t save your dashboard. Check your connection and try again.");
+      setSaveError("Couldn’t save your dashboard. Check your connection and try again.");
     }
   };
 
@@ -69,10 +71,11 @@ export const DashboardPage = () => {
 
       <CustomizeDashboardDialog
         open={customizing}
-        onOpenChange={setCustomizing}
+        onOpenChange={(open) => { setCustomizing(open); setSaveError(""); }}
         apps={available}
         hidden={hidden}
         saving={saving}
+        error={saveError}
         onSave={handleSave}
       />
     </div>

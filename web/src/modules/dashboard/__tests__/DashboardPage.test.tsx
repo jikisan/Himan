@@ -101,7 +101,10 @@ describe('DashboardPage', () => {
     const dialog = customize();
     fireEvent.click(dialog.getByRole('switch', { name: 'Notes' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(toasts.error).toHaveBeenCalled());
+    const banner = await dialog.findByRole('alert');
+    expect(banner).toHaveTextContent('Couldn’t save your dashboard. Check your connection and try again.');
+    expect(banner).toHaveAttribute('data-form-error');
+    expect(toasts.error).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Customize dashboard' })).toBeInTheDocument();
     // The open dialog hides the page from the accessibility tree, so include hidden elements.
     expect(screen.getByRole('link', { name: 'Notes', hidden: true })).toBeInTheDocument();

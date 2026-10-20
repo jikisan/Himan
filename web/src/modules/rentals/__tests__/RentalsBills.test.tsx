@@ -12,7 +12,7 @@ const unit = (id: string, name: string, kind: RentalUnit['kind'], capacity: numb
 const property: RentalProperty = {
   id: 'p', createdBy: 'owner', name: 'Lahug Units', address: '', ownerName: 'Maria Santos', ownerAddress: 'Lahug, Cebu City',
   lessorName: '', lessorCivilStatus: '', lessorAddress: '', lessorCapacity: 'owner', signingCity: '', invoicePrefix: 'LU',
-  lateFeeCentavos: 50000, rentDueDay: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
+  lateFeeCentavos: 50000, rentDueDay: null, paymentsTrackedFrom: null, archivedAt: null, createdAt: '', updatedAt: '', role: 'owner',
   units: [unit(U1, 'Room 1', 'room', 1, { electricMode: 'submeter', electricAmountCentavos: 1600 }), unit(U2, 'Room A', 'bedspace', 2)],
 };
 const person = (id: string, fullName: string): Renter => ({ id, propertyId: 'p', fullName, phone: '0917', facebook: '', email: '',
@@ -30,9 +30,9 @@ const issued = (tenancyId: string, extra: Partial<RentalBill> = {}): RentalBill 
 
 const state = vi.hoisted(() => ({
   properties: [] as RentalProperty[], renters: [] as Renter[], tenancies: [] as RentalTenancy[],
-  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[],
+  bills: [] as RentalBill[], readings: [] as MeterReading[], utilityBills: [] as UtilityBill[], payments: [], accounts: [], settlements: [],
   online: true, userId: 'owner', myName: 'Maria Santos', loading: false, error: null, busy: false,
-  run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []),
+  run: vi.fn(), refetch: vi.fn(), fileUrl: vi.fn(), listMembers: vi.fn(async () => []), listFriends: vi.fn(async () => []), contractTexts: [], links: [], templates: {},
 }));
 vi.mock('../presentation/hooks/useRentals', () => ({ useRentals: () => state }));
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
@@ -54,6 +54,23 @@ beforeEach(() => {
 const openBills = () => {
   render(<MemoryRouter><RentalsPage /></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
+};
+/** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
+const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
+/** A failed submit focuses the field, marks it invalid and shows the message under it, before (never after) the buttons. */
+function expectFieldError(field: HTMLElement, message: string, button: HTMLElement) {
+  expect(document.activeElement).toBe(field);
+  expect(field).toHaveAttribute('aria-invalid', 'true');
+  expect(field).toHaveAttribute('aria-describedby', `${field.id}-error`);
+  const error = document.getElementById(`${field.id}-error`)!;
+  expect(error).toHaveTextContent(message);
+  expect(precedes(error, button)).toBe(true);
+}
+const banner = async (message: string) => {
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent(message);
+  expect(alert).toHaveAttribute('data-form-error');
+  return alert;
 };
 const showCancelled = () => fireEvent.click(screen.getByRole('button', { name: /^Cancelled \d/ }));
 const row = (name: string) => within(screen.getByRole('listitem', { name: new RegExp(name) }));
@@ -80,7 +97,7 @@ describe('Bills view', () => {
   });
   it('shows each tenant’s state for the month', () => {
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Needs reading')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('Needs a meter reading')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Ready for SOA · 1' })).getByText('Ana Reyes')).toBeInTheDocument();
     expect(row('Ana Reyes').getByText('₱3,500')).toBeInTheDocument();
     expect(screen.queryByRole('listitem', { name: /^Ben Lim/ })).not.toBeInTheDocument();
@@ -105,11 +122,11 @@ describe('Bills view', () => {
     fireEvent.click(row('Ana Reyes').getByRole('button', { name: 'Generate SOA' }));
     await waitFor(() => expect(toasts.warning).toHaveBeenCalledWith('Couldn’t generate the SOA for Ana Reyes. Try again.'));
   });
-  it('shows generated and cancelled SOAs without cluttering rows with the number', () => {
+  it('shows generated and cancelled SOAs, each with its number kept quiet', () => {
     state.bills = [issued('t1'), issued('t2', { id: 'void', status: 'void', number: 'LU-2026-0003' })];
     openBills();
-    expect(row('Juan Dela Cruz').queryByText(/LU-2026-0002/)).not.toBeInTheDocument();
-    expect(row('Juan Dela Cruz').getByText('₱5,900')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('SOA no. LU-2026-0002')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('₱5,900 to pay')).toBeInTheDocument();
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Ready for SOA · 1' })).getByText('Ana Reyes')).toBeInTheDocument();
   });
@@ -142,7 +159,7 @@ describe('Meter readings', () => {
     expect(screen.getByText('Last: 1,200 on Oct 15')).toBeInTheDocument();
     fireEvent.change(input(), { target: { value: '1350' } });
     expect(screen.getByText('Used 150 kWh → ₱2,400')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Date you read them'), { target: { value: '2026-11-09' } });
+    fireEvent.change(screen.getByLabelText(/^Date you read them/), { target: { value: '2026-11-09' } });
     save();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveReadings', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', readOn: '2026-11-09', value: 1350, isReset: false }] }));
@@ -153,12 +170,30 @@ describe('Meter readings', () => {
     fireEvent.change(input(), { target: { value: '1100' } });
     expect(screen.getByText('Lower than 1,200 on Oct 15. Tick “Meter was reset or replaced” if it was.')).toBeInTheDocument();
     save();
+    expectFieldError(input(), 'Lower than 1,200 on Oct 15. Tick “Meter was reset or replaced” if it was.',
+      screen.getByRole('button', { name: /^Save (readings|\d+ reading)/ }));
+    expect(screen.getAllByText(/^Lower than 1,200/)).toHaveLength(1);
     expect(state.run).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Meter was reset or replaced' }));
     state.run.mockResolvedValue([]);
     save();
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveReadings', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', readOn: '2026-11-10', value: 1100, isReset: true }] }));
+  });
+  it('marks the reading date as required and shows a refused save at the top', async () => {
+    openAdd();
+    const date = screen.getByLabelText(/^Date you read them/);
+    expect(date).toBeRequired();
+    expect(document.querySelector(`label[for="${date.id}"] span[aria-hidden="true"]`)).toHaveTextContent('*');
+    fireEvent.change(input(), { target: { value: '1350.123' } });
+    save();
+    expectFieldError(input(), 'Use at most 2 decimals', screen.getByRole('button', { name: /^Save \d+ reading/ }));
+    fireEvent.change(input(), { target: { value: '1350' } });
+    expect(input()).not.toHaveAttribute('aria-invalid');
+    state.run.mockRejectedValue(new Error('A reading for that day is on an SOA'));
+    save();
+    const alert = await banner('A reading for that day is on an SOA');
+    expect(precedes(alert, date)).toBe(true);
   });
   it('replaces a reading made earlier the same day, comparing with the one before', async () => {
     state.run.mockResolvedValue([]);
@@ -203,7 +238,13 @@ describe('Meter readings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Meters' }));
     fireEvent.click(screen.getByRole('button', { name: 'Show Room 1 electricity history' }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit Nov 5 reading' }));
-    fireEvent.change(screen.getByLabelText('New value for Nov 5'), { target: { value: '1310' } });
+    const value = screen.getByLabelText('New value for Nov 5');
+    expect(value).toBeRequired();
+    fireEvent.change(value, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expectFieldError(value, 'Type the number on the meter', screen.getByRole('button', { name: 'Save' })));
+    fireEvent.change(value, { target: { value: '1310' } });
+    expect(value).not.toHaveAttribute('aria-invalid');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveReadings', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', readOn: '2026-11-05', value: 1310, isReset: false }] }));
@@ -235,10 +276,12 @@ describe('Issued bills', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('TOTAL ₱5,900')));
     expect(toasts.success).toHaveBeenCalledWith('Copied Juan Dela Cruz’s SOA as text. Paste it anywhere, like Messenger.');
   });
-  it('marks a late bill past due and lists it first', () => {
+  it('marks an unpaid late bill Overdue and lists it first', () => {
     state.bills = [issued('t2', { id: 'b2', number: 'LU-2026-0003', dueOn: '2026-11-15' }), issued('t1', { dueOn: '2026-11-03' })];
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Past due · 7 days')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('₱5,900 to pay')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('7 days late')).toBeInTheDocument();
+    expect(row('Ana Reyes').getByText('Due Nov 15')).toBeInTheDocument();
     const names = within(screen.getByRole('region', { name: 'SOAs generated · 2' })).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'));
     expect(names).toEqual(['Monthly SOA LU-2026-0002 · Juan Dela Cruz · Room 1', 'Monthly SOA LU-2026-0003 · Ana Reyes · Room A']);
   });
@@ -247,12 +290,20 @@ describe('Issued bills', () => {
     openBills();
     expect(row('Juan Dela Cruz').queryByRole('button', { name: /^Juan Dela Cruz/ })).not.toBeInTheDocument();
   });
-  it('notes on a move-in SOA which months its advance covers', () => {
+  it('shows each SOA number quietly on its own line, with labelled buttons to copy and view it', () => {
+    state.bills = [issued('t1')];
+    openBills();
+    const soa = row('Juan Dela Cruz');
+    expect(soa.getByText('SOA no. LU-2026-0002')).toHaveClass('text-xs', 'text-muted-foreground');
+    expect(soa.getByRole('button', { name: 'Copy Juan Dela Cruz’s monthly SOA as text' })).toHaveTextContent('Copy as text');
+    expect(soa.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' })).toHaveTextContent('View SOA');
+  });
+  it('keeps the move-in advance details in the SOA, not in the row', () => {
     state.bills = [issued('t3', { id: 'mi', kind: 'move_in', number: 'LU-2026-0001', period: '2026-11', dueOn: '2026-11-01' })];
     openBills();
     const soa = within(screen.getByRole('listitem', { name: /^Move-in SOA LU-2026-0001/ }));
-    expect(soa.getByText('Includes November rent as advance. First monthly SOA: December 2026.')).toBeInTheDocument();
-    expect(screen.queryByText(/Paid by advance/)).not.toBeInTheDocument();
+    expect(soa.getByText('Move-in SOA')).toBeInTheDocument();
+    expect(soa.queryByText(/Advance covers/)).not.toBeInTheDocument();
   });
   it('flags a cancelled SOA with no replacement while cancelled ones are hidden', () => {
     state.bills = [issued('t1'), issued('t3', { id: 'mi', kind: 'move_in', status: 'void', number: 'LU-2026-0001', period: '2026-11', dueOn: '2026-11-01' })];
@@ -357,12 +408,18 @@ describe('Home', () => {
     openHome();
     expect(screen.queryByText(/cancelled SOA/)).not.toBeInTheDocument();
   });
-  it('asks to check a recent bill past its due date, but not an old or move-in one', () => {
+  // Payments are recorded now, so every unpaid bill past its due date is Overdue, old and move-in ones included.
+  it('lists every unpaid bill past its due date under Overdue, oldest first', () => {
     state.bills = [issued('t1', { dueOn: '2026-11-03' }), issued('t2', { id: 'old', period: '2026-08', dueOn: '2026-08-15' }),
       issued('t3', { id: 'mi', kind: 'move_in', period: '2026-11', dueOn: '2026-11-01' })];
     openHome();
-    expect(screen.getByText('1 bill is past its due date')).toBeInTheDocument();
-    expect(screen.getByText('Juan Dela Cruz · ₱5,900 · 7 days late · check if paid')).toBeInTheDocument();
+    const overdue = within(screen.getByRole('region', { name: 'Overdue' }));
+    expect(overdue.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Ana Reyes'), expect.stringContaining('Ben Lim'), expect.stringContaining('Juan Dela Cruz')]);
+    expect(overdue.getAllByRole('button').map((b) => b.textContent)).toEqual(['View SOA', 'View SOA', 'View SOA']);
+    expect(overdue.getByText('₱5,900 left · 7 days late')).toBeInTheDocument();
+    fireEvent.click(overdue.getAllByRole('button', { name: /^View SOA/ })[0]);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Ana Reyes');
   });
 });
 
@@ -390,7 +447,7 @@ describe('Statement and bill sheet', () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const sheet = openJuanBill();
-    fireEvent.click(sheet.getByRole('button', { name: 'Copy for Messenger' }));
+    fireEvent.click(sheet.getByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('TOTAL ₱5,900')));
     expect(toasts.success).toHaveBeenCalledWith('Copied. Paste it in Messenger.');
   });
@@ -416,6 +473,28 @@ describe('Statement and bill sheet', () => {
     fireEvent.click(sheet.getByRole('button', { name: 'Save SOA' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateBillLines', id: 'b-t1', lines: [
       { ...issued('t1').lines[0], amount: 300000 }, issued('t1').lines[1], { kind: 'other', label: 'Discount', amount: -50000 }] }));
+  });
+  it('points at a bad amount or a half-filled extra line, and shows a refused save at the top', async () => {
+    const sheet = openJuanBill();
+    fireEvent.click(sheet.getByRole('button', { name: 'Edit SOA' }));
+    const rent = sheet.getByRole('textbox', { name: 'Rent (Nov 15 – Dec 14) amount' });
+    const save = sheet.getByRole('button', { name: 'Save SOA' });
+    fireEvent.change(rent, { target: { value: 'abc' } });
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(rent, 'Enter an amount like 10,000 or 1,500.50', save));
+    fireEvent.change(rent, { target: { value: '3,000' } });
+    expect(rent).not.toHaveAttribute('aria-invalid');
+    fireEvent.click(sheet.getByRole('button', { name: 'Add other charge' }));
+    fireEvent.change(sheet.getByRole('textbox', { name: 'Other charge amount' }), { target: { value: '100' } });
+    const name = sheet.getByRole('textbox', { name: 'Other charge name' });
+    expect(name).toBeRequired();
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(name, 'Enter a name and amount for each extra line', save));
+    fireEvent.change(name, { target: { value: 'Fee' } });
+    state.run.mockRejectedValue(new Error('This SOA was cancelled'));
+    fireEvent.click(save);
+    const alert = await banner('This SOA was cancelled');
+    expect(precedes(alert, rent)).toBe(true);
   });
   it('keeps meter lines read-only while editing', () => {
     const sheet = openJuanBill();
@@ -451,7 +530,7 @@ describe('Statement and bill sheet', () => {
   it('lets a viewer only copy', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     const sheet = openJuanBill();
-    expect(sheet.getByRole('button', { name: 'Copy for Messenger' })).toBeInTheDocument();
+    expect(sheet.getByRole('button', { name: 'Copy as text' })).toBeInTheDocument();
     expect(sheet.queryByRole('button', { name: 'Edit SOA' })).not.toBeInTheDocument();
     expect(sheet.queryByRole('button', { name: 'Cancel SOA' })).not.toBeInTheDocument();
   });
@@ -466,7 +545,7 @@ describe('Electricity billed by the month’s bill amount', () => {
   it('waits for the bill amount and saves it from the dialog', async () => {
     state.run.mockResolvedValue(undefined);
     openBills();
-    expect(row('Juan Dela Cruz').getByText('Needs bill amount')).toBeInTheDocument();
+    expect(row('Juan Dela Cruz').getByText('Needs the bill amount')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).getByRole('button', { name: 'Add bill amounts' }));
     const dialog = within(screen.getByRole('dialog', { name: 'November 2026 bill amounts' }));
@@ -474,6 +553,23 @@ describe('Electricity billed by the month’s bill amount', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Save amounts' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveUtilityBills', propertyId: 'p',
       inputs: [{ unitId: U1, kind: 'electric', period: '2026-11', amountCentavos: 234500 }] }));
+  });
+  it('points at a bad bill amount and shows a refused save at the top', async () => {
+    openBills();
+    fireEvent.click(within(screen.getByRole('region', { name: '1 SOA waiting for bill amounts' })).getByRole('button', { name: 'Add bill amounts' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'November 2026 bill amounts' }));
+    const amount = dialog.getByLabelText('Room 1 · Electricity');
+    const save = dialog.getByRole('button', { name: 'Save amounts' });
+    fireEvent.change(amount, { target: { value: 'x' } });
+    fireEvent.click(save);
+    await waitFor(() => expectFieldError(amount, 'Enter an amount like 10,000 or 1,500.50', save));
+    expect(dialog.queryByRole('alert')).toBeNull();
+    fireEvent.change(amount, { target: { value: '2,345' } });
+    expect(amount).not.toHaveAttribute('aria-invalid');
+    state.run.mockRejectedValue(new Error('Not allowed'));
+    fireEvent.click(save);
+    const alert = await banner('Not allowed');
+    expect(precedes(alert, amount)).toBe(true);
   });
   it('puts the month’s amount on the SOA', async () => {
     state.utilityBills = [{ id: 'ub', propertyId: 'p', unitId: U1, kind: 'electric', period: '2026-11', amountCentavos: 234500 }];

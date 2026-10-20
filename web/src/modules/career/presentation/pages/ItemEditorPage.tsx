@@ -351,11 +351,11 @@ export const ItemEditorPage = () => {
               </div>
               <div className="space-y-4 p-5">
                 <div className="space-y-2">
-                  <Label htmlFor="jobTitle">Job title <span className="text-muted-foreground">*</span></Label>
+                  <Label htmlFor="jobTitle" required>Job title</Label>
                   <Input id="jobTitle" required value={generate.jobTitle} onChange={(e) => generate.setJobTitle(e.target.value)} placeholder="Senior Software Engineer" className="h-11 bg-background/50" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company <span className="text-muted-foreground">*</span></Label>
+                  <Label htmlFor="company" required>Company</Label>
                   <Input id="company" required value={generate.company} onChange={(e) => generate.setCompany(e.target.value)} placeholder="Acme Corp" className="h-11 bg-background/50" />
                 </div>
                 <button

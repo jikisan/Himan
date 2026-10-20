@@ -1,9 +1,10 @@
-import { ChevronRight, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { LogOut, MoreHorizontal, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { formatPesos, roomSpots } from '@himan/shared/rentals';
-import type { RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
-import { Initials } from './Badges';
+import { contractStage, formatPesos, roomSpots } from '@himan/shared/rentals';
+import type { ContractText, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
+import { detailsStatus } from '../utils/contract';
+import { ContractBadge, Initials } from './Badges';
 import { cn } from '@core/presentation/utils';
 
 const ordinal = (n: number) => {
@@ -19,10 +20,10 @@ const rentLine = (t: RentalTenancy) => {
 };
 
 export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, onAddTenant, onOpenTenant, onMoveOut,
-  onEditRoom, onDeleteRoom }: {
+  onEditRoom, onDeleteRoom, links = [], contractTexts = [] }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; canManage: boolean; canEdit: boolean;
   onAddTenant(unitId: string): void; onOpenTenant(renterId: string): void; onMoveOut(tenancyId: string): void;
-  onEditRoom(unitId: string): void; onDeleteRoom(unitId: string): void;
+  onEditRoom(unitId: string): void; onDeleteRoom(unitId: string): void; links?: TenancyLink[]; contractTexts?: ContractText[];
 }) {
   const name = (renterId: string) => renters.find((r) => r.id === renterId)?.fullName ?? 'Tenant';
   return <div className="grid gap-4 md:grid-cols-2">
@@ -41,7 +42,7 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
               {free ? `${free} free` : 'Full'}</span>
             {canEdit && <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-11 sm:size-9" aria-label={`${unit.name} options`}><MoreHorizontal className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-11 px-2.5 sm:h-9" aria-label={`${unit.name} options`}><MoreHorizontal className="h-4 w-4" />More</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem className="gap-2" onSelect={() => onEditRoom(unit.id)}><Pencil className="h-4 w-4" />Edit room</DropdownMenuItem>
@@ -52,16 +53,21 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
           </header>
           <ul className="space-y-1 px-2 pb-2">
             {spots.map((t, i) => <li key={t?.id ?? `free-${i}`}>
-              {t ? <div className="flex items-center gap-2">
-                <button type="button" onClick={() => onOpenTenant(t.renterId)}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {t ? <div className="flex flex-wrap items-center gap-2 p-2">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
                   <Initials name={name(t.renterId)} />
-                  <span className="min-w-0"><span className="block truncate font-medium">{name(t.renterId)}</span>
-                    <span className="block truncate text-sm tabular-nums text-muted-foreground">{rentLine(t)}</span></span>
-                  <ChevronRight aria-hidden className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
-                </button>
-                {canManage && <Button variant="outline" size="sm" className="hidden h-9 shrink-0 sm:inline-flex" aria-label={`Move out ${name(t.renterId)}`}
-                  onClick={() => onMoveOut(t.id)}>Move out</Button>}
+                  <span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="truncate font-medium">{name(t.renterId)}</span>
+                    <ContractBadge stage={contractStage(t, contractTexts)} /></span>
+                    <span className="block truncate text-sm tabular-nums text-muted-foreground">{rentLine(t)}</span>
+                    {detailsStatus(links, t.id) && <span className="block truncate text-xs font-medium text-amber-700 dark:text-amber-300">{detailsStatus(links, t.id)}</span>}</span>
+                </span>
+                <span className="flex w-full gap-2">
+                  <Button variant="outline" className="h-11 flex-1 sm:h-9" aria-label={`View ${name(t.renterId)}`}
+                    onClick={() => onOpenTenant(t.renterId)}><UserRound className="h-4 w-4" />View tenant</Button>
+                  {canManage && <Button variant="outline" className="hidden h-9 flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive sm:inline-flex" aria-label={`Move out ${name(t.renterId)}`}
+                    onClick={() => onMoveOut(t.id)}><LogOut className="h-4 w-4" />Move out</Button>}
+                </span>
               </div>
               : canManage ? <button type="button" onClick={() => onAddTenant(unit.id)}
                   className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

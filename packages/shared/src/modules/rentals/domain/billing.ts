@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { formatPesos } from './money.js';
 import type { BillLine, MeterKind } from './schemas.js';
+import type { PaymentAccount } from './payments.js';
 import type { MeterReading, RentalBill, RentalContract, RentalProperty, RentalTenancy, RentalUnit, UtilityBill } from './types.js';
 
 export interface BillingContext {
@@ -195,8 +196,17 @@ export function meterDetail(line: BillLine): string {
     + (m.sharedWith > 1 ? `, your 1/${m.sharedWith} share` : '');
 }
 
+/** Total plus previous balance minus paid, never below zero. */
+export const amountDueNow = (totalCentavos: number, info: { previousBalanceCentavos?: number; paidCentavos?: number }): number =>
+  Math.max(totalCentavos + (info.previousBalanceCentavos ?? 0) - (info.paidCentavos ?? 0), 0);
+
+// GCash and Maya print as the wallet's name; a bank or other account prints its label (e.g. "BPI").
+const ACCOUNT_NAME: Partial<Record<PaymentAccount['kind'], string>> = { gcash: 'GCash', maya: 'Maya' };
+export const accountTitle = (a: Pick<PaymentAccount, 'kind' | 'label'>): string => ACCOUNT_NAME[a.kind] ?? a.label;
+
 export function statementText(bill: Pick<RentalBill, 'period' | 'dueOn' | 'lines'> & Partial<Pick<RentalBill, 'number' | 'issuedOn'>>, info: {
   propertyName: string; ownerName: string; ownerAddress: string; renterName: string; roomName: string; lateFeeCentavos: number;
+  accounts?: PaymentAccount[]; previousBalanceCentavos?: number; paidCentavos?: number;
 }): string {
   const rows = bill.lines.map((l) => {
     const detail = meterDetail(l);
@@ -206,7 +216,15 @@ export function statementText(bill: Pick<RentalBill, 'period' | 'dueOn' | 'lines
     [info.propertyName, info.ownerName, info.ownerAddress].filter(Boolean).join(' · '),
     [bill.number && `Bill No. ${bill.number}`, bill.issuedOn && `Date ${long(bill.issuedOn)}`].filter(Boolean).join(' · '),
     `Tenant: ${info.renterName} · ${info.roomName}`, `Month: ${periodLabel(bill.period)}`].filter(Boolean);
-  const footer = [`TOTAL ${formatBillPesos(billTotal(bill.lines))}`, `Due ${long(bill.dueOn)}`,
+  const footer = [`TOTAL ${formatBillPesos(billTotal(bill.lines))}`,
+    ...(info.previousBalanceCentavos ? [`Previous balance ${formatBillPesos(info.previousBalanceCentavos)}`] : []),
+    ...(info.paidCentavos ? [`Paid ${formatBillPesos(info.paidCentavos)}`] : []),
+    // Only when it differs from the total: after a previous balance or a payment.
+    ...(info.previousBalanceCentavos || info.paidCentavos ? [amountDueNow(billTotal(bill.lines), info) > 0
+      ? `Amount due now ${formatBillPesos(amountDueNow(billTotal(bill.lines), info))}` : 'Paid in full'] : []),
+    `Due ${long(bill.dueOn)}`,
     ...(info.lateFeeCentavos > 0 ? [`Late payment will have a penalty of ${formatBillPesos(info.lateFeeCentavos)}.`] : [])];
-  return [...header, '', ...rows, '', ...footer].join('\n');
+  const payTo = info.accounts?.length ? ['', 'Pay to:', ...info.accounts.map((a) =>
+    [`${accountTitle(a)} —`, a.accountName, a.accountNumber].filter(Boolean).join(' '))] : [];
+  return [...header, '', ...rows, '', ...footer, ...payTo].join('\n');
 }

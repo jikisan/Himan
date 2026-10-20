@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useId, useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 import { ChevronDown, Save, Settings } from 'lucide-react';
 import {
   Button,
@@ -12,7 +14,8 @@ interface SavedOptionSelectProps {
   options: InvoiceSavedOptionType[];
   currentValue: string;
   onSelect: (value: string) => void;
-  onSaveCurrent: (label: string) => void;
+  /** Rejects when the save fails; the popover then shows the failure under the label. */
+  onSaveCurrent: (label: string) => Promise<void> | void;
   onManage: () => void;
 }
 
@@ -26,15 +29,26 @@ export const SavedOptionSelect = ({
   const [open, setOpen] = useState(false);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  // Several pickers share a page, so the label id must be unique.
+  const nameId = `${useId()}-saved-option-name`;
+  const fe = useFieldErrors();
 
   const handleSelect = (value: string) => {
     onSelect(value);
     setOpen(false);
   };
 
-  const handleSave = () => {
-    if (!saveLabel.trim() || !currentValue.trim()) return;
-    onSaveCurrent(saveLabel.trim());
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    if (!saveLabel.trim()) { fe.fail(nameId, 'Enter a label'); return; }
+    if (!currentValue.trim()) return;
+    try {
+      await onSaveCurrent(saveLabel.trim());
+    } catch {
+      fe.fail(nameId, 'Failed to save option');
+      return;
+    }
     setSaveLabel('');
     setShowSaveInput(false);
     setOpen(false);
@@ -69,20 +83,26 @@ export const SavedOptionSelect = ({
         )}
 
         {showSaveInput ? (
-          <div className="flex gap-1 items-center">
+          <form noValidate onSubmit={handleSave} className="space-y-1">
+            <div className="flex gap-1 items-center">
             <input
+              id={nameId}
               autoFocus
+              required
+              aria-label="Label for this entry"
+              {...fe.invalid(nameId)}
               value={saveLabel}
-              onChange={(e) => setSaveLabel(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+              onChange={(e) => { setSaveLabel(e.target.value); fe.clear(nameId); }}
               placeholder="Label for this entry"
-              className="flex-1 h-7 px-2 text-xs border border-border rounded bg-background"
+              className="flex-1 h-7 px-2 text-xs border border-border rounded bg-background aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/25"
               maxLength={100}
             />
-            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleSave} disabled={!saveLabel.trim() || !currentValue.trim()}>
+            <Button type="submit" size="sm" variant="ghost" className="h-7 px-2" aria-label="Save option" disabled={!currentValue.trim()}>
               <Save className="h-3 w-3" />
             </Button>
-          </div>
+            </div>
+            <FieldError id={nameId} message={fe.errors[nameId]} />
+          </form>
         ) : (
           <div className="flex gap-1 border-t border-border pt-2">
             <Button

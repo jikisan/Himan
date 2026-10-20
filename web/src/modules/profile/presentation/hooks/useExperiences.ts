@@ -33,7 +33,6 @@ export const useExperiences = () => {
     },
     onError: (err) => {
       Logger.error('Error creating experience', err);
-      toast.error('Failed to create experience');
     },
   });
 
@@ -45,7 +44,6 @@ export const useExperiences = () => {
     },
     onError: (err) => {
       Logger.error('Error updating experience', err);
-      toast.error('Failed to save experience');
     },
   });
 

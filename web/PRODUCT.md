@@ -42,4 +42,5 @@ No brand assets, logos, or marketing copy — this is an internal tool, not a ma
 - One user, own data: no multi-tenant assumptions, no generic onboarding.
 - Reuse over re-authoring: the career module's core idea (shared block pool, not per-role documents) should read clearly in the UI.
 - Consistency across modules matters more than any single module's novelty — shared shadcn tokens are the one visual throughline the app has today.
+- Plain, labelled controls for older and non-technical users (rentals co-managers and tenants): every action button shows its text label next to any icon; no icon-only buttons and no hidden "tap the row" actions as the only way to do something.
 - Operate mode: the visitor is completing a task (build a letter, manage blocks), not being persuaded — scanability and low friction outrank expressive flourish.

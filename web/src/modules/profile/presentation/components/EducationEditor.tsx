@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Textarea } from '@/components/ui';
 import type { EducationType } from '@himan/shared/profile';
@@ -34,16 +36,32 @@ interface EducationEditorProps {
 
 export const EducationEditor = ({ education, onSave, onCancel, isSaving }: EducationEditorProps) => {
   const [values, setValues] = useState<EducationFormValues>(() => toFormValues(education));
+  const fe = useFieldErrors();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (!values.school.trim()) invalid.push(['edu-school', 'Enter the school']);
+    if (invalid.length) { fe.failMany(invalid); return; }
+    try {
+      await onSave(values);
+    } catch {
+      fe.setFormError(education ? 'Failed to save education' : 'Failed to create education');
+    }
+  };
 
   const set = <K extends keyof EducationFormValues>(key: K, value: EducationFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
+    <form noValidate onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border p-4">
+      <FormErrorBanner message={fe.formError} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="edu-school">School</Label>
-          <Input id="edu-school" value={values.school} onChange={(e) => set('school', e.target.value)} />
+          <Label htmlFor="edu-school" required>School</Label>
+          <Input id="edu-school" required {...fe.invalid('edu-school')} value={values.school} onChange={(e) => { set('school', e.target.value); fe.clear('edu-school'); }} />
+          <FieldError id="edu-school" message={fe.errors['edu-school']} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="edu-location">Location</Label>
@@ -88,12 +106,12 @@ export const EducationEditor = ({ education, onSave, onCancel, isSaving }: Educa
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(values)} disabled={isSaving || !values.school.trim()}>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={isSaving}>
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>
-    </div>
+    </form>
   );
 };

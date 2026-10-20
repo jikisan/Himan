@@ -11,6 +11,8 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { GOVERNMENT_TYPES, governmentRecordSchema, maskGovernmentNumber, filterGovernmentRecords,
   validateGovernmentFile } from '@himan/shared/government';
 import type { GovernmentRecord, GovernmentRecordInput, GovernmentDocument } from '@himan/shared/government';
+import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { useGovernment } from '../hooks/useGovernment';
 import { GovernmentAgencyMark } from '../components/GovernmentAgencyMark';
 import { GovernmentDocumentPreview } from '../components/GovernmentDocumentPreview';
@@ -23,32 +25,41 @@ function RecordForm({ record, busy, onSave, onCancel }: {
     number: record.number, issueDate: record.issueDate, expiryDate: record.expiryDate, notes: record.notes,
   } : { agency: 'PhilHealth', label: '', registeredName: '', number: '', issueDate: null, expiryDate: null, notes: '' });
   const [custom, setCustom] = useState(!!record && !GOVERNMENT_TYPES.some((type) => type === record.agency));
-  const [error, setError] = useState('');
-  const set = (field: keyof GovernmentRecordInput, value: string | null) => setForm((previous) => ({ ...previous, [field]: value }));
-  return <form className="space-y-4" onSubmit={async (event) => {
+  const fe = useFieldErrors();
+  const ids: Partial<Record<keyof GovernmentRecordInput, string>> = {
+    agency: custom ? 'gov-custom' : 'gov-type', label: custom ? 'gov-custom' : 'gov-type', registeredName: 'gov-name', number: 'gov-number' };
+  const set = (field: keyof GovernmentRecordInput, value: string | null) => {
+    setForm((previous) => ({ ...previous, [field]: value }));
+    const id = ids[field]; if (id) fe.clear(id);
+  };
+  return <form className="space-y-4" noValidate onSubmit={async (event) => {
     event.preventDefault();
+    fe.clear();
     const result = governmentRecordSchema.safeParse({ ...form, label: form.label.trim() || form.agency });
-    if (!result.success) { setError(result.error.issues[0].message); return; }
-    setError('');
+    if (!result.success) { fe.failMany(zodFieldErrors(result.error, (path) => ids[path[0] as keyof GovernmentRecordInput] ?? null)); return; }
     try { await onSave(result.data); }
-    catch { setError('Could not save this record. Your changes are still here; retry when connected.'); }
+    catch { fe.setFormError('Could not save this record. Your changes are still here; retry when connected.'); }
   }}>
+    <FormErrorBanner message={fe.formError} />
     <fieldset disabled={busy} className="space-y-4">
       <div className="space-y-2"><Label htmlFor="gov-type">Type</Label>
         <select id="gov-type" className="h-12 w-full rounded-xl border border-input bg-background px-3 text-base"
-          value={custom ? 'custom' : form.agency} onChange={(event) => {
+          {...fe.invalid('gov-type')} value={custom ? 'custom' : form.agency} onChange={(event) => {
             setCustom(event.target.value === 'custom'); set('agency', event.target.value === 'custom' ? '' : event.target.value);
           }}>
           {GOVERNMENT_TYPES.map((type) => <option key={type}>{type}</option>)}<option value="custom">Custom type</option>
         </select>
-        {custom && <><Label htmlFor="gov-custom">Custom type name</Label><Input className="h-12 rounded-xl text-base" id="gov-custom" value={form.agency}
-          onChange={(event) => set('agency', event.target.value)} maxLength={80} required placeholder="e.g. PRC license" /></>}
+        <FieldError id="gov-type" message={fe.errors['gov-type']} />
+        {custom && <><Label htmlFor="gov-custom" required>Custom type name</Label><Input className="h-12 rounded-xl text-base" id="gov-custom" value={form.agency}
+          {...fe.invalid('gov-custom')} onChange={(event) => set('agency', event.target.value)} maxLength={80} required placeholder="e.g. PRC license" />
+          <FieldError id="gov-custom" message={fe.errors['gov-custom']} /></>}
       </div>
-      <div className="space-y-2"><Label htmlFor="gov-name">Registered name</Label><Input className="h-12 rounded-xl text-base" autoFocus id="gov-name" required maxLength={160}
-        value={form.registeredName} onChange={(event) => set('registeredName', event.target.value)} autoComplete="name" /></div>
+      <div className="space-y-2"><Label htmlFor="gov-name" required>Registered name</Label><Input className="h-12 rounded-xl text-base" autoFocus id="gov-name" required maxLength={160}
+        {...fe.invalid('gov-name')} value={form.registeredName} onChange={(event) => set('registeredName', event.target.value)} autoComplete="name" />
+        <FieldError id="gov-name" message={fe.errors['gov-name']} /></div>
       <div className="space-y-2"><Label htmlFor="gov-number">ID / member number <span className="text-muted-foreground">(optional)</span></Label>
-        <Input className="h-12 rounded-xl font-mono text-base" id="gov-number" value={form.number} onChange={(event) => set('number', event.target.value)} maxLength={100} autoComplete="off" /></div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <Input className="h-12 rounded-xl font-mono text-base" id="gov-number" value={form.number} {...fe.invalid('gov-number')} onChange={(event) => set('number', event.target.value)} maxLength={100} autoComplete="off" />
+        <FieldError id="gov-number" message={fe.errors['gov-number']} /></div>
       <div className="flex justify-end gap-3 border-t pt-5"><Button className="h-11 rounded-xl hover:scale-100" type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button className="h-11 rounded-xl bg-foreground text-background hover:scale-100 hover:bg-foreground/90" type="submit">{busy && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}Save record</Button></div>
     </fieldset>
@@ -67,6 +78,7 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
   const [revealed, setRevealed] = useState(false);
   const [revealedPreviewId, setRevealedPreviewId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const uploadErrors = useFieldErrors();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; document: boolean; name: string } | null>(null);
   const selected = records.find((record) => record.id === activeDialog?.id);
   const disabled = busy || uploading;
@@ -87,6 +99,7 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
 
   const upload = async (files: File[], recordId: string) => {
     setUploading(true);
+    uploadErrors.clear();
     try {
       for (const file of files) validateGovernmentFile(file.name, file.type, file.size);
       for (const file of files) {
@@ -94,7 +107,7 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
       }
       if (files.length) toast.success('Documents attached');
     } catch (failure) {
-      toast.error(failure instanceof Error ? failure.message : 'Could not attach document. Check the record before retrying.');
+      uploadErrors.fail('gov-upload', failure instanceof Error ? failure.message : 'Could not attach document. Check the record before retrying.');
     } finally { setUploading(false); }
   };
 
@@ -151,7 +164,7 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
     <Dialog open={!!activeDialog && online && !!userId} onOpenChange={(isOpen) => { if (!isOpen && !disabled) setDialog(null); }}>
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:rounded-2xl transition-none motion-reduce:animate-none [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full" onInteractOutside={(event) => { if (disabled) event.preventDefault(); }}
         onEscapeKeyDown={(event) => { if (disabled) event.preventDefault(); }}>
-        <DialogHeader className="shrink-0 border-b p-4 pr-16 text-left">
+        <DialogHeader className="shrink-0 border-b p-4 pr-24 text-left">
           <div className="flex items-center gap-3">
             {selected && !activeDialog?.editing && <GovernmentAgencyMark agency={selected.agency} />}
             <div className="min-w-0 space-y-1"><DialogTitle className="break-words text-lg leading-6">{activeDialog?.editing ? selected ? 'Edit record' : 'Add record' : selected?.label ?? 'Record unavailable'}</DialogTitle>
@@ -190,8 +203,9 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
               </div>
             </div>)}
             <Label htmlFor="gov-upload" className="inline-flex items-center gap-2 text-sm font-medium"><Upload size={16} />Attach existing files</Label>
-            <Input className="min-h-11 cursor-pointer" id="gov-upload" type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={disabled || selected.deleting}
+            <Input className="min-h-11 cursor-pointer" id="gov-upload" type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={disabled || selected.deleting} {...uploadErrors.invalid('gov-upload')}
               onChange={(event) => { const files = Array.from(event.target.files ?? []); event.target.value = ''; void upload(files, selected.id); }} />
+            <FieldError id="gov-upload" message={uploadErrors.errors['gov-upload']} />
             {uploading && <p role="status" className="text-sm">Uploading documents…</p>}
             </div>
           </details>

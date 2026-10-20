@@ -31,7 +31,6 @@ export const useCvBlocks = () => {
     onSuccess: invalidate,
     onError: (err) => {
       Logger.error('Error creating CV block', err);
-      toast.error('Failed to save CV block');
     },
   });
 
@@ -41,7 +40,6 @@ export const useCvBlocks = () => {
     onSuccess: invalidate,
     onError: (err) => {
       Logger.error('Error updating CV block', err);
-      toast.error('Failed to save CV block');
     },
   });
 

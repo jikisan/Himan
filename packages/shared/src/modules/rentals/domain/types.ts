@@ -4,6 +4,10 @@ import type { RentalRole } from './roles.js';
 export interface RentalUnit extends UnitInput { id: string; propertyId: string }
 export interface RentalProperty extends PropertyInput {
   id: string; createdBy: string; role: RentalRole; archivedAt: string | null;
+  /** Bills issued before this date predate payment tracking (null: everything is tracked). */
+  paymentsTrackedFrom: string | null;
+  /** The owner's saved signature (PNG data URL) used to countersign in one tap. */
+  lessorSignature?: string | null;
   units: RentalUnit[]; createdAt: string; updatedAt: string;
 }
 export interface RenterFile {
@@ -18,6 +22,8 @@ export interface RentalContract {
 export interface RentalTenancy {
   id: string; propertyId: string; unitId: string; renterId: string;
   moveIn: string; moveOut: string | null; contracts: RentalContract[]; charges: TenancyCharge[];
+  /** The owner dismissed the "write a contract" nudge: a written contract stays optional. */
+  contractNotNeeded?: boolean;
 }
 export interface RentalMember { userId: string; email: string; role: RentalRole }
 export interface MeterReading {
@@ -28,4 +34,6 @@ export interface UtilityBill { id: string; propertyId: string; unitId: string; k
 export interface RentalBill {
   id: string; propertyId: string; tenancyId: string; kind: 'move_in' | 'monthly' | 'final'; period: string; number: string;
   issuedOn: string; dueOn: string; lines: BillLine[]; status: 'issued' | 'void'; voidReason: string;
+  /** Counted by the tenancy's deposit settlement, so it can no longer change. */
+  settled?: boolean;
 }

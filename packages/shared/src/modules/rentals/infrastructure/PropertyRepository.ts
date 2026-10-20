@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getSupabase } from '../../../config/index.js';
 import { propertySchema, unitSchema, RENTAL_ROLES } from '../domain/index.js';
 import type { PropertyInput, RentalMember, RentalProperty, UnitInput } from '../domain/index.js';
-import { propertyRow, rentalError } from './rows.js';
+import { PROPERTY_COLUMNS, propertyRow, rentalError } from './rows.js';
 
 const memberRow = z.object({ user_id: z.string(), email: z.string(), role: z.enum(RENTAL_ROLES) })
   .transform((r): RentalMember => ({ userId: r.user_id, email: r.email, role: r.role }));
@@ -11,7 +11,7 @@ export class PropertyRepository {
   // ponytail: no pagination; a landlord has a handful of properties.
   async findAll(userId: string): Promise<RentalProperty[]> {
     const { data, error } = await getSupabase().from('rental_properties')
-      .select('*, units:rental_units(*), members:rental_property_members!inner(role)')
+      .select(`${PROPERTY_COLUMNS}, units:rental_units(*), members:rental_property_members!inner(role)`)
       .eq('members.user_id', userId).order('created_at').order('id');
     if (error) throw rentalError(error, 'Could not load properties');
     return z.array(propertyRow).parse(data);

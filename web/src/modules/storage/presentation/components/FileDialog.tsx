@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Download, File as FileIcon, Image, Video, FileText } from 'lucide-react';
 import type { File } from '../../domain/entities';
 import type { StorageFolder } from '../../domain/entities';
@@ -40,6 +42,8 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
   const [folderId, setFolderId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const fe = useFieldErrors();
+  const clearErrors = fe.clear;
 
   useEffect(() => {
     if (file) {
@@ -47,11 +51,15 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
       setName(file.name);
       setFolderId(file.folderId);
       setDescription(file.description || '');
+      clearErrors();
     }
-  }, [file]);
+  }, [file, clearErrors]);
 
-  const handleSave = async () => {
-    if (!file || !name.trim()) return;
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    if (!file) return;
+    if (!name.trim()) { fe.fail('name', 'Enter a file name'); return; }
 
     setIsSaving(true);
     try {
@@ -61,6 +69,8 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
         description: description.trim() || null,
       });
       onOpenChange(false);
+    } catch {
+      fe.setFormError('Failed to save file');
     } finally {
       setIsSaving(false);
     }
@@ -81,7 +91,7 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
       document.body.removeChild(a);
     } catch (error) {
       console.error('Error downloading file:', error);
-      alert('Failed to download file');
+      fe.setFormError('Failed to download file');
     }
   };
 
@@ -102,7 +112,9 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
           <DialogDescription>View and edit file information</DialogDescription>
         </DialogHeader>
 
+        <form noValidate onSubmit={handleSave}>
         <div className="space-y-6 py-4">
+          <FormErrorBanner message={fe.formError} />
           {/* File Preview */}
           <div className="flex items-center justify-center bg-secondary rounded-lg p-6">
             {file.thumbnailUrl ? (
@@ -139,14 +151,17 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
           {/* Editable Fields */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">File Name</Label>
+              <Label htmlFor="name" required>File Name</Label>
               <Input
                 id="name"
+                required
+                {...fe.invalid('name')}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); fe.clear('name'); }}
                 placeholder="File name"
                 maxLength={255}
               />
+              <FieldError id="name" message={fe.errors.name} />
             </div>
 
             <div>
@@ -180,14 +195,15 @@ export const FileDialog = ({ file, folders, open, onOpenChange, onSave }: FileDi
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleDownload}>
+          <Button type="button" variant="outline" onClick={handleDownload}>
             <Download className="h-4 w-4 mr-2" />
             Download
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim()}>
+          <Button type="submit" disabled={isSaving}>
             {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -33,7 +33,6 @@ export const useEducation = () => {
     },
     onError: (err) => {
       Logger.error('Error creating education', err);
-      toast.error('Failed to create education');
     },
   });
 
@@ -45,7 +44,6 @@ export const useEducation = () => {
     },
     onError: (err) => {
       Logger.error('Error updating education', err);
-      toast.error('Failed to save education');
     },
   });
 

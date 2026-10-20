@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,7 +95,8 @@ export const CardDialog = ({
   });
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const fe = useFieldErrors();
+  const clearErrors = fe.clear;
 
   useEffect(() => {
     if (card) {
@@ -126,8 +129,8 @@ export const CardDialog = ({
     }
     setShowCardNumber(false);
     setShowCvv(false);
-    setErrors({});
-  }, [card, open]);
+    clearErrors();
+  }, [card, open, clearErrors]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -164,16 +167,19 @@ export const CardDialog = ({
     }
 
 
-    setErrors(newErrors);
+    fe.failMany(Object.entries(newErrors));
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
     if (!validateForm()) {
       return;
     }
 
-    await onSave({
+    try {
+      await onSave({
       cardName: formData.cardName.trim(),
       cardNumber: formData.cardNumber.replace(/\D/g, ''),
       cvv: formData.cvv,
@@ -184,7 +190,11 @@ export const CardDialog = ({
       categoryId: formData.categoryId,
       notes: formData.notes.trim() || null,
       dueDay: formData.dueDay,
-    });
+      });
+    } catch (err) {
+      fe.setFormError(err instanceof Error ? err.message : 'Could not save this card.');
+      return;
+    }
     onOpenChange(false);
   };
 
@@ -197,6 +207,7 @@ export const CardDialog = ({
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCardNumber(e.target.value);
     setFormData({ ...formData, cardNumber: formatted });
+    fe.clear('cardNumber');
   };
 
   return (
@@ -209,26 +220,32 @@ export const CardDialog = ({
           </DialogDescription>
         </DialogHeader>
 
+        <form noValidate onSubmit={handleSave}>
         <div className="space-y-4">
+          <FormErrorBanner message={fe.formError} />
           {/* Card Name */}
           <div className="space-y-2">
-            <Label htmlFor="cardName">Card Name *</Label>
+            <Label htmlFor="cardName" required>Card Name</Label>
             <Input
               id="cardName"
+              required
+              {...fe.invalid('cardName')}
               value={formData.cardName}
-              onChange={(e) => setFormData({ ...formData, cardName: e.target.value })}
+              onChange={(e) => { setFormData({ ...formData, cardName: e.target.value }); fe.clear('cardName'); }}
               placeholder="e.g., Personal Visa"
               maxLength={100}
             />
-            {errors.cardName && <p className="text-sm text-destructive">{errors.cardName}</p>}
+            <FieldError id="cardName" message={fe.errors.cardName} />
           </div>
 
           {/* Card Number */}
           <div className="space-y-2">
-            <Label htmlFor="cardNumber">Card Number *</Label>
+            <Label htmlFor="cardNumber" required>Card Number</Label>
             <div className="flex gap-2">
               <Input
                 id="cardNumber"
+                required
+                {...fe.invalid('cardNumber')}
                 type={showCardNumber ? 'text' : 'password'}
                 value={formData.cardNumber}
                 onChange={handleCardNumberChange}
@@ -237,50 +254,56 @@ export const CardDialog = ({
                 className="flex-1"
               />
               <Button
+                type="button"
                 size="icon"
                 variant="ghost"
+                aria-label={showCardNumber ? 'Hide card number' : 'Show card number'}
                 onClick={() => setShowCardNumber(!showCardNumber)}
                 className="h-10 w-10"
               >
                 {showCardNumber ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
-            {errors.cardNumber && <p className="text-sm text-destructive">{errors.cardNumber}</p>}
+            <FieldError id="cardNumber" message={fe.errors.cardNumber} />
           </div>
 
           {/* CVV and Expiry */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="cvv">CVV *</Label>
+              <Label htmlFor="cvv" required>CVV</Label>
               <div className="flex gap-2">
                 <Input
                   id="cvv"
+                  required
+                  {...fe.invalid('cvv')}
                   type={showCvv ? 'text' : 'password'}
                   value={formData.cvv}
-                  onChange={(e) => setFormData({ ...formData, cvv: e.target.value.replace(/\D/g, '') })}
+                  onChange={(e) => { setFormData({ ...formData, cvv: e.target.value.replace(/\D/g, '') }); fe.clear('cvv'); }}
                   placeholder="123"
                   maxLength={4}
                   className="flex-1"
                 />
                 <Button
+                  type="button"
                   size="icon"
                   variant="ghost"
+                  aria-label={showCvv ? 'Hide CVV' : 'Show CVV'}
                   onClick={() => setShowCvv(!showCvv)}
                   className="h-10 w-10"
                 >
                   {showCvv ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              {errors.cvv && <p className="text-sm text-destructive">{errors.cvv}</p>}
+              <FieldError id="cvv" message={fe.errors.cvv} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="expiryMonth">Expiry Month *</Label>
+              <Label htmlFor="expiryMonth" required>Expiry Month</Label>
               <Select
                 value={formData.expiryMonth.toString()}
-                onValueChange={(value) => setFormData({ ...formData, expiryMonth: parseInt(value) })}
+                onValueChange={(value) => { setFormData({ ...formData, expiryMonth: parseInt(value) }); fe.clear('expiryYear'); }}
               >
-                <SelectTrigger id="expiryMonth">
+                <SelectTrigger id="expiryMonth" aria-required="true">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -294,12 +317,12 @@ export const CardDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="expiryYear">Expiry Year *</Label>
+              <Label htmlFor="expiryYear" required>Expiry Year</Label>
               <Select
                 value={formData.expiryYear.toString()}
-                onValueChange={(value) => setFormData({ ...formData, expiryYear: parseInt(value) })}
+                onValueChange={(value) => { setFormData({ ...formData, expiryYear: parseInt(value) }); fe.clear('expiryYear'); }}
               >
-                <SelectTrigger id="expiryYear">
+                <SelectTrigger id="expiryYear" aria-required="true" {...fe.invalid('expiryYear')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -310,7 +333,7 @@ export const CardDialog = ({
                   ))}
                 </SelectContent>
               </Select>
-              {errors.expiryYear && <p className="text-sm text-destructive">{errors.expiryYear}</p>}
+              <FieldError id="expiryYear" message={fe.errors.expiryYear} />
             </div>
           </div>
 
@@ -412,14 +435,15 @@ export const CardDialog = ({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="mt-4">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!formData.cardName || !formData.cardNumber || !formData.cvv}>
+          <Button type="submit">
             {card ? 'Save Changes' : 'Add Card'}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -31,7 +31,6 @@ export const useCareerBlocks = () => {
     onSuccess: invalidate,
     onError: (err) => {
       Logger.error('Error creating career block', err);
-      toast.error('Failed to save block');
     },
   });
 
@@ -41,7 +40,6 @@ export const useCareerBlocks = () => {
     onSuccess: invalidate,
     onError: (err) => {
       Logger.error('Error updating career block', err);
-      toast.error('Failed to save block');
     },
   });
 

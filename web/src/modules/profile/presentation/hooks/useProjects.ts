@@ -33,7 +33,6 @@ export const useProjects = () => {
     },
     onError: (err) => {
       Logger.error('Error creating project', err);
-      toast.error('Failed to create project');
     },
   });
 
@@ -45,7 +44,6 @@ export const useProjects = () => {
     },
     onError: (err) => {
       Logger.error('Error updating project', err);
-      toast.error('Failed to save project');
     },
   });
 

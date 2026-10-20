@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 import { UserPlus, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -35,12 +38,19 @@ export const AddShopperDialog = ({
   isAdding,
 }: AddShopperDialogProps) => {
   const [email, setEmail] = useState('');
+  const fe = useFieldErrors();
 
-  const handleAdd = async () => {
+  const handleAdd = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
     const trimmed = email.trim();
-    if (!trimmed) return;
-    await onAddShopper(trimmed);
-    setEmail('');
+    if (!trimmed) { fe.fail('shopper-email', 'Enter an email address'); return; }
+    try {
+      await onAddShopper(trimmed);
+      setEmail('');
+    } catch (err) {
+      fe.fail('shopper-email', err instanceof Error && err.message === 'User not found' ? 'User not found with that email' : 'Failed to add shopper');
+    }
   };
 
   const isStarter = currentUserId === startedBy;
@@ -101,22 +111,26 @@ export const AddShopperDialog = ({
 
         {/* Add new shopper */}
         {isStarter && (
-          <div className="flex gap-2 pt-2 border-t">
+          <form noValidate onSubmit={handleAdd} className="space-y-2 pt-2 border-t">
+            <Label htmlFor="shopper-email" required>Shopper email</Label>
+            <div className="flex gap-2">
             <Input
+              id="shopper-email"
+              type="email"
+              required
+              {...fe.invalid('shopper-email')}
               placeholder="Email address"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAdd();
-              }}
+              onChange={(e) => { setEmail(e.target.value); fe.clear('shopper-email'); }}
               className="h-9 text-sm"
-              disabled={isAdding}
+              readOnly={isAdding}
             />
             <Button
+              type="submit"
               size="sm"
               className="h-9 px-3"
-              onClick={handleAdd}
-              disabled={!email.trim() || isAdding}
+              aria-label="Add shopper"
+              disabled={isAdding}
             >
               {isAdding ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -124,7 +138,9 @@ export const AddShopperDialog = ({
                 <UserPlus className="h-4 w-4" />
               )}
             </Button>
-          </div>
+            </div>
+            <FieldError id="shopper-email" message={fe.errors['shopper-email']} />
+          </form>
         )}
       </DialogContent>
     </Dialog>

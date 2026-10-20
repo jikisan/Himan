@@ -55,6 +55,56 @@ When adding a new module, add its alias to all three config files.
 - **Testing**: Vitest + React Testing Library + happy-dom. Co-locate tests in `__tests__` directories.
 - **Icons**: Lucide React
 
+## Buttons are labelled
+
+Older and non-technical people use this app (rentals co-managers, tenants on their own phones). Every action button shows
+a text label (an icon may sit beside it). No icon-only action buttons, and never make "tap the row" the only way to act.
+Dialogs and sheets show "Close" beside the X (from `components/ui`); month arrows read "Previous" and "Next".
+Remove, Edit and "…" menus are labelled too ("Remove", "Edit", "More"); only reorder arrows stay icon-only, with an `aria-label`.
+`RentalsPage.test.tsx` → "Labelled buttons" fails on any icon-only button on the main rentals screens.
+
+## Rentals e2e
+
+`e2e/rentals.e2e.ts` walks the whole owner and tenant flow (setup, move-in, contract, tenant link signing, countersign,
+bills, payment, move-out, deposit settlement) on desktop and phone, against a **local** Supabase stack with every
+migration applied. It signs up its own owner each run and is skipped unless `RENTALS_E2E_SERVICE_KEY` is set:
+
+```bash
+RENTALS_E2E_SERVICE_KEY=<local service_role key> VITE_SUPABASE_URL=<local API url> \
+  VITE_SUPABASE_ANON_KEY=<local anon key> npx playwright test rentals
+```
+
+Screenshots of each step land in the test output folder.
+
+## Form errors
+
+Rule for every form: a failed submit never shows its message below the buttons. It scrolls to the
+first invalid field (DOM order), focuses it, outlines it red and shows the message right under it.
+Errors not tied to a field (server refusals) go in a `FormErrorBanner` at the top of the form.
+Mandatory fields get `*` in their label (`<Label required>` / rentals `<Field required>`); the input
+itself must still carry `required` or `aria-required`.
+
+```tsx
+import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
+
+const fe = useFieldErrors();
+const submit = (e: FormEvent) => { e.preventDefault(); fe.clear();
+  const r = schema.safeParse(values);
+  if (!r.success) return fe.failMany(zodFieldErrors(r.error, (p) => `rent-${String(p[0])}`));
+  save(r.data).catch((err) => fe.setFormError(err.message)); };
+<form onSubmit={submit} noValidate><FormErrorBanner message={fe.formError} />
+  <Label htmlFor="rent-name" required>Name</Label>
+  <Input id="rent-name" required {...fe.invalid('rent-name')} onChange={(e) => { setName(e.target.value); fe.clear('rent-name'); }} />
+  <FieldError id="rent-name" message={fe.errors['rent-name']} /></form>
+```
+
+- `invalid(id)` sets `aria-invalid` + `aria-describedby="${id}-error"`; `Input`, `Textarea`, `SelectTrigger`
+  and rentals `inputClass` draw the red border/ring from `aria-invalid` (Tailwind `aria-invalid:` variant).
+- Rentals: `<Field id error={fe.errors[id]} required>` renders `FieldError` for you.
+- `setFormError` scrolls the one rendered `[data-form-error]` banner; render it only once per screen.
+- Use `noValidate` on the form when the hook validates, so the browser's own bubbles don't preempt it.
+
 ## Module Details
 
 Feature modules live under `src/modules/`. Each follows the three-layer architecture (domain → infrastructure → presentation) described in the root CLAUDE.md.

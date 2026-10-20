@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError } from '@core/presentation/components';
 import { UserPlus, X, Mail } from 'lucide-react';
 import {
   Dialog,
@@ -9,8 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { GroceryInvitationType } from '../../domain';
-import { toast } from 'sonner';
 
 interface ShareListDialogProps {
   open: boolean;
@@ -37,14 +39,16 @@ export const ShareListDialog = ({
 }: ShareListDialogProps) => {
   const [email, setEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
+  const fe = useFieldErrors();
 
-  const handleInvite = async () => {
+  const handleInvite = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
     const trimmed = email.trim().toLowerCase();
-    if (!trimmed) return;
 
     // Basic email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      toast.error('Please enter a valid email address');
+      fe.fail('share-email', 'Please enter a valid email address');
       return;
     }
 
@@ -52,6 +56,8 @@ export const ShareListDialog = ({
     try {
       await onInvite(trimmed);
       setEmail('');
+    } catch {
+      fe.fail('share-email', 'Failed to send invitation');
     } finally {
       setIsInviting(false);
     }
@@ -71,21 +77,26 @@ export const ShareListDialog = ({
         </DialogHeader>
 
         {isOwner && (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Enter email address..."
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleInvite();
-              }}
-              className="flex-1"
-            />
-            <Button onClick={handleInvite} disabled={isInviting || !email.trim()}>
-              <UserPlus className="h-4 w-4 mr-1" />
-              Invite
-            </Button>
-          </div>
+          <form noValidate onSubmit={handleInvite} className="space-y-2">
+            <Label htmlFor="share-email" required>Email address</Label>
+            <div className="flex gap-2">
+              <Input
+                id="share-email"
+                type="email"
+                required
+                {...fe.invalid('share-email')}
+                placeholder="Enter email address..."
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); fe.clear('share-email'); }}
+                className="flex-1"
+              />
+              <Button type="submit" disabled={isInviting}>
+                <UserPlus className="h-4 w-4 mr-1" />
+                Invite
+              </Button>
+            </div>
+            <FieldError id="share-email" message={fe.errors['share-email']} />
+          </form>
         )}
 
         <div className="space-y-4 mt-2">

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label } from '@/components/ui';
 import type { CertificateType } from '@himan/shared/profile';
@@ -30,16 +32,32 @@ interface CertificateEditorProps {
 
 export const CertificateEditor = ({ certificate, onSave, onCancel, isSaving }: CertificateEditorProps) => {
   const [values, setValues] = useState<CertificateFormValues>(() => toFormValues(certificate));
+  const fe = useFieldErrors();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (!values.name.trim()) invalid.push(['cert-name', 'Enter the certificate name']);
+    if (invalid.length) { fe.failMany(invalid); return; }
+    try {
+      await onSave(values);
+    } catch {
+      fe.setFormError(certificate ? 'Failed to save certificate' : 'Failed to create certificate');
+    }
+  };
 
   const set = <K extends keyof CertificateFormValues>(key: K, value: CertificateFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
+    <form noValidate onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border p-4">
+      <FormErrorBanner message={fe.formError} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="cert-name">Name</Label>
-          <Input id="cert-name" value={values.name} onChange={(e) => set('name', e.target.value)} />
+          <Label htmlFor="cert-name" required>Name</Label>
+          <Input id="cert-name" required {...fe.invalid('cert-name')} value={values.name} onChange={(e) => { set('name', e.target.value); fe.clear('cert-name'); }} />
+          <FieldError id="cert-name" message={fe.errors['cert-name']} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cert-issuer">Issuer</Label>
@@ -70,12 +88,12 @@ export const CertificateEditor = ({ certificate, onSave, onCancel, isSaving }: C
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(values)} disabled={isSaving || !values.name.trim()}>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={isSaving}>
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>
-    </div>
+    </form>
   );
 };

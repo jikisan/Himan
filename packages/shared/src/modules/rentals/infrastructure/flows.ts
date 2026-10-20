@@ -1,46 +1,48 @@
 import { finalBillLines, periodOf } from '../domain/index.js';
-import type { BillingContext, MeterKind, MeterReading, PropertyInput, ReadingInput, RenterInput, StartTenancyInput, TenancyCharge,
+import type { BillingContext, MeterKind, MeterReading, PaymentInput, PropertyInput, ReadingInput, RenterInput, StartTenancyInput, TenancyCharge,
   UnitInput } from '../domain/index.js';
 import type { IssueBillInput } from './BillRepository.js';
+import type { TenancyRepository } from './TenancyRepository.js';
 
 type MeterValue = { kind: MeterKind; value: number };
 type SaveReadings = { saveReadings(propertyId: string, inputs: ReadingInput[]): Promise<MeterReading[]> };
 
-export interface AddTenantInput {
+type FileInput = { name: string; mimeType?: string | null; bytes: ArrayBuffer };
+
+export interface MoveInInput {
   propertyId: string; unitId: string; moveIn: string;
-  /** Existing tenant, or null to create `renter` first. */
+  /** Existing tenant, or null to create `renter` in the same transaction. */
   renterId: string | null; renter: RenterInput | null;
   terms: Omit<StartTenancyInput, 'unitId' | 'renterId' | 'moveIn'>;
+  /** Paid towards the move-in bill now; null = pay later. */
+  payment: Omit<PaymentInput, 'billId'> | null;
+  /** Payment screenshots, attached after the move-in. */
+  proofs?: FileInput[];
   /** Optional starting meter readings, dated move-in. */
   readings?: MeterValue[];
   charges?: TenancyCharge[];
 }
 
-/** Creates the tenant (if new) and moves them in; a failed move-in removes the just-created tenant.
- * Starting readings and extra charges are saved afterwards; if they fail the move-in stays and a warning is returned. */
-export async function addTenant(repos: {
-  renters: { save(propertyId: string, id: null, input: RenterInput): Promise<string>; remove(id: string): Promise<void> };
-  tenancies: { start(input: StartTenancyInput): Promise<string>; setCharges?(tenancyId: string, charges: TenancyCharge[]): Promise<void> };
-  bills?: SaveReadings;
-}, a: AddTenantInput): Promise<{ renterId: string; warnings: string[] }> {
-  if (!a.renterId && !a.renter) throw new Error('Enter the tenant’s details');
-  const renterId = a.renterId ?? await repos.renters.save(a.propertyId, null, a.renter!);
-  let tenancyId: string;
-  try {
-    tenancyId = await repos.tenancies.start({ unitId: a.unitId, renterId, moveIn: a.moveIn, ...a.terms });
-  } catch (error) {
-    if (!a.renterId) await repos.renters.remove(renterId).catch(() => undefined);
-    throw error;
-  }
+/** Creates the tenant (if new), the tenancy, its move-in bill and the payment in one transaction. Starting readings, extra charges
+ * and proofs are saved afterwards; if one fails the move-in stays and a warning is returned. */
+export async function moveIn(repos: {
+  tenancies: { moveIn: TenancyRepository['moveIn']; setCharges(tenancyId: string, charges: TenancyCharge[]): Promise<void> };
+  bills: SaveReadings;
+  payments: { uploadProof(paymentId: string, propertyId: string, file: FileInput): Promise<void> };
+}, a: MoveInInput): Promise<{ renterId: string; tenancyId: string; billId: string | null; paymentId: string | null; warnings: string[] }> {
+  const ids = await repos.tenancies.moveIn({ unitId: a.unitId, renterId: a.renterId, renter: a.renter, moveIn: a.moveIn, ...a.terms, payment: a.payment });
   const warnings: string[] = [];
-  if (a.readings?.length && repos.bills) {
+  if (a.readings?.length) {
     await repos.bills.saveReadings(a.propertyId, a.readings.map((r) => ({ unitId: a.unitId, kind: r.kind, readOn: a.moveIn,
       value: r.value, isReset: false }))).catch(() => { warnings.push('Moved in, but the starting readings weren’t saved'); });
   }
-  if (a.charges?.length && repos.tenancies.setCharges) {
-    await repos.tenancies.setCharges(tenancyId, a.charges).catch(() => { warnings.push('Moved in, but the extra charges weren’t saved'); });
+  if (a.charges?.length) {
+    await repos.tenancies.setCharges(ids.tenancyId, a.charges).catch(() => { warnings.push('Moved in, but the extra charges weren’t saved'); });
   }
-  return { renterId, warnings };
+  const failed: string[] = [];
+  if (ids.paymentId) for (const file of a.proofs ?? []) await repos.payments.uploadProof(ids.paymentId, a.propertyId, file).catch(() => { failed.push(file.name); });
+  if (failed.length) warnings.push(`Couldn’t attach ${failed.join(', ')}. Add it again from the payment.`);
+  return { ...ids, warnings };
 }
 
 /** Saves final readings, records the move-out, then issues a final bill for the leaver's unbilled usage. */

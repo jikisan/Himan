@@ -50,7 +50,7 @@ const tenancyTerms = {
   advanceMonths: z.number().int().min(0).max(12), depositCentavos: centavos(0),
 };
 const endsAfterStart = [(t: { startDate: string; endDate: string }) => t.endDate > t.startDate,
-  { message: 'Contract must end after it starts', path: ['endDate'] }] as [(t: { startDate: string; endDate: string }) => boolean,
+  { message: 'The lease must end after it starts', path: ['endDate'] }] as [(t: { startDate: string; endDate: string }) => boolean,
   { message: string; path: string[] }];
 
 /** Contract terms of a move-in, before the unit and tenant ids exist. */

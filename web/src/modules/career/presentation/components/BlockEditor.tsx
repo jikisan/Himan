@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { resolvePlaceholders, type CareerBlockKind, type CareerBlockType, type CreateCareerBlockDto } from '@himan/shared/career';
 
 const KIND_OPTIONS: { value: CareerBlockKind; label: string }[] = [
@@ -46,6 +48,8 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
   const [body, setBody] = useState('');
   const [tags, setTags] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const fe = useFieldErrors();
+  const clearErrors = fe.clear;
 
   useEffect(() => {
     if (!open) return;
@@ -54,12 +58,18 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
     setLabel(block?.label ?? '');
     setBody(block?.body ?? '');
     setTags(block?.tags.join(', ') ?? '');
-  }, [open, block]);
+    clearErrors();
+  }, [open, block, clearErrors]);
 
   const preview = resolvePlaceholders(body, SAMPLE_CTX);
 
-  const handleSave = async () => {
-    if (!label.trim() || !body.trim()) return;
+  const handleSave = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (!label.trim()) invalid.push(['label', 'Enter a label']);
+    if (!body.trim()) invalid.push(['body', 'Enter the block text']);
+    if (invalid.length) { fe.failMany(invalid); return; }
     setIsSaving(true);
     try {
       await onSave({
@@ -72,6 +82,8 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
           .filter(Boolean),
       });
       onOpenChange(false);
+    } catch {
+      fe.setFormError('Failed to save block');
     } finally {
       setIsSaving(false);
     }
@@ -84,7 +96,8 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
           <DialogTitle>{block ? 'Edit block' : 'New block'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form noValidate onSubmit={handleSave} className="space-y-4">
+          <FormErrorBanner message={fe.formError} />
           <div className="space-y-2">
             <Label htmlFor="kind">Kind</Label>
             <Select value={kind} onValueChange={(value) => setKind(value as CareerBlockKind)}>
@@ -102,25 +115,31 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="label">Label</Label>
+            <Label htmlFor="label" required>Label</Label>
             <Input
               id="label"
+              required
+              {...fe.invalid('label')}
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(e) => { setLabel(e.target.value); fe.clear('label'); }}
               placeholder="e.g. Android"
               maxLength={100}
             />
+            <FieldError id="label" message={fe.errors.label} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="body">Body</Label>
+            <Label htmlFor="body" required>Body</Label>
             <Textarea
               id="body"
+              required
+              {...fe.invalid('body')}
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => { setBody(e.target.value); fe.clear('body'); }}
               placeholder="Use {{job_title}}, {{company}}, {{hiring_manager}}, {{hook}}, {{portfolio_url}}"
               rows={6}
             />
+            <FieldError id="body" message={fe.errors.body} />
           </div>
 
           <div className="space-y-2">
@@ -146,14 +165,14 @@ export const BlockEditor = ({ open, onOpenChange, block, onSave }: BlockEditorPr
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving || !label.trim() || !body.trim()}>
+            <Button type="submit" disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save block'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

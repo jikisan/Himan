@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ExternalLink, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
+import { CircleCheck, CircleDashed, ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@core/presentation/utils';
+import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { addPeriods, centavosToInput, contractTermsSchema, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf } from '@himan/shared/rentals';
-import type { ContractTermsInput, RentalBill, RentalContract, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import { addPeriods, billBalance, centavosToInput, contractStage, contractTermsSchema, depositToReturn, formatBillPesos, formatPesos, manilaToday, nextDueDate, parsePesos, periodOf, tenancyCredit,
+  tenancyOwed } from '@himan/shared/rentals';
+import type { ContractStage, ContractTermsInput, ReceiptContext, RentalBill, RentalContract, RentalPayment, RentalSettlement, RentalTenancy, Renter, RenterInput } from '@himan/shared/rentals';
+import { PaymentsList } from './PaymentsList';
+import { ContractPanel } from './ContractPanel';
+import type { ContractInfo } from './ContractPanel';
+import { DetailsReview, TenantLinkPanel } from './TenantLink';
+import { contractOpen, detailsStatus } from '../utils/contract';
 import type { RentalsState } from '../pages/RentalsPage';
 import { Field, MoneyInput, inputClass } from './Field';
 import { Initials } from './Badges';
@@ -14,6 +24,7 @@ import { RenterFiles } from './RenterFiles';
 import { errorMessage } from '../utils/errorMessage';
 import { messengerLabel, messengerUrl } from '../utils/messenger';
 import { ChargesEditor } from './ChargesEditor';
+import { chargeErrors } from './fieldChecks';
 import { parseCharges, toChargeRows } from '../utils/charges';
 
 const day = (iso: string) => format(parseISO(iso), 'MMM d, yyyy');
@@ -21,11 +32,25 @@ const action = 'flex min-h-11 flex-1 flex-col items-center justify-center gap-1 
   + 'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Side-panel body for one tenant: summary up top, details below, delete in the footer. Rendered inside a SheetContent. */
-export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage, busy, run, fileUrl, onSaveDetails, onMoveOut, deleteAction }: {
-  renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; unitName(id: string): string; canManage: boolean; deleteAction?: ReactNode;
-  onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void;
-} & Pick<RentalsState, 'busy' | 'run' | 'fileUrl'>) {
+export function TenantSheet({ renter, tenancies, bills = [], payments = [], settlements = [], unitName, canManage, busy, run, fileUrl, paymentProofUrl, onSaveDetails,
+  onMoveOut, onRecordPayment, onOpenSettlement, receipt, deleteAction, contractInfo, focusContract = false }: {
+  renter: Renter; tenancies: RentalTenancy[]; bills?: RentalBill[]; payments?: RentalPayment[]; unitName(id: string): string; canManage: boolean;
+  deleteAction?: ReactNode; onSaveDetails(input: RenterInput): Promise<void>; onMoveOut(tenancyId: string): void; onRecordPayment?(tenancyId: string): void;
+  receipt?(payment: RentalPayment): ReceiptContext;
+  /** Moved-out tenancies: settle the deposit (managers) or view the settlement (everyone). */
+  settlements?: RentalSettlement[]; onOpenSettlement?(tenancyId: string): void;
+  /** The property's contract texts, template and links; without it the sheet shows the terms only. */
+  contractInfo?: ContractInfo;
+  /** Opened from a contract to-do or right after Add tenant: scroll to and focus the Contract section. */
+  focusContract?: boolean;
+} & Pick<RentalsState, 'busy' | 'run' | 'fileUrl' | 'paymentProofUrl'>) {
   const [editing, setEditing] = useState<'rent' | 'contact' | null>(null);
+  const contractRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!focusContract) return;
+    contractRef.current?.scrollIntoView?.({ block: 'start' });
+    contractRef.current?.focus();
+  }, [focusContract]);
   const mine = tenancies.filter((t) => t.renterId === renter.id);
   const active = mine.filter((t) => t.moveOut === null);
   const last = [...mine].sort((a, b) => (b.moveOut ?? '').localeCompare(a.moveOut ?? ''))[0];
@@ -35,14 +60,54 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
   const history = mine.flatMap((t) => [{ key: `${t.id}-in`, text: `Moved into ${unitName(t.unitId)}`, date: t.moveIn },
     ...(t.moveOut ? [{ key: `${t.id}-out`, text: `Moved out of ${unitName(t.unitId)}`, date: t.moveOut }] : [])])
     .sort((a, b) => b.date.localeCompare(a.date));
+  const myPayments = payments.filter((p) => mine.some((t) => t.id === p.tenancyId));
+  const owed = mine.reduce((sum, t) => sum + tenancyOwed(t.id, bills, payments), 0);
+  const credit = mine.reduce((sum, t) => sum + tenancyCredit(t.id, payments, settlements), 0);
   const chat = messengerUrl(renter.facebook);
+  const deposits = mine.filter((t) => t.moveOut).map((t) => ({ t, settlement: settlements.find((x) => x.tenancyId === t.id) }))
+    .map(({ t, settlement }) => ({ t, settlement, deposit: depositToReturn(t, bills, payments, settlement) }))
+    .filter(({ deposit }) => deposit.state !== 'none');
+  const links = contractInfo?.links ?? [];
+  const linkOf = (t: RentalTenancy) => links.find((l) => l.tenancyId === t.id);
+  const waiting = active.map((t) => detailsStatus(links, t.id)).find(Boolean);
   const contact: [string, string][] = [['Mobile', renter.phone], ['Messenger', renter.facebook], ['Email', renter.email],
     ['Home address', renter.address], ['Emergency', [renter.emergencyName, renter.emergencyPhone].filter(Boolean).join(' · ')],
     ['Living with them', `${renter.occupants} ${renter.occupants === 1 ? 'person' : 'people'}`], ['Notes', renter.notes]];
 
+  // Until the written contract is done (or dismissed), it's the first thing on the sheet.
+  const stageOf = (tenancyId: string): ContractStage =>
+    contractInfo ? contractStage(active.find((t) => t.id === tenancyId)!, contractInfo.texts) : 'done';
+  const contractFirst = contracts.some((c) => contractOpen(stageOf(c.tenancyId)));
+  // Until the move-in is paid and the contract signed by both (or not needed): Added · Move-in paid · Contract.
+  const checklists = active.map((t) => {
+    const stage = stageOf(t.id);
+    const paid = bills.filter((b) => b.tenancyId === t.id && b.kind === 'move_in' && b.status === 'issued').every((b) => billBalance(b, payments) === 0);
+    return { t, stage, paid };
+  }).filter(({ stage, paid }) => stage !== 'not_needed' && (!paid || stage !== 'done'));
+  const setNotNeeded = (tenancyId: string, value: boolean) => run({ type: 'setContractNotNeeded', tenancyId, value })
+    .then(() => toast.success(value ? 'Marked as not needed' : 'Contract is back on your to-do list'), (e) => toast.error(errorMessage(e)));
+  const contractSections = contracts.map((c, i) => {
+    const stage = stageOf(c.tenancyId);
+    return <section key={c.id} ref={i === 0 ? contractRef : undefined} tabIndex={-1} aria-label="Contract" className="scroll-mt-4 focus:outline-none">
+      <h3 className="mb-2 text-sm font-semibold">Contract</h3>
+      <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Lease</dt><dd className="font-medium">{day(c.startDate)} to {day(c.endDate)}</dd>
+        <dt className="text-muted-foreground">Deposit</dt><dd className="font-medium">{formatPesos(c.depositCentavos)}
+          <span className="font-normal text-muted-foreground"> · {c.advanceMonths} month{c.advanceMonths === 1 ? '' : 's'} advance</span></dd>
+      </dl>
+      {contractInfo && (stage === 'not_needed'
+        ? <div className="flex flex-wrap items-center gap-2 rounded-xl border p-4 text-sm">
+          <p className="min-w-0 flex-1 text-muted-foreground">Contract not needed</p>
+          {canManage && <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void setNotNeeded(c.tenancyId, false)}>Undo</Button>}
+        </div>
+        : <ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run}
+          onNotNeeded={stage === 'none' || stage === 'draft' ? () => void setNotNeeded(c.tenancyId, true) : undefined} />)}
+    </section>;
+  });
+
   return <>
-    <SheetHeader className="space-y-4 border-b p-5 pr-12 text-left">
-      <div className="flex items-start gap-3">
+    <SheetHeader className="space-y-4 border-b p-5 text-left">
+      <div className="flex items-start gap-3 pr-20">
         <Initials name={renter.fullName} className="size-12 text-base" />
         <div className="min-w-0">
           <SheetTitle className="truncate text-xl">{renter.fullName}</SheetTitle>
@@ -50,19 +115,39 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
             {active.length ? active.map((t) => `Lives in ${unitName(t.unitId)} since ${day(t.moveIn)}`).join(' · ')
               : last?.moveOut ? `Moved out of ${unitName(last.unitId)} on ${day(last.moveOut)}` : 'Not renting a room right now'}
           </SheetDescription>
+          {waiting && <p className="mt-1.5 w-fit rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">{waiting}</p>}
         </div>
       </div>
       {(renter.phone || chat || (canManage && active.length > 0)) && <div className="flex gap-2">
         {renter.phone && <a href={`tel:${renter.phone}`} className={action}><Phone className="h-4 w-4" />Call</a>}
         {renter.phone && <a href={`sms:${renter.phone}`} className={action}><MessageSquare className="h-4 w-4" />Text</a>}
         {chat && <a href={chat} target="_blank" rel="noopener noreferrer" className={action}><MessageCircle className="h-4 w-4" />Messenger</a>}
-        {canManage && active.map((t) => <button key={t.id} type="button" className={action} onClick={() => onMoveOut(t.id)}
+        {canManage && active.map((t) => <button key={t.id} type="button" className={cn(action, 'text-destructive hover:bg-destructive/10 hover:text-destructive')} onClick={() => onMoveOut(t.id)}
           aria-label={`Move ${renter.fullName} out of ${unitName(t.unitId)}`}><LogOut className="h-4 w-4" />Move out</button>)}
       </div>}
     </SheetHeader>
 
     {/* Every section gets a line above it: same spacing around each line. */}
     <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+      {checklists.map(({ t, stage, paid }) => <section key={`steps-${t.id}`} aria-label="Move-in checklist">
+        {active.length > 1 && <p className="mb-2 text-sm font-semibold">{unitName(t.unitId)}</p>}
+        <ul className="grid grid-cols-3 gap-2">
+          {([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word]) =>
+            <li key={label} className={cn('flex min-w-0 flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-sm',
+              ok ? 'border-emerald-600/30 bg-emerald-500/10' : 'bg-muted/40')}>
+              {ok ? <CircleCheck aria-hidden className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                : <CircleDashed aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
+              <span className={cn('font-medium leading-snug', ok && 'text-emerald-700 dark:text-emerald-400')}>
+                {label}<span className="sr-only">{ok ? ', done' : ', not yet'}</span></span>
+              {word && <span className="text-xs text-muted-foreground">{word[0].toUpperCase() + word.slice(1)}</span>}</li>)}
+        </ul>
+      </section>)}
+      {canManage && active.map((t) => {
+        const link = linkOf(t);
+        return link?.status === 'submitted' && link.submittedDetails
+          && <DetailsReview key={`review-${t.id}`} tenancyId={t.id} details={link.submittedDetails} busy={busy} run={run} />;
+      })}
+      {contractFirst && contractSections}
       {nextDue && <section aria-labelledby="sheet-rent" className="rounded-xl border p-4">
         <div className="flex items-center justify-between">
           <h3 id="sheet-rent" className="text-sm font-semibold">Rent</h3>
@@ -84,15 +169,38 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
         })}</div>}
       </section>}
 
-      {contracts.map((c) => <section key={c.id} aria-label="Contract">
-        <h3 className="mb-2 text-sm font-semibold">Contract</h3>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <Item label="Started" value={day(c.startDate)} />
-          <Item label="Ends" value={day(c.endDate)} />
-          <Item label="Deposit" value={formatPesos(c.depositCentavos)} />
-          <Item label="Advance" value={`${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'}`} />
-        </dl>
-      </section>)}
+      {mine.length > 0 && <section aria-labelledby="sheet-money" className="space-y-2">
+        <h3 id="sheet-money" className="text-sm font-semibold">Money received</h3>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className={owed > 0 ? 'font-semibold' : 'text-muted-foreground'}>{owed > 0 ? `Owes ${formatBillPesos(owed)}` : 'Owes nothing'}</span>
+          {credit > 0 && <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+            {formatBillPesos(credit)} credit</span>}
+        </div>
+        {credit > 0 && <p className="text-xs text-muted-foreground">Credit is used on their next SOA automatically, so a new SOA may already be partly paid.</p>}
+        {canManage && onRecordPayment && <div className="flex flex-wrap gap-2">{(active.length ? active : [last]).map((t) =>
+          <Button key={t.id} variant="outline" className="h-11 sm:h-9" onClick={() => onRecordPayment(t.id)}>
+            <HandCoins className="h-4 w-4" />Record payment{active.length > 1 && <span> · {unitName(t.unitId)}</span>}</Button>)}</div>}
+        <PaymentsList payments={myPayments} bills={bills} canManage={canManage} busy={busy} run={run} proofUrl={paymentProofUrl}
+          empty="No payments recorded yet." receipt={receipt} />
+      </section>}
+
+      {onOpenSettlement && deposits.length > 0 && <section aria-labelledby="sheet-deposit" className="space-y-2">
+        <h3 id="sheet-deposit" className="text-sm font-semibold">Deposit</h3>
+        {deposits.map(({ t, settlement, deposit }) => <div key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="min-w-0 flex-1">{mine.length > 1 && `${unitName(t.unitId)} · `}{settlement
+            ? settlement.refundCentavos > 0 ? `Settled · ${formatBillPesos(settlement.refundCentavos)} refunded` : `Settled · deposit kept${settlement.owedCentavos > 0 ? ` · still owes ${formatBillPesos(settlement.owedCentavos)}` : ''}`
+            : `${formatBillPesos(deposit.depositCentavos)} to return`}</span>
+          {settlement ? <Button variant="outline" className="h-11 sm:h-9" onClick={() => onOpenSettlement(t.id)}>View settlement</Button>
+            : canManage && <Button className="h-11 sm:h-9" onClick={() => onOpenSettlement(t.id)}>Settle deposit</Button>}
+        </div>)}
+      </section>}
+
+      {!contractFirst && contractSections}
+
+      {canManage && active.map((t) => {
+        const link = linkOf(t);
+        return link && <TenantLinkPanel key={`link-${t.id}`} link={link} name={renter.fullName} busy={busy} run={run} />;
+      })}
 
       {active.map((t) => <Charges key={t.id} tenancy={t} room={unitName(t.unitId)} showRoom={active.length > 1} canManage={canManage} busy={busy}
         onSave={(charges) => run({ type: 'setCharges', tenancyId: t.id, charges })} />)}
@@ -131,39 +239,47 @@ export function TenantSheet({ renter, tenancies, bills = [], unitName, canManage
   </>;
 }
 
+const STAGE_WORD: Partial<Record<ContractStage, string>> = { none: 'not started', draft: 'draft', sent: 'waiting to sign', signed: 'needs your signature' };
+
 const ordinal = (n: number) => {
   const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
   return `${n}${tail}`;
 };
 
-function Item({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-semibold tabular-nums">{value}</dd></div>;
-}
 
 function Charges({ tenancy, room, showRoom, canManage, busy, onSave }: {
   tenancy: RentalTenancy; room: string; showRoom: boolean; canManage: boolean; busy: boolean;
   onSave(charges: RentalTenancy['charges']): Promise<unknown>;
 }) {
   const [rows, setRows] = useState(() => toChargeRows(tenancy.charges));
-  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  const [saved, setSaved] = useState(false);
+  const fe = useFieldErrors();
+  const idPrefix = `charges-${tenancy.id}`;
   if (!canManage && !tenancy.charges.length) return null;
   return <section aria-label="Extra monthly charges" className="space-y-2">
     <div><h3 className="text-sm font-semibold">Extra monthly charges{showRoom && ` · ${room}`}</h3>
       <p className="text-xs text-muted-foreground">Added to every monthly SOA.</p></div>
     {canManage ? <form noValidate className="space-y-2" onSubmit={async (event) => {
       event.preventDefault();
-      try { await onSave(parseCharges(rows)); setMessage({ error: false, text: 'Saved' }); } catch (e) { setMessage({ error: true, text: errorMessage(e) }); }
+      fe.clear();
+      setSaved(false);
+      const bad = chargeErrors(idPrefix, rows);
+      if (bad.length) { fe.failMany(bad); return; }
+      try { await onSave(parseCharges(rows)); setSaved(true); } catch (e) { fe.setFormError(errorMessage(e)); }
     }}>
+      <FormErrorBanner message={fe.formError} />
       <fieldset disabled={busy} className="space-y-2">
-        <ChargesEditor idPrefix={`charges-${tenancy.id}`} value={rows} onChange={(r) => { setRows(r); setMessage(null); }} />
+        <ChargesEditor idPrefix={idPrefix} value={rows} fe={fe} onChange={(r) => { setRows(r); setSaved(false); fe.setFormError(''); }} />
         <div className="flex justify-end"><Button type="submit" variant="outline" className="h-11 sm:h-9">Save charges</Button></div>
       </fieldset>
-      {message && <p role={message.error ? 'alert' : 'status'} className={`text-sm ${message.error ? 'text-destructive' : 'text-muted-foreground'}`}>{message.text}</p>}
+      {saved && <p role="status" className="text-sm text-muted-foreground">Saved</p>}
     </form>
       : <ul className="divide-y rounded-lg border text-sm">{tenancy.charges.map((c) => <li key={c.label} className="flex justify-between px-3 py-2">
         <span>{c.label}</span><span className="tabular-nums">{formatPesos(c.amount)}</span></li>)}</ul>}
   </section>;
 }
+
+const TERM_FIELD: Record<string, string> = { monthlyRentCentavos: 'rent', dueDay: 'due', advanceMonths: 'advance', depositCentavos: 'deposit' };
 
 function RentTerms({ contract, room, showRoom, busy, billed, onSave }: {
   contract: RentalContract; room: string; showRoom: boolean; busy: boolean; billed: { monthly: boolean; moveIn: boolean };
@@ -175,52 +291,66 @@ function RentTerms({ contract, room, showRoom, busy, billed, onSave }: {
   const [dueDay, setDueDay] = useState(String(contract.dueDay));
   const [advance, setAdvance] = useState(String(contract.advanceMonths));
   const [deposit, setDeposit] = useState(centavosToInput(contract.depositCentavos));
-  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState('');
+  const fe = useFieldErrors();
   const id = `terms-${contract.id}`;
   const lockedHint = billed.moveIn ? 'On the move-in bill' : undefined;
+  const field = (key: string, set: (value: string) => void) => ({ ...fe.invalid(`${id}-${key}`),
+    onChange: (e: { target: { value: string } }) => { set(e.target.value); fe.clear(`${id}-${key}`); } });
   return <form noValidate className="space-y-3 rounded-lg border p-4" onSubmit={async (event) => {
     event.preventDefault();
+    fe.clear();
+    setMessage('');
+    const bad: [string, string][] = [];
+    const pesos = (key: string, value: string) => {
+      try { return parsePesos(value); } catch (failure) { bad.push([`${id}-${key}`, errorMessage(failure)]); return 0; }
+    };
+    const monthlyRentCentavos = billed.monthly ? contract.monthlyRentCentavos : pesos('rent', rent);
+    const depositCentavos = deposit.trim() ? pesos('deposit', deposit) : 0;
+    if (bad.length) { fe.failMany(bad); return; }
+    const result = contractTermsSchema.safeParse({ monthlyRentCentavos, dueDay: Number(dueDay), advanceMonths: Number(advance), depositCentavos });
+    if (!result.success) { fe.failMany(zodFieldErrors(result.error, ([key]) => `${id}-${TERM_FIELD[key as string] ?? 'rent'}`)); return; }
+    const changed = result.data.monthlyRentCentavos !== contract.monthlyRentCentavos || result.data.dueDay !== contract.dueDay
+      || result.data.advanceMonths !== contract.advanceMonths || result.data.depositCentavos !== contract.depositCentavos;
+    let renewal = null;
+    if (billed.monthly && newRent.trim()) {
+      if (!/^\d{4}-\d{2}$/.test(from)) { fe.fail(`${id}-from`, 'Choose the month the new rent starts'); return; }
+      renewal = { from: `${from}-01`, rentCentavos: pesos('new-rent', newRent) };
+      if (bad.length) { fe.failMany(bad); return; }
+      if (!renewal.rentCentavos) { fe.fail(`${id}-new-rent`, 'Enter the monthly rent'); return; }
+    }
+    if (!changed && !renewal) { setMessage('Nothing changed'); return; }
     try {
-      const result = contractTermsSchema.safeParse({ monthlyRentCentavos: billed.monthly ? contract.monthlyRentCentavos : parsePesos(rent),
-        dueDay: Number(dueDay), advanceMonths: Number(advance), depositCentavos: deposit.trim() ? parsePesos(deposit) : 0 });
-      if (!result.success) { setMessage({ error: true, text: result.error.issues[0].message }); return; }
-      const changed = result.data.monthlyRentCentavos !== contract.monthlyRentCentavos || result.data.dueDay !== contract.dueDay
-        || result.data.advanceMonths !== contract.advanceMonths || result.data.depositCentavos !== contract.depositCentavos;
-      let renewal = null;
-      if (billed.monthly && newRent.trim()) {
-        if (!/^\d{4}-\d{2}$/.test(from)) { setMessage({ error: true, text: 'Choose the month the new rent starts' }); return; }
-        renewal = { from: `${from}-01`, rentCentavos: parsePesos(newRent) };
-        if (!renewal.rentCentavos) { setMessage({ error: true, text: 'Enter the monthly rent' }); return; }
-      }
-      if (!changed && !renewal) { setMessage({ error: false, text: 'Nothing changed' }); return; }
       await onSave(changed ? result.data : null, renewal);
-      setMessage({ error: false, text: renewal ? `New rent starts ${from}` : 'Saved' });
-    } catch (failure) { setMessage({ error: true, text: errorMessage(failure) }); }
+      setMessage(renewal ? `New rent starts ${from}` : 'Saved');
+    } catch (failure) { fe.setFormError(errorMessage(failure)); }
   }}>
+    <FormErrorBanner message={fe.formError} />
     <div><h3 className="text-sm font-semibold">Rent, advance and deposit{showRoom && ` · ${room}`}</h3>
       <p className="text-xs text-muted-foreground">{billed.monthly ? 'This rent is already on bills. A new rent starts from the month you pick.'
         : 'Fix a typo or record a new agreement.'}</p></div>
     <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-2">
       {billed.monthly ? <>
-        <Field id={`${id}-new-rent`} label="New rent" hint={`now ${formatPesos(contract.monthlyRentCentavos)}`}>
-          <MoneyInput id={`${id}-new-rent`} value={newRent} placeholder="Leave blank to keep" onChange={(e) => setNewRent(e.target.value)} />
+        <Field id={`${id}-new-rent`} label="New rent" hint={`now ${formatPesos(contract.monthlyRentCentavos)}`} error={fe.errors[`${id}-new-rent`]}>
+          <MoneyInput id={`${id}-new-rent`} value={newRent} placeholder="Leave blank to keep" {...field('new-rent', setNewRent)} />
         </Field>
-        <Field id={`${id}-from`} label="Starting">
-          <input id={`${id}-from`} type="month" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
+        <Field id={`${id}-from`} label="Starting" error={fe.errors[`${id}-from`]}>
+          <input id={`${id}-from`} type="month" className={inputClass} value={from} {...field('from', setFrom)} />
         </Field>
-      </> : <Field id={`${id}-rent`} label="Rent per month"><MoneyInput id={`${id}-rent`} value={rent} onChange={(e) => setRent(e.target.value)} /></Field>}
-      <Field id={`${id}-due`} label="Due day">
-        <input id={`${id}-due`} type="number" min={1} max={31} className={inputClass} value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
+      </> : <Field id={`${id}-rent`} label="Rent per month" required error={fe.errors[`${id}-rent`]}>
+        <MoneyInput id={`${id}-rent`} value={rent} required {...field('rent', setRent)} /></Field>}
+      <Field id={`${id}-due`} label="Due day" required error={fe.errors[`${id}-due`]}>
+        <input id={`${id}-due`} type="number" min={1} max={31} className={inputClass} value={dueDay} required {...field('due', setDueDay)} />
       </Field>
-      <Field id={`${id}-advance`} label="Advance months" hint={lockedHint}>
+      <Field id={`${id}-advance`} label="Advance months" hint={lockedHint} error={fe.errors[`${id}-advance`]}>
         <input id={`${id}-advance`} type="number" min={0} max={12} className={inputClass} value={advance} readOnly={billed.moveIn}
-          onChange={(e) => setAdvance(e.target.value)} />
+          {...field('advance', setAdvance)} />
       </Field>
-      <Field id={`${id}-deposit`} label="Deposit" hint={lockedHint}>
-        <MoneyInput id={`${id}-deposit`} value={deposit} readOnly={billed.moveIn} onChange={(e) => setDeposit(e.target.value)} />
+      <Field id={`${id}-deposit`} label="Deposit" hint={lockedHint} error={fe.errors[`${id}-deposit`]}>
+        <MoneyInput id={`${id}-deposit`} value={deposit} readOnly={billed.moveIn} {...field('deposit', setDeposit)} />
       </Field>
       <Button type="submit" variant="outline" className="h-11 sm:col-span-2 sm:h-10 sm:w-fit sm:justify-self-end">Save</Button>
     </fieldset>
-    {message && <p role={message.error ? 'alert' : 'status'} className={`text-sm ${message.error ? 'text-destructive' : 'text-muted-foreground'}`}>{message.text}</p>}
+    {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
   </form>;
 }

@@ -33,7 +33,6 @@ export const useSkills = () => {
     },
     onError: (err) => {
       Logger.error('Error creating skill', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to create skill');
     },
   });
 

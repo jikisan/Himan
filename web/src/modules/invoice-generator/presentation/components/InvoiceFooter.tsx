@@ -7,7 +7,7 @@ interface InvoiceFooterProps {
   onChange: (updates: Partial<InvoiceData>) => void;
   savedNotesOptions?: InvoiceSavedOptionType[];
   savedBankOptions?: InvoiceSavedOptionType[];
-  onSaveOption?: (type: SavedOptionType, label: string, value: string) => void;
+  onSaveOption?: (type: SavedOptionType, label: string, value: string) => Promise<void> | void;
   onManageSavedOptions?: (type: SavedOptionType) => void;
 }
 

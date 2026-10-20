@@ -8,6 +8,8 @@ import type { MeterKind, MeterReading, ReadingInput, RentalUnit } from '@himan/s
 import { inputClass } from './Field';
 import { errorMessage } from '../utils/errorMessage';
 import { cn } from '@core/presentation/utils';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 
 const LABEL: Record<MeterKind, string> = { electric: 'Electricity', water: 'Water' };
 const UNIT_OF: Record<MeterKind, string> = { electric: 'kWh', water: 'm³' };
@@ -40,24 +42,28 @@ export function MeterReadings({ units, readings, needed, period, soaOf, canManag
   const meters = metersOf(units, readings);
   const [openHistory, setOpenHistory] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [editing, setEditing] = useState<{ id: string; value: string; error: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const fe = useFieldErrors();
   if (!meters.length) return null;
   const last = format(endOfMonth(parseISO(`${period}-01`)), 'yyyy-MM-dd');
   const month = periodLabel(period).split(' ')[0];
   const neededCount = meters.filter((m) => needed.has(m.key)).length;
 
+  const editId = (r: MeterReading) => `edit-reading-${r.id}`;
+  const startEditing = (next: typeof editing) => { setEditing(next); fe.clear(); };
   const saveEdit = async (m: Meter, r: MeterReading) => {
     if (!editing) return;
+    fe.clear();
     const parsed = readingInputSchema.safeParse({ unitId: m.unit.id, kind: m.kind, readOn: r.readOn, value: Number(editing.value), isReset: r.isReset });
-    if (!editing.value.trim() || !parsed.success) { setEditing({ ...editing, error: 'Type the number on the meter' }); return; }
-    try { await onSave([parsed.data]); setEditing(null); } catch (failure) { setEditing({ ...editing, error: errorMessage(failure) }); }
+    if (!editing.value.trim() || !parsed.success) { fe.fail(editId(r), 'Type the number on the meter'); return; }
+    try { await onSave([parsed.data]); setEditing(null); } catch (failure) { fe.setFormError(errorMessage(failure)); }
   };
 
   return <section aria-labelledby="meter-readings" className={cn('relative space-y-4', !bare && 'rounded-xl border bg-card p-4 shadow-sm sm:p-5')}>
-    {onClose && <Button variant="ghost" size="icon" className="absolute right-2 top-2 size-11 sm:size-9" aria-label="Close meters" onClick={onClose}>
-      <X className="h-4 w-4" /></Button>}
+    {onClose && <Button variant="ghost" size="sm" className="absolute right-2 top-2 h-11 px-2.5 sm:h-9" aria-label="Close meters" onClick={onClose}>
+      <X className="h-4 w-4" />Close</Button>}
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className={cn(onClose && 'pr-10')}>
+      <div className={cn(onClose && 'pr-24')}>
         <h3 id="meter-readings" className="text-lg font-semibold">Meters · {periodLabel(period)}</h3>
         <p className="text-sm text-muted-foreground">{neededCount ? `${neededCount} meter${neededCount === 1 ? '' : 's'} needed for ${month} SOAs.`
           : `Readings taken in ${month}.`}</p>
@@ -100,7 +106,7 @@ export function MeterReadings({ units, readings, needed, period, soaOf, canManag
           </dl>
 
           <Button type="button" variant="outline" size="sm" className="mt-3 h-10 sm:h-8" aria-expanded={open}
-            aria-label={`${open ? 'Hide' : 'Show'} ${label} history`} onClick={() => { setOpenHistory(open ? null : m.key); setEditing(null); setShowAll(false); }}>
+            aria-label={`${open ? 'Hide' : 'Show'} ${label} history`} onClick={() => { setOpenHistory(open ? null : m.key); startEditing(null); setShowAll(false); }}>
             {open ? 'Hide history' : 'Show history'}</Button>
                     {open && <ol aria-label={`${label} history`} className="mt-3 divide-y rounded-md border bg-muted/20 text-sm tabular-nums">
             {m.history.length === 0 ? <li className="p-2 text-muted-foreground">No readings yet.</li>
@@ -115,19 +121,24 @@ export function MeterReadings({ units, readings, needed, period, soaOf, canManag
                     <span className="font-semibold">{num(r.value)}</span>
                     {canManage && (soa
                       ? <Lock aria-label="On an SOA, can’t be edited" className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      : <Button type="button" variant="ghost" size="icon" className="size-9 sm:size-8" aria-label={`Edit ${short(r.readOn)} reading`}
-                          onClick={() => setEditing(isEditing ? null : { id: r.id, value: String(r.value), error: '' })}><Pencil className="h-4 w-4" /></Button>)}
+                      : <Button type="button" variant="ghost" size="sm" className="h-9 px-2.5 sm:h-8" aria-label={`Edit ${short(r.readOn)} reading`}
+                          onClick={() => startEditing(isEditing ? null : { id: r.id, value: String(r.value) })}><Pencil className="h-4 w-4" />Edit</Button>)}
                   </div>
                   {soa && canManage && <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     On {soa.label}. Cancel that SOA to change this reading.
                     <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => onOpenBill(soa.billId)}>View SOA</Button></p>}
-                  {isEditing && <form noValidate className="flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void saveEdit(m, r); }}>
-                    <input type="number" inputMode="decimal" min={0} step="any" autoFocus aria-label={`New value for ${short(r.readOn)}`}
-                      className={cn(inputClass, 'w-32 tabular-nums')} value={editing.value} disabled={busy}
-                      onChange={(e) => setEditing({ ...editing, value: e.target.value, error: '' })} />
-                    <Button type="submit" size="sm" className="h-10 sm:h-8" disabled={busy}>Save</Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-10 sm:h-8" onClick={() => setEditing(null)}>Cancel</Button>
-                    {editing.error && <p role="alert" className="basis-full text-xs text-destructive">{editing.error}</p>}
+                  {isEditing && <form noValidate className="space-y-1" onSubmit={(e) => { e.preventDefault(); void saveEdit(m, r); }}>
+                    <FormErrorBanner message={fe.formError} />
+                    <div className="flex flex-wrap items-start gap-2">
+                      <div className="space-y-1">
+                        <input id={editId(r)} type="number" inputMode="decimal" min={0} step="any" autoFocus required {...fe.invalid(editId(r))}
+                          aria-label={`New value for ${short(r.readOn)}`} className={cn(inputClass, 'w-32 tabular-nums')} value={editing.value} disabled={busy}
+                          onChange={(e) => { setEditing({ ...editing, value: e.target.value }); fe.clear(editId(r)); }} />
+                        <FieldError id={editId(r)} message={fe.errors[editId(r)]} />
+                      </div>
+                      <Button type="submit" size="sm" className="h-10 sm:h-8 sm:mt-1" disabled={busy}>Save</Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-10 sm:h-8 sm:mt-1" onClick={() => startEditing(null)}>Cancel</Button>
+                    </div>
                   </form>}
                 </li>;
               })}
@@ -164,27 +175,40 @@ function AddReadingsForm({ units, readings, needed, busy, onSave, onCancel }: {
   const [values, setValues] = useState<Record<string, string>>({});
   const [resets, setResets] = useState<Record<string, boolean>>({});
   const [date, setDate] = useState(today);
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
+  const idOf = (m: Meter) => `reading-${m.unit.id}-${m.kind}`;
   const prev = (m: Meter) => m.history.find((r) => r.readOn < date);
   const sameDay = (m: Meter) => m.history.find((r) => r.readOn === date);
   const lower = (m: Meter) => !!values[m.key]?.trim() && !!prev(m) && Number(values[m.key]) < prev(m)!.value && !resets[m.key];
+  const lowerText = (m: Meter) => `Lower than ${num(prev(m)!.value)} on ${short(prev(m)!.readOn)}. Tick “Meter was reset or replaced” if it was.`;
   const filled = meters.filter((m) => values[m.key]?.trim());
 
   return <form noValidate className="space-y-4" onSubmit={async (event) => {
     event.preventDefault();
-    if (!filled.length) { setError('Type at least one reading'); return; }
-    if (filled.some(lower)) { setError('Fix the readings marked in red'); return; }
+    fe.clear();
+    if (!filled.length) { if (meters.length) fe.fail(idOf(meters[0]), 'Type at least one reading'); return; }
+    // Every bad box at once (a lower number keeps the message it already shows); the hook focuses the first one.
+    const failed: [string, string][] = [];
     const inputs: ReadingInput[] = [];
     for (const m of filled) {
+      if (lower(m)) { failed.push([idOf(m), lowerText(m)]); continue; }
       const parsed = readingInputSchema.safeParse({ unitId: m.unit.id, kind: m.kind, readOn: date, value: Number(values[m.key]), isReset: !!resets[m.key] });
-      if (!parsed.success) { setError(`${m.unit.name}: ${parsed.error.issues[0].message}`); return; }
-      inputs.push(parsed.data);
+      if (parsed.success) { inputs.push(parsed.data); continue; }
+      const issue = parsed.error.issues[0];
+      failed.push([issue.path[0] === 'readOn' ? 'readings-date' : idOf(m), issue.message]);
     }
-    try { setError(''); await onSave(inputs); } catch (failure) { setError(errorMessage(failure)); }
+    if (failed.length) { fe.failMany(failed); return; }
+    try { await onSave(inputs); } catch (failure) { fe.setFormError(errorMessage(failure)); }
   }}>
-    <label className="flex items-center justify-between gap-3 text-sm font-medium">Date you read them
-      <input type="date" className={cn(inputClass, 'w-44')} value={date} max={today} onChange={(e) => setDate(e.target.value)} />
-    </label>
+    <FormErrorBanner message={fe.formError} />
+    <div className="space-y-1">
+      <label htmlFor="readings-date" className="flex items-center justify-between gap-3 text-sm font-medium">
+        <span>Date you read them<span aria-hidden="true" className="text-destructive"> *</span></span>
+        <input id="readings-date" type="date" required {...fe.invalid('readings-date')} className={cn(inputClass, 'w-44')} value={date} max={today}
+          onChange={(e) => { setDate(e.target.value); fe.clear('readings-date'); }} />
+      </label>
+      <FieldError id="readings-date" message={fe.errors['readings-date']} />
+    </div>
     <fieldset disabled={busy} className="divide-y rounded-lg border">
       {meters.map((m) => {
         const raw = values[m.key] ?? '';
@@ -197,21 +221,21 @@ function AddReadingsForm({ units, readings, needed, busy, onSave, onCancel }: {
             <span className="text-xs tabular-nums text-muted-foreground">{before ? `Last: ${num(before.value)} on ${short(before.readOn)}` : 'First reading'}</span>
           </div>
           {needed.has(m.key) && <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">Needed for an SOA</span>}
-          <input type="number" inputMode="decimal" min={0} step="any" aria-label={`${m.unit.name} ${LABEL[m.kind].toLowerCase()} reading`}
-            placeholder="Number on the meter now"
+          <input id={idOf(m)} type="number" inputMode="decimal" min={0} step="any" aria-label={`${m.unit.name} ${LABEL[m.kind].toLowerCase()} reading`}
+            placeholder="Number on the meter now" {...fe.invalid(idOf(m))}
             className={cn(inputClass, 'h-12 text-lg font-semibold tabular-nums placeholder:text-sm placeholder:font-normal', lower(m) && 'border-destructive focus-visible:ring-destructive')}
-            value={raw} onChange={(e) => { setValues((v) => ({ ...v, [m.key]: e.target.value })); setError(''); }} />
+            value={raw} onChange={(e) => { setValues((v) => ({ ...v, [m.key]: e.target.value })); fe.clear(idOf(m)); }} />
           {replaces && raw.trim() && <p className="text-xs text-muted-foreground">Replaces the {num(replaces.value)} reading on {short(date)}.</p>}
-          <p aria-live="polite" className={cn('text-xs tabular-nums', lower(m) ? 'font-medium text-destructive' : 'font-medium text-emerald-700 dark:text-emerald-400')}>
-            {lower(m) ? `Lower than ${num(before!.value)} on ${short(before!.readOn)}. Tick “Meter was reset or replaced” if it was.`
-              : typed !== null ? `Used ${num(typed)} ${UNIT_OF[m.kind]} → ${formatBillPesos(Math.round(typed * m.rate))}` : ''}</p>
+          {/* After a failed save the message moves into the field's error, so it isn't shown twice. */}
+          {fe.errors[idOf(m)] ? <FieldError id={idOf(m)} message={fe.errors[idOf(m)]} />
+            : <p aria-live="polite" className={cn('text-xs tabular-nums', lower(m) ? 'font-medium text-destructive' : 'font-medium text-emerald-700 dark:text-emerald-400')}>
+              {lower(m) ? lowerText(m) : typed !== null ? `Used ${num(typed)} ${UNIT_OF[m.kind]} → ${formatBillPesos(Math.round(typed * m.rate))}` : ''}</p>}
           {before && raw.trim() && (Number(raw) < before.value || resets[m.key]) && <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-8">
             <input type="checkbox" className="size-4 accent-primary" checked={!!resets[m.key]}
-              onChange={(e) => setResets((r) => ({ ...r, [m.key]: e.target.checked }))} />Meter was reset or replaced</label>}
+              onChange={(e) => { setResets((r) => ({ ...r, [m.key]: e.target.checked })); fe.clear(idOf(m)); }} />Meter was reset or replaced</label>}
         </div>;
       })}
     </fieldset>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <div className="flex justify-end gap-2">
       <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
       <Button type="submit" className="h-11 sm:h-9" disabled={busy || !filled.length}>

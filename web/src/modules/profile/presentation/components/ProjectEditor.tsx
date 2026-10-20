@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { Loader2 } from 'lucide-react';
 import { Button, DatePicker, Input, Label, Switch, Textarea } from '@/components/ui';
 import type { ProjectType } from '@himan/shared/profile';
@@ -50,15 +52,31 @@ interface ProjectEditorProps {
 
 export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEditorProps) => {
   const [values, setValues] = useState<ProjectFormValues>(() => toFormValues(project));
+  const fe = useFieldErrors();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    fe.clear();
+    const invalid: [string, string][] = [];
+    if (!values.name.trim()) invalid.push(['proj-name', 'Enter the project name']);
+    if (invalid.length) { fe.failMany(invalid); return; }
+    try {
+      await onSave(values);
+    } catch {
+      fe.setFormError(project ? 'Failed to save project' : 'Failed to create project');
+    }
+  };
 
   const set = <K extends keyof ProjectFormValues>(key: K, value: ProjectFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
+    <form noValidate onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border p-4">
+      <FormErrorBanner message={fe.formError} />
       <div className="space-y-2">
-        <Label htmlFor="proj-name">Name</Label>
-        <Input id="proj-name" value={values.name} onChange={(e) => set('name', e.target.value)} />
+        <Label htmlFor="proj-name" required>Name</Label>
+        <Input id="proj-name" required {...fe.invalid('proj-name')} value={values.name} onChange={(e) => { set('name', e.target.value); fe.clear('proj-name'); }} />
+          <FieldError id="proj-name" message={fe.errors['proj-name']} />
       </div>
 
       <div className="space-y-2">
@@ -143,12 +161,12 @@ export const ProjectEditor = ({ project, onSave, onCancel, isSaving }: ProjectEd
       </fieldset>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(values)} disabled={isSaving || !values.name.trim()}>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={isSaving}>
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save'}
         </Button>
       </div>
-    </div>
+    </form>
   );
 };

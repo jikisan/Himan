@@ -1,7 +1,7 @@
 ---
 type: module
 area: rentals
-status: phase-2-bills
+status: phase-4-settlement
 ---
 
 # Rentals
@@ -10,9 +10,10 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plans: [[202
 
 ## Layers
 - Shared: `packages/shared/src/modules/rentals/` — domain (money in centavos, roles, schemas) + repositories.
-- Shared flows: `infrastructure/flows.ts` — `addTenant` (creates tenant + move-in, removes the new tenant if the
-  move-in fails) and `setupProperty` (property + rooms, reports failed room names). Domain `flow.ts`:
-  `moveInDefaults`, `roomSpots`.
+- Shared flows: `infrastructure/flows.ts` — `moveIn` (guided move-in: tenant if new + tenancy + move-in bill + payment in
+  one transaction via `TenancyRepository.moveIn` → `rental_move_in`; starting readings, extra charges and payment proofs are
+  saved afterwards and their failures become warnings) and `setupProperty` (property + rooms, reports failed room names).
+  Domain `flow.ts`: `moveInDefaults`, `roomSpots`.
 - Web: `web/src/modules/rentals/` — `/rentals` page, flow v2 (plain words for non-technical users):
   Property side list with bed meters · tabs Home / Rooms / Tenants / Bills (Bills badge = bills waiting + ready).
   Home (`HomeView`): "To do for <month>" tasks (read meters, issue bills, recent bills past due, free beds) + at a glance
@@ -20,7 +21,7 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plans: [[202
   issued (Copy for Messenger) / no monthly bill; `MeterReadings` is a side panel ≥1024px, a full-screen sheet below
   (`utils/billingMonth.ts`: `monthRows`, `monthTodo`, `useWide`). Past due ≠ unpaid: no payment tracking yet · Rooms board (`RoomsBoard`, one line per bed, Full / N free pill,
   "+ Add tenant" on free beds) · Tenants view (`TenantsList`, table: room, rent, since).
-  Dialogs: `SetupWizard` (new property, 3 steps), `AddTenantForm`, `TenantSheet` (right side panel: call/text/move out, rent + next due, contract, ID, read-only contact with Edit, history),
+  Dialogs: `SetupWizard` (new property, 3 steps), `MoveInFlow` (guided move-in; `AddTenantForm` is its first step), `TenantSheet` (right side panel: call/text/move out, rent + next due, contract, ID, read-only contact with Edit, history),
   `MoveOutDialog` (dated), `UnitForm` (room), `PropertyForm` (edit; contract details collapsed), `ShareDialog`.
   UI words: Room / Shared room / Tenant / Move in / Move out; DB keeps unit / bedspace / renter / tenancy.
 - Bills (Phase 2 part 1): domain `billing.ts` — pure, pending bills are computed live (no stored drafts):
@@ -28,7 +29,7 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plans: [[202
   equal split in shared rooms, leftover centavo to the longest-staying tenant), `finalBillLines`, `proratedRent`
   (rent ÷ 30 × days to the first due date; must match `rental_start_tenancy`), `statementText`, `formatBillPesos`.
   Repo `BillRepository` (issue via RPC, edit lines, void, readings). Flows `moveOut` (final readings → end → final bill),
-  `issueBills`; `addTenant` also saves starting readings and extra charges (failures become warnings).
+  `issueBills`; `moveIn` also saves starting readings and extra charges (failures become warnings).
   Web: **Bills** view (`BillsView` + `MeterReadings`), `Statement` (Statement of Account layout), `BillSheet`
   (copy for Messenger, late fee, edit, cancel), `ChargesEditor`; tenant sheet locks billed terms ("New rent from").
 - DB: `supabase/migrations/20261016000000_create_rentals_module.sql`, `20261016100000_add_rental_unit_default_rent.sql`
@@ -118,3 +119,114 @@ Self-contained. Depends on `friends` (friendships table, `FriendRepository`) and
   on a fresh database, so `supabase db reset` fails on a clean machine.
 - `public.initialize_user_subscription()` has no `search_path`; locally, creating an auth user
   fails with `relation "user_subscriptions" does not exist`.
+
+## Payments and payment accounts (Step A, 2026-10-18)
+Plan: [[2026-10-18-rentals-payments]]. Migration `20261018100000_add_rental_payments.sql`.
+- Tables: `rental_payments`, `rental_payment_allocations`, `rental_payment_proofs` (bucket `rental-files`, managers only),
+  `rental_payment_accounts` (per property; QR images in the public bucket `rental-qr`, owner writes). Clients never write
+  payments or allocations directly: RPCs `rental_record_payment` / `rental_void_payment` / `rental_mark_earlier_paid`.
+- `rental_reallocate(tenancy)` (trigger-only, not executable by clients) rebuilds the automatic allocations: payments by
+  `created_at`, bills by `due_on, created_at, id`; landlord-picked ("pinned") allocations are kept and clamped. Leftover = credit,
+  applied to later bills automatically. Bill state (Paid / Partial / Unpaid / Overdue) is derived in `domain/payments.ts`, never stored.
+- Ruling: editing or cancelling a bill that has payments is **allowed** (with a confirm in the UI); the money flows back to
+  credit or other bills. The earlier "locked once paid" rule made every credit-covered new bill uneditable.
+- `rental_properties.payments_tracked_from` was set to the migration day for existing properties. Bills issued before it
+  that are unpaid show in a Home banner "Bills from before payment tracking" with **Mark all as paid**
+  (records one "Paid before payment tracking" payment per tenant); the Overdue list excludes them.
+- Deposit held: counts once the move-in bill is fully paid (`depositHeld`); until then "pending".
+- Applied to the hosted project 2026-10-18 (one transaction, `migration repair`); verified RLS on all four tables,
+  `rental-qr` public, `rental-files` private, no `anon`/`authenticated` EXECUTE on `rental_reallocate`, `anon` cannot
+  record payments. Earlier migrations through `20261018000000` were already applied (this supersedes the older
+  "apply before deploying" note above).
+- Not in this step: PDFs (Step B), contract and renter link (Step C), deposit settlement (Step D).
+
+## PDFs (Step B, 2026-10-18)
+Plan: [[2026-10-18-rentals-pdfs]]. Migration `20261018150000_snapshot_rental_payment_receipts.sql`.
+- `@react-pdf/renderer` loads lazily (`import()` from the download buttons; ~635 KB gzip chunk, not in the entry bundle).
+  Fonts: Noto Sans WOFF inlined in that chunk (latin-ext carries `₱`; licence `web/public/assets/fonts/OFL-NotoSans.txt`).
+  Pure shaping in shared `domain/documents.ts` (`billDocument`, `receiptDocument`), rendering in `web/.../presentation/pdf/`.
+- Amount in words: `pesosInWords` (shared `domain/words.ts`, `to-words` en-PH).
+- Bill PDF = Statement of Account (accounts + QR, previous balance, paid, amount due). Receipt PDF = acknowledgment receipt
+  (number `R-` + first 8 chars of the payment id; never embeds proofs).
+- **Receipts are frozen**: `rental_payments.receipt` (jsonb) is written at record time by `rental_snapshot_receipt`
+  (applied bills, credit, balance after); later bill or payment changes never alter it. Legacy payments fall back to live
+  figures labelled "Figures as of <date>".
+- Applied to the hosted project 2026-10-18 (one transaction, `migration repair`).
+- Not yet: contract and deposit-settlement PDFs (Steps C, D); downloads from the renter link (Step C).
+
+## Contracts, tenant link, e-sign (Step C, 2026-10-18)
+Plan: [[2026-10-18-rentals-contracts]]. Migrations `20261018200000_add_rental_contracts.sql` (applied to hosted 2026-10-19) and
+`20261018210000_lock_rental_lessor_signature.sql` (**NOT yet applied: apply after the web build from this branch is deployed**,
+because the live build still runs `select('*')` on `rental_properties` and the lock makes `lessor_signature` unreadable to it).
+- Tables: `rental_contract_templates` (per property clauses), `rental_contract_texts` (rendered body, special terms, tenant and
+  lessor signatures, SHA-256 `content_hash`; frozen once the tenant signs), `rental_tenancy_links` (one private token per tenancy,
+  kind `new` / `existing`, status open / submitted / accepted). Bucket `rental-link-uploads` (private) takes ID photos from the link.
+- The only anonymous surface: RPCs `rental_link_get`, `rental_link_submit_details`, `rental_link_sign` (+ `rental_link_can_upload` for
+  the storage policy). One uniform "This link isn't valid anymore" for invalid, revoked, regenerated or expired (move-out + 90 days)
+  tokens. Signing requires the hash of the text the tenant read (a contract edited after sending can't be signed unseen).
+  Tenant details wait for the landlord's **Accept** (`rental_accept_details`, then the client copies the ID photos into `rental-files`).
+- Landlord UI: contract panel in the tenant sheet, template editor and "My signature" in Edit property (owner), Add tenant
+  "Send details link", Home to-dos (review details, countersign, contract ends in 30 days). Saved signature is read only by the owner
+  (`rental_get_lessor_signature`); a non-owner manager draws their own to countersign.
+- Public page: `/r/:token` (`web/src/RenterApp.tsx`, `presentation/renter/*`), outside every auth guard. Contract text, bills,
+  payments, payment accounts with QR, PDFs for contract, bills and receipts. Never IDs, proofs or other tenants.
+- Verified in a real browser against a local stack: details + ID upload (anon storage), signing, Accept (ID copied, uploads
+  cleaned), countersign. Privacy-notice wording needs the owner's legal review (`TODO owner` in `DetailsForm`).
+- Not yet: deposit settlement (Step D).
+
+## Deposit settlement (Step D, 2026-10-19)
+Plan: [[2026-10-18-rentals-settlement]]. Migration `20261018300000_add_rental_settlements.sql` (applied to hosted 2026-10-19).
+- After move-out, Home shows "Deposit to return". `rental_settle_deposit` (manager, SECURITY DEFINER) recomputes everything in SQL
+  (deposit = move-in bill's deposit line; unpaid issued bills; tenant credit) and never trusts client numbers. Needs a moved-out
+  tenancy whose move-in bill is fully paid; one settlement per tenancy.
+- `deductions = unpaid + extra lines`; `owed = max(deductions − deposit − credit, 0)`; refund = `max(deposit + credit − deductions, 0)`,
+  or for a forfeit (early termination, deposit kept) `max(credit − max(deductions − deposit, 0), 0)`. Mirrored in shared `settlementPreview`.
+- Bills covered by the deposit are marked paid by one "Taken from the deposit" payment (pinned allocations), so nothing stays open.
+- After settlement the move-in bill and the payments recorded before it are frozen; later bills and payments still work.
+- Refund proofs: `rental_settlement_proofs` (managers only, bucket `rental-files`). Settlement PDF (lazy, no proof images).
+- Ledger lock (`20261020000000_close_settlement_ledger_gaps.sql`): settling marks every issued bill `settled` (frozen by
+  `rental_settled_bill_guard`) and pins every allocation; `rental_reallocate` places no new money from payments recorded up to
+  the settlement, so refunded credit never pays a later bill. BillSheet hides Edit/Cancel/late fee on settled bills.
+- Known limits: the renter link does not show settlements. Advance months are not refunded by settlement.
+
+## Deploy order for the whole payments → settlement run (2026-10-19)
+Applied to hosted: `20261018100000`, `20261018150000`, `20261018200000`, `20261018300000` (all additive).
+Also applied: `20261018210000_lock_rental_lessor_signature.sql`, ahead of the deploy. **Until the web build from these branches is live,
+the old build's Rentals page fails** (it runs `select('*')` on `rental_properties`; `lessor_signature` is now owner-only). To undo: `GRANT SELECT (lessor_signature) ON public.rental_properties TO authenticated`. Branches are stacked: payments → pdfs → contracts → settlement.
+
+## Owner-chosen sign mode (2026-10-19)
+Migration `20261019000000_owner_chosen_sign_mode.sql` (applied to hosted 2026-10-19). The owner picks "Sign online only" or
+"Sign online, then notarize" on the contract draft; `rental_send_contract` refuses a text without one. The mode is frozen once the
+text is sent, and `rental_link_sign` refuses a different mode from a stale page. Texts sent before this keep a NULL mode and the
+tenant still chooses. **Until the matching web build is deployed, the old build can't send contracts** (it never sets a mode).
+Decision: renters get the room by paying advance and deposit and the contract follows; "reserve a room" is a separate, unbuilt
+feature (a pending-tenant design was built and removed for this reason).
+
+
+## Contract as a priority (2026-10-19)
+Migration `20261019100000_contract_not_needed.sql` (**NOT yet applied to hosted**; backward compatible: a new column with a default,
+which the deployed build's `select('*')` ignores, and the new build reads as false while it is missing). A written contract stays
+optional but is nudged everywhere: `contractStage(tenancy, texts)` (shared `domain/contracts.ts`) → none / draft / sent / signed / done /
+not_needed. Home lists contract to-dos first for active tenancies (managers; "Not needed" on none/draft), the tenant sheet shows the
+Contract section first with the next step until done or dismissed ("Contract not needed" + Undo), the Tenants list and Rooms board show
+a short badge, and Add tenant opens the new tenant's sheet at the Contract section. No gating: nothing waits on the contract.
+
+Migration `20261019100000_contract_not_needed.sql` applied to hosted 2026-10-19 (additive column, safe for the older web build).
+
+## Guided move-in (2026-10-19)
+Spec: "Guided move-in flow" in [[2026-10-16-rentals-design]]. Migration `20261019200000_guided_move_in.sql` (applied to hosted
+2026-10-19; verified anon can still run only the four link functions). It is safe for the currently deployed build: texts that build creates are already resolved, so lessee resolution is a no-op
+(same body, same hash), and the extra jsonb keys `rental_link_get` returns (`lessee`, `contract.signedInPerson`) are ignored by its zod
+schema.
+- `MoveInFlow` (replaces `addTenant`): one dialog, "1 Add tenant · 2 Pay · 3 Contract". Step 2 runs the `moveIn` flow → `rental_move_in`
+  (renter if new, tenancy, move-in bill and payment in one transaction; "Add without payment" leaves the move-in bill unpaid). Step 3
+  creates the contract and either sends the link or opens `InPersonSigning`.
+- `InPersonSigning` → `rental_sign_in_person`: the tenant fills in their details, reads the contract with their name and address filled
+  in and signs on the owner's device; details go straight to the renter row, the text records `signed_in_person` / `witnessed_by`, the
+  owner countersigns in the same dialog. Owner and tenant pages and PDFs print "Signed in person on <date>".
+- Lessee placeholders: stored texts keep `{{lessee_name}}` / `{{lessee_address}}`; they are resolved only at signing
+  (`rental_resolve_lessee` in SQL, `resolveLessee` in TS, identical; only spaces trimmed) and the resolved body is what is stored and hashed.
+  Names and addresses with control characters (line breaks included) or `{{` / `}}` are refused ("Remove line breaks and braces from the
+  name and address") in `rental_link_submit_details`, `rental_sign_in_person`, `rental_resolve_lessee` and the TS schemas, so a value can't
+  inject text or a placeholder into the signed contract.
+- The tenant sheet shows a compact move-in checklist (Added · Move-in paid · Contract) until the move-in is paid and the contract done.

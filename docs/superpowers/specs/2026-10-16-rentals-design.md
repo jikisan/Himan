@@ -206,3 +206,98 @@ The houses the user rents out have no CUSA or parking, so extra charges are opti
   `rental_meter_readings`, `rental_bills` (lines as a jsonb snapshot; status `issued`/`void`),
   RPCs `rental_issue_bill`, `rental_change_rent`, contract guard trigger, and
   `rental_start_tenancy` issuing the move-in bill.
+
+## Phases 2 part 2 – 4 (grilling Q1–Q21, 2026-10-18)
+
+Scope of this run: web only. Mobile is a later `/port-web-to-mobile` pass. The owner approved
+applying migrations to the hosted project directly (one file at a time, one transaction, then
+`supabase migration repair`). Steps ship in order, each on its own branch and MR:
+**A** payments + payment accounts · **B** PDFs · **C** contracts, invite link, e-sign, renewals · **D** deposit settlement.
+
+### A. Payments and payment accounts
+- **Record payment** (Q1): one tap on a bill or tenant; amount pre-filled with what the tenant still owes. A payment
+  pays the tenant's oldest unpaid bill first; the landlord may pick another bill. Bill state: Unpaid · Partial · Paid ·
+  Overdue (unpaid past due date). "Overdue" replaces the old "past due" label.
+- **Overpayment** (Q2): the excess is a credit carried to the next bill (shown as a credit, never refused).
+- **Void a payment** (Q3): with a reason; the record stays; bills it paid return to unpaid.
+- **Deposit held** (Q4): counts once the move-in bill is fully paid; until then "deposit pending". Feeds "deposits held" on Home.
+- **Payment accounts** (Q5): belong to the **property** (owner manages; all members and bills see them). Name, number, optional QR
+  image (public bucket). Bills show them as text; PDF and renter link also show the QR. This replaces the earlier
+  user-owned-accounts idea.
+- Payment fields (earlier decision kept): amount, date, method, reference no. (duplicate warning per property), notes, several proof
+  images (private bucket). Receipts: Step B.
+
+### B. PDFs (Q10)
+Four documents with `@react-pdf/renderer` (lazy chunk; `₱` needs `Font.register`): bill (Statement of Account), payment receipt,
+contract (only after signing; notary page only when the tenant chose "notarize"), deposit settlement. Bills and receipts download
+from the app and from the renter link.
+
+### C. Contracts, invite link, e-sign, renewals
+- **Create contract on demand** (Q6): move-in saves terms only; "Create contract" on a tenant makes an editable draft from the property
+  template; text is frozen (snapshot + SHA-256) when signed. Contracts are optional.
+- **Template** (Q7): ordered clauses (edit / add / remove / reorder), "Insert field" menu for placeholders, "Reset to default"
+  (the owner's Cebu contract with personal details replaced by fields). Each contract has a **Special terms** box appended as a last clause.
+- **Renewals** (Q8): "New rent from [month]" / renewal starts a new contract on the same tenancy as today; contract text (and re-signing)
+  only if "Create contract" is tapped. Home to-do: "Contract ends in 30 days".
+- **Invite / signing link** (Q14–Q21) — one private per-tenancy link, the only anonymous write path:
+  - New tenant: short details form, then contract to sign. Existing tenant (ex-tenant, picked from list): straight to the contract; no editing.
+  - Add tenant needs only name, room, rent, move-in date when a link is sent; the bed is reserved and the move-in bill issued at once;
+    tenant shows "Waiting for details" until submitted.
+  - Submitted details wait for the landlord's **Accept** (Home to-do "Review details from <name>"); nothing overwrites silently.
+  - Transfers: "Already a tenant?" also lists tenants of the owner's other properties; copies contact details only (ID re-uploaded).
+  - Form: required full name, mobile, home address, emergency contact (name + number), valid-ID photo; optional Facebook/Messenger,
+    email, people living there. One-line privacy notice with a required checkbox (Data Privacy Act 2012; wording to be checked by the owner).
+  - Safeguards: link locks after one submission (landlord can reopen), max 3 ID files, 10 MB, PDF/JPEG/PNG, ID stored in the private
+    bucket (managers only), token-keyed `SECURITY DEFINER` RPCs only, no table grants to `anon`.
+  - Landlord draws a signature **once** (saved on the property); countersigning is one tap. Home to-dos: "Countersign contract for <name>".
+  - "Copy link for Messenger" button writes a ready message; device share menu also works. No SMS or email is sent by the app.
+  - Sign mode, witnesses and notarized-scan upload stay as decided in Q18; the link expires 90 days after move-out and is revocable.
+
+### D. Deposit settlement (Q9)
+Move-out stays as is (date + final bill). Afterwards Home shows "Deposit to return". Settlement screen: starts with the deposit,
+subtracts unpaid bills automatically, lets the landlord add lines (cleaning, damage, other), and has "Forfeit all" for early
+termination. The refund is recorded (amount, date, method, optional proof image, note) and the deposit held becomes 0. A settlement PDF is produced.
+
+## Guided move-in flow (grilling Q1–Q17, 2026-10-19)
+
+Real-world order: the renter gets the room by paying advance + deposit, then signs the contract. One dialog, three steps
+(header "1 Add tenant · 2 Pay · 3 Contract"). Reservations stay a separate, unbuilt feature.
+
+1. **Add tenant** (new person, or pick an existing/ex-tenant/transfer): room, name, rent, advance, deposit, move-in date, due day.
+   Contact details are optional here (the tenant fills them in at step 3). The old "Send details link" checkbox is removed from this
+   step. Nothing is saved yet; closing asks "Discard this move-in?" (Q9).
+2. **Pay move-in fees**: shows the move-in bill (rent for the days, advance, deposit, total); record a full or partial payment
+   (method, reference with duplicate warning, notes, proof images). Recording it creates the renter (if new), the tenancy, the move-in
+   bill and the payment in ONE transaction (Q1 b, Q11) — the bed is taken at this moment. Secondary button "Add without payment
+   (pay later)" creates the tenant with an unpaid move-in bill (transfers, relatives, money paid earlier) (Q10). Then "View receipt" (Q8).
+3. **Contract** (skippable, "Do the contract later"): create the contract (template, special terms, sign mode), then either
+   - **Sign on this device** (Q4 a, Q5, Q12, Q14): the dialog switches to a tenant screen: the tenant fills the details form (name
+     pre-filled and correctable, mobile, address, emergency contact, ID photo, privacy checkbox), reads the contract with their name and
+     address filled in, draws a signature and signs. Details save straight to the renter record (owner present). The record says signed in
+     person on the owner's device. The owner countersigns right after in the same dialog (Q6).
+   - **Send link** (Q13): the tenant fills details on their own phone; the contract's name and address use what they typed at once, they sign;
+     the rest of their details still wait for the owner's Accept.
+Same flow for existing people (Q7). The tenant sheet shows a compact move-in checklist (Added · Move-in paid · Contract) until done (Q17).
+
+### Contract for the build (fixed names)
+- **Lessee placeholders stay in the stored text**: new contract texts keep `{{lessee_name}}` and `{{lessee_address}}` unresolved in `body`
+  (every other field is resolved at creation as today). They are resolved only when signing, by plain string replacement in every body
+  line, with the value trimmed and an empty value rendered as `__________` — identically in SQL (`rental_resolve_lessee(body jsonb, name text,
+  address text) RETURNS jsonb`, IMMUTABLE) and TS (`resolveLessee(body: string[], name: string, address: string): string[]` in
+  `domain/contracts.ts`). The signed `body` stored is the resolved one, and `content_hash` is computed over the resolved body. Texts created
+  before this (already resolved) are unaffected (replacement is a no-op). Owner-side previews show the body resolved with the renter's current values.
+- **Values used at signing**: link kind `new` → `submitted_details.fullName` / `.address`; link kind `existing` → the renter record's
+  `full_name` / `address`; in person → the name/address typed in the form. `rental_link_get` returns top-level `lessee: { name, address }`
+  (what the server will use) so the tenant page renders and hashes the same text.
+- `rental_contract_texts.signed_in_person boolean NOT NULL DEFAULT false`, `witnessed_by uuid NULL`.
+- `rental_sign_in_person(p_contract_text_id uuid, p_name text, p_signature text, p_content_hash text, p_details jsonb) RETURNS void` —
+  manager only, SECURITY DEFINER, search_path ''; same rules as `rental_link_sign` (status sent, stored sign_mode, valid PNG signature,
+  hash over the resolved body must match); `p_details` = `{ fullName, phone, address, emergencyName, emergencyPhone, facebook, email,
+  occupants }` validated like `rental_link_submit_details` (without idPaths) and written straight to the renter row; resolves lessee from
+  `p_details.fullName`/`.address`; sets `signed_in_person = true`, `witnessed_by = auth.uid()`, tenant_name = p_name. The ID photo is
+  uploaded by the client through the existing renter-file path.
+- `rental_move_in(p_unit_id uuid, p_renter_id uuid, p_renter jsonb, p_move_in date, p_start date, p_end date, p_rent integer,
+  p_due_day integer, p_advance integer, p_deposit integer, p_payment jsonb) RETURNS jsonb` — SECURITY INVOKER (RLS applies); exactly one of
+  `p_renter_id` / `p_renter` (`{ fullName, phone?, ... }` like the renter insert); calls `rental_start_tenancy` (unchanged) and, when
+  `p_payment` is not null (`{ amount, paidOn, method, reference, notes }`), `rental_record_payment` pinned to the new move-in bill — all in
+  one transaction; returns `{ renterId, tenancyId, billId, paymentId }` (billId/paymentId may be null).

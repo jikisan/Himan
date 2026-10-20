@@ -30,6 +30,9 @@ describe('PropertyRepository', () => {
     mock.from.mockReturnValue(query);
     const [property] = await new PropertyRepository().findAll('me');
     expect(query.eq).toHaveBeenCalledWith('members.user_id', 'me');
+    // Members can't select the saved signature: no `*`, and the column isn't listed.
+    const columns = (query.select.mock.calls[0] as unknown[])[0] as string;
+    expect(columns.split(', units:')[0]).not.toMatch(/\*|lessor_signature/);
     expect(property.role).toBe('manager');
     expect(property.units[0]).toMatchObject({ propertyId: 'p', electricMode: 'submeter', electricAmountCentavos: 1250 });
   });
@@ -51,6 +54,33 @@ describe('TenancyRepository', () => {
       endDate: '2027-10-01', monthlyRentCentavos: 1000000, dueDay: 30, advanceMonths: 1, depositCentavos: 1000000 });
     expect(id).toBe('t');
     expect(mock.rpc).toHaveBeenCalledWith('rental_start_tenancy', expect.objectContaining({ p_rent: 1000000, p_due_day: 30 }));
+  });
+});
+
+describe('TenancyRepository moveIn', () => {
+  const terms = { unitId: 'u', moveIn: '2026-10-01', startDate: '2026-10-01', endDate: '2027-10-01', monthlyRentCentavos: 1000000,
+    dueDay: 30, advanceMonths: 1, depositCentavos: 1000000 };
+  const person = { fullName: ' Elle Tan ', phone: '', facebook: '', email: '', address: '', emergencyName: '', emergencyPhone: '', occupants: 1, notes: '' };
+  it('moves a new person in and records the payment in one RPC', async () => {
+    mock.rpc.mockResolvedValue({ data: { renterId: 'r', tenancyId: 't', billId: 'b', paymentId: 'pay' }, error: null });
+    const result = await new TenancyRepository().moveIn({ ...terms, renterId: null, renter: person,
+      payment: { amountCentavos: 500000, paidOn: '2026-10-01', method: 'gcash', reference: ' 123 ', notes: '' } });
+    expect(result).toEqual({ renterId: 'r', tenancyId: 't', billId: 'b', paymentId: 'pay' });
+    expect(mock.rpc).toHaveBeenCalledWith('rental_move_in', { p_unit_id: 'u', p_renter_id: null, p_renter: { ...person, fullName: 'Elle Tan' },
+      p_move_in: '2026-10-01', p_start: '2026-10-01', p_end: '2027-10-01', p_rent: 1000000, p_due_day: 30, p_advance: 1, p_deposit: 1000000,
+      p_payment: { amount: 500000, paidOn: '2026-10-01', method: 'gcash', reference: '123', notes: '' } });
+  });
+  it('sends no payment for pay later, and an existing person by id', async () => {
+    mock.rpc.mockResolvedValue({ data: { renterId: 'r', tenancyId: 't', billId: null, paymentId: null }, error: null });
+    expect(await new TenancyRepository().moveIn({ ...terms, renterId: 'r', renter: null, payment: null }))
+      .toEqual({ renterId: 'r', tenancyId: 't', billId: null, paymentId: null });
+    expect(mock.rpc).toHaveBeenCalledWith('rental_move_in', expect.objectContaining({ p_renter_id: 'r', p_renter: null, p_payment: null }));
+  });
+  it('explains a full room in plain words and hides technical errors', async () => {
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'This unit is full' } });
+    await expect(new TenancyRepository().moveIn({ ...terms, renterId: 'r', renter: null, payment: null })).rejects.toThrow('This room is full');
+    mock.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.rental_move_in' } });
+    await expect(new TenancyRepository().moveIn({ ...terms, renterId: 'r', renter: null, payment: null })).rejects.toThrow('Could not move the tenant in');
   });
 });
 
@@ -233,6 +263,18 @@ describe('TenancyRepository bills support', () => {
     await new TenancyRepository().setCharges('t', [{ label: 'Parking', amount: 100000 }]);
     expect(save.update).toHaveBeenCalledWith({ charges: [{ label: 'Parking', amount: 100000 }] });
   });
+  it('maps and saves contract not needed, false when the column is missing', async () => {
+    mock.from.mockReturnValueOnce(result([{ id: 't', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01', move_out: null },
+      { id: 't2', property_id: 'p', unit_id: 'u', renter_id: 'r', move_in: '2026-10-01', move_out: null, contract_not_needed: true }]));
+    const [t, t2] = await new TenancyRepository().findAll();
+    expect([t.contractNotNeeded, t2.contractNotNeeded]).toEqual([false, true]);
+    const save = result({ id: 't' });
+    mock.from.mockReturnValueOnce(save);
+    await new TenancyRepository().setContractNotNeeded('t', true);
+    expect(mock.from).toHaveBeenLastCalledWith('rental_tenancies');
+    expect(save.update).toHaveBeenCalledWith({ contract_not_needed: true });
+    expect(save.eq).toHaveBeenCalledWith('id', 't');
+  });
   it('changes rent from a date through the renewal RPC', async () => {
     mock.rpc.mockResolvedValue({ data: 'c2', error: null });
     await new TenancyRepository().changeRent('c', '2026-12-01', 400000);
@@ -242,9 +284,9 @@ describe('TenancyRepository bills support', () => {
 
 describe('PropertyRepository bill settings', () => {
   it('saves and maps late fee and due day', async () => {
-    mock.from.mockReturnValueOnce(result([{ ...propertyRow, late_fee_centavos: 50000, rent_due_day: 5 }]));
+    mock.from.mockReturnValueOnce(result([{ ...propertyRow, late_fee_centavos: 50000, rent_due_day: 5, payments_tracked_from: '2026-10-18' }]));
     const [property] = await new PropertyRepository().findAll('me');
-    expect(property).toMatchObject({ lateFeeCentavos: 50000, rentDueDay: 5 });
+    expect(property).toMatchObject({ lateFeeCentavos: 50000, rentDueDay: 5, paymentsTrackedFrom: '2026-10-18' });
     const save = result({ id: 'p' });
     mock.from.mockReturnValueOnce(save);
     await new PropertyRepository().save('p', { ...property, rentDueDay: null });

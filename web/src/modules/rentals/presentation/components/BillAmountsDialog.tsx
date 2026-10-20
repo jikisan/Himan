@@ -5,6 +5,8 @@ import { centavosToInput, parsePesos, periodLabel, utilityBillInputSchema } from
 import type { MeterKind, RentalTenancy, RentalUnit, UtilityBill, UtilityBillInput } from '@himan/shared/rentals';
 import { Field, MoneyInput } from './Field';
 import { errorMessage } from '../utils/errorMessage';
+import { useFieldErrors } from '@core/presentation/hooks';
+import { FormErrorBanner } from '@core/presentation/components';
 
 const LABEL: Record<MeterKind, string> = { electric: 'Electricity', water: 'Water' };
 
@@ -34,36 +36,40 @@ function AmountsForm({ units, tenancies, utilityBills, period, needed, busy, onS
     .sort((a, b) => Number(needed.has(b.key)) - Number(needed.has(a.key)));
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(items.map((i) => [i.key, i.saved ? centavosToInput(i.saved.amountCentavos) : ''])));
-  const [error, setError] = useState('');
+  const fe = useFieldErrors();
   const sharing = (unit: RentalUnit) => tenancies.filter((t) => t.unitId === unit.id && t.moveOut === null).length;
   const changed = items.filter((i) => values[i.key]?.trim() && values[i.key] !== (i.saved ? centavosToInput(i.saved.amountCentavos) : ''));
 
   return <form noValidate className="space-y-4" onSubmit={async (event) => {
     event.preventDefault();
-    if (!changed.length) { setError('Type at least one amount'); return; }
+    fe.clear();
+    if (!changed.length) { if (items.length) fe.fail(`amount-${items[0].key}`, 'Type at least one amount'); return; }
     const inputs: UtilityBillInput[] = [];
-    try {
-      for (const i of changed) {
+    const failed: [string, string][] = [];
+    for (const i of changed) {
+      let message: string;
+      try {
         const parsed = utilityBillInputSchema.safeParse({ unitId: i.unit.id, kind: i.kind, period, amountCentavos: parsePesos(values[i.key]) });
-        if (!parsed.success) { setError(`${i.unit.name}: ${parsed.error.issues[0].message}`); return; }
-        inputs.push(parsed.data);
-      }
-      setError('');
-      await onSave(inputs);
-    } catch (failure) { setError(errorMessage(failure)); }
+        if (parsed.success) { inputs.push(parsed.data); continue; }
+        message = parsed.error.issues[0].message;
+      } catch (failure) { message = errorMessage(failure); }
+      failed.push([`amount-${i.key}`, message]);
+    }
+    if (failed.length) { fe.failMany(failed); return; }
+    try { await onSave(inputs); } catch (failure) { fe.setFormError(errorMessage(failure)); }
   }}>
+    <FormErrorBanner message={fe.formError} />
     <fieldset disabled={busy} className="space-y-4">
       {items.map((i) => {
         const people = sharing(i.unit);
         return <Field key={i.key} id={`amount-${i.key}`} label={`${i.unit.name} · ${LABEL[i.kind]}`}
-          hint={needed.has(i.key) ? 'Needed for an SOA' : i.saved ? 'Saved' : undefined}>
-          <MoneyInput id={`amount-${i.key}`} value={values[i.key] ?? ''} placeholder="Amount on the bill"
-            onChange={(e) => { setValues((v) => ({ ...v, [i.key]: e.target.value })); setError(''); }} />
+          hint={needed.has(i.key) ? 'Needed for an SOA' : i.saved ? 'Saved' : undefined} error={fe.errors[`amount-${i.key}`]}>
+          <MoneyInput id={`amount-${i.key}`} {...fe.invalid(`amount-${i.key}`)} value={values[i.key] ?? ''} placeholder="Amount on the bill"
+            onChange={(e) => { setValues((v) => ({ ...v, [i.key]: e.target.value })); fe.clear(`amount-${i.key}`); }} />
           {people > 1 && <p className="text-xs text-muted-foreground">Split between {people} tenants.</p>}
         </Field>;
       })}
       <p className="text-xs text-muted-foreground">SOAs already generated keep the amount they had. Cancel one and generate it again to use a new amount.</p>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={onCancel}>Cancel</Button>
         <Button type="submit" className="h-11 sm:h-9" disabled={busy || !changed.length}>Save amounts</Button>

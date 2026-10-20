@@ -1,0 +1,49 @@
+import { z } from 'zod';
+import { depositHeld, PAYMENT_METHODS } from './payments.js';
+import type { PaymentMethod, RentalPayment } from './payments.js';
+import type { RentalBill, RentalTenancy } from './types.js';
+
+export interface SettlementLine { label: string; amount: number }
+export interface SettlementProof { id: string; settlementId: string; propertyId: string; name: string; mimeType: string; size: number; storagePath: string; ready: boolean }
+export interface RentalSettlement {
+  id: string; propertyId: string; tenancyId: string; depositCentavos: number; unpaidBillsCentavos: number; creditCentavos?: number; lines: SettlementLine[];
+  forfeit: boolean; refundCentavos: number; owedCentavos: number; refundedOn: string | null; refundMethod: PaymentMethod | null;
+  refundReference: string; notes: string; status: 'draft' | 'settled'; settledAt: string | null; proofs: SettlementProof[];
+}
+
+const LINE = 'Add a label and an amount for each deduction';
+export const settlementSchema = z.object({
+  lines: z.array(z.object({
+    label: z.string(LINE).trim().min(1, LINE).max(80, 'Keep each label under 80 characters').regex(/[\p{L}\p{N}\p{P}]/u, LINE),
+    amount: z.number(LINE).int(LINE).min(1, LINE).max(2_000_000_000, 'That amount is too high'),
+  })).max(30, 'Use at most 30 deductions'),
+  forfeit: z.boolean(),
+  // Required by the form only when a refund is expected; the database checks it too.
+  refundedOn: z.iso.date('Choose the refund date').nullable(),
+  refundMethod: z.enum(PAYMENT_METHODS, 'Pick how the refund was paid').nullable(),
+  refundReference: z.string().trim().max(80, 'Keep the reference under 80 characters'),
+  notes: z.string().trim().max(500, 'Keep the note under 500 characters'),
+});
+export type SettlementInput = z.infer<typeof settlementSchema>;
+
+/**
+ * Unpaid bills and each line come off the deposit plus the tenant's credit; any excess is still owed. Forfeit keeps the
+ * whole deposit and returns only the credit left after deductions beyond the deposit. Matches rental_settle_deposit.
+ */
+export function settlementPreview(input: { depositCentavos: number; unpaidBillsCentavos: number; lines: SettlementLine[]; forfeit: boolean; creditCentavos?: number }):
+  { deductionsCentavos: number; refundCentavos: number; owedByTenantCentavos: number } {
+  const { depositCentavos, unpaidBillsCentavos, lines, forfeit, creditCentavos = 0 } = input;
+  const deductionsCentavos = unpaidBillsCentavos + lines.reduce((a, l) => a + l.amount, 0);
+  return { deductionsCentavos,
+    refundCentavos: forfeit ? Math.max(creditCentavos - Math.max(deductionsCentavos - depositCentavos, 0), 0)
+      : Math.max(depositCentavos + creditCentavos - deductionsCentavos, 0),
+    owedByTenantCentavos: Math.max(deductionsCentavos - depositCentavos - creditCentavos, 0) };
+}
+
+/** A held deposit after move-out waits to be settled; once settled it is no longer held. */
+export function depositToReturn(tenancy: RentalTenancy, bills: RentalBill[], payments: RentalPayment[], settlement?: RentalSettlement):
+  { state: 'none' | 'to_settle' | 'settled'; depositCentavos: number } {
+  if (settlement?.tenancyId === tenancy.id) return { state: 'settled', depositCentavos: settlement.depositCentavos };
+  const held = depositHeld(tenancy, bills, payments);
+  return tenancy.moveOut && held.state === 'held' ? { state: 'to_settle', depositCentavos: held.amountCentavos } : { state: 'none', depositCentavos: 0 };
+}

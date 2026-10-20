@@ -75,11 +75,11 @@ export const PasswordsPage = () => {
       notes: string | null;
       categoryId: string | null;
     }) => {
-      if (editingPassword) {
-        await updatePassword(editingPassword.id, data);
-      } else {
-        await createPassword(data);
-      }
+      const saved = editingPassword
+        ? await updatePassword(editingPassword.id, data)
+        : await createPassword(data);
+      // The hook returns null on failure; throwing lets PasswordDialog show it in its banner.
+      if (!saved) throw new Error(editingPassword ? 'Failed to update password' : 'Failed to create password');
       refetchPasswords();
       refetchCategories();
     },

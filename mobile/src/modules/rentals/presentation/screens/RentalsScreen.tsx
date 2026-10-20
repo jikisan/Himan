@@ -159,14 +159,7 @@ function RentalsContent(state: RentalsState) {
           <View className={`${card} gap-4`}>
             <View className="flex-row items-start gap-3">
               <View className="flex-1 gap-0.5">
-                {/* The arrow stays beside the name; a long name wraps instead of pushing the arrow onto its own line. */}
-                <View className="flex-row items-center gap-x-1">
-                  <Text className={`shrink text-2xl font-bold ${text}`}>{property.name}</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${property.name}`} onPress={switchProperty}
-                    className="-my-2 h-11 w-11 items-center justify-center rounded-full active:bg-gray-100 dark:active:bg-gray-700">
-                    <Feather name="chevron-down" size={22} color="#4f46e5" />
-                  </Pressable>
-                </View>
+                <PropertyName key={property.name} name={property.name} onSwitch={switchProperty} />
                 {property.address ? <View className="flex-row items-center gap-1.5">
                   <Feather accessible={false} name="map-pin" size={13} color="#9ca3af" />
                   <Text className={`flex-1 text-sm ${muted}`}>{property.address}</Text></View> : null}
@@ -290,3 +283,19 @@ function RentalsContent(state: RentalsState) {
   </SafeAreaView>;
 }
 
+/**
+ * The property name with the Switch arrow right after its last word, at most 2 lines. A longer name is cut with "…" so the
+ * arrow always shows. The whole name is the Switch button (screen readers hear "Switch property").
+ */
+function PropertyName({ name, onSwitch }: { name: string; onSwitch(): void }) {
+  const [cut, setCut] = useState<string | null>(null);
+  return <Text accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${name}`} onPress={onSwitch} suppressHighlighting={false}
+    className={`text-2xl font-bold ${text}`}
+    onTextLayout={(e) => {
+      const lines = e.nativeEvent.lines;
+      // Too long: keep what fits on two lines, minus room for the "…" and the arrow, then lay out again.
+      if (cut === null && lines.length > 2) setCut(`${(lines[0].text + lines[1].text).slice(0, -4).trimEnd()}…`);
+    }}>
+    {cut ?? name}{'  '}<Feather name="chevron-down" size={24} color="#4f46e5" />
+  </Text>;
+}

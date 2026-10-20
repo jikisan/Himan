@@ -167,8 +167,8 @@ function RentalsContent(state: RentalsState) {
                   </Pressable>
                 </View>
                 {property.address ? <View className="flex-row items-center gap-1.5">
-                  <Feather accessible={false} name="map-pin" size={15} color="#9ca3af" />
-                  <Text className={`flex-1 ${muted}`}>{property.address}</Text></View> : null}
+                  <Feather accessible={false} name="map-pin" size={13} color="#9ca3af" />
+                  <Text className={`flex-1 text-sm ${muted}`}>{property.address}</Text></View> : null}
                 <View className="flex-row flex-wrap items-center gap-2 pt-1">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>
               </View>
               {/* Icon only, by request (a trial against the labelled-buttons rule); screen readers still hear the label. */}

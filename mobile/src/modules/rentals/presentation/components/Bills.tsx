@@ -107,9 +107,9 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
 
   return <View className="gap-4">
     <View className="flex-row items-center justify-between gap-2">
-      <Btn small icon="chevron-left" label="Previous" a11y="Previous month" disabled={period <= earliest} onPress={() => setPeriod(addPeriods(period, -1))} />
+      <Btn iconOnly icon="chevron-left" label="Previous" a11y="Previous month" disabled={period <= earliest} onPress={() => setPeriod(addPeriods(period, -1))} />
       <Text accessibilityRole="header" className={`flex-1 text-center text-lg font-semibold ${text}`}>{periodLabel(period)}</Text>
-      <Btn small label="Next" icon="chevron-right" a11y="Next month" disabled={period >= latest} onPress={() => setPeriod(addPeriods(period, 1))} />
+      <Btn iconOnly label="Next" icon="chevron-right" a11y="Next month" disabled={period >= latest} onPress={() => setPeriod(addPeriods(period, 1))} />
     </View>
     {(hasMeters || hasMonthly) && <Row>
       {hasMeters && <Btn icon="activity" label="Meters" onPress={() => setMetersOpen(true)} />}

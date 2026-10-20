@@ -31,18 +31,19 @@ const VARIANT: Record<Variant, { box: string; label: string; icon: string; iconD
 };
 
 /** A labelled button. `label` is what it says; `a11y` adds who/what it acts on for screen readers. */
-export function Btn({ label, icon, onPress, variant = 'outline', disabled, busy, a11y, grow, small }: {
-  label: string; icon?: IconName; onPress(): void; variant?: Variant; disabled?: boolean; busy?: boolean; a11y?: string; grow?: boolean; small?: boolean;
+/** `iconOnly` hides the label on screen (screen readers still hear it); used only where the user asked for it. */
+export function Btn({ label, icon, onPress, variant = 'outline', disabled, busy, a11y, grow, small, iconOnly }: {
+  label: string; icon?: IconName; onPress(): void; variant?: Variant; disabled?: boolean; busy?: boolean; a11y?: string; grow?: boolean; small?: boolean; iconOnly?: boolean;
 }) {
   const { colorScheme } = useColorScheme();
   const v = VARIANT[variant];
   const off = disabled || busy;
   return <Pressable accessibilityRole="button" accessibilityLabel={a11y ?? label} accessibilityState={{ disabled: !!off, busy: !!busy }} disabled={off}
-    onPress={onPress} className={`${small ? 'min-h-11 px-3' : 'min-h-12 px-4'} flex-row items-center justify-center gap-2 rounded-xl active:opacity-70 ${v.box}
+    onPress={onPress} className={`${iconOnly ? 'h-12 w-12' : small ? 'min-h-11 px-3' : 'min-h-12 px-4'} flex-row items-center justify-center gap-2 rounded-xl active:opacity-70 ${v.box}
       ${grow ? 'flex-1' : ''} ${off ? 'opacity-50' : ''}`}>
     {busy ? <ActivityIndicator size="small" color={colorScheme === 'dark' ? v.iconDark : v.icon} />
-      : icon && <Feather accessible={false} name={icon} size={18} color={colorScheme === 'dark' ? v.iconDark : v.icon} />}
-    <Text className={`shrink text-center text-base font-semibold ${v.label}`}>{label}</Text>
+      : icon && <Feather accessible={false} name={icon} size={iconOnly ? 22 : 18} color={colorScheme === 'dark' ? v.iconDark : v.icon} />}
+    {!iconOnly && <Text className={`shrink text-center text-base font-semibold ${v.label}`}>{label}</Text>}
   </Pressable>;
 }
 

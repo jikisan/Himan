@@ -124,10 +124,10 @@ describe('Tenants view', () => {
   const openTenants = () => { page(); fireEvent.click(screen.getByRole('button', { name: 'Tenants' })); };
   it('lists current tenants with their room and hides past ones until asked', () => {
     openTenants();
-    expect(screen.getByRole('button', { name: /Ana Cruz/ })).toHaveTextContent('Room A');
+    expect(screen.getByText('Ana Cruz').closest('li')).toHaveTextContent('Room A');
     expect(screen.queryByText('Dina Past')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Show past tenants' }));
-    expect(screen.getByRole('button', { name: /Dina Past/ })).toHaveTextContent('Moved out');
+    expect(screen.getByText('Dina Past').closest('li')).toHaveTextContent('Moved out');
   });
   it('filters by name', () => {
     openTenants();
@@ -235,7 +235,7 @@ describe('Add tenant', () => {
 describe('Tenant sheet and move out', () => {
   it('edits rent and due day, refusing a due day of 32', async () => {
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     expect(screen.getByText(/Lives in Room B since Mar 1, 2026/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
     fireEvent.change(screen.getByLabelText(/^Due day/), { target: { value: '32' } });
@@ -258,7 +258,7 @@ describe('Tenant sheet and move out', () => {
     state.fileUrl.mockResolvedValue('https://files.example/signed.jpg');
     state.run.mockResolvedValue(undefined);
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     const files = within(screen.getByRole('region', { name: 'Valid ID' }));
     await waitFor(() => expect(files.getByRole('button', { name: 'View national-id.jpg' }).querySelector('img')).toHaveAttribute('src', 'https://files.example/signed.jpg'));
     expect(state.fileUrl).toHaveBeenCalledTimes(1);
@@ -273,7 +273,7 @@ describe('Tenant sheet and move out', () => {
   it('links Messenger from the sheet', () => {
     state.renters = state.renters.map((r) => (r.id === 'r3' ? { ...r, facebook: 'carlo.lim' } : r));
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     const sheet = within(screen.getByRole('dialog'));
     expect(sheet.getByRole('link', { name: 'Messenger' })).toHaveAttribute('href', 'https://m.me/carlo.lim');
     expect(sheet.getByRole('link', { name: 'carlo.lim (opens Facebook)' })).toHaveAttribute('target', '_blank');
@@ -282,7 +282,7 @@ describe('Tenant sheet and move out', () => {
     const long = 'https://www.messenger.com/e2ee/t/7493840129384712/?ref=abc&tracking=xyz';
     state.renters = state.renters.map((r) => (r.id === 'r3' ? { ...r, facebook: long } : r));
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     const link = within(screen.getByRole('dialog')).getByRole('link', { name: 'Messenger chat (opens Facebook)' });
     expect(link).toHaveAttribute('href', long);
   });
@@ -290,7 +290,7 @@ describe('Tenant sheet and move out', () => {
     // moveOut resolves with the warnings and final SOA id the page reports.
     state.run.mockResolvedValue({ warnings: [], finalBillId: null });
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Move Carlo Lim out of Room B' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move out' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'moveOut', tenancyId: 't3' })));
@@ -298,7 +298,7 @@ describe('Tenant sheet and move out', () => {
   });
   it('shows contact read-only until Edit, then saves without closing the sheet', async () => {
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     expect(screen.queryByLabelText(/^Full name/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Edit contact' }));
     fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '0999' } });
@@ -548,7 +548,7 @@ describe('Bills in the existing screens', () => {
   });
   it('saves extra monthly charges from the tenant sheet', async () => {
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Wi-Fi' }));
     expect(screen.getByLabelText('Charge name')).toHaveValue('Wi-Fi');
     expect(screen.queryByRole('button', { name: 'Wi-Fi' })).not.toBeInTheDocument();
@@ -563,7 +563,7 @@ describe('Bills in the existing screens', () => {
       status: 'issued', voidReason: '' });
     state.bills = [bill('move_in', '2026-03'), bill('monthly', '2026-10')];
     page();
-    fireEvent.click(card('Room B').getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(card('Room B').getByRole('button', { name: /^View Carlo Lim/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Change rent' }));
     expect(screen.queryByLabelText(/^Rent per month/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('Advance months')).toHaveAttribute('readonly');

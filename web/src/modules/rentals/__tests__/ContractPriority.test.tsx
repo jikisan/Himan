@@ -96,7 +96,7 @@ describe('Contract to-dos on Home', () => {
 });
 
 describe('Contract section on the tenant sheet', () => {
-  const openSheet = (name: string) => { page('Tenants'); fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${name}`) })); };
+  const openSheet = (name: string) => { page('Tenants'); fireEvent.click(screen.getByRole('button', { name: `View ${name}` })); };
 
   it('explains the next step for each open stage', () => {
     openSheet('Carlo Lim');
@@ -144,8 +144,8 @@ describe('Contract badges', () => {
   it('show on the Tenants list, for viewers too', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     page('Tenants');
-    for (const [name, badge] of Object.entries(badges)) expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).toHaveTextContent(badge);
-    for (const name of quiet) expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).not.toHaveTextContent(ALL);
+    for (const [name, badge] of Object.entries(badges)) expect(screen.getByText(name).closest('li')).toHaveTextContent(badge);
+    for (const name of quiet) expect(screen.getByText(name).closest('li')).not.toHaveTextContent(ALL);
   });
 
   it('show on the Rooms board', () => {

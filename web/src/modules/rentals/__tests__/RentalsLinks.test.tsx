@@ -63,14 +63,14 @@ const page = (tab?: string) => {
 const openAdd = () => { page('Rooms'); fireEvent.click(within(screen.getByRole('region', { name: 'Room A' })).getByRole('button', { name: 'Add tenant' })); };
 const openSheet = () => {
   page('Rooms');
-  fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^Carlo Lim/ }));
+  fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
 };
 
 describe('Waiting for details', () => {
   it('shows on the Tenants list, the Rooms board and the tenant sheet until submitted', () => {
     state.links = [link({ kind: 'new' })];
     const { unmount } = page('Tenants');
-    expect(screen.getByRole('button', { name: /Carlo Lim/ })).toHaveTextContent('Waiting for details');
+    expect(screen.getByText('Carlo Lim').closest('li')).toHaveTextContent('Waiting for details');
     fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
     expect(within(screen.getByRole('region', { name: 'Room B' })).getByText('Waiting for details')).toBeInTheDocument();
     unmount();
@@ -191,7 +191,7 @@ describe('Tenant link on the sheet', () => {
     state.properties = [{ ...property, role: 'viewer' }];
     const { container } = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
-    fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
     expect(screen.queryByRole('region', { name: 'Tenant link' })).not.toBeInTheDocument();
     expect(container.ownerDocument.body.innerHTML).not.toContain('tok-old');
   });

@@ -72,7 +72,7 @@ beforeEach(() => {
 const openSheet = () => {
   render(<MemoryRouter><RentalsPage /></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
-  fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^Carlo Lim/ }));
+  fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
 };
 // The tenant screen is the topmost dialog, over the tenant sheet.
 const top = () => within(screen.getAllByRole('dialog').at(-1)!);
@@ -241,7 +241,7 @@ describe('Move-in checklist on the tenant sheet', () => {
     state.contractTexts = [text({ status: 'countersigned' })];
     const { unmount } = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
-    fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^Carlo Lim/ }));
+    fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
     expect(checklist()).toBeNull();
     unmount();
     state.payments = [];

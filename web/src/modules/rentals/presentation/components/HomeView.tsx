@@ -151,7 +151,7 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
         const late = differenceInCalendarDays(parseISO(today), parseISO(b.dueOn));
         return <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 text-sm">
           <span className="min-w-0 flex-1"><span className="block truncate font-medium">{t ? name(t) : 'Tenant'}</span>
-            <span className="block truncate text-xs text-muted-foreground">{t ? `${roomName(t.unitId)} · ` : ''}{b.number}</span></span>
+            <span className="block text-xs text-muted-foreground">{t ? `${roomName(t.unitId)} · ` : ''}{b.number}</span></span>
           <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-destructive">
             {formatBillPesos(billBalance(b, payments))} left · {late} day{late === 1 ? '' : 's'} late</span>
           <button type="button" aria-label={`View SOA ${b.number}`} onClick={() => onOpenBill(b.id)}

@@ -70,7 +70,7 @@ beforeEach(() => {
 const openSheet = () => {
   render(<MemoryRouter><RentalsPage /></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
-  fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^Carlo Lim/ }));
+  fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
   return within(screen.getByRole('region', { name: 'Contract' }));
 };
 

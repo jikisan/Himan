@@ -154,7 +154,7 @@ function RentalsContent(state: RentalsState) {
         : !property ? <Empty icon="home" title="No properties yet" action={<Btn variant="primary" icon="plus" label="New property" disabled={!canCreate} onPress={() => setDialog({ type: 'setup' })} />}>
           Add your property first, then its rooms. It takes about a minute.</Empty>
         : <>
-          <View className={`${card} gap-3`}>
+          <View className="gap-3">
             <Pressable accessibilityRole="button" accessibilityLabel={`${property.name}. Switch property`} onPress={switchProperty} className="flex-row items-center gap-2 active:opacity-70">
               <Text className={`flex-1 text-2xl font-bold ${text}`}>{property.name}</Text>
               <Text className="font-semibold text-indigo-600 dark:text-indigo-400">Switch</Text><Feather name="chevron-down" size={20} color="#4f46e5" />

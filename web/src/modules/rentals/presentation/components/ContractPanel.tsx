@@ -1,9 +1,10 @@
 import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'lucide-react';
+import { Ban, CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BLANK, contractStatusLabel, contractValues, linkMessage, manilaToday, missingContractDetails, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, MissingContractDetail, PropertyInput, RentalContract, RentalProperty, Renter, SignMode, TenancyLink } from '@himan/shared/rentals';
 import { cn } from '@core/presentation/utils';
@@ -58,6 +59,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   const [editing, setEditing] = useState(startEditing);
   const [filling, setFilling] = useState(false); // "Send" or "Sign on this device" waits for the missing details
   const [inPerson, setInPerson] = useState(false);
+  const [choosingMode, setChoosingMode] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [drawing, setDrawing] = useState<string | null | undefined>(undefined); // undefined = pad closed
   const [replaceScan, setReplaceScan] = useState(false);
@@ -66,8 +68,8 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   // Stored with the tenant's name and address as placeholders: they are filled in from what the tenant gives when signing.
   const body = () => renderClauses(info.template, contractValues({ property, contract, signingDate: manilaToday() }), { keepLessee: true });
   const fail = (e: unknown) => toast.error(errorMessage(e));
-  const notNeededButton = canManage && onNotNeeded ? <Button variant="ghost" className="h-11 px-2 text-muted-foreground sm:h-9" disabled={busy}
-    onClick={onNotNeeded}>Not needed for this tenant</Button> : null;
+  const notNeededButton = canManage && onNotNeeded ? <Button variant="outline" className="h-11 w-full sm:h-9 sm:w-auto" disabled={busy}
+    onClick={onNotNeeded}><Ban className="h-4 w-4" />Not needed for this tenant</Button> : null;
 
   const missing = canManage ? missingContractDetails(info.template, property) : [];
   // A draft is re-made from the template before it goes out, so details filled in after it was saved are in it.
@@ -110,20 +112,18 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   };
 
   if (!text && !canManage) return <p className="text-sm text-muted-foreground">No written contract yet.</p>;
-  if ((editing || filling) && missing.length) {
-    return <ContractDetailsForm missing={missing} busy={busy} onCancel={() => { setEditing(false); setFilling(false); }}
+  // Forms open in a dialog over the card; in the move-in flow (already a dialog) they stay inline.
+  const inline = startEditing;
+  const detailsForm = (editing || filling) && missing.length > 0;
+  const modeLocked = !!text && text.status !== 'draft';
+  const form = detailsForm
+    ? <ContractDetailsForm missing={missing} busy={busy} heading={inline} onCancel={() => { setEditing(false); setFilling(false); }}
       onSave={async (values) => {
         await run({ type: 'saveProperty', id: property.id, input: { ...propertyInput(info.property), ...values } });
         setFilled(values);
         setFilling(false);
-      }} />;
-  }
-  if (!text || editing) {
-    const modeLocked = !!text && text.status !== 'draft';
-    if (!editing && !text) return <StatusCard status="No contract yet" next="Write the contract, then send it to the tenant to sign."
-      primary={<Button className={PRIMARY} onClick={() => setEditing(true)}><FilePlus2 className="h-5 w-5" />Create contract</Button>}
-      notNeeded={notNeededButton} />;
-    return <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? (modeLocked ? null : 'esign')}
+      }} />
+    : editing ? <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? (modeLocked ? null : 'esign')}
       modeLocked={modeLocked}
       preview={previewLessee(body(), renter.fullName, renter.address)} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
       note={text?.status === 'sent' ? 'Your tenant’s page will ask them to reload and read the new version.' : undefined}
@@ -133,8 +133,25 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
         else await run({ type: 'createContractText', contractId: contract.id, propertyId: property.id, body: body(), specialTerms, signMode: signMode ?? 'esign' });
         toast.success(text ? 'Contract saved' : 'Draft saved. Send it when ready.');
         setEditing(false);
-      }} />;
-  }
+      }} /> : null;
+  if (inline && form) return form;
+  const formDialog = !inline && <Dialog open={!!form} onOpenChange={(open) => { if (!open) { setEditing(false); setFilling(false); } }}>
+    <DialogContent className="flex max-h-[92dvh] max-w-2xl flex-col gap-4 overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>{detailsForm ? 'Fill these in first' : text ? 'Edit contract' : 'New contract'}</DialogTitle>
+        <DialogDescription>{detailsForm ? 'They go into every contract for this property, so it has no blank spaces.'
+          : `For ${renter.fullName}. Choose how it’s signed, check the wording, then save.`}</DialogDescription>
+      </DialogHeader>
+      {form}
+    </DialogContent>
+  </Dialog>;
+
+  if (!text) return <>
+    <StatusCard status="No contract yet" next="Write the contract, then send it to the tenant to sign."
+      primary={<Button className={PRIMARY} onClick={() => setEditing(true)}><FilePlus2 className="h-5 w-5" />Create contract</Button>}
+      notNeeded={notNeededButton} />
+    {formDialog}
+  </>;
 
   const editable = canManage && (text.status === 'draft' || text.status === 'sent');
   const notarize = text.signMode === 'notarize' && !!text.tenantSignedAt;
@@ -169,7 +186,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   let secondary: ReactNode = null;
   if (text.status === 'draft' && !text.signMode) {
     next = 'Choose how the contract is signed, then send it.';
-    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => setEditing(true)}><PenLine className="h-5 w-5" />Choose how it’s signed</Button>;
+    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => setChoosingMode(true)}><PenLine className="h-5 w-5" />Choose how it’s signed</Button>;
   } else if (text.status === 'draft' && !linkOut) {
     next = 'Send it to the tenant to sign, or sign it together on this device.';
     primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void sendNow()}><Send className="h-5 w-5" />Send to tenant</Button>;
@@ -218,6 +235,12 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
         </div>
       </div>}
     </StatusCard>
+    {formDialog}
+    {choosingMode && <SignModeDialog busy={busy} onClose={() => setChoosingMode(false)} onSave={async (signMode) => {
+      await run({ type: 'updateContractText', id: text.id, changes: { body: body(), signMode } });
+      toast.success('Saved. You can send it now.');
+      setChoosingMode(false);
+    }} />}
     {inPerson && <InPersonSigning text={text} renter={renter} property={property} busy={busy} run={run} onClose={() => setInPerson(false)} />}
     <ConfirmDialog open={replaceScan} onOpenChange={setReplaceScan} title="Replace the notarized copy?" confirmText="Choose new file"
       description="The copy you attached before is replaced by the new file." onConfirm={() => { replaceConfirmed.current = true; scanInput.current?.click(); }} />
@@ -261,7 +284,11 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
   return <div className="space-y-5">
     <FormErrorBanner message={fe.formError} />
     <div className="divide-y [&>*]:py-5 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+    {modeLocked ? mode && <p className="text-xs text-muted-foreground">Signing: {signModeWords(mode)}</p>
+      // A legend sits in its fieldset's border box, so the section padding goes on a wrapper.
+      : <div><SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} /></div>}
     <div>
+    <p className="mb-2 text-sm font-medium">Contract preview</p>
     <section aria-label="Preview" className="max-h-80 space-y-2 overflow-y-auto rounded-md border border-neutral-200 bg-white p-4 text-justify text-sm leading-relaxed break-words text-neutral-900 shadow-sm [color-scheme:light] [scrollbar-width:thin] sm:p-6">
         {contractLines(preview, terms).map((line, i) => <p key={i}>{line}</p>)}
       </section>
@@ -272,9 +299,6 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
         placeholder="Anything only for this tenant, e.g. “The storage room is not included.”" onChange={(e) => setTerms(e.target.value)} />
       <p className="text-xs text-muted-foreground">Added as the last clause. Change the other clauses in Edit property → Contract template.</p>
     </div>
-    {modeLocked ? mode && <p className="text-xs text-muted-foreground">Signing: {signModeWords(mode)}</p>
-      // A legend sits in its fieldset's border box, so the section padding goes on a wrapper.
-      : <div><SignModeChoice legend="How is the contract signed?" value={mode} onChange={setMode} disabled={busy} /></div>}
     </div>
     {note && <p className="text-xs text-muted-foreground">{note}</p>}
     <div className="flex justify-end gap-2 pt-1">
@@ -290,8 +314,8 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
 const CIVIL_STATUSES = ['Single', 'Married', 'Widowed', 'Separated'];
 
 /** The property details the contract would print as blanks, asked for before the editor; saved to the property for every contract. */
-function ContractDetailsForm({ missing, busy, onSave, onCancel }: {
-  missing: MissingContractDetail[]; busy: boolean; onSave(values: Partial<PropertyInput>): Promise<void>; onCancel(): void;
+function ContractDetailsForm({ missing, busy, heading, onSave, onCancel }: {
+  missing: MissingContractDetail[]; busy: boolean; heading: boolean; onSave(values: Partial<PropertyInput>): Promise<void>; onCancel(): void;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const fe = useFieldErrors();
@@ -304,10 +328,10 @@ function ContractDetailsForm({ missing, busy, onSave, onCancel }: {
     try { await onSave(Object.fromEntries(missing.map((d) => [d.field, values[d.field].trim()]))); } catch (e) { fe.setFormError(errorMessage(e)); }
   }}>
     <FormErrorBanner message={fe.formError} />
-    <div>
+    {heading && <div>
       <h4 className="text-base font-semibold">Fill these in first</h4>
       <p className="text-xs text-muted-foreground">They go into every contract for this property, so it has no blank spaces.</p>
-    </div>
+    </div>}
     <fieldset disabled={busy} className="space-y-3">
       {missing.map((d) => {
         const props = { id: id(d), className: inputClass, required: true, value: values[d.field] ?? '', ...fe.invalid(id(d)),
@@ -325,4 +349,27 @@ function ContractDetailsForm({ missing, busy, onSave, onCancel }: {
       <Button type="submit" className="h-11 sm:h-9" disabled={busy}>Save and continue</Button>
     </div>
   </form>;
+}
+
+/** "Choose how it’s signed": just the two choices, nothing else. */
+function SignModeDialog({ busy, onSave, onClose }: { busy: boolean; onSave(mode: SignMode): Promise<void>; onClose(): void }) {
+  const [mode, setMode] = useState<SignMode>('esign');
+  const fe = useFieldErrors();
+  return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>How is the contract signed?</DialogTitle>
+        <DialogDescription>You can’t change this after sending it.</DialogDescription>
+      </DialogHeader>
+      <FormErrorBanner message={fe.formError} />
+      <div><SignModeChoice legend="Choose one" value={mode} onChange={setMode} disabled={busy} /></div>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" className="h-11 sm:h-9" onClick={onClose}>Cancel</Button>
+        <Button className="h-11 sm:h-9" disabled={busy} onClick={async () => {
+          fe.clear();
+          try { await onSave(mode); } catch (e) { fe.setFormError(errorMessage(e)); }
+        }}>Save</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
 }

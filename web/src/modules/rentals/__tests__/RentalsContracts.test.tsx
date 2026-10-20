@@ -67,6 +67,7 @@ beforeEach(() => {
   state.run.mockResolvedValue(undefined);
 });
 
+const dialog = () => within(screen.getByRole('dialog'));
 const openSheet = () => {
   render(<MemoryRouter><RentalsPage /></MemoryRouter>);
   fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
@@ -78,11 +79,11 @@ describe('Contract on the tenant sheet', () => {
   it('creates a draft from the template with special terms and a live preview', async () => {
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    const preview = within(contract.getByRole('region', { name: 'Preview' }));
+    const preview = within(dialog().getByRole('region', { name: 'Preview' }));
     expect(preview.getByText(/Carlo Lim, also of legal age/)).toBeInTheDocument();
-    fireEvent.change(contract.getByLabelText('Special terms'), { target: { value: 'The storage room is not included.' } });
+    fireEvent.change(dialog().getByLabelText('Special terms'), { target: { value: 'The storage room is not included.' } });
     expect(preview.getByText(/Special terms: The storage room is not included\./)).toBeInTheDocument();
-    fireEvent.click(contract.getByRole('button', { name: 'Save draft' }));
+    fireEvent.click(dialog().getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createContractText', contractId: 'c-t3', propertyId: 'p',
       body: stored(), specialTerms: 'The storage room is not included.', signMode: 'esign' }));
     expect(stored().join('\n')).toContain('{{lessee_name}}, also of legal age, and residing at {{lessee_address}}');
@@ -92,7 +93,7 @@ describe('Contract on the tenant sheet', () => {
     state.templates = { p: [{ id: 'x', text: 'Only clause for {{lessee_name}}' }] };
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    expect(within(contract.getByRole('region', { name: 'Preview' })).getByText('1. Only clause for Carlo Lim')).toBeInTheDocument();
+    expect(within(dialog().getByRole('region', { name: 'Preview' })).getByText('1. Only clause for Carlo Lim')).toBeInTheDocument();
   });
 
   it('sends a draft, makes a link, and copies it for Messenger', async () => {
@@ -106,7 +107,7 @@ describe('Contract on the tenant sheet', () => {
     fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'existing' }));
     expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' });
-    fireEvent.click(await contract.findByRole('button', { name: 'Copy link for Messenger' }));
+    fireEvent.click(await dialog().findByRole('button', { name: 'Copy link for Messenger' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(linkMessage(`${location.origin}/r/tok123`, 'Carlo Lim', 'existing')));
   });
 
@@ -122,10 +123,10 @@ describe('Contract on the tenant sheet', () => {
     expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'createLink' }));
     fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
     // Sent: the tenant may already be reading it, so how it's signed is fixed.
-    expect(contract.queryByRole('radio')).toBeNull();
-    expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
-    fireEvent.change(contract.getByLabelText('Special terms'), { target: { value: 'No pets.' } });
-    fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
+    expect(dialog().queryByRole('radio')).toBeNull();
+    expect(dialog().getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
+    fireEvent.change(dialog().getByLabelText('Special terms'), { target: { value: 'No pets.' } });
+    fireEvent.click(dialog().getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: stored(), specialTerms: 'No pets.' } }));
   });
 
@@ -133,8 +134,8 @@ describe('Contract on the tenant sheet', () => {
     state.contractTexts = [text({ signMode: 'esign' })];
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
-    fireEvent.click(contract.getByRole('radio', { name: /then notarize/ }));
-    fireEvent.click(contract.getByRole('button', { name: 'Save changes' }));
+    fireEvent.click(dialog().getByRole('radio', { name: /then notarize/ }));
+    fireEvent.click(dialog().getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct',
       changes: { body: stored(), specialTerms: '', signMode: 'notarize' } }));
   });
@@ -143,22 +144,22 @@ describe('Contract on the tenant sheet', () => {
     state.run.mockRejectedValue(new Error('The database said no'));
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    const save = contract.getByRole('button', { name: 'Save draft' });
+    const save = dialog().getByRole('button', { name: 'Save draft' });
     fireEvent.click(save);
-    await waitFor(() => expectBanner('The database said no', contract.getByLabelText('Special terms')));
+    await waitFor(() => expectBanner('The database said no', dialog().getByLabelText('Special terms')));
     expectNoErrorAfter(save);
   });
 
   it('chooses the sign mode on a new draft, online only by default', async () => {
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    expect(contract.getByRole('radio', { name: /Sign online only/ })).toBeChecked();
-    fireEvent.click(contract.getByRole('radio', { name: /then notarize/ }));
-    fireEvent.click(contract.getByRole('button', { name: 'Save draft' }));
+    expect(dialog().getByRole('radio', { name: /Sign online only/ })).toBeChecked();
+    fireEvent.click(dialog().getByRole('radio', { name: /then notarize/ }));
+    fireEvent.click(dialog().getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'createContractText', signMode: 'notarize' })));
   });
 
-  it('shows the sign mode in plain words and asks for one before sending', () => {
+  it('shows the sign mode in plain words and asks for one before sending', async () => {
     state.contractTexts = [text({ signMode: 'notarize' })];
     let contract = openSheet();
     expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
@@ -169,7 +170,14 @@ describe('Contract on the tenant sheet', () => {
     expect(contract.queryByRole('button', { name: 'Send to tenant' })).not.toBeInTheDocument();
     expect(contract.getByText('Choose how the contract is signed, then send it.')).toBeInTheDocument();
     fireEvent.click(contract.getByRole('button', { name: 'Choose how it’s signed' }));
-    expect(contract.getByRole('group', { name: 'How is the contract signed?' })).toBeInTheDocument();
+    // Only the choice: no contract text, no special terms.
+    const choose = within(screen.getByRole('dialog', { name: 'How is the contract signed?' }));
+    expect(choose.queryByRole('region', { name: 'Preview' })).toBeNull();
+    expect(choose.queryByLabelText('Special terms')).toBeNull();
+    fireEvent.click(choose.getByRole('radio', { name: /then notarize/ }));
+    fireEvent.click(choose.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct',
+      changes: { body: stored(), signMode: 'notarize' } }));
   });
 
   it('countersigns in one tap with the saved signature, and offers no Edit once signed', async () => {
@@ -281,33 +289,33 @@ describe('Contract details the property still needs', () => {
     state.properties = [unfinished];
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    expect(contract.getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
-    expect(contract.getByText('They go into every contract for this property, so it has no blank spaces.')).toBeInTheDocument();
-    expect(contract.queryByRole('button', { name: 'Save draft' })).toBeNull();
-    const city = contract.getByLabelText(/^City where the contract is signed/);
-    const status = contract.getByLabelText(/^Your civil status/);
+    expect(dialog().getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
+    expect(dialog().getByText('They go into every contract for this property, so it has no blank spaces.')).toBeInTheDocument();
+    expect(dialog().queryByRole('button', { name: 'Save draft' })).toBeNull();
+    const city = dialog().getByLabelText(/^City where the contract is signed/);
+    const status = dialog().getByLabelText(/^Your civil status/);
     expectRequired(city);
     expectRequired(status);
     expect(within(status).getAllByRole('option').map((o) => o.textContent)).toEqual(['Choose…', 'Single', 'Married', 'Widowed', 'Separated']);
     fireEvent.change(city, { target: { value: ' Mandaue City ' } });
     fireEvent.change(status, { target: { value: 'married' } });
-    fireEvent.click(contract.getByRole('button', { name: 'Save and continue' }));
+    fireEvent.click(dialog().getByRole('button', { name: 'Save and continue' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'saveProperty', id: 'p',
       input: { ...propertyInput(unfinished), signingCity: 'Mandaue City', lessorCivilStatus: 'married' } }));
     // The editor follows, its preview made from the details just saved.
-    const preview = within(await contract.findByRole('region', { name: 'Preview' }));
+    const preview = within(await dialog().findByRole('region', { name: 'Preview' }));
     expect(preview.getByText(/at Mandaue City, by and between: Maria Santos, of legal age, married and residing/)).toBeInTheDocument();
-    expect(contract.queryByText(BLANK, { exact: false })).toBeNull();
+    expect(dialog().queryByText(BLANK, { exact: false })).toBeNull();
   });
 
   it('focuses the first empty detail with its message under it', async () => {
     state.properties = [unfinished];
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    const save = contract.getByRole('button', { name: 'Save and continue' });
+    const save = dialog().getByRole('button', { name: 'Save and continue' });
     fireEvent.click(save);
-    await waitFor(() => expectFieldError(contract.getByLabelText(/^City where the contract is signed/), 'Fill this in'));
-    expect(contract.getByLabelText(/^Your civil status/)).toHaveAttribute('aria-invalid', 'true');
+    await waitFor(() => expectFieldError(dialog().getByLabelText(/^City where the contract is signed/), 'Fill this in'));
+    expect(dialog().getByLabelText(/^Your civil status/)).toHaveAttribute('aria-invalid', 'true');
     expectNoErrorAfter(save);
     expect(state.run).not.toHaveBeenCalled();
   });
@@ -317,11 +325,11 @@ describe('Contract details the property still needs', () => {
     state.run.mockRejectedValue(new Error('The database said no'));
     const contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Create contract' }));
-    expect(contract.queryByLabelText(/^Your civil status/)).toBeNull();
-    fireEvent.change(contract.getByLabelText(/^City where the contract is signed/), { target: { value: 'Cebu City' } });
-    fireEvent.click(contract.getByRole('button', { name: 'Save and continue' }));
-    await waitFor(() => expectBanner('The database said no', contract.getByLabelText(/^City where the contract is signed/)));
-    fireEvent.click(contract.getByRole('button', { name: 'Cancel' }));
+    expect(dialog().queryByLabelText(/^Your civil status/)).toBeNull();
+    fireEvent.change(dialog().getByLabelText(/^City where the contract is signed/), { target: { value: 'Cebu City' } });
+    fireEvent.click(dialog().getByRole('button', { name: 'Save and continue' }));
+    await waitFor(() => expectBanner('The database said no', dialog().getByLabelText(/^City where the contract is signed/)));
+    fireEvent.click(dialog().getByRole('button', { name: 'Cancel' }));
     expect(contract.getByRole('button', { name: 'Create contract' })).toBeInTheDocument();
   });
 
@@ -330,13 +338,13 @@ describe('Contract details the property still needs', () => {
     state.contractTexts = [text({ status: 'sent', signMode: 'esign' })];
     let contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
-    expect(contract.getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
-    expect(contract.queryByLabelText('Special terms')).toBeNull();
+    expect(dialog().getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
+    expect(dialog().queryByLabelText('Special terms')).toBeNull();
     cleanup();
     state.contractTexts = [text({ signMode: 'esign' })];
     contract = openSheet();
     fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
-    expect(contract.getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
+    expect(dialog().getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
     expect(state.run).not.toHaveBeenCalled();
   });
 

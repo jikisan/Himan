@@ -262,7 +262,7 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
     <FormErrorBanner message={fe.formError} />
     <div className="divide-y [&>*]:py-5 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
     <div>
-    <section aria-label="Preview" className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-3 text-xs leading-relaxed [scrollbar-width:thin]">
+    <section aria-label="Preview" className="max-h-80 space-y-2 overflow-y-auto rounded-md border border-neutral-200 bg-white p-4 text-justify text-sm leading-relaxed break-words text-neutral-900 shadow-sm [color-scheme:light] [scrollbar-width:thin] sm:p-6">
         {contractLines(preview, terms).map((line, i) => <p key={i}>{line}</p>)}
       </section>
     </div>

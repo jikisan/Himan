@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { contractStage, formatPesos } from '@himan/shared/rentals';
@@ -52,7 +52,7 @@ export function TenantsList({ renters, tenancies, unitName, onOpen, links = [], 
             <span className="hidden text-sm tabular-nums sm:block">{rent ? formatPesos(rent) : '—'}</span>
             <span className="hidden text-sm text-muted-foreground sm:block">{since ? format(parseISO(since), 'MMM yyyy') : '—'}</span>
             <Button variant="outline" className="col-span-2 h-11 sm:col-span-1 sm:h-9" aria-label={`View ${renter.fullName}`}
-              onClick={() => onOpen(renter.id)}>View tenant</Button>
+              onClick={() => onOpen(renter.id)}><UserRound className="h-4 w-4" />View tenant</Button>
         </li>)}</ul>
       </div>}
   </div>;

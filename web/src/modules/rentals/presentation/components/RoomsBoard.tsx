@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { LogOut, MoreHorizontal, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { contractStage, formatPesos, roomSpots } from '@himan/shared/rentals';
@@ -64,9 +64,9 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
                 </span>
                 <span className="flex w-full gap-2">
                   <Button variant="outline" className="h-11 flex-1 sm:h-9" aria-label={`View ${name(t.renterId)}`}
-                    onClick={() => onOpenTenant(t.renterId)}>View tenant</Button>
-                  {canManage && <Button variant="outline" className="hidden h-9 flex-1 sm:inline-flex" aria-label={`Move out ${name(t.renterId)}`}
-                    onClick={() => onMoveOut(t.id)}>Move out</Button>}
+                    onClick={() => onOpenTenant(t.renterId)}><UserRound className="h-4 w-4" />View tenant</Button>
+                  {canManage && <Button variant="outline" className="hidden h-9 flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive sm:inline-flex" aria-label={`Move out ${name(t.renterId)}`}
+                    onClick={() => onMoveOut(t.id)}><LogOut className="h-4 w-4" />Move out</Button>}
                 </span>
               </div>
               : canManage ? <button type="button" onClick={() => onAddTenant(unit.id)}

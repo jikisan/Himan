@@ -201,7 +201,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         <ul className="divide-y border-t">{todo.ready.map((r) => r.pending.state === 'ready' && row(r, {
           money: { tone: 'due', headline: formatBillPesos(billTotal(r.pending.lines)), detail: `Not generated yet. Due ${short(r.due)}` },
           actions: <>
-            <Button variant="outline" size="sm" className={btn} onClick={() => onOpenPending(r.t.id, period, r.skip)}>View SOA</Button>
+            <Button variant="outline" size="sm" className={btn} onClick={() => onOpenPending(r.t.id, period, r.skip)}><ReceiptText className="h-4 w-4" />View SOA</Button>
             {canManage && <Button size="sm" className={btn} disabled={busy}
               onClick={() => r.pending.state === 'ready' && void issue([{ tenancyId: r.t.id, kind: 'monthly', period, dueOn: r.pending.dueOn, lines: r.pending.lines }])}>Generate SOA</Button>}
           </> }))}</ul>
@@ -239,7 +239,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
                 onClick={() => void copy(bill, r.t)}><Copy className="h-4 w-4" />Copy as text</Button>}
               {canManage && canRegenerate(bill) && <Button size="sm" className={btn} disabled={busy}
                 aria-label={`Generate ${name(r.t)}’s ${kindOf(bill)} again`} onClick={() => regenerate(bill, r.t)}>Generate again</Button>}
-              <Button variant="outline" size="sm" className={btn} aria-label={`View ${name(r.t)}’s ${kindOf(bill)}`} onClick={() => onOpenBill(bill.id)}>View SOA</Button>
+              <Button variant="outline" size="sm" className={btn} aria-label={`View ${name(r.t)}’s ${kindOf(bill)}`} onClick={() => onOpenBill(bill.id)}><ReceiptText className="h-4 w-4" />View SOA</Button>
             </> });
         })}</ul>
       </section>}

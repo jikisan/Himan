@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { BedDouble, CalendarClock, CircleCheck, DoorOpen, FilePlus2, Gauge, HandCoins, History, PenLine, ReceiptText, Send, UserCheck } from 'lucide-react';
+import { BedDouble, CalendarClock, CircleCheck, DoorOpen, FilePlus2, Gauge, HandCoins, History, PenLine, ReceiptText, Send, UserCheck, UserRound } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { billBalance, contractStage, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
 import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
@@ -155,7 +155,7 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
           <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-destructive">
             {formatBillPesos(billBalance(b, payments))} left · {late} day{late === 1 ? '' : 's'} late</span>
           <button type="button" aria-label={`View SOA ${b.number}`} onClick={() => onOpenBill(b.id)}
-            className={cn(BUTTON, 'border bg-background hover:bg-muted/50')}>View SOA</button>
+            className={cn(BUTTON, 'gap-2 border bg-background hover:bg-muted/50')}><ReceiptText aria-hidden className="h-4 w-4" />View SOA</button>
         </li>;
       })}</ul>
     </section>}
@@ -180,7 +180,7 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
             <span className="block truncate text-xs text-muted-foreground">{roomName(tenancy.unitId)} · {format(parseISO(date), 'MMM d')} · {inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`}</span></span>
           <span className="shrink-0 font-semibold tabular-nums">{formatPesos(amount)}</span>
           <button type="button" aria-label={`View ${name(tenancy)}`} onClick={() => onOpenTenant(tenancy.renterId)}
-            className={cn(BUTTON, 'border bg-background hover:bg-muted/50 lg:w-full')}>View tenant</button>
+            className={cn(BUTTON, 'gap-2 border bg-background hover:bg-muted/50 lg:w-full')}><UserRound aria-hidden className="h-4 w-4" />View tenant</button>
         </li>)}</ul>
       </section>}
     </aside>

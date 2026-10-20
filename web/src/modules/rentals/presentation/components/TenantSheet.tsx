@@ -90,23 +90,18 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     const stage = stageOf(c.tenancyId);
     return <section key={c.id} ref={i === 0 ? contractRef : undefined} tabIndex={-1} aria-label="Contract" className="scroll-mt-4 focus:outline-none">
       <h3 className="mb-2 text-sm font-semibold">Contract</h3>
-      {contractOpen(stage) && <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md bg-primary/10 px-3 py-2 text-sm">
-        <p className="min-w-0 flex-1 font-medium">{NEXT_STEP[stage]}</p>
-        {canManage && (stage === 'none' || stage === 'draft') && <Button variant="ghost" className="h-11 sm:h-8" disabled={busy}
-          onClick={() => void setNotNeeded(c.tenancyId, true)}>Not needed</Button>}
-      </div>}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-        <Item label="Started" value={day(c.startDate)} />
-        <Item label="Ends" value={day(c.endDate)} />
-        <Item label="Deposit" value={formatPesos(c.depositCentavos)} />
-        <Item label="Advance" value={`${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'}`} />
+      <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Lease</dt><dd className="font-medium">{day(c.startDate)} to {day(c.endDate)}</dd>
+        <dt className="text-muted-foreground">Deposit</dt><dd className="font-medium">{formatPesos(c.depositCentavos)}
+          <span className="font-normal text-muted-foreground"> · {c.advanceMonths} month{c.advanceMonths === 1 ? '' : 's'} advance</span></dd>
       </dl>
       {contractInfo && (stage === 'not_needed'
-        ? <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+        ? <div className="flex flex-wrap items-center gap-2 rounded-xl border p-4 text-sm">
           <p className="min-w-0 flex-1 text-muted-foreground">Contract not needed</p>
           {canManage && <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void setNotNeeded(c.tenancyId, false)}>Undo</Button>}
         </div>
-        : <div className="mt-4"><ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run} /></div>)}
+        : <ContractPanel contract={c} renter={renter} info={contractInfo} canManage={canManage} busy={busy} run={run}
+          onNotNeeded={stage === 'none' || stage === 'draft' ? () => void setNotNeeded(c.tenancyId, true) : undefined} />)}
     </section>;
   });
 
@@ -127,7 +122,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         {renter.phone && <a href={`tel:${renter.phone}`} className={action}><Phone className="h-4 w-4" />Call</a>}
         {renter.phone && <a href={`sms:${renter.phone}`} className={action}><MessageSquare className="h-4 w-4" />Text</a>}
         {chat && <a href={chat} target="_blank" rel="noopener noreferrer" className={action}><MessageCircle className="h-4 w-4" />Messenger</a>}
-        {canManage && active.map((t) => <button key={t.id} type="button" className={action} onClick={() => onMoveOut(t.id)}
+        {canManage && active.map((t) => <button key={t.id} type="button" className={cn(action, 'text-destructive hover:bg-destructive/10 hover:text-destructive')} onClick={() => onMoveOut(t.id)}
           aria-label={`Move ${renter.fullName} out of ${unitName(t.unitId)}`}><LogOut className="h-4 w-4" />Move out</button>)}
       </div>}
     </SheetHeader>
@@ -244,11 +239,6 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   </>;
 }
 
-const NEXT_STEP: Partial<Record<ContractStage, string>> = {
-  none: 'Next step: the written contract.', draft: 'Next step: send it to the tenant to sign.',
-  sent: 'Next step: the tenant signs through their link.', signed: 'Next step: your signature.',
-};
-
 const STAGE_WORD: Partial<Record<ContractStage, string>> = { none: 'not started', draft: 'draft', sent: 'waiting to sign', signed: 'needs your signature' };
 
 const ordinal = (n: number) => {
@@ -256,9 +246,6 @@ const ordinal = (n: number) => {
   return `${n}${tail}`;
 };
 
-function Item({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-semibold tabular-nums">{value}</dd></div>;
-}
 
 function Charges({ tenancy, room, showRoom, canManage, busy, onSave }: {
   tenancy: RentalTenancy; room: string; showRoom: boolean; canManage: boolean; busy: boolean;

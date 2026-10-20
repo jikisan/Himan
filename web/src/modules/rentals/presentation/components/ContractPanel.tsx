@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react';
-import { Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -44,8 +45,10 @@ export function SignModeChoice({ legend, value, onChange, disabled, className, i
 
 /** The written contract for one tenancy on the tenant sheet: create → send (or sign on this device) → tenant signs → countersign → PDF.
  * `startEditing`: open straight at the new-contract form (the move-in flow's last step). */
-export function ContractPanel({ contract, renter, info, canManage, busy, run, startEditing = false }: {
+export function ContractPanel({ contract, renter, info, canManage, busy, run, startEditing = false, onNotNeeded }: {
   contract: RentalContract; renter: Renter; info: ContractInfo; canManage: boolean; startEditing?: boolean;
+  /** Shown as "Not needed" until the contract is sent. */
+  onNotNeeded?(): void;
 } & Pick<RentalsState, 'busy' | 'run'>) {
   // What was just saved in "Fill these in first", until the refetched property has it.
   const [filled, setFilled] = useState<Partial<PropertyInput>>({});
@@ -63,6 +66,8 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   // Stored with the tenant's name and address as placeholders: they are filled in from what the tenant gives when signing.
   const body = () => renderClauses(info.template, contractValues({ property, contract, signingDate: manilaToday() }), { keepLessee: true });
   const fail = (e: unknown) => toast.error(errorMessage(e));
+  const notNeededButton = canManage && onNotNeeded ? <Button variant="ghost" className="h-11 px-2 text-muted-foreground sm:h-9" disabled={busy}
+    onClick={onNotNeeded}>Not needed for this tenant</Button> : null;
 
   const missing = canManage ? missingContractDetails(info.template, property) : [];
   // A draft is re-made from the template before it goes out, so details filled in after it was saved are in it.
@@ -115,8 +120,9 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   }
   if (!text || editing) {
     const modeLocked = !!text && text.status !== 'draft';
-    if (!editing && !text) return <Button variant="outline" className="h-11 sm:h-9" onClick={() => setEditing(true)}>
-      <FilePlus2 className="h-4 w-4" />Create contract</Button>;
+    if (!editing && !text) return <StatusCard status="No contract yet" next="Write the contract, then send it to the tenant to sign."
+      primary={<Button className={PRIMARY} onClick={() => setEditing(true)}><FilePlus2 className="h-5 w-5" />Create contract</Button>}
+      notNeeded={notNeededButton} />;
     return <ContractEditor initialTerms={text?.specialTerms ?? ''} initialMode={text?.signMode ?? (modeLocked ? null : 'esign')}
       modeLocked={modeLocked}
       preview={previewLessee(body(), renter.fullName, renter.address)} busy={busy} submit={text ? 'Save changes' : 'Save draft'}
@@ -135,68 +141,112 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   // The saved signature is the owner's: other managers draw their own.
   const saved = property.role === 'owner' && !!property.lessorSignature;
   const pdfData = contractPdfData(text, property, renter);
-  const signHere = canManage && (text.status === 'sent' || (text.status === 'draft' && !!text.signMode));
   // The tenant's own name and address stay placeholders until they sign, so any blank left is one of ours.
   const blanks = text.status === 'sent' && text.body.some((line) => line.includes(BLANK));
   const downloadPdf = async () => (await import('../pdf/download')).downloadContractPdf(pdfData);
-  return <div className="space-y-3">
-    <p className="rounded-md bg-muted/50 px-3 py-2 text-sm font-medium" role="status">{contractStatusLabel(text.status, text.signMode)}</p>
-    {text.signMode ? <p className="text-xs text-muted-foreground">Signing: {signModeWords(text.signMode)}</p>
-      : text.status === 'draft' && canManage && <p className="text-xs text-muted-foreground">Choose how the contract is signed before sending it: tap Edit.</p>}
-    {text.notarizedScanPath && <p className="text-xs text-muted-foreground">Notarized copy attached.</p>}
-    {blanks && canManage && <p className="text-sm text-muted-foreground">This contract has blank spaces. Press Edit and Save changes to fill them in.</p>}
-    {signHere && <Button className="h-12 w-full text-base sm:h-10" disabled={busy} onClick={async () => {
-      try {
-        if (text.status === 'draft' && missing.length) return setFilling(true);
-        if (text.status === 'draft') await send(text);
-        setInPerson(true);
-      } catch (e) { fail(e); }
-    }}><Smartphone className="h-5 w-5" />Sign on this device</Button>}
-    {canManage && <div className="flex flex-wrap gap-2">
-      {text.status === 'draft' && <Button className="h-11 sm:h-9" disabled={busy || !text.signMode} onClick={async () => {
-        if (missing.length) return setFilling(true);
-        try {
-          await send(text);
-          setToken(await linkToken());
-          toast.success('Contract ready. Copy the link and send it to your tenant.');
-        } catch (e) { fail(e); }
-      }}><Send className="h-4 w-4" />Send to tenant</Button>}
-      {(text.status === 'sent' || token) && <>
-        <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void copy()}><Copy className="h-4 w-4" />Copy link for Messenger</Button>
-        {typeof navigator.share === 'function' && <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void share()}>
-          <Share2 className="h-4 w-4" />Share</Button>}
-      </>}
-      {editable && <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => setEditing(true)}><PenLine className="h-4 w-4" />Edit</Button>}
-      {text.status === 'signed' && drawing === undefined && <Button className="h-11 sm:h-9" disabled={busy}
-        onClick={() => (saved ? void countersign() : setDrawing(null))}><PenLine className="h-4 w-4" />Countersign</Button>}
-      {notarize && <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted/50 focus-within:ring-2 focus-within:ring-ring sm:min-h-9">
-        <Upload className="h-4 w-4" />{text.notarizedScanPath ? 'Replace notarized copy' : 'Upload notarized copy'}
-        <input ref={scanInput} type="file" aria-label="Upload notarized copy" accept="application/pdf,image/jpeg,image/png" className="sr-only" disabled={busy}
-          onClick={(e) => {
-            if (text.notarizedScanPath && !replaceConfirmed.current) { e.preventDefault(); setReplaceScan(true); }
-            replaceConfirmed.current = false;
-          }}
-          onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
-      </label>}
-    </div>}
-    {notarize && canManage && <p className="text-xs text-muted-foreground">PDF, JPEG or PNG, up to 10 MB.</p>}
-    {drawing !== undefined && <div className="space-y-2 rounded-lg border p-3">
-      <p className="text-sm">{property.role === 'owner' ? 'You haven’t saved a signature yet. Sign here to countersign.' : 'Draw your signature to countersign.'}</p>
-      <SignaturePad label="Draw your signature" onChange={setDrawing} disabled={busy} />
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" className="h-11 sm:h-9" onClick={() => setDrawing(undefined)}>Cancel</Button>
-        <Button className="h-11 sm:h-9" disabled={busy || !drawing} onClick={() => void countersign(drawing!)}>Sign and countersign</Button>
-      </div>
-    </div>}
-    {/* A draft or unsigned contract downloads as an unsigned copy. */}
-    <div className="flex flex-wrap gap-2">
-      <PaperDialog label="View contract" title="Contract of lease" description={contractStatusLabel(text.status, text.signMode)} className="h-11 sm:h-9"
-        make={downloadPdf}>{() => <ContractPaper doc={pdfData} />}</PaperDialog>
-      <PdfButton className="h-11 sm:h-9" make={downloadPdf}>Download PDF</PdfButton>
-    </div>
+  const sendNow = async () => {
+    if (missing.length) return setFilling(true);
+    try {
+      await send(text);
+      setToken(await linkToken());
+      toast.success('Contract ready. Copy the link and send it to your tenant.');
+    } catch (e) { fail(e); }
+  };
+  const signOnDevice = <Button variant="outline" className={SECONDARY} disabled={busy} onClick={async () => {
+    try {
+      if (text.status === 'draft' && missing.length) return setFilling(true);
+      if (text.status === 'draft') await send(text);
+      setInPerson(true);
+    } catch (e) { fail(e); }
+  }}><Smartphone className="h-4 w-4" />Sign on this device</Button>;
+  const edit = editable && <Button variant="outline" className={SECONDARY} disabled={busy} onClick={() => setEditing(true)}><PenLine className="h-4 w-4" />Edit</Button>;
+  const linkOut = text.status === 'sent' || !!token;
+  const scanLabel = text.notarizedScanPath ? 'Replace notarized copy' : 'Upload notarized copy';
+
+  // One next step and one main button per stage; everything else is a smaller button under it.
+  let next: string | undefined;
+  let primary: ReactNode = null;
+  let secondary: ReactNode = null;
+  if (text.status === 'draft' && !text.signMode) {
+    next = 'Choose how the contract is signed, then send it.';
+    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => setEditing(true)}><PenLine className="h-5 w-5" />Choose how it’s signed</Button>;
+  } else if (text.status === 'draft' && !linkOut) {
+    next = 'Send it to the tenant to sign, or sign it together on this device.';
+    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void sendNow()}><Send className="h-5 w-5" />Send to tenant</Button>;
+    secondary = canManage && <>{signOnDevice}{edit}</>;
+  } else if (linkOut && text.status !== 'signed' && text.status !== 'countersigned') {
+    next = 'Send the tenant their link so they can sign.';
+    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void copy()}><Copy className="h-5 w-5" />Copy link for Messenger</Button>;
+    secondary = canManage && <>{typeof navigator.share === 'function' && <Button variant="outline" className={SECONDARY} disabled={busy}
+      onClick={() => void share()}><Share2 className="h-4 w-4" />Share</Button>}{signOnDevice}{edit}</>;
+  } else if (text.status === 'signed') {
+    next = 'The tenant signed. Add your signature to finish.';
+    primary = canManage && drawing === undefined && <Button className={PRIMARY} disabled={busy}
+      onClick={() => (saved ? void countersign() : setDrawing(null))}><PenLine className="h-5 w-5" />Countersign</Button>;
+  } else if (notarize && !text.notarizedScanPath) {
+    next = 'Print it, sign it in front of a notary, then upload the notarized copy.';
+  }
+  const upload_ = notarize && canManage && <label className={cn(text.notarizedScanPath ? SECONDARY : PRIMARY,
+    'inline-flex cursor-pointer items-center justify-center gap-2 rounded-md px-4 font-medium focus-within:ring-2 focus-within:ring-ring',
+    text.notarizedScanPath ? 'border hover:bg-muted/50' : 'bg-primary text-primary-foreground hover:bg-primary/90')}>
+    <Upload className="h-4 w-4" />{scanLabel}
+    <input ref={scanInput} type="file" aria-label="Upload notarized copy" accept="application/pdf,image/jpeg,image/png" className="sr-only" disabled={busy}
+      onClick={(e) => {
+        if (text.notarizedScanPath && !replaceConfirmed.current) { e.preventDefault(); setReplaceScan(true); }
+        replaceConfirmed.current = false;
+      }}
+      onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} /></label>;
+
+  return <>
+    <StatusCard done={text.status === 'countersigned'} status={contractStatusLabel(text.status, text.signMode)} next={next}
+      details={[text.signMode && `Signing: ${signModeWords(text.signMode)}`, text.notarizedScanPath && 'Notarized copy attached'].filter((d): d is string => !!d)}
+      warning={blanks && canManage ? 'This contract has blank spaces. Press Edit and Save changes to fill them in.' : undefined}
+      primary={primary || (notarize && !text.notarizedScanPath ? upload_ : null)}
+      secondary={<>{secondary}{notarize && text.notarizedScanPath && upload_}
+        {/* A draft or unsigned contract downloads as an unsigned copy. */}
+        <PaperDialog label="View contract" title="Contract of lease" description={contractStatusLabel(text.status, text.signMode)} className={SECONDARY}
+          make={downloadPdf}>{() => <ContractPaper doc={pdfData} />}</PaperDialog>
+        <PdfButton className={SECONDARY} make={downloadPdf}>Download PDF</PdfButton></>}
+      notNeeded={text.status === 'draft' ? notNeededButton : null}>
+      {notarize && canManage && <p className="text-xs text-muted-foreground">Notarized copy: PDF, JPEG or PNG, up to 10 MB.</p>}
+      {drawing !== undefined && <div className="space-y-2 rounded-lg border p-3">
+        <p className="text-sm">{property.role === 'owner' ? 'You haven’t saved a signature yet. Sign here to countersign.' : 'Draw your signature to countersign.'}</p>
+        <SignaturePad label="Draw your signature" onChange={setDrawing} disabled={busy} />
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" className="h-11 sm:h-9" onClick={() => setDrawing(undefined)}>Cancel</Button>
+          <Button className="h-11 sm:h-9" disabled={busy || !drawing} onClick={() => void countersign(drawing!)}>Sign and countersign</Button>
+        </div>
+      </div>}
+    </StatusCard>
     {inPerson && <InPersonSigning text={text} renter={renter} property={property} busy={busy} run={run} onClose={() => setInPerson(false)} />}
     <ConfirmDialog open={replaceScan} onOpenChange={setReplaceScan} title="Replace the notarized copy?" confirmText="Choose new file"
       description="The copy you attached before is replaced by the new file." onConfirm={() => { replaceConfirmed.current = true; scanInput.current?.click(); }} />
+  </>;
+}
+
+const PRIMARY = 'h-12 w-full text-base sm:h-10 sm:w-auto';
+const SECONDARY = 'h-11 sm:h-9';
+
+/** The contract at a glance: where it stands, the one next step and its button, then the smaller actions. */
+function StatusCard({ status, next, details = [], warning, done, primary, secondary, notNeeded, children }: {
+  status: string; next?: string; details?: string[]; warning?: string; done?: boolean;
+  primary?: ReactNode; secondary?: ReactNode; notNeeded?: ReactNode; children?: ReactNode;
+}) {
+  const Icon = done ? CircleCheck : CircleDashed;
+  return <div className="space-y-3 rounded-xl border bg-card p-4">
+    <div className="flex items-start gap-2.5">
+      <Icon aria-hidden className={cn('mt-0.5 h-5 w-5 shrink-0', done ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400')} />
+      <div className="min-w-0">
+        <p className="font-semibold" role="status">{status}</p>
+        {next && <p className="text-sm">{next}</p>}
+        {details.map((d) => <p key={d} className="text-xs text-muted-foreground">{d}</p>)}
+      </div>
+    </div>
+    {warning && <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">{warning}</p>}
+    {primary}
+    {children}
+    {secondary && <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*]:w-full [&>*]:px-2 sm:[&>*]:w-auto sm:[&>*]:px-4">{secondary}</div>}
+    {notNeeded && <div className="border-t pt-3">{notNeeded}</div>}
   </div>;
 }
 

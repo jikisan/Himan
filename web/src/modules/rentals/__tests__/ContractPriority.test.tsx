@@ -76,7 +76,7 @@ describe('Contract to-dos on Home', () => {
     const contract = screen.getByRole('region', { name: 'Contract' });
     await waitFor(() => expect(contract).toHaveFocus());
     expect(before(contract, screen.getByRole('region', { name: 'Rent' }))).toBe(true);
-    expect(within(contract).getByText('Next step: the written contract.')).toBeInTheDocument();
+    expect(within(contract).getByText('Write the contract, then send it to the tenant to sign.')).toBeInTheDocument();
     expect(within(contract).getByRole('button', { name: 'Create contract' })).toBeInTheDocument();
   });
 
@@ -100,14 +100,14 @@ describe('Contract section on the tenant sheet', () => {
 
   it('explains the next step for each open stage', () => {
     openSheet('Carlo Lim');
-    expect(within(screen.getByRole('region', { name: 'Contract' })).getByText('Next step: the tenant signs through their link.')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Contract' })).getByText('Send the tenant their link so they can sign.')).toBeInTheDocument();
   });
 
   it('returns to its usual place once done', () => {
     openSheet('Eli Go');
     const contract = screen.getByRole('region', { name: 'Contract' });
     expect(before(screen.getByRole('region', { name: 'Rent' }), contract)).toBe(true);
-    expect(within(contract).queryByText(/Next step/)).toBeNull();
+    expect(within(contract).queryByText(/send it|their link|Add your signature/)).toBeNull();
   });
 
   it('says not needed with Undo for managers, and stays in its usual place', async () => {
@@ -122,7 +122,7 @@ describe('Contract section on the tenant sheet', () => {
 
   it('lets a manager dismiss it from the sheet too', async () => {
     openSheet('Ana Cruz');
-    fireEvent.click(within(screen.getByRole('region', { name: 'Contract' })).getByRole('button', { name: 'Not needed' }));
+    fireEvent.click(within(screen.getByRole('region', { name: 'Contract' })).getByRole('button', { name: 'Not needed for this tenant' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'setContractNotNeeded', tenancyId: 't1', value: true }));
   });
 

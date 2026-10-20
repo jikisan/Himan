@@ -158,7 +158,7 @@ describe('Contract on the tenant sheet', () => {
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'createContractText', signMode: 'notarize' })));
   });
 
-  it('shows the sign mode in plain words and needs one before sending', () => {
+  it('shows the sign mode in plain words and asks for one before sending', () => {
     state.contractTexts = [text({ signMode: 'notarize' })];
     let contract = openSheet();
     expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
@@ -166,8 +166,10 @@ describe('Contract on the tenant sheet', () => {
     cleanup();
     state.contractTexts = [text({ signMode: null })];
     contract = openSheet();
-    expect(contract.getByRole('button', { name: 'Send to tenant' })).toBeDisabled();
-    expect(contract.getByText(/Choose how the contract is signed/)).toBeInTheDocument();
+    expect(contract.queryByRole('button', { name: 'Send to tenant' })).not.toBeInTheDocument();
+    expect(contract.getByText('Choose how the contract is signed, then send it.')).toBeInTheDocument();
+    fireEvent.click(contract.getByRole('button', { name: 'Choose how it’s signed' }));
+    expect(contract.getByRole('group', { name: 'How is the contract signed?' })).toBeInTheDocument();
   });
 
   it('countersigns in one tap with the saved signature, and offers no Edit once signed', async () => {

@@ -7,7 +7,6 @@ import { SignaturePad } from '../components/SignaturePad';
 import { SignModeChoice } from '../components/ContractPanel';
 import { ContractPaper } from '../components/ContractPaper';
 import { PdfButton } from '../components/PdfButton';
-import { Field, inputClass } from '../components/Field';
 import { useFieldErrors } from '@core/presentation/hooks';
 import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { contractLines, manilaDate, previewLessee } from '../utils/contract';
@@ -32,7 +31,7 @@ export function ContractSection({ token, data, reload }: { token: string; data: 
     <ContractPaper doc={pdfData(c, data)} />
     <p className="text-sm text-muted-foreground">Something wrong? Tell your landlord.</p>
     {c.status === 'sent'
-      ? <SignForm contract={{ ...c, body: resolved(c, data) }} onSign={async (input) => {
+      ? <SignForm contract={{ ...c, body: resolved(c, data) }} name={data.lessee.name} onSign={async (input) => {
         try { await links.sign(token, input); } catch (error) {
           const message = errorMessage(error);
           if (!/contract changed|reload the page/i.test(message)) throw error;
@@ -52,11 +51,11 @@ const Plain = ({ children }: { children: React.ReactNode }) => <p className="rou
 type SignInput = { name: string; signMode: SignMode; signature: string; userAgent: string; contentHash: string };
 
 /** The landlord chooses how it's signed; only contracts sent before that choice existed (sign mode null) let the tenant choose. */
-function SignForm({ contract, onSign }: { contract: Contract; onSign(input: SignInput): Promise<void> }) {
+/** `name`: the tenant's name as the contract has it; it goes under the signature, so nothing is typed. */
+function SignForm({ contract, name, onSign }: { contract: Contract; name: string; onSign(input: SignInput): Promise<void> }) {
   const id = useId();
   const [chosen, setMode] = useState<SignMode | null>(null);
   const mode = contract.signMode ?? chosen;
-  const [name, setName] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fe = useFieldErrors();
@@ -67,7 +66,6 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
     fe.clear();
     const bad: [string, string][] = [];
     if (!mode) bad.push([fid('mode'), 'Choose how you want to sign']);
-    if (!name.trim()) bad.push([fid('name'), 'Enter your full name']);
     if (!signature) bad.push([fid('signature'), 'Draw your signature']);
     if (bad.length || !mode || !signature) { fe.failMany(bad); return; }
     setBusy(true);
@@ -83,10 +81,10 @@ function SignForm({ contract, onSign }: { contract: Contract; onSign(input: Sign
       ? 'Your landlord asked you to sign online and then have it notarized.' : 'You can sign online. No notary needed.'}</p>
       : <SignModeChoice legend="How do you want to sign?" value={mode} disabled={busy} id={fid('mode')} required error={fe.errors[fid('mode')]}
         onChange={(m) => { setMode(m); fe.clear(fid('mode')); }} />}
-    <Field id={fid('name')} label="Type your full name" required error={fe.errors[fid('name')]}>
-      <input id={fid('name')} autoComplete="name" value={name} disabled={busy} className={inputClass} required {...fe.invalid(fid('name'))}
-        onChange={(e) => { setName(e.target.value); fe.clear(fid('name')); }} />
-    </Field>
+    <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+      <p className="text-base">Signing as <strong>{name}</strong></p>
+      <p className="text-sm text-muted-foreground">Name wrong? Message your landlord.</p>
+    </div>
     <div id={fid('signature')} role="group" aria-label="Draw your signature" tabIndex={-1} className={padGroupClass} {...fe.invalid(fid('signature'))}>
       <p className="text-sm font-medium">Draw your signature<span aria-hidden="true" className="text-destructive"> *</span></p>
       <SignaturePad label="Your signature" onChange={(png) => { setSignature(png); fe.clear(fid('signature')); }} disabled={busy} />

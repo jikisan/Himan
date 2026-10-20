@@ -35,7 +35,6 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
     emergencyPhone: renter.emergencyPhone, facebook: renter.facebook, email: renter.email, occupants: String(renter.occupants) });
   const [ids, setIds] = useState<File[]>([]);
   const [agreed, setAgreed] = useState(false);
-  const [name, setName] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
   const [ownSignature, setOwnSignature] = useState<string | null>(null);
   const fe = useFieldErrors();
@@ -61,10 +60,10 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
   const sign = async () => {
     fe.clear();
     const bad: [string, string][] = [];
-    if (!name.trim()) bad.push([fid('name'), 'Enter your full name']);
     if (!signature) bad.push([fid('signature'), 'Draw your signature']);
     if (bad.length) { fe.failMany(bad); return; }
     if (!details.success || !signature) return;
+    const name = details.data.fullName;
     try {
       const contentHash = await sha256Hex(canonicalText(body, text.specialTerms));
       const files = await Promise.all(ids.map(async (f) => ({ name: f.name, mimeType: f.type || null, bytes: await f.arrayBuffer() })));
@@ -162,10 +161,10 @@ export function InPersonSigning({ text, renter, property, busy, run, onClose }: 
       {screen === 'sign' && <div className="space-y-4">
         <ContractPaper doc={contractPdfData({ ...text, body }, property, { fullName: values.fullName, address: values.address })} />
         {text.signMode && <p className="text-base">Signing: {signModeWords(text.signMode)}</p>}
-        <Field id={fid('name')} label="Type your full name" required error={fe.errors[fid('name')]}>
-          <input id={fid('name')} autoComplete="name" className={big} value={name} disabled={busy} required {...fe.invalid(fid('name'))}
-            onChange={(e) => { setName(e.target.value); fe.clear(fid('name')); }} />
-        </Field>
+        <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+          <p className="text-base">Signing as <strong>{values.fullName.trim()}</strong></p>
+          <p className="text-sm text-muted-foreground">Name wrong? Press Back to fix it.</p>
+        </div>
         <div id={fid('signature')} role="group" aria-label="Draw your signature" tabIndex={-1} className={padGroupClass} {...fe.invalid(fid('signature'))}>
           <p className="text-sm font-medium">Draw your signature<span aria-hidden="true" className="text-destructive"> *</span></p>
           <SignaturePad label="Your signature" onChange={(png) => { setSignature(png); fe.clear(fid('signature')); }} disabled={busy} />

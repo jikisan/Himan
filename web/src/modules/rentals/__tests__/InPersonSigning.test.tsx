@@ -102,7 +102,10 @@ describe('Sign on this device', () => {
     fillDetails();
     const paper = within(screen.getByRole('article', { name: 'Contract of Lease' }));
     expect(paper.getByText('Carlo Lim of Pajo, Lapu-Lapu City')).toBeInTheDocument();
-    fill('Type your full name', 'Carlo Lim');
+    // Nothing to type: the name under the signature is the one in the contract.
+    expect(screen.queryByLabelText(label('Type your full name'))).toBeNull();
+    expect(screen.getByText('Signing as').parentElement).toHaveTextContent('Signing as Carlo Lim');
+    expect(screen.getByText('Name wrong? Press Back to fix it.')).toBeInTheDocument();
     act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'signInPerson' })));
@@ -131,11 +134,11 @@ describe('Sign on this device', () => {
     fill('Full name', 'Carlo M. Lim');
     fillDetails();
     expect(screen.getByText('Carlo M. Lim of Pajo, Lapu-Lapu City')).toBeInTheDocument();
-    fill('Type your full name', 'Carlo M. Lim');
+    expect(screen.getByText('Signing as').parentElement).toHaveTextContent('Signing as Carlo M. Lim');
     act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({
-      contentHash: expect.any(String), details: expect.objectContaining({ fullName: 'Carlo M. Lim' }) })));
+      name: 'Carlo M. Lim', contentHash: expect.any(String), details: expect.objectContaining({ fullName: 'Carlo M. Lim' }) })));
     const call = state.run.mock.calls.find(([a]) => a.type === 'signInPerson')![0];
     expect(call.contentHash).toBe(await sha256Hex(canonicalText(['Carlo M. Lim of Pajo, Lapu-Lapu City', '1. Lease.'], '')));
   });
@@ -169,19 +172,15 @@ describe('Sign on this device', () => {
     expect(screen.queryByRole('article', { name: 'Contract of Lease' })).toBeNull();
   });
 
-  it('keeps Sign on and takes the tenant to the missing name, with the signature asked for under the pad', () => {
+  it('keeps Sign on and asks for the missing signature under the pad', () => {
     toDetails();
     fillDetails();
-    const name = screen.getByLabelText(label('Type your full name'));
-    expectRequired(name);
     const sign = screen.getByRole('button', { name: 'Sign' });
     expect(sign).toBeEnabled();
     fireEvent.click(sign);
-    expectFieldError(name, 'Enter your full name');
     const signatureError = screen.getByText('Draw your signature', { selector: '[id$="-error"]' });
     expect(signatureError.id).toBe(`${screen.getByRole('group', { name: 'Draw your signature' }).id}-error`);
     expectNoErrorAfter(sign);
-    fill('Type your full name', 'Carlo Lim');
     act(() => pad.instance!.fire());
     expect(screen.queryByText('Draw your signature', { selector: '[id$="-error"]' })).toBeNull();
     expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'signInPerson' }));
@@ -191,7 +190,6 @@ describe('Sign on this device', () => {
     state.run.mockImplementation(async (a: { type: string }) => (a.type === 'signInPerson' ? { failed: ['id.png'] } : undefined));
     toDetails();
     fillDetails();
-    fill('Type your full name', 'Carlo Lim');
     act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     expect(await screen.findByText(/give the phone back/)).toBeInTheDocument();
@@ -202,7 +200,6 @@ describe('Sign on this device', () => {
     state.run.mockRejectedValue(new Error('The contract changed. Reload the page to read the latest version'));
     toDetails();
     fillDetails();
-    fill('Type your full name', 'Carlo Lim');
     act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The contract changed');

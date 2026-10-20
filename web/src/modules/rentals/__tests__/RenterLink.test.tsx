@@ -57,7 +57,6 @@ const fillDetails = () => {
 };
 const signNow = async (mode = /Sign online only/) => {
   fireEvent.click(screen.getByRole('radio', { name: mode }));
-  fill('Type your full name', 'Ben Cruz');
   act(() => pad.instance!.fire());
   fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
 };
@@ -212,22 +211,21 @@ describe('renter link page', () => {
     expect(repo.getPublic).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps Sign on and takes the tenant to the sign mode, name and signature they still need', async () => {
+  it('keeps Sign on and takes the tenant to the sign mode and signature they still need, with nothing to type', async () => {
     await open(base());
     const sign = screen.getByRole('button', { name: 'Sign' });
     expect(sign).toBeEnabled();
-    const name = screen.getByLabelText(label('Type your full name'));
-    expectRequired(name);
+    expect(screen.queryByLabelText(label('Type your full name'))).toBeNull();
+    expect(screen.getByText('Name wrong? Message your landlord.')).toBeInTheDocument();
     fireEvent.click(sign);
     const firstMode = screen.getByRole('radio', { name: /Sign online only/ });
     expectFieldError(firstMode, 'Choose how you want to sign');
-    expect(document.getElementById(`${name.id}-error`)).toHaveTextContent('Enter your full name');
     const pad = screen.getByRole('group', { name: 'Draw your signature' });
     expect(document.getElementById(`${pad.id}-error`)).toHaveTextContent('Draw your signature');
     expectNoErrorAfter(sign);
     fireEvent.click(firstMode);
     fireEvent.click(sign);
-    expectFieldError(name, 'Enter your full name');
+    expectFieldError(pad, 'Draw your signature');
     expect(repo.sign).not.toHaveBeenCalled();
   });
 
@@ -236,7 +234,7 @@ describe('renter link page', () => {
     repo.sign.mockRejectedValue(new Error('You already signed this contract'));
     await signNow();
     expect(await screen.findByRole('alert')).toHaveTextContent('You already signed this contract');
-    expectBanner('You already signed this contract', screen.getByLabelText(label('Type your full name')));
+    expectBanner('You already signed this contract', screen.getByRole('group', { name: 'Draw your signature' }));
     expectNoErrorAfter(screen.getByRole('button', { name: 'Sign' }));
   });
 
@@ -317,8 +315,7 @@ describe('renter link page', () => {
     await open(base({ contract: { ...sent, signMode: 'notarize' } }));
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.getByText('Your landlord asked you to sign online and then have it notarized.')).toBeInTheDocument();
-    fill('Type your full name', 'Ben Cruz');
-    act(() => pad.instance!.fire());
+      act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     await waitFor(() => expect(repo.sign).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ signMode: 'notarize' })));
   });

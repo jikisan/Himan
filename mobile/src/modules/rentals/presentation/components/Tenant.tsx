@@ -70,7 +70,7 @@ export function TenantSheet({ open, onClose, renter, tenancies, bills, payments,
     const stage = stageOf(c.tenancyId);
     return <View key={c.id} className="gap-3">
       <Title size="base">Contract</Title>
-      <Facts rows={[['Lease', `${day(c.startDate)} to ${day(c.endDate)}`],
+      <Facts rows={[['Lease starts', day(c.startDate)], ['Lease ends', day(c.endDate)],
         ['Deposit', `${formatPesos(c.depositCentavos)} · ${c.advanceMonths} month${c.advanceMonths === 1 ? '' : 's'} advance`]]} />
       {stage === 'not_needed' ? <View className={`${card} flex-row items-center gap-2`}><Text className={`flex-1 ${muted}`}>Contract not needed</Text>
         {canManage && <Btn small label="Undo" disabled={busy} onPress={() => void setNotNeeded(c.tenancyId, false)} />}</View>

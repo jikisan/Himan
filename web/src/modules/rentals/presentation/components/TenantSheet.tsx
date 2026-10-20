@@ -91,7 +91,8 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     return <section key={c.id} ref={i === 0 ? contractRef : undefined} tabIndex={-1} aria-label="Contract" className="scroll-mt-4 focus:outline-none">
       <h3 className="mb-3 text-sm font-semibold">Contract</h3>
       <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">Lease</dt><dd className="font-medium">{day(c.startDate)} to {day(c.endDate)}</dd>
+        <dt className="text-muted-foreground">Lease starts</dt><dd className="font-medium">{day(c.startDate)}</dd>
+        <dt className="text-muted-foreground">Lease ends</dt><dd className="font-medium">{day(c.endDate)}</dd>
         <dt className="text-muted-foreground">Deposit</dt><dd className="font-medium">{formatPesos(c.depositCentavos)}
           <span className="font-normal text-muted-foreground"> · {c.advanceMonths} month{c.advanceMonths === 1 ? '' : 's'} advance</span></dd>
       </dl>

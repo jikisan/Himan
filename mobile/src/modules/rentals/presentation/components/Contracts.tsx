@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert, Image, Text, View } from 'react-native';
+import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Feather } from '@expo/vector-icons';
 import { ABOUT_FIELDS, BLANK, CONTRACT_FIELDS, DEFAULT_CLAUSES, EMERGENCY_FIELDS, OPTIONAL_FIELDS, PRIVACY_CONSENT, SIGN_MODES, canonicalText, clausesSchema,
@@ -223,9 +223,13 @@ function ContractEditor({ initialTerms, initialMode, modeLocked, preview, busy, 
     {modeLocked ? mode && <Text className={`text-xs ${muted}`}>Signing: {signModeWords(mode)}</Text>
       : <Field label="How is the contract signed?"><SignModeChoice value={mode} onChange={setMode} disabled={busy} /></Field>}
     <Field label="Contract preview">
-      <View className="max-h-80 rounded-xl border border-gray-200 bg-white p-4">
-        {contractLines(preview, terms).map((line, i) => <Text key={i} className="mb-2 text-sm leading-5 text-gray-900">{line}</Text>)}
+      {/* Its own scroll area: the clauses would otherwise spill over the fields below. */}
+      <View className="overflow-hidden rounded-xl border border-gray-200 bg-white" style={{ height: 320 }}>
+        <ScrollView nestedScrollEnabled contentContainerStyle={{ padding: 16 }}>
+          {contractLines(preview, terms).map((line, i) => <Text key={i} className="mb-2 text-sm leading-5 text-gray-900">{line}</Text>)}
+        </ScrollView>
       </View>
+      <Text className={`text-xs ${muted}`}>Scroll inside the box to read the whole contract.</Text>
     </Field>
     <Field label="Special terms" hint="optional">
       <Input accessibilityLabel="Special terms" multiline maxLength={4000} value={terms} className="min-h-24"

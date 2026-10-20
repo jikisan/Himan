@@ -1,4 +1,4 @@
-import { Children, useRef, useState } from 'react';
+import { Children, Fragment, isValidElement, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -34,9 +34,14 @@ function SignModeChoice({ value, onChange, disabled, error }: { value: SignMode 
   </View>;
 }
 
+/** The real children, looking through fragments (`<>…</>` counts as one child otherwise) and skipping false/null. */
+function flatten(children: ReactNode): ReactNode[] {
+  return Children.toArray(children).flatMap((c) => isValidElement(c) && c.type === Fragment ? flatten((c.props as { children?: ReactNode }).children) : [c]);
+}
+
 /** Buttons in equal halves, two per row; an odd last one takes the full row. */
 function Halves({ children }: { children: ReactNode }) {
-  const items = Children.toArray(children);
+  const items = flatten(children);
   const rows = Array.from({ length: Math.ceil(items.length / 2) }, (_, i) => items.slice(i * 2, i * 2 + 2));
   return <View className="gap-2">{rows.map((row, i) => <View key={i} className="flex-row gap-2">
     {row.map((b, j) => <View key={j} className="flex-1">{b}</View>)}</View>)}</View>;

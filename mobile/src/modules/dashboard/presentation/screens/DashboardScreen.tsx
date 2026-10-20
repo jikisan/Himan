@@ -25,7 +25,7 @@ function Button({ label, icon, onPress, primary, disabled, grow }: {
 }) {
   const { colorScheme } = useColorScheme();
   const color = primary ? '#fff' : colorScheme === 'dark' ? '#e5e7eb' : '#111827';
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress}
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress}
     className={`min-h-12 flex-row items-center justify-center gap-2 rounded-xl px-4 active:opacity-70 ${grow ? 'flex-1' : ''} ${disabled ? 'opacity-50' : ''}
       ${primary ? 'bg-indigo-600' : 'border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800'}`}>
     {icon && <Feather accessible={false} name={icon} size={18} color={color} />}
@@ -79,7 +79,7 @@ function Customize({ apps, hidden, saving, onSave, onCancel }: {
   const [draft, setDraft] = useState(hidden);
   const [error, setError] = useState('');
   const mobileHidden = apps.filter((a) => draft.includes(a.id));
-  return <View className="flex-1 bg-gray-50 dark:bg-gray-900" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+  return <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-gray-50 dark:bg-gray-900" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
     <View className="gap-1 border-b border-gray-200 p-5 dark:border-gray-800">
       <Text accessibilityRole="header" className={`text-xl font-semibold ${text}`}>Customize dashboard</Text>
       <Text className={muted}>Choose which apps appear on your dashboard. It changes on the web too.</Text>
@@ -109,5 +109,5 @@ function Customize({ apps, hidden, saving, onSave, onCancel }: {
         }} />
       </View>
     </View>
-  </View>;
+  </SafeAreaView>;
 }

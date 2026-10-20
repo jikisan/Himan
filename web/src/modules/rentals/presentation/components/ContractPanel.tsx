@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Ban, CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, Link2, Send, Smartphone, Upload } from 'lucide-react';
+import { Ban, CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, FileCheck2, Link2, Smartphone, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -164,7 +164,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
     try {
       await send(text);
       setToken(await linkToken());
-      toast.success('Contract ready. Copy the link and send it to your tenant.');
+      toast.success('Contract generated. Copy the link and send it to your tenant.');
     } catch (e) { fail(e); }
   };
   const signOnDevice = <Button variant="outline" className={SECONDARY} disabled={busy} onClick={async () => {
@@ -186,8 +186,8 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
     next = 'Choose how the contract is signed, then send it.';
     primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => setChoosingMode(true)}><PenLine className="h-5 w-5" />Choose how it’s signed</Button>;
   } else if (text.status === 'draft' && !linkOut) {
-    next = 'Send it to the tenant to sign, or sign it together on this device.';
-    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void sendNow()}><Send className="h-5 w-5" />Send to tenant</Button>;
+    next = 'Generate the contract to get the tenant’s signing link, or sign it together on this device.';
+    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void sendNow()}><FileCheck2 className="h-5 w-5" />Generate contract</Button>;
     secondary = canManage && <>{signOnDevice}{edit}</>;
   } else if (linkOut && text.status !== 'signed' && text.status !== 'countersigned') {
     next = 'Send the tenant their link so they can sign.';

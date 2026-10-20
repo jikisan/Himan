@@ -104,7 +104,7 @@ describe('Contract on the tenant sheet', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const contract = openSheet();
     expect(contract.getByText(contractStatusLabel('draft', null))).toBeInTheDocument();
-    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    fireEvent.click(contract.getByRole('button', { name: 'Generate contract' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'existing' }));
     expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' });
     fireEvent.click(await dialog().findByRole('button', { name: 'Copy as text' }));
@@ -166,11 +166,11 @@ describe('Contract on the tenant sheet', () => {
     state.contractTexts = [text({ signMode: 'notarize' })];
     let contract = openSheet();
     expect(contract.getByText('Signing: Sign online, then notarize')).toBeInTheDocument();
-    expect(contract.getByRole('button', { name: 'Send to tenant' })).toBeEnabled();
+    expect(contract.getByRole('button', { name: 'Generate contract' })).toBeEnabled();
     cleanup();
     state.contractTexts = [text({ signMode: null })];
     contract = openSheet();
-    expect(contract.queryByRole('button', { name: 'Send to tenant' })).not.toBeInTheDocument();
+    expect(contract.queryByRole('button', { name: 'Generate contract' })).not.toBeInTheDocument();
     expect(contract.getByText('Choose how the contract is signed, then send it.')).toBeInTheDocument();
     fireEvent.click(contract.getByRole('button', { name: 'Choose how it’s signed' }));
     // Only the choice: no contract text, no special terms.
@@ -347,7 +347,7 @@ describe('Contract details the property still needs', () => {
     cleanup();
     state.contractTexts = [text({ signMode: 'esign' })];
     contract = openSheet();
-    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    fireEvent.click(contract.getByRole('button', { name: 'Generate contract' }));
     expect(dialog().getByRole('heading', { name: 'Fill these in first' })).toBeInTheDocument();
     expect(state.run).not.toHaveBeenCalled();
   });
@@ -367,7 +367,7 @@ describe('Sending a draft made before the details were filled in', () => {
     state.contractTexts = [text({ signMode: 'esign', body: old })];
     state.run.mockImplementation(async (a: { type: string }) => (a.type === 'createLink' ? 'tok123' : undefined));
     const contract = openSheet();
-    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    fireEvent.click(contract.getByRole('button', { name: 'Generate contract' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' }));
     const types = state.run.mock.calls.map(([a]) => a.type);
     expect(state.run).toHaveBeenCalledWith({ type: 'updateContractText', id: 'ct', changes: { body: stored() } });
@@ -385,7 +385,7 @@ describe('Sending a draft made before the details were filled in', () => {
   it('sends an up-to-date draft as it is', async () => {
     state.contractTexts = [text({ signMode: 'esign', body: stored() })];
     const contract = openSheet();
-    fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+    fireEvent.click(contract.getByRole('button', { name: 'Generate contract' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' }));
     expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'updateContractText' }));
   });
@@ -409,7 +409,7 @@ describe('The link a sent contract goes out with', () => {
       state.contractTexts = [text({ signMode: 'esign', body: stored() })];
       state.run.mockImplementation(async (a: { type: string }) => (a.type === 'createLink' ? 'tok123' : undefined));
       const contract = openSheet();
-      fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
+      fireEvent.click(contract.getByRole('button', { name: 'Generate contract' }));
       await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'new' }));
       cleanup();
       state.run.mockClear();

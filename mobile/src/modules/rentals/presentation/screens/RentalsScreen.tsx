@@ -158,11 +158,12 @@ function RentalsContent(state: RentalsState) {
         : <>
           <View className={`${card} gap-4`}>
             <View className="flex-row items-start gap-3">
-              <View className="flex-1 gap-1">
-                <View className="flex-row flex-wrap items-center gap-x-2">
-                  <Text className={`text-2xl font-bold ${text}`}>{property.name}</Text>
+              <View className="flex-1 gap-0.5">
+                {/* The arrow stays beside the name; a long name wraps instead of pushing the arrow onto its own line. */}
+                <View className="flex-row items-center gap-x-1">
+                  <Text className={`shrink text-2xl font-bold ${text}`}>{property.name}</Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${property.name}`} onPress={switchProperty}
-                    className="h-11 w-11 items-center justify-center rounded-full active:bg-gray-100 dark:active:bg-gray-700">
+                    className="-my-2 h-11 w-11 items-center justify-center rounded-full active:bg-gray-100 dark:active:bg-gray-700">
                     <Feather name="chevron-down" size={22} color="#4f46e5" />
                   </Pressable>
                 </View>

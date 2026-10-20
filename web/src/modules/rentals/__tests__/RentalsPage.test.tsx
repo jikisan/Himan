@@ -364,8 +364,8 @@ describe('Overview', () => {
     vi.setSystemTime(new Date('2026-10-26T02:00:00Z'));
     page('Home');
     const due = within(screen.getByRole('region', { name: 'Rent due in the next 7 days' }));
-    expect(due.getByRole('button', { name: /Ana Cruz.*Room A.*in 4 days/ })).toBeInTheDocument();
-    expect(due.getAllByRole('button')).toHaveLength(3);
+    expect(due.getAllByRole('listitem').find((li) => /Ana Cruz.*Room A.*in 4 days/.test(li.textContent ?? ''))).toBeDefined();
+    expect(due.getAllByRole('button', { name: /^View / }).map((b) => b.textContent)).toEqual(['View tenant', 'View tenant', 'View tenant']);
   });
   it('hides rent due later than a week', () => {
     page('Home');

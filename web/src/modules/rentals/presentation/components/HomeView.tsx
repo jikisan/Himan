@@ -145,17 +145,18 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
     </section>}
     {overdue.length > 0 && <section aria-labelledby="rentals-overdue" className="rounded-xl border border-destructive/40 bg-card p-4 shadow-sm">
       <h3 id="rentals-overdue" className="font-semibold text-destructive">Overdue</h3>
-      <p className="text-sm text-muted-foreground">Unpaid after the due date. Open one to record a payment.</p>
+      <p className="text-sm text-muted-foreground">Unpaid after the due date. Press View SOA to record a payment.</p>
       <ul className="mt-2 divide-y">{overdue.map((b) => {
         const t = tenancyOf(b);
         const late = differenceInCalendarDays(parseISO(today), parseISO(b.dueOn));
-        return <li key={b.id}><button type="button" onClick={() => onOpenBill(b.id)}
-          className="flex w-full items-center gap-3 rounded-md py-2 text-left text-sm transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        return <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 text-sm">
           <span className="min-w-0 flex-1"><span className="block truncate font-medium">{t ? name(t) : 'Tenant'}</span>
             <span className="block truncate text-xs text-muted-foreground">{t ? `${roomName(t.unitId)} · ` : ''}{b.number}</span></span>
           <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-destructive">
             {formatBillPesos(billBalance(b, payments))} left · {late} day{late === 1 ? '' : 's'} late</span>
-        </button></li>;
+          <button type="button" aria-label={`View SOA ${b.number}`} onClick={() => onOpenBill(b.id)}
+            className={cn(BUTTON, 'border bg-background hover:bg-muted/50')}>View SOA</button>
+        </li>;
       })}</ul>
     </section>}
     </div>
@@ -173,13 +174,13 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
       </section>
       {dueSoon.length > 0 && <section aria-labelledby="rentals-due" className="rounded-xl border bg-card p-4 shadow-sm">
         <h3 id="rentals-due" className="font-semibold">Rent due in the next 7 days</h3>
-        <ul className="mt-2 divide-y">{dueSoon.map(({ tenancy, rent: amount, date, inDays }) => <li key={tenancy.id}>
-          <button type="button" onClick={() => onOpenTenant(tenancy.renterId)}
-            className="flex w-full items-center gap-3 rounded-md py-2 text-left text-sm transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="min-w-0 flex-1"><span className="block truncate font-medium">{name(tenancy)}</span>
-              <span className="block truncate text-xs text-muted-foreground">{roomName(tenancy.unitId)} · {format(parseISO(date), 'MMM d')} · {inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`}</span></span>
-            <span className="shrink-0 font-semibold tabular-nums">{formatPesos(amount)}</span>
-          </button>
+        <ul className="mt-2 divide-y">{dueSoon.map(({ tenancy, rent: amount, date, inDays }) => <li key={tenancy.id}
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 text-sm">
+          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{name(tenancy)}</span>
+            <span className="block truncate text-xs text-muted-foreground">{roomName(tenancy.unitId)} · {format(parseISO(date), 'MMM d')} · {inDays === 0 ? 'today' : inDays === 1 ? 'tomorrow' : `in ${inDays} days`}</span></span>
+          <span className="shrink-0 font-semibold tabular-nums">{formatPesos(amount)}</span>
+          <button type="button" aria-label={`View ${name(tenancy)}`} onClick={() => onOpenTenant(tenancy.renterId)}
+            className={cn(BUTTON, 'border bg-background hover:bg-muted/50 lg:w-full')}>View tenant</button>
         </li>)}</ul>
       </section>}
     </aside>

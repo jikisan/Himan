@@ -414,9 +414,12 @@ describe('Home', () => {
       issued('t3', { id: 'mi', kind: 'move_in', period: '2026-11', dueOn: '2026-11-01' })];
     openHome();
     const overdue = within(screen.getByRole('region', { name: 'Overdue' }));
-    expect(overdue.getAllByRole('button').map((b) => b.textContent)).toEqual([
+    expect(overdue.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       expect.stringContaining('Ana Reyes'), expect.stringContaining('Ben Lim'), expect.stringContaining('Juan Dela Cruz')]);
+    expect(overdue.getAllByRole('button').map((b) => b.textContent)).toEqual(['View SOA', 'View SOA', 'View SOA']);
     expect(overdue.getByText('₱5,900 left · 7 days late')).toBeInTheDocument();
+    fireEvent.click(overdue.getAllByRole('button', { name: /^View SOA/ })[0]);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Ana Reyes');
   });
 });
 

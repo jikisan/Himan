@@ -205,7 +205,7 @@ function RentalsContent(state: RentalsState) {
             onContractNotNeeded={(tenancyId) => void tryAct({ type: 'setContractNotNeeded', tenancyId, value: true }, 'Marked as not needed. Undo from the tenant.')}
             onMarkEarlierPaid={() => void tryAct({ type: 'markEarlierPaid', propertyId: property.id }, 'Earlier SOAs marked paid')} />
           : view === 'rooms' ? <>
-            {isOwner && property.units.length > 0 && <Btn icon="plus" label="Add room" onPress={() => setDialog({ type: 'room', id: null })} />}
+            {isOwner && property.units.length > 0 && <View className="w-1/2 self-end"><Btn pill icon="plus" label="Add room" onPress={() => setDialog({ type: 'room', id: null })} /></View>}
             {property.units.length === 0 ? <Empty icon="log-in" title="No rooms yet" action={isOwner && <Btn variant="primary" icon="plus" label="Add room" onPress={() => setDialog({ type: 'room', id: null })} />}>
               Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
               : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links}

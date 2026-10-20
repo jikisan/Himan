@@ -162,18 +162,22 @@ function RentalsContent(state: RentalsState) {
                 <View className="flex-row flex-wrap items-center gap-x-2">
                   <Text className={`text-2xl font-bold ${text}`}>{property.name}</Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${property.name}`} onPress={switchProperty}
-                    className="min-h-11 flex-row items-center gap-1 rounded-lg px-1 active:opacity-70">
-                    <Text className="font-semibold text-indigo-600 dark:text-indigo-400">Switch</Text><Feather name="chevron-down" size={18} color="#4f46e5" />
+                    className="h-11 w-11 items-center justify-center rounded-full bg-indigo-50 active:opacity-70 dark:bg-indigo-950/50">
+                    <Feather name="chevron-down" size={22} color="#4f46e5" />
                   </Pressable>
                 </View>
                 {property.address ? <Text className={muted}>{property.address}</Text> : null}
                 <View className="flex-row flex-wrap items-center gap-2 pt-1">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>
               </View>
-              {isOwner && <Btn small icon="menu" label="Menu" a11y="Property menu: edit, share, archive" onPress={() => moreMenu(property.name, [
+              {/* Icon only, by request (a trial against the labelled-buttons rule); screen readers still hear the label. */}
+              {isOwner && <Pressable accessibilityRole="button" accessibilityLabel="Property menu: edit, share, archive"
+                className="h-12 w-12 items-center justify-center rounded-xl border border-gray-300 bg-white active:opacity-70 dark:border-gray-600 dark:bg-gray-800"
+                onPress={() => moreMenu(property.name, [
                 { label: 'Edit property', onPress: () => setDialog({ type: 'property' }) },
                 { label: 'Share with a friend', onPress: () => setDialog({ type: 'share' }) },
                 { label: property.archivedAt ? 'Unarchive property' : 'Archive property', onPress: () => void tryAct({ type: 'archiveProperty', id: property.id,
-                  archived: !property.archivedAt }, property.archivedAt ? 'Property restored' : 'Property archived') }])} />}
+                  archived: !property.archivedAt }, property.archivedAt ? 'Property restored' : 'Property archived') }])}>
+                <Feather name="menu" size={22} color={icon} /></Pressable>}
             </View>
             {/* The two numbers an owner checks first, side by side under a line. */}
             <View className="flex-row border-t border-gray-200 pt-3 dark:border-gray-700">

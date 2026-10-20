@@ -188,12 +188,12 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
   } else if (text.status === 'draft' && !linkOut) {
     next = 'Generate the contract to get the tenant’s signing link, or sign it together on this device.';
     primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void sendNow()}><FileCheck2 className="h-5 w-5" />Generate contract</Button>;
-    secondary = canManage && <>{signOnDevice}{edit}</>;
+    secondary = canManage && <>{signOnDevice}</>;
   } else if (linkOut && text.status !== 'signed' && text.status !== 'countersigned') {
     next = 'Send the tenant their link so they can sign.';
     primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void copy(true)}><Copy className="h-5 w-5" />Copy as text</Button>;
     secondary = canManage && <><Button variant="outline" className={SECONDARY} disabled={busy}
-      onClick={() => void copy(false)}><Link2 className="h-4 w-4" />Copy link</Button>{signOnDevice}{edit}</>;
+      onClick={() => void copy(false)}><Link2 className="h-4 w-4" />Copy link</Button>{signOnDevice}</>;
   } else if (text.status === 'signed') {
     next = 'The tenant signed. Add your signature to finish.';
     primary = canManage && drawing === undefined && <Button className={PRIMARY} disabled={busy}
@@ -221,7 +221,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
         {/* A draft or unsigned contract downloads as an unsigned copy. */}
         <PaperDialog label="View contract" title="Contract of lease" description={contractStatusLabel(text.status, text.signMode)} className={SECONDARY}
           make={downloadPdf}>{() => <ContractPaper doc={pdfData} />}</PaperDialog>
-        <PdfButton className={SECONDARY} make={downloadPdf}>Download PDF</PdfButton></>}
+        <PdfButton className={SECONDARY} make={downloadPdf}>Download PDF</PdfButton>{edit}</>}
       notNeeded={text.status === 'draft' ? notNeededButton : null}>
       {notarize && canManage && <p className="text-xs text-muted-foreground">Notarized copy: PDF, JPEG or PNG, up to 10 MB.</p>}
     </StatusCard>
@@ -272,7 +272,8 @@ function StatusCard({ status, next, details = [], warning, done, primary, second
     {warning && <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">{warning}</p>}
     {primary}
     {children}
-    {secondary && <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*]:w-full [&>*]:px-2 sm:[&>*]:w-auto sm:[&>*]:px-4">{secondary}</div>}
+    {/* Equal halves, sending first, then the document, Edit last; an odd last button takes the full row. */}
+    {secondary && <div className="grid grid-cols-2 gap-2 [&>*]:w-full [&>*]:px-2 [&>*:last-child:nth-child(odd)]:col-span-2">{secondary}</div>}
     {notNeeded && <div className="border-t pt-3">{notNeeded}</div>}
   </div>;
 }

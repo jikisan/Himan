@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Children, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -34,6 +34,14 @@ function SignModeChoice({ value, onChange, disabled, error }: { value: SignMode 
   </View>;
 }
 
+/** Buttons in equal halves, two per row; an odd last one takes the full row. */
+function Halves({ children }: { children: ReactNode }) {
+  const items = Children.toArray(children);
+  const rows = Array.from({ length: Math.ceil(items.length / 2) }, (_, i) => items.slice(i * 2, i * 2 + 2));
+  return <View className="gap-2">{rows.map((row, i) => <View key={i} className="flex-row gap-2">
+    {row.map((b, j) => <View key={j} className="flex-1">{b}</View>)}</View>)}</View>;
+}
+
 /** The contract at a glance: where it stands, the one next step and its button, then the smaller actions. */
 function StatusCard({ status, next, details = [], warning, done, primary, secondary, notNeeded, children }: {
   status: string; next?: string; details?: string[]; warning?: string; done?: boolean; primary?: ReactNode; secondary?: ReactNode; notNeeded?: ReactNode; children?: ReactNode;
@@ -48,7 +56,7 @@ function StatusCard({ status, next, details = [], warning, done, primary, second
     <Banner tone="amber" message={warning} />
     {primary}
     {children}
-    {secondary ? <Row>{secondary}</Row> : null}
+    {secondary ? <Halves>{secondary}</Halves> : null}
     {notNeeded ? <View className="border-t border-gray-200 pt-3 dark:border-gray-700">{notNeeded}</View> : null}
   </View>;
 }
@@ -167,11 +175,11 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, in
   } else if (text.status === 'draft' && !linkOut) {
     next = 'Generate the contract to get the tenant’s signing link, or sign it together on this phone.';
     primary = canManage && <Btn variant="primary" icon="file-text" label="Generate contract" busy={busy} onPress={() => void sendNow()} />;
-    secondary = canManage && <>{signOnDevice}{edit}</>;
+    secondary = canManage && <>{signOnDevice}</>;
   } else if (linkOut && text.status !== 'signed' && text.status !== 'countersigned') {
     next = 'Send the tenant their link so they can sign.';
     primary = canManage && <Btn variant="primary" icon="copy" label="Copy as text" disabled={busy} onPress={() => void copy(true)} />;
-    secondary = canManage && <><Btn small icon="link" label="Copy link" disabled={busy} onPress={() => void copy(false)} />{signOnDevice}{edit}</>;
+    secondary = canManage && <><Btn small icon="link" label="Copy link" disabled={busy} onPress={() => void copy(false)} />{signOnDevice}</>;
   } else if (text.status === 'signed') {
     next = 'The tenant signed. Add your signature to finish.';
     primary = canManage && <Btn variant="primary" icon="edit-3" label="Countersign" disabled={busy} onPress={() => (saved ? void countersign() : setDrawing(null))} />;
@@ -188,7 +196,7 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, in
       primary={primary || (notarize && !text.notarizedScanPath ? scanButton : null)}
       secondary={<>{secondary}{notarize && text.notarizedScanPath && scanButton}
         <Btn small icon="file-text" label="View contract" onPress={() => setViewing(true)} />
-        <Btn small icon="share" label="Share PDF" onPress={sharePdfNow} /></>}
+        <Btn small icon="share" label="Share PDF" onPress={sharePdfNow} />{edit}</>}
       notNeeded={text.status === 'draft' ? notNeededButton : null}>
       {notarize && canManage && <Text className={`text-xs ${muted}`}>Notarized copy: PDF, JPEG or PNG, up to 10 MB.</Text>}
     </StatusCard>

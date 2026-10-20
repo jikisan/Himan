@@ -42,7 +42,7 @@ export function Btn({ label, icon, onPress, variant = 'outline', disabled, busy,
       ${grow ? 'flex-1' : ''} ${off ? 'opacity-50' : ''}`}>
     {busy ? <ActivityIndicator size="small" color={colorScheme === 'dark' ? v.iconDark : v.icon} />
       : icon && <Feather accessible={false} name={icon} size={18} color={colorScheme === 'dark' ? v.iconDark : v.icon} />}
-    <Text className={`text-base font-semibold ${v.label}`}>{label}</Text>
+    <Text className={`shrink text-center text-base font-semibold ${v.label}`}>{label}</Text>
   </Pressable>;
 }
 

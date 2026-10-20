@@ -27,8 +27,15 @@ jobs:
       - run: npm ci
       - name: Lint
         run: npm run lint -w @himan/web
+      # The rentals PDF tests read the rendered text with pdftotext.
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - name: Test
         run: npm run test:run -w @himan/web
+        env:
+          # Some modules read the Supabase config on import; nothing here talks to a real project.
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
       - name: Build
         run: npm run build -w @himan/web
         env:

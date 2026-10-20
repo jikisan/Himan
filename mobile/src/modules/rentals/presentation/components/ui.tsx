@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import type { TextInputProps } from 'react-native';
@@ -105,8 +105,8 @@ export function Input({ invalid, className, ...props }: TextInputProps & { inval
 }
 
 export function MoneyInput({ invalid, ...props }: TextInputProps & { invalid?: boolean }) {
-  return <View className="justify-center">
-    <Text className={`absolute left-4 z-10 text-base ${muted}`}>₱</Text>
+  return <View>
+    <View pointerEvents="none" className="absolute bottom-0 left-4 top-0 z-10 justify-center"><Text className={`text-base ${muted}`}>₱</Text></View>
     <Input keyboardType="decimal-pad" invalid={invalid} {...props} className="pl-8" />
   </View>;
 }
@@ -135,7 +135,7 @@ export function DateField({ value, onChange, label, min, max, disabled }: {
     </Pressable>
     {open && Platform.OS === 'ios' && <DateTimePicker value={value ? toDate(value) : new Date()} mode="date" display="inline"
       minimumDate={min ? toDate(min) : undefined} maximumDate={max ? toDate(max) : undefined}
-      onChange={(_, date) => { if (date) onChange(toValue(date)); }} />}
+      style={{ height: 340, alignSelf: 'stretch' }} onChange={(_, date) => { if (date) onChange(toValue(date)); }} />}
   </View>;
 }
 
@@ -213,6 +213,10 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, closeL
   const insets = useSafeAreaInsets();
   const icon = useIconColor();
   const toast = useContext(ToastContext);
+  // While sliding away the caller has usually cleared what the sheet showed: keep the last open content.
+  const shown = useRef({ title, subtitle, children, footer });
+  if (open) shown.current = { title, subtitle, children, footer };
+  ({ title, subtitle, children, footer } = shown.current);
   return <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-gray-50 dark:bg-gray-900">
       <View className="flex-row items-center gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">

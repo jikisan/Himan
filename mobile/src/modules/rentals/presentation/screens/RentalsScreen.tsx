@@ -46,6 +46,7 @@ function RentalsContent(state: RentalsState) {
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
   const [paying, setPaying] = useState<{ tenancyId: string; billId?: string } | null>(null);
   const [settlingId, setSettlingId] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState(false);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
   const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
   const role = property?.role;
@@ -217,11 +218,14 @@ function RentalsContent(state: RentalsState) {
       }} />
     </Sheet>
     {property && <>
-      <Sheet open={dialog?.type === 'property'} onClose={() => setDialog(null)} title="Edit property" subtitle="Owner and signer details are printed on contracts." closeLabel="Cancel">
+      <Sheet open={dialog?.type === 'property'} onClose={() => { setDialog(null); setEditingTemplate(false); }} title="Edit property" subtitle="Owner and signer details are printed on contracts." closeLabel="Cancel">
         <PropertyForm property={property} myName={state.myName} busy={busy} onSave={async (input) => { await run({ type: 'saveProperty', id: property.id, input }); toast('Property saved'); setDialog(null); }}
           extra={isOwner && <View className="gap-6 border-t border-gray-200 pt-6 dark:border-gray-700">
             <PaymentAccountsEditor propertyId={property.id} accounts={propertyAccounts} busy={busy} run={run} qrUrl={state.qrUrl} />
-            <ContractTemplateEditor propertyId={property.id} template={state.templates[property.id] ?? DEFAULT_CLAUSES} busy={busy} run={run} />
+            {editingTemplate ? <ContractTemplateEditor propertyId={property.id} template={state.templates[property.id] ?? DEFAULT_CLAUSES} busy={busy} run={run} />
+              : <View className="gap-2"><Text className={`text-base font-semibold ${text}`}>Contract template</Text>
+                <Text className={`text-xs ${muted}`}>The clauses every new contract starts from.</Text>
+                <Btn icon="edit-2" label="Edit contract template" onPress={() => setEditingTemplate(true)} /></View>}
             <LessorSignatureEditor property={property} busy={busy} run={run} />
           </View>} />
       </Sheet>

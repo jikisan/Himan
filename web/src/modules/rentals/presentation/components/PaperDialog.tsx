@@ -15,7 +15,7 @@ export function PaperDialog({ label, title, description, make, children, ...trig
     <Button variant="outline" {...trigger} onClick={() => setOpen(true)}><FileText className="h-4 w-4" />{label}</Button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="flex max-h-[92dvh] max-w-2xl flex-col gap-3 p-3 sm:p-5">
-        <DialogHeader className="pr-8 text-left">
+        <DialogHeader className="text-left">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>

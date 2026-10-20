@@ -59,7 +59,7 @@ When adding a new module, add its alias to all three config files.
 
 Older and non-technical people use this app (rentals co-managers, tenants on their own phones). Every action button shows
 a text label (an icon may sit beside it). No icon-only action buttons, and never make "tap the row" the only way to act.
-Standard affordances (dialog close X, month prev/next arrows) may stay icon-only but keep an `aria-label`.
+Dialogs and sheets show "Close" beside the X (from `components/ui`); month arrows read "Previous" and "Next".
 
 ## Form errors
 

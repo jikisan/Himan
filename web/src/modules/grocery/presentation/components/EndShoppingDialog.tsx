@@ -31,7 +31,7 @@ export const EndShoppingDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm [&>button]:hidden">
         <div className="flex items-center justify-between">
-          <DialogHeader className="p-0">
+          <DialogHeader className="p-0 pr-20">
             <DialogTitle>End Shopping</DialogTitle>
             <DialogDescription className="sr-only">Choose how to end this shopping session</DialogDescription>
           </DialogHeader>

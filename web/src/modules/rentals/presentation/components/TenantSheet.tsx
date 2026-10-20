@@ -111,7 +111,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   });
 
   return <>
-    <SheetHeader className="space-y-4 border-b p-5 pr-12 text-left">
+    <SheetHeader className="space-y-4 border-b p-5 pr-24 text-left">
       <div className="flex items-start gap-3">
         <Initials name={renter.fullName} className="size-12 text-base" />
         <div className="min-w-0">

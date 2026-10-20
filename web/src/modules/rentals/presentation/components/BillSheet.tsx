@@ -47,7 +47,7 @@ export function BillSheet({ bill, info, canManage, busy, onSaveLines, onIssue, o
   };
 
   return <>
-    <SheetHeader className="border-b p-5 pr-12 text-left">
+    <SheetHeader className="border-b p-5 pr-24 text-left">
       <SheetTitle>{bill.number ? `SOA ${bill.number}` : 'SOA preview'}</SheetTitle>
       <SheetDescription>{info.renterName} · {info.roomName}</SheetDescription>
     </SheetHeader>

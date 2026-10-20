@@ -164,7 +164,7 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
     <Dialog open={!!activeDialog && online && !!userId} onOpenChange={(isOpen) => { if (!isOpen && !disabled) setDialog(null); }}>
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:rounded-2xl transition-none motion-reduce:animate-none [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full" onInteractOutside={(event) => { if (disabled) event.preventDefault(); }}
         onEscapeKeyDown={(event) => { if (disabled) event.preventDefault(); }}>
-        <DialogHeader className="shrink-0 border-b p-4 pr-16 text-left">
+        <DialogHeader className="shrink-0 border-b p-4 pr-24 text-left">
           <div className="flex items-center gap-3">
             {selected && !activeDialog?.editing && <GovernmentAgencyMark agency={selected.agency} />}
             <div className="min-w-0 space-y-1"><DialogTitle className="break-words text-lg leading-6">{activeDialog?.editing ? selected ? 'Edit record' : 'Add record' : selected?.label ?? 'Record unavailable'}</DialogTitle>

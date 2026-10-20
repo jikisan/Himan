@@ -158,11 +158,11 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     <div className="min-w-0 flex-1 space-y-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="size-11 sm:size-9" aria-label="Previous month" disabled={period <= earliest}
-            onClick={() => setPeriod(addPeriods(period, -1))}><ChevronLeft className="h-4 w-4" /></Button>
-          <h3 className="min-w-36 text-center text-lg font-semibold">{periodLabel(period)}</h3>
-          <Button variant="outline" size="icon" className="size-11 sm:size-9" aria-label="Next month" disabled={period >= latest}
-            onClick={() => setPeriod(addPeriods(period, 1))}><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="outline" className="h-11 px-3 sm:h-9" aria-label="Previous month" disabled={period <= earliest}
+            onClick={() => setPeriod(addPeriods(period, -1))}><ChevronLeft aria-hidden className="h-4 w-4" />Previous</Button>
+          <h3 className="min-w-32 text-center text-lg font-semibold">{periodLabel(period)}</h3>
+          <Button variant="outline" className="h-11 px-3 sm:h-9" aria-label="Next month" disabled={period >= latest}
+            onClick={() => setPeriod(addPeriods(period, 1))}>Next<ChevronRight aria-hidden className="h-4 w-4" /></Button>
         </div>
         {hasMeters && !panelShown && <Button variant="outline" className="h-11 sm:h-9" onClick={showMeters}>
           <Gauge className="h-4 w-4" />Meters</Button>}
@@ -259,7 +259,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
       needed={todo.meters} busy={busy} onSave={saveReadings} />}
     {meters && !wide && <Sheet open={metersOpen} onOpenChange={setMetersOpen}>
       <SheetContent side="bottom" className="flex h-[100dvh] flex-col gap-0 p-0">
-        <SheetHeader className="border-b px-4 py-3 pr-12 text-left">
+        <SheetHeader className="border-b px-4 py-3 pr-24 text-left">
           <SheetTitle>{property.name}</SheetTitle>
           <SheetDescription>Type the number on each meter, then save.</SheetDescription>
         </SheetHeader>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { billPrefix, centavosToInput, manilaToday, parsePesos, propertySchema, LESSOR_CAPACITIES } from '@himan/shared/rentals';
+import { billPrefix, centavosToInput, manilaToday, parsePesos, propertySchema, propertyInput, LESSOR_CAPACITIES } from '@himan/shared/rentals';
 import type { PropertyInput, RentalProperty } from '@himan/shared/rentals';
 import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
 import { FormErrorBanner } from '@core/presentation/components';
@@ -125,11 +125,5 @@ export function PropertyForm({ property, myName, busy, onSave, onCancel, account
 const hasContractDetails = (p: RentalProperty) =>
   [p.ownerAddress, p.lessorCivilStatus, p.lessorAddress, p.signingCity].some(Boolean);
 
-/** The saved property as the input `saveProperty` takes, e.g. to save it again with a few details changed. */
 // eslint-disable-next-line react-refresh/only-export-components
-export function propertyInput(p: RentalProperty): PropertyInput {
-  return { name: p.name, address: p.address, ownerName: p.ownerName, ownerAddress: p.ownerAddress,
-    lessorName: p.lessorName, lessorCivilStatus: p.lessorCivilStatus, lessorAddress: p.lessorAddress,
-    lessorCapacity: p.lessorCapacity, signingCity: p.signingCity, invoicePrefix: p.invoicePrefix,
-    lateFeeCentavos: p.lateFeeCentavos, rentDueDay: p.rentDueDay };
-}
+export { propertyInput } from '@himan/shared/rentals';

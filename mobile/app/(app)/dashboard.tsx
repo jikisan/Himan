@@ -43,6 +43,13 @@ const quickLinks: QuickLink[] = [
     route: '/(app)/cards',
   },
   {
+    id: 'rentals',
+    icon: 'home',
+    label: 'Rentals',
+    description: 'Rooms, tenants, bills and contracts',
+    route: '/(app)/rentals',
+  },
+  {
     id: 'grocery',
     icon: 'shopping-cart',
     label: 'Grocery',

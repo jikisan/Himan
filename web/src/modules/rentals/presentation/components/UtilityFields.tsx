@@ -3,8 +3,8 @@ import type { UnitInput } from '@himan/shared/rentals';
 import type { useFieldErrors } from '@core/presentation/hooks';
 import { Field, MoneyInput, inputClass } from './Field';
 
-export type Utility = 'electric' | 'water';
-export type UtilityState = { modes: Record<Utility, UnitInput['electricMode']>; amounts: Record<Utility, string> };
+export type { Utility, UtilityState } from '@himan/shared/rentals';
+import type { UtilityState } from '@himan/shared/rentals';
 
 const NAME = { electric: 'Electricity', water: 'Water' } as const;
 const RATE = { electric: 'Price per kWh', water: 'Price per m³' } as const;

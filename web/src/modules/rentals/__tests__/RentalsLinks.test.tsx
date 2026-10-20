@@ -156,10 +156,12 @@ describe('Tenant link on the sheet', () => {
   beforeEach(() => { state.links = [link()]; });
   const panel = () => within(screen.getByRole('region', { name: 'Tenant link' }));
 
-  it('copies the link message', async () => {
+  it('copies the link message, or the link alone', async () => {
     openSheet();
-    fireEvent.click(panel().getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(linkMessage(`${location.origin}/r/tok-old`, 'Carlo Lim', 'existing')));
+    fireEvent.click(panel().getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(`${location.origin}/r/tok-old`));
   });
 
   it('makes a new link only after a confirm', async () => {
@@ -184,6 +186,7 @@ describe('Tenant link on the sheet', () => {
     openSheet();
     expect(panel().getByText('The link is off.')).toBeInTheDocument();
     expect(panel().queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();
+    expect(panel().queryByRole('button', { name: 'Copy as text' })).not.toBeInTheDocument();
     expect(panel().getByRole('button', { name: 'Make a new link' })).toBeInTheDocument();
   });
 

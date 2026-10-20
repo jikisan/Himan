@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link2, Link2Off, RefreshCw } from 'lucide-react';
+import { Copy, Link2, Link2Off, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -10,8 +10,8 @@ import { errorMessage } from '../utils/errorMessage';
 import { useFieldErrors } from '@core/presentation/hooks';
 import { FormErrorBanner } from '@core/presentation/components';
 
-const copyText = async (text: string) => {
-  try { await navigator.clipboard.writeText(text); toast.success('Link copied. Paste it in Messenger.'); } catch (e) { toast.error(errorMessage(e)); }
+const copyText = async (text: string, done: string) => {
+  try { await navigator.clipboard.writeText(text); toast.success(done); } catch (e) { toast.error(errorMessage(e)); }
 };
 
 /** Managers only: copy, regenerate or turn off the tenant's private link. */
@@ -26,8 +26,12 @@ export function TenantLinkPanel({ link, name, busy, run }: { link: TenancyLink; 
     <p className="text-xs text-muted-foreground">{off ? 'The link is off.'
       : link.kind === 'new' ? 'Their private page for sending details and signing the contract.' : 'Their private page for signing the contract and seeing bills.'}</p>
     <div className="flex flex-wrap gap-2">
-      {!off && <Button variant="outline" className="h-11 sm:h-9" disabled={busy}
-        onClick={() => void copyText(tenantLinkMessage(link.token, name, link.kind))}><Link2 className="h-4 w-4" />Copy link</Button>}
+      {!off && <>
+        <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => void copyText(tenantLinkMessage(link.token, name, link.kind),
+          'Message with the link copied. Paste it in Messenger.')}><Copy className="h-4 w-4" />Copy as text</Button>
+        <Button variant="outline" className="h-11 sm:h-9" disabled={busy}
+          onClick={() => void copyText(`${location.origin}/r/${link.token}`, 'Link copied.')}><Link2 className="h-4 w-4" />Copy link</Button>
+      </>}
       <Button variant="outline" className="h-11 sm:h-9" disabled={busy} onClick={() => setConfirm('new')}><RefreshCw className="h-4 w-4" />Make a new link</Button>
       {!off && <Button variant="outline" className="h-11 text-destructive hover:text-destructive sm:h-9" disabled={busy} onClick={() => setConfirm('off')}>
         <Link2Off className="h-4 w-4" />Turn off link</Button>}

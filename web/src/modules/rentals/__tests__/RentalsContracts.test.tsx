@@ -107,7 +107,7 @@ describe('Contract on the tenant sheet', () => {
     fireEvent.click(contract.getByRole('button', { name: 'Send to tenant' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'existing' }));
     expect(state.run).toHaveBeenCalledWith({ type: 'sendContract', id: 'ct' });
-    fireEvent.click(await dialog().findByRole('button', { name: 'Copy link for Messenger' }));
+    fireEvent.click(await dialog().findByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(linkMessage(`${location.origin}/r/tok123`, 'Carlo Lim', 'existing')));
   });
 
@@ -118,8 +118,11 @@ describe('Contract on the tenant sheet', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const contract = openSheet();
     expect(contract.getByText(contractStatusLabel('sent', null))).toBeInTheDocument();
-    fireEvent.click(contract.getByRole('button', { name: 'Copy link for Messenger' }));
+    fireEvent.click(contract.getByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(linkMessage(`${location.origin}/r/tok-old`, 'Carlo Lim', 'existing')));
+    fireEvent.click(contract.getByRole('button', { name: 'Copy link' }));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(`${location.origin}/r/tok-old`));
+    expect(contract.queryByRole('button', { name: 'Share' })).toBeNull();
     expect(state.run).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'createLink' }));
     fireEvent.click(contract.getByRole('button', { name: 'Edit' }));
     // Sent: the tenant may already be reading it, so how it's signed is fixed.
@@ -210,7 +213,7 @@ describe('Contract on the tenant sheet', () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const contract = openSheet();
-    fireEvent.click(contract.getByRole('button', { name: 'Copy link for Messenger' }));
+    fireEvent.click(contract.getByRole('button', { name: 'Copy as text' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'createLink', tenancyId: 't3', kind: 'new' }));
   });
 

@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Ban, CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, Send, Share2, Smartphone, Upload } from 'lucide-react';
+import { Ban, CircleCheck, CircleDashed, Copy, FilePlus2, PenLine, Link2, Send, Smartphone, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -85,16 +85,14 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
     ?? (renter.address.trim() && renter.phone.trim() ? 'existing' : 'new');
   const linkToken = async () => token ?? link?.token ?? await run({ type: 'createLink', tenancyId: contract.tenancyId, kind }) as string;
   const message = (t: string) => linkMessage(`${location.origin}/r/${t}`, renter.fullName, kind);
-  const copy = async () => {
+  // "Copy as text": a short note with the link, ready to paste in Messenger; "Copy link": the link alone.
+  const copy = async (asText: boolean) => {
     try {
       const t = await linkToken();
       setToken(t);
-      await navigator.clipboard.writeText(message(t));
-      toast.success('Link copied. Paste it in Messenger.');
+      await navigator.clipboard.writeText(asText ? message(t) : `${location.origin}/r/${t}`);
+      toast.success(asText ? 'Message with the link copied. Paste it in Messenger.' : 'Link copied.');
     } catch (e) { fail(e); }
-  };
-  const share = async () => {
-    try { await navigator.share({ text: message(await linkToken()) }); } catch (e) { if ((e as Error)?.name !== 'AbortError') fail(e); }
   };
   const countersign = async (signature?: string) => {
     try {
@@ -193,9 +191,9 @@ export function ContractPanel({ contract, renter, info, canManage, busy, run, st
     secondary = canManage && <>{signOnDevice}{edit}</>;
   } else if (linkOut && text.status !== 'signed' && text.status !== 'countersigned') {
     next = 'Send the tenant their link so they can sign.';
-    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void copy()}><Copy className="h-5 w-5" />Copy link for Messenger</Button>;
-    secondary = canManage && <>{typeof navigator.share === 'function' && <Button variant="outline" className={SECONDARY} disabled={busy}
-      onClick={() => void share()}><Share2 className="h-4 w-4" />Share</Button>}{signOnDevice}{edit}</>;
+    primary = canManage && <Button className={PRIMARY} disabled={busy} onClick={() => void copy(true)}><Copy className="h-5 w-5" />Copy as text</Button>;
+    secondary = canManage && <><Button variant="outline" className={SECONDARY} disabled={busy}
+      onClick={() => void copy(false)}><Link2 className="h-4 w-4" />Copy link</Button>{signOnDevice}{edit}</>;
   } else if (text.status === 'signed') {
     next = 'The tenant signed. Add your signature to finish.';
     primary = canManage && drawing === undefined && <Button className={PRIMARY} disabled={busy}

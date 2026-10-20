@@ -138,11 +138,12 @@ function RentalsContent(state: RentalsState) {
   </>;
 
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top', 'left', 'right']}>
-    <View className="flex-row items-center gap-2 border-b border-gray-200 px-2 py-2 dark:border-gray-800">
-      <Pressable accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => router.replace('/(app)/dashboard')}
+    {/* Title centred on the screen, back button on the left (same as the other screens). */}
+    <View className="min-h-14 flex-row items-center justify-center border-b border-gray-200 px-2 py-2 dark:border-gray-800">
+      <Text accessibilityRole="header" className={`text-lg font-bold ${text}`}>Rentals</Text>
+      <Pressable style={{ position: 'absolute', left: 8 }} accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => router.replace('/(app)/dashboard')}
         className="min-h-12 flex-row items-center gap-1 rounded-xl px-3 active:bg-gray-200 dark:active:bg-gray-800">
         <Feather name="arrow-left" size={20} color={icon} /><Text className={`font-semibold ${text}`}>Dashboard</Text></Pressable>
-      <Text accessibilityRole="header" className={`flex-1 text-lg font-bold ${text}`}>Rentals</Text>
     </View>
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void refetch()} />}>

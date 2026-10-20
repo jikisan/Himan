@@ -112,7 +112,7 @@ ${doc.signMode === 'notarize' ? `<div class="break">${renderClauses(NOTARY_ACKNO
 export function Paper({ html, height }: { html: string; height?: number }) {
   const [measured, setMeasured] = useState(600);
   return <View className="overflow-hidden rounded-xl border border-gray-200 bg-white" style={{ height: height ?? measured }}>
-    <WebView originWhitelist={['*']} source={{ html }} scrollEnabled={!!height} javaScriptEnabled
+    <WebView originWhitelist={['*']} source={{ html }} scrollEnabled={!!height} nestedScrollEnabled javaScriptEnabled
       injectedJavaScript="window.ReactNativeWebView.postMessage(String(document.body.scrollHeight));true;"
       onMessage={(e) => { const h = Number(e.nativeEvent.data); if (h > 0) setMeasured(h + 8); }}
       onShouldStartLoadWithRequest={(r) => r.url === 'about:blank' || r.url.startsWith('data:')} />

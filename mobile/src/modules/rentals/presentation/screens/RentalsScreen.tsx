@@ -162,11 +162,13 @@ function RentalsContent(state: RentalsState) {
                 <View className="flex-row flex-wrap items-center gap-x-2">
                   <Text className={`text-2xl font-bold ${text}`}>{property.name}</Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${property.name}`} onPress={switchProperty}
-                    className="h-11 w-11 items-center justify-center rounded-full bg-indigo-50 active:opacity-70 dark:bg-indigo-950/50">
+                    className="h-11 w-11 items-center justify-center rounded-full active:bg-gray-100 dark:active:bg-gray-700">
                     <Feather name="chevron-down" size={22} color="#4f46e5" />
                   </Pressable>
                 </View>
-                {property.address ? <Text className={muted}>{property.address}</Text> : null}
+                {property.address ? <View className="flex-row items-center gap-1.5">
+                  <Feather accessible={false} name="map-pin" size={15} color="#9ca3af" />
+                  <Text className={`flex-1 ${muted}`}>{property.address}</Text></View> : null}
                 <View className="flex-row flex-wrap items-center gap-2 pt-1">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>
               </View>
               {/* Icon only, by request (a trial against the labelled-buttons rule); screen readers still hear the label. */}

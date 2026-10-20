@@ -8,6 +8,10 @@ This is the `@himan/mobile` workspace in an npm workspaces monorepo. See the roo
 
 **Important**: Run `npm install` from the repo root (not from `mobile/`) to set up workspace symlinks.
 
+**After `npx expo install`** (or any install with a newer local npm), run `npx npm@10 install --package-lock-only --ignore-scripts`
+from the repo root before committing. npm 11 drops the nested `mobile/node_modules/@types/react` entry from the lockfile and CI's
+`npm ci` (npm 10) then fails with "Missing: @types/react@19.1.17 from lock file".
+
 ### Shared Package Integration
 
 - Metro config resolves `@himan/shared` subpath imports and remaps `.js` → `.ts` extensions for shared package internals

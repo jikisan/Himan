@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import type { DashboardAppId } from '@himan/shared/dashboard';
 import { useToast } from '@/modules/shared/components/useToast';
+import { LottoStrip } from '@/modules/lotto';
 import { useDashboardApps } from '../hooks/useDashboardApps';
 import type { MobileApp } from './appCatalog';
 
@@ -51,6 +52,7 @@ export default function DashboardScreen() {
         <Text className={`mt-1 text-center text-base ${muted}`}>Everything in Himan, at a glance.</Text>
         <View className="mt-4"><Button icon="sliders" label="Customize" onPress={() => setCustomizing(true)} /></View>
       </View>
+      {!hidden.includes('lotto') && <LottoStrip />}
       {visible.length ? <View accessibilityLabel="Apps" className="flex-row flex-wrap gap-y-6">
         {visible.map((app) => <Pressable key={app.id} accessibilityRole="link" accessibilityLabel={app.label} onPress={() => router.push(app.route as never)}
           className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">

@@ -1,15 +1,5 @@
 # Upcoming Features
 
-## Daily Lotto Results
-
-Track and display daily lottery results with historical data and notifications.
-
-**Planned Features:**
-- Daily lottery result tracking and display
-- Historical data archive
-- Notification system for result updates
-- Search and filter functionality
-
 ## Helper Assistant
 
 Manage domestic helper records including attendance tracking, leave balance, monthly salary, and employment history.

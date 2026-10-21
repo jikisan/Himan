@@ -31,3 +31,10 @@ test('sends the form back with the date range and all games', () => {
   assert.equal(body.get('ctl00$ctl00$cphContainer$cpContent$ddlSelectGame'), '0');
   assert.equal(body.get('__VIEWSTATE'), 'a&b=');
 });
+
+test('reads 6-number draws from GMA, skipping digit games', async () => {
+  const { parseGma } = await import('./gma.ts');
+  const result = (type: string, nums: string) => `<div class="lotto-result --jackpot"><a href="x" data-date="October 19, 2026" data-type="${type}"><h3>${type}</h3></a> <p>${nums}</p> <p class="--jackpot">P 15,000,000.00</p></div>`;
+  const html = `<div class="lotto-card"><a><h2>x</h2><p>October 19, 2026</p></a>${result('Mega Lotto 6/45', '16 03 24 34 41 31')}${result('4D Lotto', '6 8 3 4')}</div>`;
+  assert.deepEqual(parseGma(html), [{ game: '6/45', numbers: [16, 3, 24, 34, 41, 31], winners: 0, jackpot: 15000000, drawDate: '2026-10-19' }]);
+});

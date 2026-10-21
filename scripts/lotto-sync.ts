@@ -5,7 +5,8 @@
 //   node scripts/lotto-sync.ts --dry-run       read PCSO and report, write nothing (needs no secrets)
 // Writing needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 import { parseArgs } from 'node:util';
-import { fetchDraws } from '../supabase/functions/lotto-sync/scrape.ts';
+import { fetchGmaDraws } from '../supabase/functions/lotto-sync/gma.ts';
+import { fetchDraws, type Draw } from '../supabase/functions/lotto-sync/scrape.ts';
 
 const DAY = 86_400_000;
 const CHUNK_DAYS = 60;
@@ -24,25 +25,35 @@ const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!values['dry-run'] && (!url || !key)) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, or pass --dry-run');
 
-async function save(rows: object[]) {
+async function save(rows: object[], keepExisting = false) {
   const response = await fetch(`${url}/rest/v1/lotto_draws?on_conflict=game,draw_date`, {
     method: 'POST', body: JSON.stringify(rows),
-    headers: { apikey: key!, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+    headers: { apikey: key!, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: `resolution=${keepExisting ? 'ignore' : 'merge'}-duplicates,return=minimal` },
   });
   if (!response.ok) throw new Error(`Saving draws answered ${response.status}: ${await response.text()}`);
 }
 
 let total = 0;
 const perGame: Record<string, number> = {};
-for (let start = from; start <= to; start = new Date(start.getTime() + CHUNK_DAYS * DAY)) {
-  const end = new Date(Math.min(start.getTime() + (CHUNK_DAYS - 1) * DAY, to.getTime()));
-  const draws = await fetchDraws(start, end);
-  for (const d of draws) perGame[d.game] = (perGame[d.game] ?? 0) + 1;
-  if (draws.length && !values['dry-run']) {
-    await save(draws.map((d) => ({ game: d.game, draw_date: d.drawDate, numbers: d.numbers, jackpot: d.jackpot, winners: d.winners })));
+const rowsOf = (draws: Draw[]) => draws.map((d) => ({ game: d.game, draw_date: d.drawDate, numbers: d.numbers, jackpot: d.jackpot, winners: d.winners }));
+try {
+  for (let start = from; start <= to; start = new Date(start.getTime() + CHUNK_DAYS * DAY)) {
+    const end = new Date(Math.min(start.getTime() + (CHUNK_DAYS - 1) * DAY, to.getTime()));
+    const draws = await fetchDraws(start, end);
+    for (const d of draws) perGame[d.game] = (perGame[d.game] ?? 0) + 1;
+    if (draws.length && !values['dry-run']) await save(rowsOf(draws));
+    total += draws.length;
+    console.log(`${start.toISOString().slice(0, 10)} to ${end.toISOString().slice(0, 10)}: ${draws.length} draws`);
   }
-  total += draws.length;
-  console.log(`${start.toISOString().slice(0, 10)} to ${end.toISOString().slice(0, 10)}: ${draws.length} draws`);
+} catch (error) {
+  // PCSO blocks some networks (GitHub's runners get a 403). GMA only lists recent days, so it can't backfill.
+  if (to.getTime() - from.getTime() > 14 * DAY) throw error;
+  console.warn(`PCSO failed (${(error as Error).message}); using GMA News instead`);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const draws = (await fetchGmaDraws()).filter((d) => d.drawDate >= iso(from) && d.drawDate <= iso(to));
+  for (const d of draws) perGame[d.game] = (perGame[d.game] ?? 0) + 1;
+  if (draws.length && !values['dry-run']) await save(rowsOf(draws), true);
+  total = draws.length;
 }
 console.log(`${values['dry-run'] ? 'Read' : 'Saved'} ${total} draws`, perGame);
 // PCSO draws every day, so a recent range with no draws means the page changed or answered oddly: fail so the workflow turns red.

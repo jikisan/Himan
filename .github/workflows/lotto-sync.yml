@@ -1,0 +1,40 @@
+name: Lotto sync
+
+# Copies PCSO's 6-number results into Supabase. PCSO blocks some server-side clients, so this runs as a Node script on
+# GitHub's runners. Secrets: SUPABASE_URL (project URL) and SUPABASE_SERVICE_ROLE_KEY.
+on:
+  schedule:
+    # PCSO posts the 9 PM (PHT) draws a little after 10 PM, so look at 10:20 PM, 11:20 PM and 6:20 AM PHT. GitHub may delay runs.
+    - cron: '20 14,15,22 * * *'
+  workflow_dispatch:
+    inputs:
+      months:
+        description: Months of history to backfill (0 = last 7 days)
+        default: '0'
+      dry_run:
+        description: Read PCSO and report, without saving
+        type: boolean
+        default: false
+
+concurrency:
+  group: lotto-sync
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Sync
+        run: node scripts/lotto-sync.ts --months "$MONTHS" $DRY_RUN
+        env:
+          MONTHS: ${{ inputs.months || '0' }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

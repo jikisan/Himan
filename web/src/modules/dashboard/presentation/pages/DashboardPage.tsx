@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui";
 import { useAuth } from "@auth/presentation/hooks";
+import { LottoStrip } from "@lotto";
 import type { DashboardAppId } from "../../domain/entities";
 import { AppIcon } from "../components/AppIcon";
 import { CustomizeDashboardDialog } from "../components/CustomizeDashboardDialog";
@@ -43,6 +44,8 @@ export const DashboardPage = () => {
             Customize
           </Button>
         </header>
+
+        {!hidden.includes("lotto") && <LottoStrip />}
 
         {visible.length > 0 ? (
           <nav aria-label="Apps" className="mx-auto max-w-3xl">

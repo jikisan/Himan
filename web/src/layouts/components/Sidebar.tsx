@@ -12,10 +12,12 @@ import {
   Receipt,
   ShoppingCart,
   Landmark,
+  Ticket,
   Building2,
   Briefcase
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
+import { useLottoEnabled } from '@lotto';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,12 +27,14 @@ interface SidebarProps {
 
 export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
   const { signOut } = useAuth();
+  const lottoEnabled = useLottoEnabled();
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/notes', label: 'Notes', icon: FileText },
     { path: '/grocery', label: 'Grocery', icon: ShoppingCart },
     { path: '/government', label: 'Government', icon: Landmark },
+    ...(lottoEnabled ? [{ path: '/lotto', label: 'Lotto', icon: Ticket }] : []),
     { path: '/rentals', label: 'Rentals', icon: Building2 },
     { path: '/invoice-generator', label: 'Invoices', icon: Receipt },
     { path: '/career', label: 'Career', icon: Briefcase },

@@ -24,7 +24,8 @@
     "./friends": "./src/modules/friends/index.ts",
     "./career": "./src/modules/career/index.ts",
     "./profile": "./src/modules/profile/index.ts",
-    "./dashboard": "./src/modules/dashboard/index.ts"
+    "./dashboard": "./src/modules/dashboard/index.ts",
+    "./lotto": "./src/modules/lotto/index.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

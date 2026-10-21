@@ -20,6 +20,7 @@ import { GroceryPage } from '@grocery/presentation/pages';
 import { ItemsPage as CareerItemsPage, ItemEditorPage as CareerItemEditorPage, BlocksPage as CareerBlocksPage } from '@career/presentation/pages';
 import { ProfilePage } from '@profile/presentation/pages';
 import { GovernmentPage } from '@government';
+import { LottoPage } from '@lotto';
 import { RentalsPage } from '@rentals';
 
 // Public and lazy: recruiters open this cold, so it must not pull in the
@@ -63,6 +64,7 @@ export const Router = () => {
             <Route path="/passwords" element={<PasswordsPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/government" element={<GovernmentPage />} />
+            <Route path="/lotto" element={<LottoPage />} />
             <Route path="/rentals" element={<RentalsPage />} />
             <Route path="/storage" element={<StoragePage />} />
             <Route path="/account" element={<AccountPage />} />

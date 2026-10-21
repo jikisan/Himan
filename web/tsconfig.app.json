@@ -28,6 +28,8 @@
       "@cards/*": ["src/modules/cards/*"],
       "@government": ["src/modules/government/index.ts"],
       "@government/*": ["src/modules/government/*"],
+      "@lotto": ["src/modules/lotto/index.ts"],
+      "@lotto/*": ["src/modules/lotto/*"],
       "@rentals": ["src/modules/rentals/index.ts"],
       "@rentals/*": ["src/modules/rentals/*"],
       "@storage/*": ["src/modules/storage/*"],

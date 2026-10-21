@@ -17,6 +17,8 @@ vi.mock('@subscriptions/presentation/hooks', () => ({ useSubscription: () => sub
 const client = initSupabase({ url: 'http://localhost:54321', anonKey: 'test-anon-key' });
 const supabase = { auth: { updateUser: vi.spyOn(client.auth, 'updateUser') as unknown as ReturnType<typeof vi.fn> } };
 
+vi.mock('@lotto', () => ({ LottoStrip: () => <section aria-label="Lotto results" /> }));
+
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toasts }));
 
@@ -38,7 +40,7 @@ beforeEach(() => {
 describe('DashboardPage', () => {
   it('shows every app as a button by default, linking to its module', () => {
     page();
-    for (const label of ['Notes', 'Passwords', 'Cards', 'Grocery', 'Rentals', 'Government', 'Invoices', 'Career', 'Profile']) {
+    for (const label of ['Notes', 'Passwords', 'Cards', 'Grocery', 'Rentals', 'Government', 'Lotto', 'Invoices', 'Career', 'Profile']) {
       expect(apps().getByRole('link', { name: label })).toBeInTheDocument();
     }
     expect(apps().getByRole('link', { name: 'Invoices' })).toHaveAttribute('href', '/invoice-generator');
@@ -112,8 +114,18 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: 'Notes', hidden: true })).toBeInTheDocument();
   });
 
+  it('shows the lotto results strip, and hiding the Lotto app hides it too', () => {
+    const { unmount } = page();
+    expect(screen.getByRole('region', { name: 'Lotto results' })).toBeInTheDocument();
+    unmount();
+    auth.user.user_metadata = { dashboard_hidden_apps: ['lotto'] };
+    page();
+    expect(screen.queryByRole('region', { name: 'Lotto results' })).not.toBeInTheDocument();
+    expect(apps().queryByRole('link', { name: 'Lotto' })).not.toBeInTheDocument();
+  });
+
   it('offers a way back when every app is hidden', () => {
-    auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'government', 'invoices', 'career', 'profile'] };
+    auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'government', 'lotto', 'invoices', 'career', 'profile'] };
     page();
     expect(screen.getByText('Your dashboard is empty')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Choose apps' }));

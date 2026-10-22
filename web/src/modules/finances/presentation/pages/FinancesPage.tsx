@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { breakdown, filterTransactions, formatPesos, manilaToday, monthLabel, monthOf, shiftMonth, summarize } from '@himan/shared/finances';
+import { breakdown, filterTransactions, formatPesos, manilaToday, monthLabel, monthOf, percentLabel, shiftMonth, summarize } from '@himan/shared/finances';
 import type { FinanceCategory, FinanceTransaction } from '@himan/shared/finances';
 import { useFinances } from '../hooks/useFinances';
 import { CountUp } from '../components/CountUp';
@@ -101,7 +101,7 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
             {rows.map((row, i) => <li key={row.categoryId ?? 'none'}>
               <div className="flex items-center justify-between gap-3 text-base">
                 <span className="flex min-w-0 items-center gap-2"><span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full" style={{ background: row.color }} /><span className="truncate">{row.name}</span></span>
-                <span className="shrink-0 tabular-nums">{formatPesos(row.total)} <span className="text-sm text-muted-foreground">{Math.round(row.share * 100)}%</span></span>
+                <span className="shrink-0 tabular-nums">{formatPesos(row.total)} <span className="text-sm text-muted-foreground">{percentLabel(row.share)}</span></span>
               </div>
               <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
                 <motion.div className="h-full rounded-full" style={{ background: row.color }} initial={{ width: 0 }} animate={{ width: `${row.share * 100}%` }}
@@ -174,7 +174,7 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
           <AlertDialogTitle>{pending?.type === 'category' ? `Delete ${pending.category.name}?` : 'Delete this transaction?'}</AlertDialogTitle>
           <AlertDialogDescription>{pending?.type === 'category' ? 'Its transactions stay, as Uncategorized.' : 'This cannot be undone.'}</AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => void confirmDelete()}>Delete</AlertDialogAction></AlertDialogFooter>
+        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void confirmDelete()}>Delete</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   </div>;

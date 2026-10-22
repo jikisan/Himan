@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CATEGORY_COLORS, breakdown, centavosToInput, filterTransactions, formatPesos, manilaToday, monthLabel, monthOf,
-  parsePesos, shiftMonth, summarize, transactionSchema } from '@himan/shared/finances';
+  parsePesos, percentLabel, shiftMonth, summarize, transactionSchema } from '@himan/shared/finances';
 import type { FinanceCategory, FinanceKind, FinanceTransaction } from '@himan/shared/finances';
 import { useFinances } from '../hooks/useFinances';
 import { useProgress } from '../components/useProgress';
@@ -185,7 +185,7 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
         {rows.map((row) => <View key={row.categoryId ?? 'none'}>
           <View className="flex-row items-center justify-between gap-2">
             <View className="flex-1 flex-row items-center gap-2"><View className="h-3 w-3 rounded-full" style={{ backgroundColor: row.color }} /><Text numberOfLines={1} className={`flex-1 ${textClass}`}>{row.name}</Text></View>
-            <Text className={textClass}>{formatPesos(row.total)} <Text className={`text-xs ${mutedClass}`}>{Math.round(row.share * 100)}%</Text></Text>
+            <Text className={textClass}>{formatPesos(row.total)} <Text className={`text-xs ${mutedClass}`}>{percentLabel(row.share)}</Text></Text>
           </View>
           <View className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><View className="h-full rounded-full" style={{ backgroundColor: row.color, width: `${row.share * 100 * progress}%` }} /></View>
         </View>)}

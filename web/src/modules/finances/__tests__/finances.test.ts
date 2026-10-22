@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakdown, filterTransactions, formatPesos, monthLabel, monthRange, parsePesos, shiftMonth, summarize,
+import { breakdown, filterTransactions, formatPesos, monthLabel, monthRange, parsePesos, percentLabel, shiftMonth, summarize,
   transactionSchema } from '@himan/shared/finances';
 import type { FinanceCategory, FinanceTransaction } from '@himan/shared/finances';
 
@@ -50,6 +50,14 @@ describe('totals and grouping', () => {
     expect(filterTransactions(items, [food, bills], 'JOLLI').map((x) => x.id)).toEqual(['1']);
     expect(filterTransactions(items, [food, bills], 'bills').map((x) => x.id)).toEqual(['2']);
     expect(filterTransactions(items, [food, bills], ' ')).toHaveLength(2);
+  });
+});
+
+describe('percentLabel', () => {
+  it('never shows a real share as 0%', () => {
+    expect(percentLabel(0.004)).toBe('<1%');
+    expect(percentLabel(0.5)).toBe('50%');
+    expect(percentLabel(1)).toBe('100%');
   });
 });
 

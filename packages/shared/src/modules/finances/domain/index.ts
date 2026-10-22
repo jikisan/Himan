@@ -110,6 +110,9 @@ export function breakdown(transactions: FinanceTransaction[], categories: Financ
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 }
 
+/** Whole-percent label that never shows a real share as 0%. */
+export const percentLabel = (share: number): string => (share > 0 && share < 0.01 ? '<1%' : `${Math.round(share * 100)}%`);
+
 /** Case-insensitive match on note or category name. */
 export function filterTransactions(transactions: FinanceTransaction[], categories: FinanceCategory[], search: string): FinanceTransaction[] {
   const q = search.trim().toLowerCase();

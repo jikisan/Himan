@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@auth/index';
 import { FinanceRepository } from '../../infrastructure';
 import type { FinanceCategoryInput, FinanceTransactionInput } from '@himan/shared/finances';
@@ -21,6 +21,8 @@ export function useFinances(month: string) {
   });
   const transactions = useQuery({
     queryKey: ['finances', userId, 'transactions', month], queryFn: () => repository.transactions(userId!, month), enabled: !!userId,
+    // Keep showing the last month while the next one loads, instead of flashing a spinner.
+    placeholderData: keepPreviousData,
   });
   const mutation = useMutation({
     mutationFn: async (action: Action) => {
@@ -33,7 +35,8 @@ export function useFinances(month: string) {
       }
     },
     // Deleting a category un-links transactions in every month, so refresh everything.
-    onSettled: () => client.invalidateQueries({ queryKey: ['finances', userId] }),
+    // Not awaited: the dialog should close as soon as the write lands, not after the refetch.
+    onSettled: () => { void client.invalidateQueries({ queryKey: ['finances', userId] }); },
   });
   return {
     userId,

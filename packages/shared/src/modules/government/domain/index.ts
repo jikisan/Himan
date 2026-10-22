@@ -14,9 +14,24 @@ export const governmentRecordSchema = z.object({
   issueDate: z.iso.date().nullable(),
   expiryDate: z.iso.date().nullable(),
   notes: z.string().trim().max(10000),
+  // Omitted groupId lands in Personal (database default).
+  groupId: z.string().min(1).optional(),
 }).refine((value) => !value.issueDate || !value.expiryDate || value.issueDate <= value.expiryDate, {
   message: 'Expiry date must be on or after issue date', path: ['expiryDate'],
 });
+
+export const GOVERNMENT_GROUP_NAME_MAX = 40;
+export const governmentGroupNameSchema = z.string().trim()
+  .min(1, 'Enter a group name').max(GOVERNMENT_GROUP_NAME_MAX, `Use ${GOVERNMENT_GROUP_NAME_MAX} characters or fewer`);
+
+export type GovernmentGroupKind = 'personal' | 'business' | 'custom';
+export interface GovernmentGroup {
+  id: string;
+  userId: string;
+  name: string;
+  kind: GovernmentGroupKind;
+  createdAt: string;
+}
 
 export type GovernmentRecordInput = z.infer<typeof governmentRecordSchema>;
 export interface GovernmentDocument {
@@ -31,6 +46,7 @@ export interface GovernmentDocument {
 }
 export interface GovernmentRecord extends GovernmentRecordInput {
   id: string;
+  groupId: string;
   userId: string;
   deleting: boolean;
   createdAt: string;
@@ -66,4 +82,31 @@ export function filterGovernmentRecords(records: GovernmentRecord[], search: str
   const needle = search.trim().toLocaleLowerCase();
   return records.filter((record) => [record.agency, record.label, record.registeredName, record.number,
     ...record.documents.map((document) => document.name)].some((text) => text.toLocaleLowerCase().includes(needle)));
+}
+
+export const ALL_GOVERNMENT_GROUPS = 'all';
+
+/** Personal first, Business second, then custom groups oldest first. */
+export function sortGovernmentGroups(groups: GovernmentGroup[]): GovernmentGroup[] {
+  const rank = { personal: 0, business: 1, custom: 2 } as const;
+  return [...groups].sort((a, b) => rank[a.kind] - rank[b.kind] || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
+export function personalGovernmentGroup(groups: GovernmentGroup[]): GovernmentGroup | undefined {
+  return groups.find((group) => group.kind === 'personal');
+}
+
+export function isGovernmentGroupNameTaken(groups: GovernmentGroup[], name: string, exceptId?: string): boolean {
+  const needle = name.trim().toLocaleLowerCase();
+  return groups.some((group) => group.id !== exceptId && group.name.trim().toLocaleLowerCase() === needle);
+}
+
+export function filterGovernmentRecordsByGroup(records: GovernmentRecord[], groupId: string): GovernmentRecord[] {
+  return groupId === ALL_GOVERNMENT_GROUPS ? records : records.filter((record) => record.groupId === groupId);
+}
+
+export function countGovernmentRecordsByGroup(records: GovernmentRecord[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const record of records) counts[record.groupId] = (counts[record.groupId] ?? 0) + 1;
+  return counts;
 }

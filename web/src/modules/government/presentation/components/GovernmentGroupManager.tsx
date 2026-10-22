@@ -34,7 +34,7 @@ export function GovernmentGroupManager({ open, groups, counts, busy, onClose, on
             {editing?.id === group.id
               ? <form className="flex min-w-0 flex-1 flex-wrap items-end gap-2" noValidate onSubmit={(event) => { event.preventDefault(); void submit(editing.name, group.id, (value) => onRename(group.id, value), () => setEditing(null)); }}>
                 <div className="min-w-0 flex-1"><Label htmlFor={`gov-group-${group.id}`}>New name for {group.name}</Label>
-                  <Input id={`gov-group-${group.id}`} autoFocus className="mt-1 h-11" maxLength={40} value={editing.name} onChange={(event) => setEditing({ id: group.id, name: event.target.value })} /></div>
+                  <Input id={`gov-group-${group.id}`} autoFocus className="mt-1 h-11" maxLength={40} value={editing.name} onFocus={(event) => event.target.select()} onChange={(event) => { setError(''); setEditing({ id: group.id, name: event.target.value }); }} /></div>
                 <Button className="h-11 hover:scale-100" type="submit" disabled={busy}>Save name</Button>
                 <Button className="h-11 hover:scale-100" type="button" variant="outline" onClick={() => { setEditing(null); setError(''); }}>Cancel</Button>
               </form>
@@ -52,8 +52,8 @@ export function GovernmentGroupManager({ open, groups, counts, busy, onClose, on
       <form className="space-y-2 border-t pt-4" noValidate onSubmit={(event) => { event.preventDefault(); void submit(name, undefined, (value) => onAdd(value), () => setName('')); }}>
         <Label htmlFor="gov-new-group">New group name</Label>
         <div className="flex flex-wrap gap-2">
-          <Input id="gov-new-group" className="h-11 min-w-0 flex-1" maxLength={40} value={name} placeholder="e.g. Family" aria-invalid={!!error && !editing || undefined} onChange={(event) => setName(event.target.value)} />
-          <Button className="h-11 hover:scale-100" type="submit" disabled={busy}>{busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Plus aria-hidden="true" className="h-4 w-4" />}Add group</Button>
+          <Input id="gov-new-group" className="h-11 min-w-0 flex-1" maxLength={40} value={name} placeholder="e.g. Family" aria-invalid={!!error && !editing || undefined} onChange={(event) => { setError(''); setName(event.target.value); }} />
+          <Button className="h-11 hover:scale-100" type="submit" disabled={busy}>{busy && !editing ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Plus aria-hidden="true" className="h-4 w-4" />}Add group</Button>
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </form>

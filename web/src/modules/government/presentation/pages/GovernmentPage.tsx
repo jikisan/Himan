@@ -150,9 +150,9 @@ function GovernmentContent({ records, groups: unsortedGroups, loading, error, on
         {loading ? <p role="status" className="flex items-center gap-2 py-10"><Loader2 className="h-5 w-5 animate-spin" />Loading records…</p>
           : !error && !filtered.length ? <div className="rounded-2xl border border-dashed px-6 py-16 text-center">
             <Landmark className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">{search ? 'No matching records' : 'Keep your details together'}</h2>
-            <p className="mt-2 text-muted-foreground">{search ? 'Try a different search.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</p>
-            {!search && <Button className="mt-5" onClick={() => open(null, true)}>Add your first record</Button>}
+            <h2 className="text-lg font-semibold">{search ? 'No matching records' : records.length ? `Nothing in ${groupName(shownGroup) ?? 'this group'} yet` : 'Keep your details together'}</h2>
+            <p className="mt-2 text-muted-foreground">{search ? 'Try a different search.' : records.length ? 'Add a record here, or move one in by editing its group.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</p>
+            {!search && <Button className="mt-5" onClick={() => open(null, true)}>{records.length ? 'Add a record' : 'Add your first record'}</Button>}
           </div> : <MotionConfig reducedMotion="user"><motion.div layout key={shownGroup} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }} className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <AnimatePresence initial={false} mode="popLayout">
             {filtered.map((record) => <motion.article layout key={record.id} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}

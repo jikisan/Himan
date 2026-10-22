@@ -217,4 +217,11 @@ describe('Government groups', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete group' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeGroup', id: 'gf' }));
   });
+  it('explains an empty group instead of offering a first record when other groups have records', () => {
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Business (0)' }));
+    expect(screen.getByText('Nothing in Business yet')).toBeInTheDocument();
+    expect(screen.queryByText('Add your first record')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add a record' })).toBeInTheDocument();
+  });
 });

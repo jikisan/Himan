@@ -38,7 +38,7 @@ export function GovernmentGroupManager({ visible, groups, counts, busy, onClose,
             {editing?.id === group.id ? <>
               <Text className="text-sm font-semibold text-gray-900 dark:text-white">New name for {group.name}</Text>
               <TextInput accessibilityLabel={`New name for ${group.name}`} autoFocus className={inputClass} value={editing.name} maxLength={40}
-                onChangeText={(value) => setEditing({ id: group.id, name: value })} />
+                onChangeText={(value) => { setError(''); setEditing({ id: group.id, name: value }); }} />
               <View className="flex-row flex-wrap gap-2">
                 <Pressable accessibilityRole="button" disabled={busy} className={`${buttonClass} bg-indigo-600 border-indigo-600`}
                   onPress={() => void submit(editing.name, group.id, (value) => onRename(group.id, value), () => setEditing(null))}><Text className="font-semibold text-white">Save name</Text></Pressable>
@@ -57,10 +57,10 @@ export function GovernmentGroupManager({ visible, groups, counts, busy, onClose,
           </Animated.View>)}
           <View className="gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
             <Text className="text-sm font-semibold text-gray-900 dark:text-white">New group name</Text>
-            <TextInput accessibilityLabel="New group name" className={inputClass} value={name} onChangeText={setName} maxLength={40} placeholder="e.g. Family" placeholderTextColor="#9ca3af" />
+            <TextInput accessibilityLabel="New group name" className={inputClass} value={name} onChangeText={(value) => { setError(''); setName(value); }} maxLength={40} placeholder="e.g. Family" placeholderTextColor="#9ca3af" />
+            {error ? <Text accessibilityRole="alert" className="text-sm text-red-600 dark:text-red-400">{error}</Text> : null}
             <Pressable accessibilityRole="button" disabled={busy} className={`items-center rounded-xl bg-indigo-600 px-4 py-4 ${busy ? 'opacity-50' : ''}`}
               onPress={() => void submit(name, undefined, onAdd, () => setName(''))}><Text className="font-semibold text-white">{busy ? 'Saving…' : 'Add group'}</Text></Pressable>
-            {error ? <Text accessibilityRole="alert" className="text-sm text-red-600 dark:text-red-400">{error}</Text> : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

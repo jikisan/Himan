@@ -211,9 +211,9 @@ function GovernmentContent({ records, groups: unsortedGroups, loading, error, on
             <Pressable accessibilityRole="button" onPress={() => void refetch()} className="py-2"><Text className="font-semibold text-indigo-600 dark:text-indigo-400">Retry</Text></Pressable></View>}
         </View>}
         ListEmptyComponent={loading ? <ActivityIndicator color="#4f46e5" /> : !error ? <View className="items-center gap-3 py-12">
-          <Feather name="file-text" size={40} color="#9ca3af" /><Text className={`text-lg font-semibold ${textClass}`}>{search ? 'No matching records' : 'Keep your details together'}</Text>
-          <Text className={`text-center ${mutedClass}`}>{search ? 'Try a different search.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</Text>
-          {!search && <Pressable accessibilityRole="button" className="mt-2 rounded-xl bg-indigo-600 px-5 py-3" onPress={() => open(null, true)}><Text className="font-semibold text-white">Add your first record</Text></Pressable>}
+          <Feather name="file-text" size={40} color="#9ca3af" /><Text className={`text-lg font-semibold ${textClass}`}>{search ? 'No matching records' : records.length ? `Nothing in ${groupName(shownGroup) ?? 'this group'} yet` : 'Keep your details together'}</Text>
+          <Text className={`text-center ${mutedClass}`}>{search ? 'Try a different search.' : records.length ? 'Add a record here, or move one in by editing its group.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</Text>
+          {!search && <Pressable accessibilityRole="button" className="mt-2 rounded-xl bg-indigo-600 px-5 py-3" onPress={() => open(null, true)}><Text className="font-semibold text-white">{records.length ? 'Add a record' : 'Add your first record'}</Text></Pressable>}
         </View> : null} />}
 
     <GovernmentGroupManager visible={managerOpen && online} groups={groups} counts={counts} busy={busy} onClose={() => setManagerOpen(false)}

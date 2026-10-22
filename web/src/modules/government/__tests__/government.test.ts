@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GOVERNMENT_FILE_LIMIT, filterGovernmentRecords, governmentRecordSchema, maskGovernmentNumber,
+import { GOVERNMENT_FILE_LIMIT, countGovernmentRecordsByGroup, filterGovernmentRecords, filterGovernmentRecordsByGroup,
+  governmentGroupNameSchema, isGovernmentGroupNameTaken, sortGovernmentGroups, governmentRecordSchema, maskGovernmentNumber,
   validateGovernmentFile, GovernmentRepository } from '@himan/shared/government';
-import type { GovernmentRecord } from '@himan/shared/government';
+import type { GovernmentGroup, GovernmentRecord } from '@himan/shared/government';
 
 const mock = vi.hoisted(() => ({ from: vi.fn(), storage: { from: vi.fn() } }));
 vi.mock('@himan/shared/config', () => ({ getSupabase: () => mock }));
@@ -94,5 +95,41 @@ describe('government file lifecycle', () => {
     expect(lookup.eq).toHaveBeenCalledWith('user_id', 'owner');
     expect(lookup.eq).toHaveBeenCalledWith('ready', true);
     expect(signed).toHaveBeenCalledWith('owner/record/doc', 60, { download: 'ID.pdf' });
+  });
+});
+
+describe('government groups', () => {
+  const group = (id: string, name: string, kind: GovernmentGroup['kind'], createdAt: string): GovernmentGroup => ({ id, userId: 'owner', name, kind, createdAt });
+  const groups = [group('c', 'Family', 'custom', '3'), group('b', 'Business', 'business', '1'), group('p', 'Personal', 'personal', '1'), group('d', 'Archive', 'custom', '2')];
+  const rec = (id: string, groupId: string) => ({ id, groupId } as GovernmentRecord);
+
+  it('orders Personal, Business, then custom groups oldest first', () => {
+    expect(sortGovernmentGroups(groups).map((g) => g.id)).toEqual(['p', 'b', 'd', 'c']);
+  });
+  it('trims names and rejects empty or oversized ones', () => {
+    expect(governmentGroupNameSchema.parse('  Family  ')).toBe('Family');
+    expect(governmentGroupNameSchema.safeParse('   ').success).toBe(false);
+    expect(governmentGroupNameSchema.safeParse('x'.repeat(41)).success).toBe(false);
+  });
+  it('detects duplicate names ignoring case, spacing and the group being renamed', () => {
+    expect(isGovernmentGroupNameTaken(groups, ' business ')).toBe(true);
+    expect(isGovernmentGroupNameTaken(groups, 'family', 'c')).toBe(false);
+    expect(isGovernmentGroupNameTaken(groups, 'Pension')).toBe(false);
+  });
+  it('filters and counts records by group', () => {
+    const records = [rec('1', 'p'), rec('2', 'b'), rec('3', 'p')];
+    expect(filterGovernmentRecordsByGroup(records, 'p').map((r) => r.id)).toEqual(['1', '3']);
+    expect(filterGovernmentRecordsByGroup(records, 'all')).toHaveLength(3);
+    expect(countGovernmentRecordsByGroup(records)).toEqual({ p: 2, b: 1 });
+  });
+  it('sends the chosen group when saving and omits it otherwise', async () => {
+    const row = { id: 'r', user_id: 'owner', group_id: 'g1', agency: 'SSS', label: 'SSS', registered_name: 'T', number: '', issue_date: null,
+      expiry_date: null, notes: '', deleting: false, created_at: '', updated_at: '', documents: [] };
+    const chain = result(row);
+    mock.from.mockReturnValue(chain);
+    await new GovernmentRepository().save('owner', null, { ...input, groupId: 'g1' });
+    expect(chain.insert).toHaveBeenCalledWith(expect.objectContaining({ group_id: 'g1' }));
+    await new GovernmentRepository().save('owner', null, input);
+    expect(chain.insert).toHaveBeenLastCalledWith(expect.not.objectContaining({ group_id: expect.anything() }));
   });
 });

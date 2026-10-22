@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { CircleCheck, CircleDashed, ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
+import { Check, ExternalLink, HandCoins, LogOut, MessageCircle, MessageSquare, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@core/presentation/utils';
 import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
@@ -89,9 +89,10 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
   const contractSections = contracts.map((c, i) => {
     const stage = stageOf(c.tenancyId);
     return <section key={c.id} ref={i === 0 ? contractRef : undefined} tabIndex={-1} aria-label="Contract" className="scroll-mt-4 focus:outline-none">
-      <h3 className="mb-2 text-sm font-semibold">Contract</h3>
+      <h3 className="mb-3 text-sm font-semibold">Contract</h3>
       <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">Lease</dt><dd className="font-medium">{day(c.startDate)} to {day(c.endDate)}</dd>
+        <dt className="text-muted-foreground">Lease starts</dt><dd className="font-medium">{day(c.startDate)}</dd>
+        <dt className="text-muted-foreground">Lease ends</dt><dd className="font-medium">{day(c.endDate)}</dd>
         <dt className="text-muted-foreground">Deposit</dt><dd className="font-medium">{formatPesos(c.depositCentavos)}
           <span className="font-normal text-muted-foreground"> · {c.advanceMonths} month{c.advanceMonths === 1 ? '' : 's'} advance</span></dd>
       </dl>
@@ -130,17 +131,19 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
     {/* Every section gets a line above it: same spacing around each line. */}
     <div className="flex-1 divide-y overflow-y-auto px-6 py-5 [scrollbar-width:thin] [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
       {checklists.map(({ t, stage, paid }) => <section key={`steps-${t.id}`} aria-label="Move-in checklist">
-        {active.length > 1 && <p className="mb-2 text-sm font-semibold">{unitName(t.unitId)}</p>}
-        <ul className="grid grid-cols-3 gap-2">
-          {([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word]) =>
-            <li key={label} className={cn('flex min-w-0 flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-sm',
-              ok ? 'border-emerald-600/30 bg-emerald-500/10' : 'bg-muted/40')}>
-              {ok ? <CircleCheck aria-hidden className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                : <CircleDashed aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
-              <span className={cn('font-medium leading-snug', ok && 'text-emerald-700 dark:text-emerald-400')}>
+        {active.length > 1 && <p className="mb-3 text-sm font-semibold">{unitName(t.unitId)}</p>}
+        {/* A progress line, not cards: plain dots and words, so nothing here looks pressable. */}
+        <ol className="flex">
+          {([['Added', true, ''], ['Move-in paid', paid, ''], ['Contract', stage === 'done', STAGE_WORD[stage] ?? '']] as const).map(([label, ok, word], i, all) =>
+            <li key={label} className="relative flex min-w-0 flex-1 flex-col items-center gap-1 text-center text-sm">
+              {i < all.length - 1 && <span aria-hidden className={cn('absolute left-1/2 top-2.5 h-0.5 w-full', ok && all[i + 1][1] ? 'bg-emerald-500' : 'bg-border')} />}
+              <span aria-hidden className={cn('relative flex size-5 items-center justify-center rounded-full',
+                ok ? 'bg-emerald-600 text-white' : 'border-2 border-muted-foreground/40 bg-background')}>
+                {ok && <Check className="size-3" strokeWidth={3} />}</span>
+              <span className={cn('px-1 leading-snug', ok ? 'font-medium' : 'text-muted-foreground')}>
                 {label}<span className="sr-only">{ok ? ', done' : ', not yet'}</span></span>
               {word && <span className="text-xs text-muted-foreground">{word[0].toUpperCase() + word.slice(1)}</span>}</li>)}
-        </ul>
+        </ol>
       </section>)}
       {canManage && active.map((t) => {
         const link = linkOf(t);
@@ -148,7 +151,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
           && <DetailsReview key={`review-${t.id}`} tenancyId={t.id} details={link.submittedDetails} busy={busy} run={run} />;
       })}
       {contractFirst && contractSections}
-      {nextDue && <section aria-labelledby="sheet-rent" className="rounded-xl border p-4">
+      {nextDue && <section aria-labelledby="sheet-rent">
         <div className="flex items-center justify-between">
           <h3 id="sheet-rent" className="text-sm font-semibold">Rent</h3>
           {canManage && <Button variant="link" className="h-auto p-0" onClick={() => setEditing(editing === 'rent' ? null : 'rent')}>
@@ -169,7 +172,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
         })}</div>}
       </section>}
 
-      {mine.length > 0 && <section aria-labelledby="sheet-money" className="space-y-2">
+      {mine.length > 0 && <section aria-labelledby="sheet-money" className="space-y-3">
         <h3 id="sheet-money" className="text-sm font-semibold">Money received</h3>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className={owed > 0 ? 'font-semibold' : 'text-muted-foreground'}>{owed > 0 ? `Owes ${formatBillPesos(owed)}` : 'Owes nothing'}</span>
@@ -184,7 +187,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
           empty="No payments recorded yet." receipt={receipt} />
       </section>}
 
-      {onOpenSettlement && deposits.length > 0 && <section aria-labelledby="sheet-deposit" className="space-y-2">
+      {onOpenSettlement && deposits.length > 0 && <section aria-labelledby="sheet-deposit" className="space-y-3">
         <h3 id="sheet-deposit" className="text-sm font-semibold">Deposit</h3>
         {deposits.map(({ t, settlement, deposit }) => <div key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
           <span className="min-w-0 flex-1">{mine.length > 1 && `${unitName(t.unitId)} · `}{settlement
@@ -208,7 +211,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
       {canManage && <RenterFiles renter={renter} busy={busy} run={run} fileUrl={fileUrl} />}
 
       <section aria-labelledby="sheet-contact">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <h3 id="sheet-contact" className="text-sm font-semibold">Contact</h3>
           {canManage && editing !== 'contact' && <Button variant="link" className="h-auto p-0" onClick={() => setEditing('contact')}>
             Edit<span className="sr-only"> contact</span></Button>}
@@ -228,7 +231,7 @@ export function TenantSheet({ renter, tenancies, bills = [], payments = [], sett
       </section>
 
       {history.length > 0 && <section aria-labelledby="sheet-history">
-        <h3 id="sheet-history" className="mb-2 text-sm font-semibold">History</h3>
+        <h3 id="sheet-history" className="mb-3 text-sm font-semibold">History</h3>
         <ol className="space-y-2 text-sm">{history.map((h) => <li key={h.key} className="flex items-center gap-3">
           <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" /><span className="flex-1">{h.text}</span>
           <span className="text-muted-foreground">{day(h.date)}</span></li>)}</ol>
@@ -256,7 +259,7 @@ function Charges({ tenancy, room, showRoom, canManage, busy, onSave }: {
   const fe = useFieldErrors();
   const idPrefix = `charges-${tenancy.id}`;
   if (!canManage && !tenancy.charges.length) return null;
-  return <section aria-label="Extra monthly charges" className="space-y-2">
+  return <section aria-label="Extra monthly charges" className="space-y-3">
     <div><h3 className="text-sm font-semibold">Extra monthly charges{showRoom && ` · ${room}`}</h3>
       <p className="text-xs text-muted-foreground">Added to every monthly SOA.</p></div>
     {canManage ? <form noValidate className="space-y-2" onSubmit={async (event) => {

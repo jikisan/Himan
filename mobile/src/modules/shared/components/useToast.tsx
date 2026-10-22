@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 
 interface ToastState {
   message: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'warning';
 }
 
 export function useToast() {
@@ -16,7 +16,7 @@ export function useToast() {
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' = 'success') => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setToast({ message, type });
     Animated.spring(anim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 10 }).start();
@@ -39,11 +39,11 @@ export function useToast() {
         zIndex: 100,
       }}
       className={`px-4 pb-3 flex-row items-center gap-2 shadow-md ${
-        toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        toast.type === 'success' ? 'bg-green-500' : toast.type === 'warning' ? 'bg-amber-600' : 'bg-red-500'
       }`}
     >
       <Feather
-        name={toast.type === 'success' ? 'check-circle' : 'x-circle'}
+        name={toast.type === 'success' ? 'check-circle' : toast.type === 'warning' ? 'alert-triangle' : 'x-circle'}
         size={18}
         color="#ffffff"
       />

@@ -10,7 +10,7 @@ export function GovernmentGroupBar({ groups, counts, total, active, onChange, on
 }) {
   const tabs = [{ id: ALL_GOVERNMENT_GROUPS, name: 'All', count: total }, ...groups.map((group) => ({ id: group.id, name: group.name, count: counts[group.id] ?? 0 }))];
   return <div className="mb-6 flex flex-wrap items-center gap-3">
-    <div role="group" aria-label="Filter by group" className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+    <div role="group" aria-label="Filter by group" className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1 [scrollbar-width:none] sm:w-auto sm:flex-1">
       {tabs.map((tab) => <button key={tab.id} type="button" aria-pressed={active === tab.id} onClick={() => onChange(tab.id)}
         className="relative min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {active === tab.id && <motion.span layoutId="gov-group-pill" aria-hidden="true" className="absolute inset-0 rounded-full bg-foreground"

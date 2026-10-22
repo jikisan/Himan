@@ -9,7 +9,7 @@ export const MAX_HEIGHT_CM = 260;
 const kg = z.number().min(MIN_KG, `Enter at least ${MIN_KG} kg`).max(MAX_KG, `Enter at most ${MAX_KG} kg`);
 
 export const weightEntrySchema = z.object({
-  entryDate: z.iso.date('Choose a date'),
+  entryDate: z.iso.date('Choose a date').refine((date) => date <= todayIso(), 'Choose today or an earlier day'),
   kg,
 });
 export type WeightEntryInput = z.infer<typeof weightEntrySchema>;

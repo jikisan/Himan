@@ -19,7 +19,7 @@ import { BmiGauge } from '../components/BmiGauge';
 import { WeightChart } from '../components/WeightChart';
 
 const fmtDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-const num = (text: string) => text.trim() === '' ? null : Number(text);
+const num = (text: string) => text.trim() === '' ? null : Number(text.replace(',', '.'));
 const card = 'rounded-2xl border bg-card p-5 shadow-sm';
 
 function Field({ id, label, hint, error, ...props }: { id: string; label: string; hint?: string; error?: string } & React.ComponentProps<typeof Input>) {

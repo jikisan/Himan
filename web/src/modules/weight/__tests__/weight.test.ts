@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bmiCategory, calcBmi, lastChange, sortEntries, weightEntrySchema, weightProgress, weightSettingsSchema } from '@himan/shared/weight';
+import { bmiCategory, calcBmi, lastChange, sortEntries, todayIso, weightEntrySchema, weightProgress, weightSettingsSchema } from '@himan/shared/weight';
 
 const e = (entryDate: string, kg: number) => ({ id: entryDate, entryDate, kg });
 
@@ -49,6 +49,8 @@ describe('entries and validation', () => {
   it('rejects implausible values', () => {
     expect(weightEntrySchema.safeParse({ entryDate: '2026-10-01', kg: 19 }).success).toBe(false);
     expect(weightEntrySchema.safeParse({ entryDate: 'nope', kg: 70 }).success).toBe(false);
+    expect(weightEntrySchema.safeParse({ entryDate: '2999-01-01', kg: 70 }).success).toBe(false);
+    expect(weightEntrySchema.safeParse({ entryDate: todayIso(), kg: 70 }).success).toBe(true);
     expect(weightSettingsSchema.safeParse({ heightCm: 40, goalKg: null }).success).toBe(false);
     expect(weightSettingsSchema.safeParse({ heightCm: null, goalKg: null }).success).toBe(true);
   });

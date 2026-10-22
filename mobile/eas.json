@@ -29,8 +29,19 @@
       }
     },
     "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://qgnojsiqplkqyduldxvw.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFnbm9qc2lxcGxrcXlkdWxkeHZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzODY4NzksImV4cCI6MjA3ODk2Mjg3OX0.kR8S6rQHwXzkYLNKYoLV0fX1l2US8K0U7dbLn4V8Xzo",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "428840355906-iihfh6l07rcj99nr5echubaum9ovmm6q.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "428840355906-9j1i82herkr76nhaoq0urld17rq0onh0.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "428840355906-jva2467n15o5qumne50bs4ai4k0068tj.apps.googleusercontent.com"
       }
     }
   }

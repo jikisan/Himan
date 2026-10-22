@@ -1,4 +1,4 @@
-import { Briefcase, Building2, CreditCard, FileText, HardDrive, KeyRound, Landmark, Receipt, ShoppingCart, User, type LucideIcon } from 'lucide-react';
+import { Briefcase, Building2, CreditCard, FileText, HardDrive, KeyRound, Landmark, Receipt, ShoppingCart, User, Wallet, type LucideIcon } from 'lucide-react';
 import type { DashboardAppId } from '../../domain/entities';
 
 export interface DashboardApp {
@@ -18,6 +18,7 @@ export const DASHBOARD_APPS: Record<DashboardAppId, DashboardApp> = {
   cards: { id: 'cards', label: 'Cards', to: '/cards', icon: CreditCard, color: 'from-indigo-400 to-indigo-600' },
   grocery: { id: 'grocery', label: 'Grocery', to: '/grocery', icon: ShoppingCart, color: 'from-orange-400 to-red-500' },
   rentals: { id: 'rentals', label: 'Rentals', to: '/rentals', icon: Building2, color: 'from-amber-400 to-orange-600' },
+  finances: { id: 'finances', label: 'Finances', to: '/finances', icon: Wallet, color: 'from-lime-400 to-green-600' },
   government: { id: 'government', label: 'Government', to: '/government', icon: Landmark, color: 'from-teal-400 to-teal-600' },
   storage: { id: 'storage', label: 'Storage', to: '/storage', icon: HardDrive, color: 'from-sky-400 to-blue-600', needsStorageAccess: true },
   invoices: { id: 'invoices', label: 'Invoices', to: '/invoice-generator', icon: Receipt, color: 'from-emerald-400 to-green-600' },

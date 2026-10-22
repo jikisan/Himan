@@ -5,6 +5,7 @@ export const DASHBOARD_APP_IDS = [
   'cards',
   'grocery',
   'rentals',
+  'finances',
   'government',
   'storage',
   'invoices',

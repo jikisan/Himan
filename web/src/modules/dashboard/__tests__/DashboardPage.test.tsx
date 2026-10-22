@@ -38,7 +38,7 @@ beforeEach(() => {
 describe('DashboardPage', () => {
   it('shows every app as a button by default, linking to its module', () => {
     page();
-    for (const label of ['Notes', 'Passwords', 'Cards', 'Grocery', 'Rentals', 'Government', 'Invoices', 'Career', 'Profile']) {
+    for (const label of ['Notes', 'Passwords', 'Cards', 'Grocery', 'Rentals', 'Finances', 'Government', 'Invoices', 'Career', 'Profile']) {
       expect(apps().getByRole('link', { name: label })).toBeInTheDocument();
     }
     expect(apps().getByRole('link', { name: 'Invoices' })).toHaveAttribute('href', '/invoice-generator');
@@ -113,7 +113,7 @@ describe('DashboardPage', () => {
   });
 
   it('offers a way back when every app is hidden', () => {
-    auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'government', 'invoices', 'career', 'profile'] };
+    auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'finances', 'government', 'invoices', 'career', 'profile'] };
     page();
     expect(screen.getByText('Your dashboard is empty')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Choose apps' }));

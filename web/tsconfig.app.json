@@ -30,6 +30,8 @@
       "@government/*": ["src/modules/government/*"],
       "@rentals": ["src/modules/rentals/index.ts"],
       "@rentals/*": ["src/modules/rentals/*"],
+      "@finances": ["src/modules/finances/index.ts"],
+      "@finances/*": ["src/modules/finances/*"],
       "@storage/*": ["src/modules/storage/*"],
       "@settings/*": ["src/modules/settings/*"],
       "@subscriptions/*": ["src/modules/subscriptions/*"],

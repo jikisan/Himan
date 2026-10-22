@@ -35,6 +35,7 @@ export default defineConfig({
       '@cards': path.resolve(__dirname, './src/modules/cards'),
       '@government': path.resolve(__dirname, './src/modules/government'),
       '@rentals': path.resolve(__dirname, './src/modules/rentals'),
+      '@finances': path.resolve(__dirname, './src/modules/finances'),
       '@storage': path.resolve(__dirname, './src/modules/storage'),
       '@settings': path.resolve(__dirname, './src/modules/settings'),
       '@subscriptions': path.resolve(__dirname, './src/modules/subscriptions'),

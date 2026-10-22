@@ -16,6 +16,7 @@
     "./cards": "./src/modules/cards/index.ts",
     "./government": "./src/modules/government/index.ts",
     "./rentals": "./src/modules/rentals/index.ts",
+    "./receipts": "./src/modules/receipts/index.ts",
     "./notes": "./src/modules/notes/index.ts",
     "./storage": "./src/modules/storage/index.ts",
     "./invoice-generator": "./src/modules/invoice-generator/index.ts",

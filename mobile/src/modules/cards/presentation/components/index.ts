@@ -6,3 +6,4 @@ export { CardDetailSheet } from './CardDetailSheet';
 export { DeleteCardModal } from './DeleteCardModal';
 export { CategoryModal } from './CategoryModal';
 export { EmptyState } from './EmptyState';
+export * from './CardColorPicker';

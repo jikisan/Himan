@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { CreditCard } from '@himan/shared/cards';
+import { CreditCard, getCardColorTheme } from '@himan/shared/cards';
 import type { CreditCardType } from '@himan/shared/cards';
 import { ordinal } from '@himan/shared/utils';
 
@@ -13,6 +14,11 @@ interface CardListItemProps {
 }
 
 type Gradient = readonly [string, string, ...string[]];
+
+const withAlpha = (hex: string, a: number): string => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgba(${r},${g},${b},${a})`;
+};
 
 // Pure-JS vertical gradient (stacked interpolated bands) — no native module, so it
 // runs on the existing binary and in Expo Go without a rebuild.
@@ -63,10 +69,10 @@ const DEFAULT_GRADIENT: Gradient = ['#3730a3', '#4f46e5', '#6366f1'];
 const EXPIRED_GRADIENT: Gradient = ['#3a3a40', '#494950', '#585860'];
 
 // Network mark drawn light for the dark face (CardBrandBadge is tuned for light rows).
-const BrandMark = ({ brand, issuer }: { brand: string; issuer: string | null }) => {
+const BrandMark = ({ brand, issuer, fg }: { brand: string; issuer: string | null; fg: string }) => {
   switch (brand) {
     case 'Visa':
-      return <Text className="text-lg font-extrabold italic tracking-tight text-white">VISA</Text>;
+      return <Text className="text-lg font-extrabold italic tracking-tight " style={{ color: fg }}>VISA</Text>;
     case 'Mastercard':
       return (
         <View className="flex-row items-center">
@@ -75,17 +81,17 @@ const BrandMark = ({ brand, issuer }: { brand: string; issuer: string | null }) 
         </View>
       );
     case 'American Express':
-      return <Text className="text-sm font-bold tracking-[3px] text-white">AMEX</Text>;
+      return <Text className="text-sm font-bold tracking-[3px] " style={{ color: fg }}>AMEX</Text>;
     case 'Discover':
       return (
         <View className="flex-row items-center gap-1">
-          <Text className="text-sm font-bold tracking-wide text-white">DISC</Text>
+          <Text className="text-sm font-bold tracking-wide " style={{ color: fg }}>DISC</Text>
           <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#FF6000' }} />
         </View>
       );
     default:
       return issuer ? (
-        <Text className="text-xs font-semibold uppercase tracking-widest text-white/70" numberOfLines={1}>
+        <Text className="text-xs font-semibold uppercase tracking-widest " style={{ color: withAlpha(fg, 0.7) }} numberOfLines={1}>
           {issuer}
         </Text>
       ) : null;
@@ -112,7 +118,17 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
 
   const last4 = card.cardNumber.replace(/\D/g, '').slice(-4);
   const expiryStr = `${String(card.expiryMonth).padStart(2, '0')}/${String(card.expiryYear).slice(-2)}`;
-  const gradient = isExpired ? EXPIRED_GRADIENT : BRAND_GRADIENT[brand] ?? DEFAULT_GRADIENT;
+  const theme = card.color ? getCardColorTheme(card.color) : null;
+  const gradient: Gradient = theme ? theme.stops : isExpired ? EXPIRED_GRADIENT : BRAND_GRADIENT[brand] ?? DEFAULT_GRADIENT;
+  const fg = theme ? theme.foreground : '#ffffff';
+  const pressTint = theme && !theme.isDark ? 'active:bg-black/10' : 'active:bg-white/10';
+
+  // Small press feedback on the whole card; skipped when reduced motion is on.
+  const reduce = useReducedMotion();
+  const scale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const pressIn = () => { if (!reduce) scale.value = withTiming(0.98, { duration: 120 }); };
+  const pressOut = () => { scale.value = withTiming(1, { duration: reduce ? 0 : 160 }); };
 
   const handleCopyCardNumber = async () => {
     await Clipboard.setStringAsync(card.cardNumber.replace(/\D/g, ''));
@@ -125,22 +141,30 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
   };
 
   return (
-    <View
+    <Animated.View
       className="mx-4 mb-3.5 rounded-3xl"
-      style={{
-        shadowColor: gradient[1],
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 14,
-        elevation: 6,
-      }}
+      style={[
+        {
+          shadowColor: gradient[1],
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.3,
+          shadowRadius: 14,
+          elevation: 6,
+        },
+        pressStyle,
+      ]}
     >
       <Gradient colors={gradient} style={{ borderRadius: 24, overflow: 'hidden' }}>
         {/* Soft top-right glare */}
-        <View className="absolute -top-12 -right-8 w-48 h-48 rounded-full bg-white/10" />
+        <View className="absolute -top-12 -right-8 w-48 h-48 rounded-full" style={{ backgroundColor: withAlpha(fg, 0.1) }} />
 
         {/* Card face — opens detail */}
-        <Pressable onPress={() => onPress(card)} className="px-5 pt-4 pb-3 active:opacity-90">
+        <Pressable
+          onPress={() => onPress(card)}
+          onPressIn={pressIn}
+          onPressOut={pressOut}
+          className="px-5 pt-4 pb-3"
+        >
           {/* Chip + status + favorite */}
           <View className="flex-row items-center justify-between">
             <Chip />
@@ -163,71 +187,71 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
                 <Feather
                   name="star"
                   size={22}
-                  color={card.isFavorite ? '#fbbf24' : 'rgba(255,255,255,0.55)'}
+                  color={card.isFavorite ? '#fbbf24' : withAlpha(fg, 0.55)}
                 />
               </Pressable>
             </View>
           </View>
 
           {/* Masked number */}
-          <Text className="mt-5 text-xl font-mono tracking-[2px] text-white">
+          <Text className="mt-5 text-xl font-mono tracking-[2px] " style={{ color: fg }}>
             ••••  ••••  ••••  {last4}
           </Text>
 
           {/* Holder / bank + expiry */}
           <View className="mt-4 flex-row items-end justify-between gap-4">
             <View className="flex-1 min-w-0">
-              <Text className="text-[9px] font-semibold uppercase tracking-widest text-white/50">
+              <Text className="text-[9px] font-semibold uppercase tracking-widest " style={{ color: withAlpha(fg, 0.5) }}>
                 Card
               </Text>
-              <Text className="text-base font-semibold text-white" numberOfLines={1}>
+              <Text className="text-base font-semibold " style={{ color: fg }} numberOfLines={1}>
                 {card.cardName}
               </Text>
               {card.bankName ? (
-                <Text className="text-xs text-white/60" numberOfLines={1}>
+                <Text className="text-xs " style={{ color: withAlpha(fg, 0.6) }} numberOfLines={1}>
                   {card.bankName}
                 </Text>
               ) : null}
               {card.dueDay ? (
                 <View className="mt-1 flex-row items-center gap-1">
-                  <Feather name="calendar" size={11} color="rgba(255,255,255,0.6)" />
-                  <Text className="text-[11px] text-white/60">Due {ordinal(card.dueDay)}</Text>
+                  <Feather name="calendar" size={11} color={withAlpha(fg, 0.6)} />
+                  <Text className="text-[11px] " style={{ color: withAlpha(fg, 0.6) }}>Due {ordinal(card.dueDay)}</Text>
                 </View>
               ) : null}
             </View>
             <View className="items-end shrink-0">
-              <Text className="text-[9px] font-semibold uppercase tracking-widest text-white/50">
+              <Text className="text-[9px] font-semibold uppercase tracking-widest " style={{ color: withAlpha(fg, 0.5) }}>
                 Expires
               </Text>
-              <Text className="text-sm font-mono tracking-wide text-white">{expiryStr}</Text>
+              <Text className="text-sm font-mono tracking-wide " style={{ color: fg }}>{expiryStr}</Text>
             </View>
           </View>
         </Pressable>
 
         {/* Action bar — brand mark anchors identity, copy is the primary job */}
-        <View className="flex-row items-center justify-between border-t border-white/15 pl-5 pr-2">
-          <BrandMark brand={brand} issuer={card.cardIssuer} />
+        <View className="flex-row items-center justify-between border-t pl-5 pr-2" style={{ borderTopColor: withAlpha(fg, 0.15) }}>
+          <BrandMark brand={brand} issuer={card.cardIssuer} fg={fg} />
           <View className="flex-row items-center">
             <Pressable
               onPress={handleCopyCardNumber}
-              className="flex-row items-center gap-1.5 rounded-xl px-3 active:bg-white/10"
+              className={`flex-row items-center gap-1.5 rounded-xl px-3 ${pressTint}`}
               style={{ minHeight: 44 }}
             >
-              <Feather name="copy" size={14} color="rgba(255,255,255,0.9)" />
-              <Text className="text-xs font-semibold text-white/90">Number</Text>
+              <Feather name="copy" size={14} color={withAlpha(fg, 0.9)} />
+              <Text className="text-xs font-semibold " style={{ color: withAlpha(fg, 0.9) }}>Number</Text>
             </Pressable>
-            <View className="w-px h-4 bg-white/15" />
+            <View className="w-px h-4" style={{ backgroundColor: withAlpha(fg, 0.15) }} />
             <Pressable
               onPress={handleCopyCvv}
-              className="flex-row items-center gap-1.5 rounded-xl px-3 active:bg-white/10"
+              className={`flex-row items-center gap-1.5 rounded-xl px-3 ${pressTint}`}
               style={{ minHeight: 44 }}
             >
-              <Feather name="copy" size={14} color="rgba(255,255,255,0.9)" />
-              <Text className="text-xs font-semibold text-white/90">CVV</Text>
+              <Feather name="copy" size={14} color={withAlpha(fg, 0.9)} />
+              <Text className="text-xs font-semibold " style={{ color: withAlpha(fg, 0.9) }}>CVV</Text>
             </Pressable>
           </View>
         </View>
       </Gradient>
-    </View>
+    </Animated.View>
   );
 };

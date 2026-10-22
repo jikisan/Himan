@@ -17,7 +17,7 @@ export function useWeight() {
       return { entries, settings };
     },
   });
-  const done = { onSettled: () => client.invalidateQueries({ queryKey: key }) };
+  const done = { meta: { sensitive: true }, onSettled: () => client.invalidateQueries({ queryKey: key }) };
   const saveEntry = useMutation({ ...done, mutationFn: (input: WeightEntryInput) => repository.saveEntry(userId!, input) });
   const removeEntry = useMutation({ ...done, mutationFn: (id: string) => repository.removeEntry(userId!, id) });
   const saveSettings = useMutation({ ...done, mutationFn: (input: WeightSettings) => repository.saveSettings(userId!, input) });

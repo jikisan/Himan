@@ -28,6 +28,8 @@
       "@cards/*": ["src/modules/cards/*"],
       "@government": ["src/modules/government/index.ts"],
       "@government/*": ["src/modules/government/*"],
+      "@receipts": ["src/modules/receipts/index.ts"],
+      "@receipts/*": ["src/modules/receipts/*"],
       "@rentals": ["src/modules/rentals/index.ts"],
       "@rentals/*": ["src/modules/rentals/*"],
       "@storage/*": ["src/modules/storage/*"],

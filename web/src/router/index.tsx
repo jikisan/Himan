@@ -21,6 +21,7 @@ import { ItemsPage as CareerItemsPage, ItemEditorPage as CareerItemEditorPage, B
 import { ProfilePage } from '@profile/presentation/pages';
 import { GovernmentPage } from '@government';
 import { RentalsPage } from '@rentals';
+import { ReceiptsPage } from '@receipts';
 
 // Public and lazy: recruiters open this cold, so it must not pull in the
 // app shell, auth guards, or editor code.
@@ -63,6 +64,7 @@ export const Router = () => {
             <Route path="/passwords" element={<PasswordsPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/government" element={<GovernmentPage />} />
+            <Route path="/receipts" element={<ReceiptsPage />} />
             <Route path="/rentals" element={<RentalsPage />} />
             <Route path="/storage" element={<StoragePage />} />
             <Route path="/account" element={<AccountPage />} />

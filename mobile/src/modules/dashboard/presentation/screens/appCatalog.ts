@@ -10,4 +10,5 @@ export const MOBILE_APPS: MobileApp[] = [
   { id: 'grocery', label: 'Grocery', route: '/(app)/grocery', icon: 'shopping-cart', color: '#ea580c' },
   { id: 'rentals', label: 'Rentals', route: '/(app)/rentals', icon: 'home', color: '#d97706' },
   { id: 'government', label: 'Government', route: '/(app)/government', icon: 'file-text', color: '#0d9488' },
+  { id: 'receipts', label: 'Receipts', route: '/(app)/receipts', icon: 'file', color: '#65a30d' },
 ];

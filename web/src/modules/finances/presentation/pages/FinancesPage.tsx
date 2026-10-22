@@ -76,7 +76,7 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
     {!userId ? <p>Sign in to track your finances.</p> : <>
       <nav aria-label="Month" className="mb-6 flex items-center justify-between gap-2 rounded-2xl border bg-card p-2">
         <Button variant="ghost" className="h-11 hover:scale-100" onClick={() => setMonth(shiftMonth(month, -1))}><ChevronLeft aria-hidden="true" />Previous</Button>
-        <h2 className="text-lg font-semibold" aria-live="polite">{monthLabel(month)}</h2>
+        <h2 className="whitespace-nowrap text-base font-semibold sm:text-lg" aria-live="polite">{monthLabel(month)}</h2>
         <Button variant="ghost" className="h-11 hover:scale-100" disabled={atLatest} onClick={() => setMonth(shiftMonth(month, 1))}>Next<ChevronRight aria-hidden="true" /></Button>
       </nav>
 
@@ -137,8 +137,8 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
                       <p className={`text-lg font-semibold tabular-nums ${t.kind === 'income' ? 'text-green-600 dark:text-green-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         <span className="sr-only">{t.kind === 'income' ? 'Income ' : 'Expense '}</span>{t.kind === 'income' ? '+' : '−'}{formatPesos(t.amountCentavos)}</p>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="h-10 hover:scale-100" aria-label={`Edit ${category?.name ?? 'Uncategorized'} ${formatPesos(t.amountCentavos)}`} onClick={() => setEditor({ transaction: t })}>Edit</Button>
-                        <Button size="sm" variant="outline" className="h-10 text-destructive hover:scale-100" aria-label={`Delete ${category?.name ?? 'Uncategorized'} ${formatPesos(t.amountCentavos)}`} onClick={() => setPending({ type: 'transaction', id: t.id })}>Delete</Button>
+                        <Button size="sm" variant="outline" className="h-10 text-sm hover:scale-100" aria-label={`Edit ${category?.name ?? 'Uncategorized'} ${formatPesos(t.amountCentavos)}`} onClick={() => setEditor({ transaction: t })}>Edit</Button>
+                        <Button size="sm" variant="outline" className="h-10 text-sm text-destructive hover:scale-100" aria-label={`Delete ${category?.name ?? 'Uncategorized'} ${formatPesos(t.amountCentavos)}`} onClick={() => setPending({ type: 'transaction', id: t.id })}>Delete</Button>
                       </div>
                     </div>
                   </motion.li>;

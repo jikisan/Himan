@@ -320,3 +320,8 @@ input[type="date"] {
 @media (prefers-reduced-motion: reduce) {
   .animate-in, .animate-out { animation-duration: 1ms !important; }
 }
+
+/* Dark text on a light card face: keep secondary text legible on mid-tone colors. */
+.card-face[data-fg='dark'] [class*='text-current/'] {
+  color: color-mix(in srgb, currentColor 88%, transparent);
+}

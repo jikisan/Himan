@@ -112,7 +112,8 @@ export const CardCard = ({
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden shadow-lg hover:shadow-xl active:scale-[0.99] transition-[transform,box-shadow,background-color,color] duration-300 ease-out motion-reduce:transition-none motion-reduce:active:scale-100"
+      className="card-face relative rounded-2xl overflow-hidden shadow-lg hover:shadow-xl active:scale-[0.99] transition-[transform,box-shadow,background-color,color] duration-300 ease-out motion-reduce:transition-none motion-reduce:active:scale-100"
+      data-fg={theme && !theme.isDark ? 'dark' : undefined}
       style={faceStyle}
     >
       {/* Soft top-right glare */}
@@ -124,7 +125,7 @@ export const CardCard = ({
         <div className="flex items-start justify-between">
           {/* Chip */}
           <div
-            className="w-11 h-8 rounded-md relative"
+            className="w-11 h-8 rounded-md relative ring-1 ring-black/25"
             style={{ background: 'linear-gradient(135deg,#f6e6a8,#d9b64c,#b8912f)' }}
           >
             <div className="absolute inset-0 m-auto w-6 h-5 rounded-sm border border-black/20" />

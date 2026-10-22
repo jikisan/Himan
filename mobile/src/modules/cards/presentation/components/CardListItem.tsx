@@ -102,7 +102,7 @@ const BrandMark = ({ brand, issuer, fg }: { brand: string; issuer: string | null
 const Chip = () => (
   <Gradient
     colors={['#f6e6a8', '#d9b64c', '#b8912f']}
-    style={{ width: 44, height: 32, borderRadius: 6, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+    style={{ width: 44, height: 32, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' }}
   >
     <View className="w-6 h-5 rounded-sm border border-black/20" />
     <View className="absolute w-full h-px bg-black/15" />
@@ -121,6 +121,8 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
   const theme = card.color ? getCardColorTheme(card.color) : null;
   const gradient: Gradient = theme ? theme.stops : isExpired ? EXPIRED_GRADIENT : BRAND_GRADIENT[brand] ?? DEFAULT_GRADIENT;
   const fg = theme ? theme.foreground : '#ffffff';
+  // Dark text on a light face needs stronger secondary text to stay legible on mid-tones.
+  const dim = (a: number) => withAlpha(fg, theme && !theme.isDark ? Math.min(1, a + 0.3) : a);
   const pressTint = theme && !theme.isDark ? 'active:bg-black/10' : 'active:bg-white/10';
 
   // Small press feedback on the whole card; skipped when reduced motion is on.
@@ -187,7 +189,7 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
                 <Feather
                   name="star"
                   size={22}
-                  color={card.isFavorite ? '#fbbf24' : withAlpha(fg, 0.55)}
+                  color={card.isFavorite ? '#fbbf24' : dim(0.55)}
                 />
               </Pressable>
             </View>
@@ -201,26 +203,26 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
           {/* Holder / bank + expiry */}
           <View className="mt-4 flex-row items-end justify-between gap-4">
             <View className="flex-1 min-w-0">
-              <Text className="text-[9px] font-semibold uppercase tracking-widest " style={{ color: withAlpha(fg, 0.5) }}>
+              <Text className="text-[9px] font-semibold uppercase tracking-widest " style={{ color: dim(0.5) }}>
                 Card
               </Text>
               <Text className="text-base font-semibold " style={{ color: fg }} numberOfLines={1}>
                 {card.cardName}
               </Text>
               {card.bankName ? (
-                <Text className="text-xs " style={{ color: withAlpha(fg, 0.6) }} numberOfLines={1}>
+                <Text className="text-xs " style={{ color: dim(0.6) }} numberOfLines={1}>
                   {card.bankName}
                 </Text>
               ) : null}
               {card.dueDay ? (
                 <View className="mt-1 flex-row items-center gap-1">
-                  <Feather name="calendar" size={11} color={withAlpha(fg, 0.6)} />
-                  <Text className="text-[11px] " style={{ color: withAlpha(fg, 0.6) }}>Due {ordinal(card.dueDay)}</Text>
+                  <Feather name="calendar" size={11} color={dim(0.6)} />
+                  <Text className="text-[11px] " style={{ color: dim(0.6) }}>Due {ordinal(card.dueDay)}</Text>
                 </View>
               ) : null}
             </View>
             <View className="items-end shrink-0">
-              <Text className="text-[9px] font-semibold uppercase tracking-widest " style={{ color: withAlpha(fg, 0.5) }}>
+              <Text className="text-[9px] font-semibold uppercase tracking-widest " style={{ color: dim(0.5) }}>
                 Expires
               </Text>
               <Text className="text-sm font-mono tracking-wide " style={{ color: fg }}>{expiryStr}</Text>
@@ -237,8 +239,8 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
               className={`flex-row items-center gap-1.5 rounded-xl px-3 ${pressTint}`}
               style={{ minHeight: 44 }}
             >
-              <Feather name="copy" size={14} color={withAlpha(fg, 0.9)} />
-              <Text className="text-xs font-semibold " style={{ color: withAlpha(fg, 0.9) }}>Number</Text>
+              <Feather name="copy" size={14} color={dim(0.9)} />
+              <Text className="text-xs font-semibold " style={{ color: dim(0.9) }}>Number</Text>
             </Pressable>
             <View className="w-px h-4" style={{ backgroundColor: withAlpha(fg, 0.15) }} />
             <Pressable
@@ -246,8 +248,8 @@ export const CardListItem = ({ card, onPress, onToggleFavorite, onCopied }: Card
               className={`flex-row items-center gap-1.5 rounded-xl px-3 ${pressTint}`}
               style={{ minHeight: 44 }}
             >
-              <Feather name="copy" size={14} color={withAlpha(fg, 0.9)} />
-              <Text className="text-xs font-semibold " style={{ color: withAlpha(fg, 0.9) }}>CVV</Text>
+              <Feather name="copy" size={14} color={dim(0.9)} />
+              <Text className="text-xs font-semibold " style={{ color: dim(0.9) }}>CVV</Text>
             </Pressable>
           </View>
         </View>

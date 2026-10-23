@@ -1,4 +1,4 @@
-import { View, Modal, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Modal, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { notebook } from '@/modules/grocery/presentation/theme/notebook';
 import { useStartErrandForm } from '@/modules/grocery/presentation/hooks/useStartErrandForm';
@@ -18,6 +18,8 @@ interface StartErrandModalProps {
 
 export function StartErrandModal({ visible, onClose, userId, onStarted, insetsBottom }: StartErrandModalProps) {
   const { colorScheme } = useColorScheme();
+  // A '%' maxHeight resolves against the auto-height KeyboardAvoidingView on Android and collapses the ScrollView.
+  const { height: windowHeight } = useWindowDimensions();
   const c = colorScheme === 'dark' ? notebook.dark : notebook.light;
 
   const {
@@ -40,7 +42,7 @@ export function StartErrandModal({ visible, onClose, userId, onStarted, insetsBo
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View
             className="rounded-t-3xl bg-paper dark:bg-paper-dark px-5 pt-4"
-            style={{ paddingBottom: Math.max(insetsBottom, 24), maxHeight: '85%' }}
+            style={{ paddingBottom: Math.max(insetsBottom, 24), maxHeight: windowHeight * 0.85 }}
           >
             <StartErrandModalHeader c={c} onClose={onClose} />
 

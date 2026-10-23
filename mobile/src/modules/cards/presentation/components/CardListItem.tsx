@@ -49,7 +49,7 @@ const Gradient = ({
   <View style={style}>
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {bands(colors).map((c, i) => (
-        <View key={i} style={{ flex: 1, backgroundColor: c }} />
+        <View key={i} style={{ flex: 1, backgroundColor: c, marginTop: i === 0 ? 0 : -1 }} />
       ))}
     </View>
     {children}

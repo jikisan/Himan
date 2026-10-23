@@ -275,7 +275,7 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, closeL
         </Pressable>
       </View>
       <KeyboardAvoidingView behavior="padding" className="flex-1">
-        {scroll ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: footer ? 16 : Math.max(insets.bottom, 24) }}>
+        {scroll ? <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: footer ? 16 : Math.max(insets.bottom, 24) }}>
           {children}</ScrollView> : <View className="flex-1">{children}</View>}
         {footer ? <View style={{ paddingBottom: Math.max(insets.bottom, 12) }}
           className="gap-2 border-t border-gray-200 bg-white px-4 pt-3 dark:border-gray-800 dark:bg-gray-900">{footer}</View> : null}

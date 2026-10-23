@@ -117,7 +117,7 @@ Always use `useSafeAreaInsets()` from `react-native-safe-area-context`. Never ha
 | Bottom sheet ScrollView | `contentContainerStyle={{ paddingBottom: insets.bottom }}` |
 | FAB / floating button | `bottom: 24 + insets.bottom, right: 16` (inline style) |
 | Top toast / overlay | `paddingTop: insets.top + 10` on absolutely-positioned container |
-| Keyboard + form | `<KeyboardSafe>` inside SafeAreaView; in a Modal, wrap the overlay with it |
+| Keyboard + form | `<KeyboardSafe>` inside SafeAreaView; in a Modal, wrap the overlay with it; give its ScrollView `automaticallyAdjustKeyboardInsets` so iOS scrolls the focused field and the buttons below it into view |
 
 ## Key Config Files
 

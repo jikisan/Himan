@@ -44,7 +44,7 @@ export function StartErrandModal({ visible, onClose, userId, onStarted, insetsBo
           >
             <StartErrandModalHeader c={c} onClose={onClose} />
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled">
               <StoreField c={c} store={store} onChangeStore={setStore} recentStores={recentStores} />
               <ErrandNameField c={c} errandName={errandName} onChangeErrandName={setErrandName} />
               <ListSelector c={c} templates={templates} selected={selected} onToggle={toggleList} />

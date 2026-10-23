@@ -202,6 +202,7 @@ export default function CardFormScreen() {
         className="flex-1"
       >
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 20, gap: 20 }}

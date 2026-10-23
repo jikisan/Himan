@@ -48,7 +48,7 @@ export default function FriendsScreen() {
       </View>
 
       <KeyboardSafe>
-      <ScrollView className="flex-1 px-4" keyboardShouldPersistTaps="handled">
+      <ScrollView automaticallyAdjustKeyboardInsets className="flex-1 px-4" keyboardShouldPersistTaps="handled">
         {/* Add by email */}
         <View className="flex-row gap-2 my-4">
           <TextInput

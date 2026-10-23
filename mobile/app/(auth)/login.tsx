@@ -27,6 +27,7 @@ export default function LoginScreen() {
         className="flex-1"
       >
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           contentContainerClassName="flex-grow justify-center px-6 py-12"
           keyboardShouldPersistTaps="handled"
         >

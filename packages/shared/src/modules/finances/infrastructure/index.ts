@@ -15,6 +15,13 @@ const transactionRow = z.object({
   id: row.id, kind: row.kind, amountCentavos: row.amount_centavos, occurredOn: row.occurred_on, note: row.note, categoryId: row.category_id,
 }));
 
+/** Parses user input, throwing the first issue's plain message rather than Zod's JSON dump of every issue. */
+function validate<T extends z.ZodType>(schema: T, input: unknown): z.output<T> {
+  const result = schema.safeParse(input);
+  if (!result.success) throw new Error(result.error.issues[0]?.message ?? 'Check the details and try again');
+  return result.data;
+}
+
 export class FinanceRepository {
   /** Lists the user's categories, creating the defaults the first time. */
   async categories(userId: string): Promise<FinanceCategory[]> {
@@ -34,7 +41,7 @@ export class FinanceRepository {
   }
 
   async saveCategory(userId: string, id: string | null, input: FinanceCategoryInput): Promise<void> {
-    const value = categorySchema.parse(input);
+    const value = validate(categorySchema, input);
     const query = id
       // Kind is fixed once transactions may use the category.
       ? getSupabase().from('finance_categories').update({ name: value.name, color: value.color }).eq('id', id).eq('user_id', userId)
@@ -60,7 +67,7 @@ export class FinanceRepository {
   }
 
   async saveTransaction(userId: string, id: string | null, input: FinanceTransactionInput): Promise<void> {
-    const v = transactionSchema.parse(input);
+    const v = validate(transactionSchema, input);
     const row = { kind: v.kind, amount_centavos: v.amountCentavos, occurred_on: v.occurredOn, note: v.note, category_id: v.categoryId };
     const query = id
       ? getSupabase().from('finance_transactions').update(row).eq('id', id).eq('user_id', userId)

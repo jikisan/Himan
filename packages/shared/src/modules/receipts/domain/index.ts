@@ -70,10 +70,14 @@ export function receiptAttention(r: Pick<Receipt, 'warrantyEndsOn' | 'expiresOn'
 }
 
 export function statusLabel({ what, status }: ReceiptAttention): string {
+  const plural = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
+  const [soon, now, past] = what === 'Warranty'
+    ? ['Warranty ends in', 'Warranty ends today', 'Warranty ended']
+    : ['Expires in', 'Expires today', 'Expired'];
   switch (status.kind) {
-    case 'expired': return `${what} ended ${-status.days} ${-status.days === 1 ? 'day' : 'days'} ago`;
-    case 'today': return `${what} ends today`;
-    default: return `${what} ends in ${status.days} ${status.days === 1 ? 'day' : 'days'}`;
+    case 'expired': return `${past} ${plural(-status.days)} ago`;
+    case 'today': return now;
+    default: return `${soon} ${plural(status.days)}`;
   }
 }
 

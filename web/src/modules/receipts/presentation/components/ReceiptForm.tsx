@@ -52,7 +52,8 @@ export function ReceiptForm({ receipt, existingPhotoUrl, knownTags, busy, onSave
       setPhoto(blob);
       setPreview(URL.createObjectURL(blob));
     } catch (failure) {
-      fe.fail('rc-photo', failure instanceof Error ? failure.message : 'Could not use that photo');
+      // Browser decode errors are not written for people; only our own size message is.
+      fe.fail('rc-photo', failure instanceof Error && failure.message.includes('5 MB') ? failure.message : 'Could not read that picture. Try another photo.');
     } finally { setPreparing(false); }
   };
 

@@ -14,6 +14,7 @@ export interface CreditCardType {
   isFavorite: boolean;
   notes: string | null;
   dueDay: number | null;
+  color: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +33,7 @@ export interface CreateCreditCardDto {
   isFavorite?: boolean;
   notes?: string | null;
   dueDay?: number | null;
+  color?: string | null;
 }
 
 export interface UpdateCreditCardDto {
@@ -47,6 +49,7 @@ export interface UpdateCreditCardDto {
   isFavorite?: boolean;
   notes?: string | null;
   dueDay?: number | null;
+  color?: string | null;
 }
 
 export interface CreditCardFilters {

@@ -15,7 +15,8 @@ import {
   Landmark,
   Building2,
   Scale,
-  Briefcase
+  Briefcase,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '@auth/presentation/hooks';
 
@@ -36,6 +37,7 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
     { path: '/receipts', label: 'Receipts', icon: ReceiptText },
     { path: '/weight', label: 'Weight', icon: Scale },
     { path: '/rentals', label: 'Rentals', icon: Building2 },
+    { path: '/finances', label: 'Finances', icon: Wallet },
     { path: '/invoice-generator', label: 'Invoices', icon: Receipt },
     { path: '/career', label: 'Career', icon: Briefcase },
     { path: '/profile', label: 'Profile', icon: User },

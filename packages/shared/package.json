@@ -15,6 +15,7 @@
     "./passwords": "./src/modules/passwords/index.ts",
     "./cards": "./src/modules/cards/index.ts",
     "./government": "./src/modules/government/index.ts",
+    "./finances": "./src/modules/finances/index.ts",
     "./rentals": "./src/modules/rentals/index.ts",
     "./receipts": "./src/modules/receipts/index.ts",
     "./weight": "./src/modules/weight/index.ts",

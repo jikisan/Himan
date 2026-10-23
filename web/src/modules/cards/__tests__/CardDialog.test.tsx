@@ -43,4 +43,30 @@ describe('CardDialog form errors', () => {
     expect(banner).toHaveTextContent('Card limit reached');
     expect(banner).toHaveAttribute('data-form-error');
   });
+  it('saves the chosen preset and custom color, or null when automatic', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    open(onSave);
+    fireEvent.change(screen.getByLabelText(/Card Name/), { target: { value: 'Visa' } });
+    fireEvent.change(screen.getByLabelText(/Card Number/), { target: { value: '4111 1111 1111 1111' } });
+    fireEvent.change(screen.getByLabelText(/^CVV/), { target: { value: '123' } });
+    expect(screen.getByRole('radio', { name: 'Automatic' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: 'Forest' }));
+    expect(screen.getByText('Forest')).toBeInTheDocument();
+    submit();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].color).toBe('#15803d');
+  });
+  it('accepts a custom color and can reset to automatic', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    open(onSave);
+    fireEvent.change(screen.getByLabelText(/Card Name/), { target: { value: 'Visa' } });
+    fireEvent.change(screen.getByLabelText(/Card Number/), { target: { value: '4111 1111 1111 1111' } });
+    fireEvent.change(screen.getByLabelText(/^CVV/), { target: { value: '123' } });
+    fireEvent.change(screen.getByLabelText('Custom color'), { target: { value: '#123abc' } });
+    expect(screen.getByText('Custom #123abc')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use automatic color' }));
+    submit();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].color).toBeNull();
+  });
 });

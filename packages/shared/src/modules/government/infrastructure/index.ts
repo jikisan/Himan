@@ -1,7 +1,7 @@
 import { getSupabase } from '../../../config/index.js';
 import { z } from 'zod';
-import { governmentRecordSchema, validateGovernmentFile } from '../domain/index.js';
-import type { GovernmentDocument, GovernmentRecord, GovernmentRecordInput } from '../domain/index.js';
+import { governmentGroupNameSchema, governmentRecordSchema, validateGovernmentFile } from '../domain/index.js';
+import type { GovernmentDocument, GovernmentGroup, GovernmentRecord, GovernmentRecordInput } from '../domain/index.js';
 
 const BUCKET = 'government-documents';
 const documentRow = z.object({
@@ -11,13 +11,19 @@ const documentRow = z.object({
   id: row.id, recordId: row.record_id, userId: row.user_id, name: row.name,
   mimeType: row.mime_type, size: row.size, storagePath: row.storage_path, ready: row.ready,
 }));
+const groupRow = z.object({
+  id: z.string(), user_id: z.string(), name: z.string(),
+  kind: z.enum(['personal', 'business', 'custom']), created_at: z.string(),
+}).transform((row): GovernmentGroup => ({
+  id: row.id, userId: row.user_id, name: row.name, kind: row.kind, createdAt: row.created_at,
+}));
 const recordRow = z.object({
-  id: z.string(), user_id: z.string(), agency: z.string(), label: z.string(), registered_name: z.string(),
+  id: z.string(), user_id: z.string(), group_id: z.string(), agency: z.string(), label: z.string(), registered_name: z.string(),
   number: z.string(), issue_date: z.string().nullable(), expiry_date: z.string().nullable(),
   notes: z.string(), deleting: z.boolean(), created_at: z.string(), updated_at: z.string(),
   documents: z.array(documentRow).default([]),
 }).transform((row): GovernmentRecord => ({
-  id: row.id, userId: row.user_id, agency: row.agency, label: row.label, registeredName: row.registered_name,
+  id: row.id, userId: row.user_id, groupId: row.group_id, agency: row.agency, label: row.label, registeredName: row.registered_name,
   number: row.number, issueDate: row.issue_date, expiryDate: row.expiry_date, notes: row.notes,
   deleting: row.deleting, createdAt: row.created_at, updatedAt: row.updated_at, documents: row.documents,
 }));
@@ -36,10 +42,45 @@ export class GovernmentRepository {
     }
   }
 
+  /** Returns the user's groups, creating Personal and Business on first use. */
+  async findGroups(userId: string): Promise<GovernmentGroup[]> {
+    const read = async () => {
+      const { data, error } = await getSupabase().from('government_groups').select('*').eq('user_id', userId);
+      if (error) throw error;
+      return z.array(groupRow).parse(data);
+    };
+    const groups = await read();
+    if (groups.some((group) => group.kind === 'personal') && groups.some((group) => group.kind === 'business')) return groups;
+    const { error } = await getSupabase().rpc('government_ensure_groups');
+    if (error) throw error;
+    return read();
+  }
+
+  async addGroup(userId: string, name: string): Promise<GovernmentGroup> {
+    const { data, error } = await getSupabase().from('government_groups')
+      .insert({ user_id: userId, name: governmentGroupNameSchema.parse(name) }).select('*').single();
+    if (error) throw error;
+    return groupRow.parse(data);
+  }
+
+  async renameGroup(userId: string, id: string, name: string): Promise<GovernmentGroup> {
+    const { data, error } = await getSupabase().from('government_groups')
+      .update({ name: governmentGroupNameSchema.parse(name) }).eq('id', id).eq('user_id', userId).select('*').single();
+    if (error) throw error;
+    return groupRow.parse(data);
+  }
+
+  /** Records in the group move to Personal in the same transaction. */
+  async removeGroup(id: string): Promise<void> {
+    const { error } = await getSupabase().rpc('government_delete_group', { p_group_id: id });
+    if (error) throw error;
+  }
+
   async save(userId: string, id: string | null, input: GovernmentRecordInput): Promise<GovernmentRecord> {
     const value = governmentRecordSchema.parse(input);
     const row = { agency: value.agency, label: value.label, registered_name: value.registeredName,
-      number: value.number, issue_date: value.issueDate, expiry_date: value.expiryDate, notes: value.notes };
+      number: value.number, issue_date: value.issueDate, expiry_date: value.expiryDate, notes: value.notes,
+      ...(value.groupId ? { group_id: value.groupId } : {}) };
     const query = id
       ? getSupabase().from('government_records').update(row).eq('id', id).eq('user_id', userId).eq('deleting', false)
       : getSupabase().from('government_records').insert({ ...row, user_id: userId });

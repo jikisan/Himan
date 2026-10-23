@@ -15,6 +15,7 @@ export class CreditCard implements CreditCardType {
   isFavorite: boolean;
   notes: string | null;
   dueDay: number | null;
+  color: string | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -33,6 +34,7 @@ export class CreditCard implements CreditCardType {
     this.isFavorite = data.isFavorite;
     this.notes = data.notes;
     this.dueDay = data.dueDay;
+    this.color = data.color;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }

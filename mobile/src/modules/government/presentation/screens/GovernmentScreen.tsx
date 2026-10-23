@@ -1,28 +1,32 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
-import { GOVERNMENT_TYPES, GOVERNMENT_FILE_TYPES, governmentRecordSchema, maskGovernmentNumber,
-  filterGovernmentRecords, validateGovernmentFile } from '@himan/shared/government';
-import type { GovernmentRecord, GovernmentRecordInput, GovernmentDocument } from '@himan/shared/government';
+import { ALL_GOVERNMENT_GROUPS, GOVERNMENT_TYPES, GOVERNMENT_FILE_TYPES, countGovernmentRecordsByGroup, filterGovernmentRecords,
+  filterGovernmentRecordsByGroup, governmentRecordSchema, maskGovernmentNumber, personalGovernmentGroup, sortGovernmentGroups,
+  validateGovernmentFile } from '@himan/shared/government';
+import type { GovernmentRecord, GovernmentRecordInput, GovernmentDocument, GovernmentGroup } from '@himan/shared/government';
 import { useGovernment } from '../hooks/useGovernment';
 import { GovernmentAgencyMark } from '../components/GovernmentAgencyMark';
 import { GovernmentDocumentPreview } from '../components/GovernmentDocumentPreview';
+import { GovernmentGroupBar } from '../components/GovernmentGroupBar';
+import { GovernmentGroupManager } from '../components/GovernmentGroupManager';
 
 const inputClass = 'rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-base text-gray-900 dark:text-white';
 const textClass = 'text-gray-900 dark:text-white';
 const mutedClass = 'text-gray-500 dark:text-gray-400';
 
-function RecordForm({ record, busy, onSave }: { record?: GovernmentRecord; busy: boolean; onSave: (input: GovernmentRecordInput) => Promise<void> }) {
+function RecordForm({ record, groups, defaultGroupId, busy, onSave }: { record?: GovernmentRecord; groups: GovernmentGroup[]; defaultGroupId: string; busy: boolean; onSave: (input: GovernmentRecordInput) => Promise<void> }) {
   const [form, setForm] = useState<GovernmentRecordInput>(() => record ? {
     agency: record.agency, label: record.label, registeredName: record.registeredName, number: record.number,
-    issueDate: record.issueDate, expiryDate: record.expiryDate, notes: record.notes,
-  } : { agency: 'PhilHealth', label: '', registeredName: '', number: '', issueDate: null, expiryDate: null, notes: '' });
+    issueDate: record.issueDate, expiryDate: record.expiryDate, notes: record.notes, groupId: record.groupId,
+  } : { agency: 'PhilHealth', label: '', registeredName: '', number: '', issueDate: null, expiryDate: null, notes: '', groupId: defaultGroupId });
   const [custom, setCustom] = useState(!!record && !GOVERNMENT_TYPES.some((type) => type === record.agency));
   const [error, setError] = useState('');
   const set = (field: keyof GovernmentRecordInput, value: string | null) => setForm((previous) => ({ ...previous, [field]: value }));
@@ -41,6 +45,18 @@ function RecordForm({ record, busy, onSave }: { record?: GovernmentRecord; busy:
               onPress={() => { setCustom(type === 'Custom type'); set('agency', type === 'Custom type' ? '' : type); }}
               className={`min-h-12 justify-center rounded-xl px-4 py-3 active:opacity-70 ${active ? 'bg-indigo-600' : 'bg-gray-100 dark:bg-gray-800'}`}>
               <Text className={active ? 'text-white' : textClass}>{type}</Text>
+            </Pressable>;
+          })}
+        </View></ScrollView>
+      </View>
+      <View><Text className={`mb-2 text-sm font-semibold ${textClass}`}>Group</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}><View className="flex-row gap-2">
+          {groups.map((group) => {
+            const active = form.groupId === group.id;
+            return <Pressable key={group.id} accessibilityRole="button" accessibilityState={{ selected: active, disabled: busy }} disabled={busy}
+              onPress={() => set('groupId', group.id)}
+              className={`min-h-12 justify-center rounded-xl px-4 py-3 active:opacity-70 ${active ? 'bg-indigo-600' : 'bg-gray-100 dark:bg-gray-800'}`}>
+              <Text className={active ? 'text-white' : textClass}>{group.name}</Text>
             </Pressable>;
           })}
         </View></ScrollView>
@@ -70,11 +86,17 @@ export default function GovernmentScreen() {
   return <GovernmentContent key={government.userId ?? 'signed-out'} {...government} />;
 }
 
-function GovernmentContent({ records, loading, error, online, busy, run, refetch, documentUrl, userId }: ReturnType<typeof useGovernment>) {
+function GovernmentContent({ records, groups: unsortedGroups, loading, error, online, busy, run, refetch, documentUrl, userId }: ReturnType<typeof useGovernment>) {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const iconColor = colorScheme === 'dark' ? '#e5e7eb' : '#111827';
   const [search, setSearch] = useState('');
+  const [activeGroup, setActiveGroup] = useState(ALL_GOVERNMENT_GROUPS);
+  const [managerOpen, setManagerOpen] = useState(false);
+  const groups = sortGovernmentGroups(unsortedGroups);
+  const counts = countGovernmentRecordsByGroup(records);
+  const shownGroup = activeGroup === ALL_GOVERNMENT_GROUPS || groups.some((group) => group.id === activeGroup) ? activeGroup : ALL_GOVERNMENT_GROUPS;
+  const groupName = (id: string) => groups.find((group) => group.id === id)?.name;
   const [dialog, setDialog] = useState<{ userId: string | undefined; id: string | null; editing: boolean } | null>(null);
   const activeDialog = dialog?.userId === userId ? dialog : null;
   const [revealed, setRevealed] = useState(false);
@@ -135,12 +157,13 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
     catch { Alert.alert('Could not open document', 'Retry when connected.'); }
   };
 
-  const renderRecord = ({ item: record }: { item: GovernmentRecord }) => <View
+  const renderRecord = ({ item: record }: { item: GovernmentRecord }) => <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)} layout={LinearTransition}
     className="mb-3 gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
     <Pressable accessibilityRole="button" accessibilityLabel={`View ${record.label} details`} onPress={() => open(record.id)} className="min-h-12 flex-row items-center gap-3 active:opacity-70">
       <GovernmentAgencyMark agency={record.agency} />
       <View className="flex-1">
         <Text className={`text-base font-semibold ${textClass}`}>{record.agency}</Text>
+        {shownGroup === ALL_GOVERNMENT_GROUPS && groupName(record.groupId) && <Text className={`text-xs font-medium ${mutedClass}`}>{groupName(record.groupId)}</Text>}
         {record.label !== record.agency && <Text className={`text-sm ${mutedClass}`}>{record.label}</Text>}
       </View>
     </Pressable>
@@ -160,7 +183,16 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
         <Feather accessible={false} name="copy" size={20} color={iconColor} />
       </Pressable>
     </View>
-  </View>;
+  </Animated.View>;
+
+  const removeGroup = (group: GovernmentGroup) => {
+    const count = counts[group.id] ?? 0;
+    Alert.alert(`Delete the ${group.name} group?`, count ? `${count} ${count === 1 ? 'record' : 'records'} will move to Personal. No records are deleted.` : 'This group has no records.',
+      [{ text: 'Keep group', style: 'cancel' }, { text: 'Delete group', style: 'destructive', onPress: async () => {
+        try { await run({ type: 'removeGroup', id: group.id }); if (shownGroup === group.id) setActiveGroup(ALL_GOVERNMENT_GROUPS); }
+        catch { Alert.alert('Could not delete the group', 'Retry when connected.'); }
+      } }]);
+  };
 
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
     <View className="flex-row items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3">
@@ -169,31 +201,34 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
       <Pressable accessibilityRole="button" accessibilityLabel="Add government record" disabled={!online || !userId || disabled} onPress={() => open(null, true)} className="p-3"><Feather name="plus" size={24} color={online ? '#4f46e5' : '#9ca3af'} /></Pressable>
     </View>
     {!online ? <Text className={`p-8 text-center ${mutedClass}`}>Connect to the internet to access your government records.</Text>
-      : <FlatList data={filterGovernmentRecords(records, search)} extraData={revealedPreviewId} renderItem={renderRecord} keyExtractor={(record) => record.id}
+      : <FlatList data={filterGovernmentRecords(filterGovernmentRecordsByGroup(records, shownGroup), search)} extraData={revealedPreviewId} renderItem={renderRecord} keyExtractor={(record) => record.id}
         contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" refreshing={loading} onRefresh={() => void refetch()}
         ListHeaderComponent={<View className="mb-5 gap-4"><Text className={`text-sm ${mutedClass}`}>Your ID numbers in one place. Tap to copy.</Text>
+          {!loading && <GovernmentGroupBar groups={groups} counts={counts} total={records.length} active={shownGroup} disabled={disabled} onChange={setActiveGroup} onManage={() => setManagerOpen(true)} />}
           <TextInput accessibilityLabel="Search government records" className={inputClass} value={search} onChangeText={setSearch}
             placeholder="Search records or documents" placeholderTextColor="#9ca3af" autoCorrect={false} />
           {error && <View className="gap-3 rounded-xl border border-red-300 p-4"><Text accessibilityRole="alert" className="text-red-600 dark:text-red-400">Could not load government records.</Text>
             <Pressable accessibilityRole="button" onPress={() => void refetch()} className="py-2"><Text className="font-semibold text-indigo-600 dark:text-indigo-400">Retry</Text></Pressable></View>}
         </View>}
         ListEmptyComponent={loading ? <ActivityIndicator color="#4f46e5" /> : !error ? <View className="items-center gap-3 py-12">
-          <Feather name="file-text" size={40} color="#9ca3af" /><Text className={`text-lg font-semibold ${textClass}`}>{search ? 'No matching records' : 'Keep your details together'}</Text>
-          <Text className={`text-center ${mutedClass}`}>{search ? 'Try a different search.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</Text>
-          {!search && <Pressable accessibilityRole="button" className="mt-2 rounded-xl bg-indigo-600 px-5 py-3" onPress={() => open(null, true)}><Text className="font-semibold text-white">Add your first record</Text></Pressable>}
+          <Feather name="file-text" size={40} color="#9ca3af" /><Text className={`text-lg font-semibold ${textClass}`}>{search ? 'No matching records' : records.length ? `Nothing in ${groupName(shownGroup) ?? 'this group'} yet` : 'Keep your details together'}</Text>
+          <Text className={`text-center ${mutedClass}`}>{search ? 'Try a different search.' : records.length ? 'Add a record here, or move one in by editing its group.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</Text>
+          {!search && <Pressable accessibilityRole="button" className="mt-2 rounded-xl bg-indigo-600 px-5 py-3" onPress={() => open(null, true)}><Text className="font-semibold text-white">{records.length ? 'Add a record' : 'Add your first record'}</Text></Pressable>}
         </View> : null} />}
 
+    <GovernmentGroupManager visible={managerOpen && online} groups={groups} counts={counts} busy={busy} onClose={() => setManagerOpen(false)}
+      onAdd={async (name) => { await run({ type: 'addGroup', name }); }} onRename={async (id, name) => { await run({ type: 'renameGroup', id, name }); }} onDelete={removeGroup} />
     <Modal visible={!!activeDialog && online && !!userId} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { if (!disabled) setDialog(null); }}>
       <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
         <View className="flex-row items-center gap-3 border-b border-gray-200 dark:border-gray-800 p-4">
           {selected && !activeDialog?.editing && <GovernmentAgencyMark agency={selected.agency} />}
           <View className="flex-1 gap-1">
             <Text className={`text-lg font-semibold ${textClass}`}>{activeDialog?.editing ? selected ? 'Edit record' : 'Add record' : selected?.label ?? 'Record unavailable'}</Text>
-            {selected && !activeDialog?.editing && <Text className={`text-sm ${mutedClass}`}>{selected.registeredName}</Text>}
+            {selected && !activeDialog?.editing && <Text className={`text-sm ${mutedClass}`}>{selected.registeredName}{groupName(selected.groupId) ? ` · ${groupName(selected.groupId)}` : ''}</Text>}
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close record" disabled={disabled} className="h-12 w-12 items-center justify-center rounded-full active:bg-gray-200 dark:active:bg-gray-800" onPress={() => selected && activeDialog?.editing ? open(selected.id) : setDialog(null)}><Feather name={selected && activeDialog?.editing ? 'arrow-left' : 'x'} size={22} color={iconColor} /></Pressable>
         </View>
-        {activeDialog?.editing ? <RecordForm key={activeDialog.id ?? 'new'} record={selected} busy={disabled} onSave={async (input) => {
+        {activeDialog?.editing ? <RecordForm key={activeDialog.id ?? 'new'} record={selected} groups={groups} defaultGroupId={(groups.find((group) => group.id === shownGroup) ?? personalGovernmentGroup(groups))?.id ?? ''} busy={disabled} onSave={async (input) => {
           const saved = await run({ type: 'save', id: activeDialog.id, input });
           if (saved) open(saved.id);
         }} /> : selected ? <>

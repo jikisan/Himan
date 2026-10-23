@@ -48,8 +48,7 @@ function TransactionForm({ transaction, categories, defaultDate, busy, onSave }:
       <View className="flex-row gap-2">
         {(['expense', 'income'] as const).map((k) => <Pressable key={k} accessibilityRole="button" accessibilityState={{ selected: kind === k }}
           onPress={() => { setKind(k); setCategoryId(null); }}
-          className={`min-h-12 flex-1 items-center justify-center rounded-xl active:opacity-70 ${kind === k ? '' : 'bg-gray-100 dark:bg-gray-800'}`}
-          style={{ backgroundColor: kind === k ? (k === 'income' ? GREEN : ROSE) : undefined }}>
+          className={`min-h-12 flex-1 items-center justify-center rounded-xl border active:opacity-70 ${kind !== k ? 'border-gray-300 bg-gray-100 dark:border-gray-600 dark:bg-gray-800' : k === 'income' ? 'border-green-600 bg-green-600' : 'border-rose-600 bg-rose-600'}`}>
           <Text className={kind === k ? 'font-semibold text-white' : `font-semibold ${textClass}`}>{k === 'income' ? 'Income' : 'Expense'}</Text>
         </Pressable>)}
       </View>

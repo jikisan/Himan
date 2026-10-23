@@ -39,14 +39,14 @@ export function StartErrandModal({ visible, onClose, userId, onStarted, insetsBo
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/40">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior="padding">
           <View
             className="rounded-t-3xl bg-paper dark:bg-paper-dark px-5 pt-4"
             style={{ paddingBottom: Math.max(insetsBottom, 24), maxHeight: windowHeight * 0.85 }}
           >
             <StartErrandModalHeader c={c} onClose={onClose} />
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled">
               <StoreField c={c} store={store} onChangeStore={setStore} recentStores={recentStores} />
               <ErrandNameField c={c} errandName={errandName} onChangeErrandName={setErrandName} />
               <ListSelector c={c} templates={templates} selected={selected} onToggle={toggleList} />

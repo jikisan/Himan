@@ -35,8 +35,8 @@ function RecordForm({ record, groups, defaultGroupId, busy, onSave }: { record?:
     { key: 'registeredName', label: 'Registered name', max: 160 },
     { key: 'number', label: 'ID / member number (optional)', max: 100 },
   ];
-  return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 20 }}>
+  return <KeyboardAvoidingView behavior="padding" className="flex-1">
+    <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 20 }}>
       <View><Text className={`mb-2 text-sm font-semibold ${textClass}`}>Type</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}><View className="flex-row gap-2">
           {[...GOVERNMENT_TYPES, 'Custom type'].map((type) => {

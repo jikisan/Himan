@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { CardCategoryType } from '@himan/shared/cards';
+import { KeyboardSafe } from '@/modules/shared/components/KeyboardSafe';
 
 interface CategoryModalProps {
   visible: boolean;
@@ -49,7 +50,7 @@ export const CategoryModal = ({
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <View className="flex-1 bg-black/50 justify-center items-center px-6">
+      <KeyboardSafe className="flex-1 bg-black/50 justify-center items-center px-6">
         <View className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm overflow-hidden">
           {/* Header */}
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
@@ -102,7 +103,7 @@ export const CategoryModal = ({
             )}
           </View>
         </View>
-      </View>
+      </KeyboardSafe>
     </Modal>
   );
 };

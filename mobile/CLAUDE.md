@@ -104,7 +104,7 @@ NativeWind classes matching existing patterns:
 - Text hierarchy: `text-gray-900` (primary), `text-gray-500` (secondary), `text-gray-400` (muted)
 - Accent color: `bg-indigo-600` (buttons/actions)
 - SafeAreaView wraps all screens
-- KeyboardAvoidingView with `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` for forms
+- `KeyboardSafe` (`@/modules/shared/components/KeyboardSafe`) around forms and inside every `<Modal>` that has a text input. Android is edge-to-edge, so the window does not resize for the keyboard and `behavior="height"` is unreliable; `padding` works on both platforms
 
 ## Safe Area Insets
 
@@ -117,7 +117,7 @@ Always use `useSafeAreaInsets()` from `react-native-safe-area-context`. Never ha
 | Bottom sheet ScrollView | `contentContainerStyle={{ paddingBottom: insets.bottom }}` |
 | FAB / floating button | `bottom: 24 + insets.bottom, right: 16` (inline style) |
 | Top toast / overlay | `paddingTop: insets.top + 10` on absolutely-positioned container |
-| Keyboard + form | `<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>` inside SafeAreaView |
+| Keyboard + form | `<KeyboardSafe>` inside SafeAreaView; in a Modal, wrap the overlay with it; give its ScrollView `automaticallyAdjustKeyboardInsets` so iOS scrolls the focused field and the buttons below it into view |
 
 ## Key Config Files
 

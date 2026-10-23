@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, TextInput, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { GroceryListType } from '@himan/shared/grocery';
+import { KeyboardSafe } from '@/modules/shared/components/KeyboardSafe';
 
 interface StartSessionModalProps {
   open: boolean;
@@ -52,7 +53,7 @@ export const StartSessionModal = ({
       animationType="slide"
       onRequestClose={() => onOpenChange(false)}
     >
-      <View className="flex-1 bg-black/50 justify-end">
+      <KeyboardSafe className="flex-1 bg-black/50 justify-end">
         <Pressable className="absolute inset-0" onPress={() => onOpenChange(false)} />
 
         <View className="bg-paper dark:bg-paper-dark rounded-t-3xl h-[88%]">
@@ -245,7 +246,7 @@ export const StartSessionModal = ({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardSafe>
     </Modal>
   );
 };

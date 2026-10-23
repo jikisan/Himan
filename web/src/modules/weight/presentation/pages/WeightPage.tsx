@@ -124,7 +124,7 @@ export function WeightPage() {
   return <WeightContent key={weight.userId ?? 'signed-out'} {...weight} />;
 }
 
-function WeightContent({ entries, settings, loading, error, refetch, userId, busy, saveEntry, removeEntry, saveSettings }: ReturnType<typeof useWeight>) {
+function WeightContent({ entries, settings, loading, error, refetch, userId, online, busy, saveEntry, removeEntry, saveSettings }: ReturnType<typeof useWeight>) {
   const reduce = useReducedMotion();
   const [dialog, setDialog] = useState<'log' | 'settings' | { edit: WeightEntry } | null>(null);
   const [deleting, setDeleting] = useState<WeightEntry | null>(null);
@@ -140,12 +140,12 @@ function WeightContent({ entries, settings, loading, error, refetch, userId, bus
       <div><h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight"><Scale className="h-8 w-8 text-primary" />Weight</h1>
         <p className="mt-2 text-muted-foreground">Log your weight and watch the trend toward your goal.</p></div>
       <div className="flex flex-wrap gap-3">
-        <Button className="h-11 rounded-xl hover:scale-100" variant="outline" onClick={() => setDialog('settings')} disabled={!userId}><Settings2 aria-hidden="true" className="h-4 w-4" />Height & goal</Button>
-        <Button className="h-11 rounded-xl hover:scale-100" onClick={() => setDialog('log')} disabled={!userId}><Plus aria-hidden="true" className="h-4 w-4" />Log weight</Button>
+        <Button className="h-11 rounded-xl hover:scale-100" variant="outline" onClick={() => setDialog('settings')} disabled={!userId || !online}><Settings2 aria-hidden="true" className="h-4 w-4" />Height & goal</Button>
+        <Button className="h-11 rounded-xl hover:scale-100" onClick={() => setDialog('log')} disabled={!userId || !online}><Plus aria-hidden="true" className="h-4 w-4" />Log weight</Button>
       </div>
     </header>
 
-    {!userId ? <p>Sign in to track your weight.</p> : error ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 p-4">
+    {!userId ? <p>Sign in to track your weight.</p> : !online ? <div role="status" className="rounded-xl border p-6 text-center">Connect to the internet to see and log your weight.</div> : error ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 p-4">
       <p>Could not load your weight.</p><Button variant="outline" onClick={() => void refetch()}>Retry</Button></div>
       : loading ? <p role="status" className="flex items-center gap-2 py-10"><Loader2 className="h-5 w-5 animate-spin" />Loading…</p>
       : !latest ? <div className="rounded-2xl border border-dashed px-6 py-16 text-center">

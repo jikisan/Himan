@@ -127,7 +127,7 @@ export default function WeightScreen() {
   return <WeightContent key={weight.userId ?? 'signed-out'} {...weight} />;
 }
 
-function WeightContent({ entries, settings, loading, error, refetch, userId, busy, saveEntry, removeEntry, saveSettings }: ReturnType<typeof useWeight>) {
+function WeightContent({ entries, settings, loading, error, refetch, userId, online, busy, saveEntry, removeEntry, saveSettings }: ReturnType<typeof useWeight>) {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const reduce = useReducedMotion();
@@ -156,10 +156,11 @@ function WeightContent({ entries, settings, loading, error, refetch, userId, bus
     </View>
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
       <View className="flex-row gap-3">
-        <View className="flex-1"><Button label="Log weight" disabled={!userId} onPress={() => setDialog('log')} /></View>
-        <View className="flex-1"><Button kind="outline" label="Height & goal" disabled={!userId} onPress={() => setDialog('settings')} /></View>
+        <View className="flex-1"><Button label="Log weight" disabled={!userId || !online} onPress={() => setDialog('log')} /></View>
+        <View className="flex-1"><Button kind="outline" label="Height & goal" disabled={!userId || !online} onPress={() => setDialog('settings')} /></View>
       </View>
       {!userId ? <Text className={textClass}>Sign in to track your weight.</Text>
+        : !online ? <Text accessibilityRole="alert" className={`py-8 text-center text-base ${mutedClass}`}>Connect to the internet to see and log your weight.</Text>
         : error ? <View className="gap-3 rounded-xl border border-red-300 p-4"><Text accessibilityRole="alert" className="text-red-600 dark:text-red-400">Could not load your weight.</Text>
           <Button kind="outline" label="Retry" onPress={() => void refetch()} /></View>
         : loading ? <ActivityIndicator color="#4f46e5" />

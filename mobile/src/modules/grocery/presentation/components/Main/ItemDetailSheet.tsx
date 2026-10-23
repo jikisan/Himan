@@ -196,7 +196,7 @@ export const ItemDetailSheet = ({
       onRequestClose={() => onOpenChange(false)}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         className="flex-1"
       >
         <Pressable
@@ -204,7 +204,7 @@ export const ItemDetailSheet = ({
           onPress={() => onOpenChange(false)}
         />
         <Pressable className="bg-paper dark:bg-paper-dark rounded-t-3xl max-h-[85%]">
-          <ScrollView keyboardShouldPersistTaps="handled" className="p-6" contentContainerStyle={{ paddingBottom: insets.bottom }}>
+          <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" className="p-6" contentContainerStyle={{ paddingBottom: insets.bottom }}>
             {/* Drag Handle */}
             <View className="items-center mb-4">
               <View className="w-10 h-1 rounded-full bg-ink-faint/40 dark:bg-ink-faintdark/40" />

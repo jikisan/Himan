@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { useCards, useCardCategories } from '@/modules/cards/presentation/hooks';
+import { CardColorPicker } from './CardColorPicker';
 import type { CreateCreditCardDto, UpdateCreditCardDto } from '@himan/shared/cards';
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -56,6 +57,7 @@ interface FormData {
   notes: string;
   isFavorite: boolean;
   dueDay: number | null;
+  color: string | null;
 }
 
 const defaultForm = (): FormData => ({
@@ -70,6 +72,7 @@ const defaultForm = (): FormData => ({
   notes: '',
   isFavorite: false,
   dueDay: null,
+  color: null,
 });
 
 export default function CardFormScreen() {
@@ -104,6 +107,7 @@ export default function CardFormScreen() {
         notes: existingCard.notes || '',
         isFavorite: existingCard.isFavorite,
         dueDay: existingCard.dueDay,
+        color: existingCard.color ?? null,
       });
     }
   }, [isEdit, existingCard?.id]);
@@ -155,6 +159,7 @@ export default function CardFormScreen() {
       notes: form.notes.trim() || null,
       isFavorite: form.isFavorite,
       dueDay: form.dueDay,
+      color: form.color,
     };
     try {
       if (isEdit && cardId) {
@@ -198,10 +203,11 @@ export default function CardFormScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         className="flex-1"
       >
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 20, gap: 20 }}
@@ -476,6 +482,13 @@ export default function CardFormScreen() {
               {form.isFavorite && <Feather name="check" size={11} color="#ffffff" />}
             </View>
           </Pressable>
+
+          <CardColorPicker
+            value={form.color}
+            onChange={(c) => set('color', c)}
+            labelClass={labelClass}
+            inputClass={inputClass}
+          />
 
           {/* Notes */}
           <View>

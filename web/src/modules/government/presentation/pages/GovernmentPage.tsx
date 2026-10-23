@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, Copy, Download, Eye, EyeOff, FileText, Landmark, Loader2, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,22 +9,24 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
   AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
-import { GOVERNMENT_TYPES, governmentRecordSchema, maskGovernmentNumber, filterGovernmentRecords,
-  validateGovernmentFile } from '@himan/shared/government';
-import type { GovernmentRecord, GovernmentRecordInput, GovernmentDocument } from '@himan/shared/government';
+import { ALL_GOVERNMENT_GROUPS, GOVERNMENT_TYPES, countGovernmentRecordsByGroup, filterGovernmentRecords, filterGovernmentRecordsByGroup,
+  governmentRecordSchema, maskGovernmentNumber, personalGovernmentGroup, sortGovernmentGroups, validateGovernmentFile } from '@himan/shared/government';
+import type { GovernmentRecord, GovernmentRecordInput, GovernmentDocument, GovernmentGroup } from '@himan/shared/government';
 import { useFieldErrors, zodFieldErrors } from '@core/presentation/hooks';
 import { FieldError, FormErrorBanner } from '@core/presentation/components';
 import { useGovernment } from '../hooks/useGovernment';
 import { GovernmentAgencyMark } from '../components/GovernmentAgencyMark';
 import { GovernmentDocumentPreview } from '../components/GovernmentDocumentPreview';
+import { GovernmentGroupBar } from '../components/GovernmentGroupBar';
+import { GovernmentGroupManager } from '../components/GovernmentGroupManager';
 
-function RecordForm({ record, busy, onSave, onCancel }: {
-  record?: GovernmentRecord; busy: boolean; onSave: (value: GovernmentRecordInput) => Promise<void>; onCancel: () => void;
+function RecordForm({ record, groups, defaultGroupId, busy, onSave, onCancel }: {
+  record?: GovernmentRecord; groups: GovernmentGroup[]; defaultGroupId: string; busy: boolean; onSave: (value: GovernmentRecordInput) => Promise<void>; onCancel: () => void;
 }) {
   const [form, setForm] = useState<GovernmentRecordInput>(() => record ? {
     agency: record.agency, label: record.label, registeredName: record.registeredName,
-    number: record.number, issueDate: record.issueDate, expiryDate: record.expiryDate, notes: record.notes,
-  } : { agency: 'PhilHealth', label: '', registeredName: '', number: '', issueDate: null, expiryDate: null, notes: '' });
+    number: record.number, issueDate: record.issueDate, expiryDate: record.expiryDate, notes: record.notes, groupId: record.groupId,
+  } : { agency: 'PhilHealth', label: '', registeredName: '', number: '', issueDate: null, expiryDate: null, notes: '', groupId: defaultGroupId });
   const [custom, setCustom] = useState(!!record && !GOVERNMENT_TYPES.some((type) => type === record.agency));
   const fe = useFieldErrors();
   const ids: Partial<Record<keyof GovernmentRecordInput, string>> = {
@@ -54,6 +57,11 @@ function RecordForm({ record, busy, onSave, onCancel }: {
           {...fe.invalid('gov-custom')} onChange={(event) => set('agency', event.target.value)} maxLength={80} required placeholder="e.g. PRC license" />
           <FieldError id="gov-custom" message={fe.errors['gov-custom']} /></>}
       </div>
+      <div className="space-y-2"><Label htmlFor="gov-group">Group</Label>
+        <select id="gov-group" className="h-12 w-full rounded-xl border border-input bg-background px-3 text-base" value={form.groupId ?? ''}
+          onChange={(event) => set('groupId', event.target.value)}>
+          {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+        </select></div>
       <div className="space-y-2"><Label htmlFor="gov-name" required>Registered name</Label><Input className="h-12 rounded-xl text-base" autoFocus id="gov-name" required maxLength={160}
         {...fe.invalid('gov-name')} value={form.registeredName} onChange={(event) => set('registeredName', event.target.value)} autoComplete="name" />
         <FieldError id="gov-name" message={fe.errors['gov-name']} /></div>
@@ -71,8 +79,16 @@ export function GovernmentPage() {
   return <GovernmentContent key={government.userId ?? 'signed-out'} {...government} />;
 }
 
-function GovernmentContent({ records, loading, error, online, busy, run, refetch, documentUrl, userId }: ReturnType<typeof useGovernment>) {
+function GovernmentContent({ records, groups: unsortedGroups, loading, error, online, busy, run, refetch, documentUrl, userId }: ReturnType<typeof useGovernment>) {
   const [search, setSearch] = useState('');
+  const [activeGroup, setActiveGroup] = useState(ALL_GOVERNMENT_GROUPS);
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [groupDelete, setGroupDelete] = useState<GovernmentGroup | null>(null);
+  const groups = sortGovernmentGroups(unsortedGroups);
+  const counts = countGovernmentRecordsByGroup(records);
+  const personal = personalGovernmentGroup(groups);
+  const shownGroup = activeGroup === ALL_GOVERNMENT_GROUPS || groups.some((group) => group.id === activeGroup) ? activeGroup : ALL_GOVERNMENT_GROUPS;
+  const groupName = (id: string) => groups.find((group) => group.id === id)?.name;
   const [dialog, setDialog] = useState<{ userId: string | undefined; id: string | null; editing: boolean } | null>(null);
   const activeDialog = dialog?.userId === userId ? dialog : null;
   const [revealed, setRevealed] = useState(false);
@@ -82,7 +98,7 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; document: boolean; name: string } | null>(null);
   const selected = records.find((record) => record.id === activeDialog?.id);
   const disabled = busy || uploading;
-  const filtered = filterGovernmentRecords(records, search);
+  const filtered = filterGovernmentRecords(filterGovernmentRecordsByGroup(records, shownGroup), search);
   const open = (id: string | null, editing = false) => { setRevealed(false); setRevealedPreviewId(null); setDialog({ userId, id, editing }); };
   const copyNumber = async (number: string) => {
     try { await navigator.clipboard.writeText(number); toast.success('Number copied'); }
@@ -121,6 +137,8 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
     {!online ? <div role="status" className="rounded-xl border p-6 text-center">Connect to the internet to access your government records.</div>
       : !userId ? <p>Sign in to access your records.</p>
       : <>
+        {!loading && <GovernmentGroupBar groups={groups} counts={counts} total={records.length} active={shownGroup} disabled={disabled}
+          onChange={setActiveGroup} onManage={() => setManagerOpen(true)} />}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="relative w-full sm:max-w-md"><Search aria-hidden="true" className="absolute left-4 top-4 h-4 w-4 text-muted-foreground" />
           <Input aria-label="Search government records" value={search} onChange={(event) => setSearch(event.target.value)}
@@ -132,16 +150,19 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
         {loading ? <p role="status" className="flex items-center gap-2 py-10"><Loader2 className="h-5 w-5 animate-spin" />Loading records…</p>
           : !error && !filtered.length ? <div className="rounded-2xl border border-dashed px-6 py-16 text-center">
             <Landmark className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">{search ? 'No matching records' : 'Keep your details together'}</h2>
-            <p className="mt-2 text-muted-foreground">{search ? 'Try a different search.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</p>
-            {!search && <Button className="mt-5" onClick={() => open(null, true)}>Add your first record</Button>}
-          </div> : <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((record) => <article key={record.id} className="flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
+            <h2 className="text-lg font-semibold">{search ? 'No matching records' : records.length ? `Nothing in ${groupName(shownGroup) ?? 'this group'} yet` : 'Keep your details together'}</h2>
+            <p className="mt-2 text-muted-foreground">{search ? 'Try a different search.' : records.length ? 'Add a record here, or move one in by editing its group.' : 'Add PhilHealth, Pag-IBIG, SSS, or another government record.'}</p>
+            {!search && <Button className="mt-5" onClick={() => open(null, true)}>{records.length ? 'Add a record' : 'Add your first record'}</Button>}
+          </div> : <MotionConfig reducedMotion="user"><motion.div layout key={shownGroup} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }} className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <AnimatePresence initial={false} mode="popLayout">
+            {filtered.map((record) => <motion.article layout key={record.id} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+              className="flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
               <button aria-label={`View ${record.label} details`} onClick={() => open(record.id)}
                 className="-m-1 flex min-h-11 items-center gap-3 rounded-xl p-1 text-left hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <GovernmentAgencyMark agency={record.agency} />
                 <span className="min-w-0 flex-1">
                   <h2 className="break-words text-base font-semibold leading-6">{record.agency}</h2>
+                  {shownGroup === ALL_GOVERNMENT_GROUPS && groupName(record.groupId) && <span className="mb-1 inline-block rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{groupName(record.groupId)}</span>}
                   {record.label !== record.agency && <span className="block break-words text-sm text-muted-foreground">{record.label}</span>}
                 </span>
               </button>
@@ -157,8 +178,9 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
                 <Button className="h-11 w-11 shrink-0 rounded-lg hover:scale-100" size="icon" variant="ghost" disabled={!record.number} aria-label={`Copy ${record.agency} number`}
                   onClick={() => void copyNumber(record.number)}><Copy aria-hidden="true" size={18} /></Button>
               </div>
-            </article>)}
-          </div>}
+            </motion.article>)}
+            </AnimatePresence>
+          </motion.div></MotionConfig>}
       </>}
 
     <Dialog open={!!activeDialog && online && !!userId} onOpenChange={(isOpen) => { if (!isOpen && !disabled) setDialog(null); }}>
@@ -168,10 +190,10 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
           <div className="flex items-center gap-3">
             {selected && !activeDialog?.editing && <GovernmentAgencyMark agency={selected.agency} />}
             <div className="min-w-0 space-y-1"><DialogTitle className="break-words text-lg leading-6">{activeDialog?.editing ? selected ? 'Edit record' : 'Add record' : selected?.label ?? 'Record unavailable'}</DialogTitle>
-            <DialogDescription>{activeDialog?.editing ? 'Just your ID type, name, and number.' : selected ? selected.registeredName : 'Refresh the page to reload this record.'}</DialogDescription></div>
+            <DialogDescription>{activeDialog?.editing ? 'Just your ID type, name, number, and group.' : selected ? `${selected.registeredName}${groupName(selected.groupId) ? ` · ${groupName(selected.groupId)}` : ''}` : 'Refresh the page to reload this record.'}</DialogDescription></div>
           </div>
         </DialogHeader>
-        {activeDialog?.editing ? <div className="min-h-0 overflow-y-auto p-6"><RecordForm key={activeDialog.id ?? 'new'} record={selected} busy={disabled}
+        {activeDialog?.editing ? <div className="min-h-0 overflow-y-auto p-6"><RecordForm key={activeDialog.id ?? 'new'} record={selected} groups={groups} defaultGroupId={(groups.find((group) => group.id === shownGroup) ?? personal)?.id ?? ''} busy={disabled}
           onCancel={() => selected ? open(selected.id) : setDialog(null)} onSave={async (input) => {
             const saved = await run({ type: 'save', id: activeDialog.id, input });
             if (saved) { open(saved.id); toast.success('Record saved'); }
@@ -217,6 +239,21 @@ function GovernmentContent({ records, loading, error, online, busy, run, refetch
         </>}
       </DialogContent>
     </Dialog>
+    <GovernmentGroupManager open={managerOpen && online} groups={groups} counts={counts} busy={busy} onClose={() => setManagerOpen(false)}
+      onAdd={async (name) => { await run({ type: 'addGroup', name }); toast.success('Group added'); }}
+      onRename={async (id, name) => { await run({ type: 'renameGroup', id, name }); toast.success('Group renamed'); }}
+      onDelete={setGroupDelete} />
+    <AlertDialog open={!!groupDelete && online} onOpenChange={(isOpen) => { if (!isOpen && !busy) setGroupDelete(null); }}>
+      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete the {groupDelete?.name} group?</AlertDialogTitle>
+        <AlertDialogDescription>{counts[groupDelete?.id ?? ''] ? `${counts[groupDelete!.id]} ${counts[groupDelete!.id] === 1 ? 'record' : 'records'} will move to Personal. No records are deleted.` : 'This group has no records.'}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel disabled={busy}>Keep group</AlertDialogCancel>
+          <AlertDialogAction disabled={busy} onClick={async (event) => {
+            event.preventDefault(); if (!groupDelete) return;
+            try { await run({ type: 'removeGroup', id: groupDelete.id }); if (shownGroup === groupDelete.id) setActiveGroup(ALL_GOVERNMENT_GROUPS); setGroupDelete(null); toast.success('Group deleted'); }
+            catch { toast.error('Could not delete the group. Retry when connected.'); }
+          }}>{busy ? 'Deleting…' : 'Delete group'}</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <AlertDialog open={!!deleteTarget && online} onOpenChange={(isOpen) => { if (!isOpen && !disabled) setDeleteTarget(null); }}>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
         <AlertDialogDescription>{deleteTarget?.document ? 'This document will be permanently deleted.' : 'This record and all its attached documents will be permanently deleted.'} This cannot be undone.</AlertDialogDescription></AlertDialogHeader>

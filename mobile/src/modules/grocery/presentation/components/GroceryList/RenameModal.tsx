@@ -1,4 +1,5 @@
 import { View, TextInput, Pressable, Text } from 'react-native';
+import { KeyboardSafe } from '@/modules/shared/components/KeyboardSafe';
 
 interface RenameModalProps {
   visible: boolean;
@@ -20,7 +21,7 @@ export function RenameModal({
   }
 
   return (
-    <View className="absolute inset-0 bg-black/40 justify-center items-center px-6">
+    <KeyboardSafe className="absolute inset-0 bg-black/40 justify-center items-center px-6">
       <View className="bg-paper dark:bg-paper-dark rounded-2xl p-6 w-full">
         <Text className="text-xl font-serifsemi text-ink dark:text-ink-dark mb-4">
           Rename List
@@ -47,6 +48,6 @@ export function RenameModal({
           </Pressable>
         </View>
       </View>
-    </View>
+    </KeyboardSafe>
   );
 }

@@ -90,4 +90,20 @@ build/lint, and mobile typecheck pass. Browser checks cover opening details thro
 the agency header or attachment preview and copying through icon-only controls.
 The updated iOS Release build passes and is installed on the iPhone 17 Simulator.
 
+## Groups
+
+Every record belongs to a group. Personal and Business exist for every user without
+setup (`government_ensure_groups()` creates them on first load; the migration also
+backfills existing users). Custom groups can be added, renamed and deleted; Personal
+and Business cannot be renamed or deleted (enforced by RLS and column grants).
+Deleting a custom group runs `government_delete_group()`, which moves its records to
+Personal in one transaction, and the UI confirms first. Records saved without a group
+land in Personal (insert trigger). Composite FK `(group_id, user_id)` blocks
+cross-account links. Names are unique per user ignoring case and spacing.
+
+- Migration: `20261026000000_government_groups.sql`; assertions in `supabase/tests/government_groups.sql`.
+- Shared: `GovernmentGroup`, `sortGovernmentGroups`, `filterGovernmentRecordsByGroup`, repository `findGroups/addGroup/renameGroup/removeGroup`.
+- Web and mobile: group filter bar with counts (animated, reduced-motion aware), "Manage groups" dialog, group picker in the record form.
+- Verified on a local stack (ports 544xx): SQL assertions, backfill, and repository round trip through PostgREST. Not applied to the hosted database.
+
 [[MAP|← back to MAP]]

@@ -2,19 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GovernmentPage } from '../presentation/pages/GovernmentPage';
-import type { GovernmentRecord } from '@himan/shared/government';
+import type { GovernmentGroup, GovernmentRecord } from '@himan/shared/government';
 
+const personal: GovernmentGroup = { id: 'gp', userId: 'owner', name: 'Personal', kind: 'personal', createdAt: '1' };
+const business: GovernmentGroup = { id: 'gb', userId: 'owner', name: 'Business', kind: 'business', createdAt: '1' };
+const family: GovernmentGroup = { id: 'gf', userId: 'owner', name: 'Family', kind: 'custom', createdAt: '2' };
 const record: GovernmentRecord = {
-  id: 'record', userId: 'owner', agency: 'SSS', label: 'My membership', registeredName: 'Test Person',
+  id: 'record', userId: 'owner', groupId: 'gp', agency: 'SSS', label: 'My membership', registeredName: 'Test Person',
   number: '001-234-56789', issueDate: null, expiryDate: null, notes: '', deleting: false,
   createdAt: '', updatedAt: '', documents: [],
 };
-const state = vi.hoisted(() => ({ records: [] as GovernmentRecord[], online: true, userId: 'owner',
+const state = vi.hoisted(() => ({ records: [] as GovernmentRecord[], groups: [] as GovernmentGroup[], online: true, userId: 'owner',
   loading: false, error: null, busy: false, run: vi.fn(), refetch: vi.fn(), documentUrl: vi.fn() }));
 vi.mock('../presentation/hooks/useGovernment', () => ({ useGovernment: () => state }));
 
 beforeEach(() => {
-  vi.clearAllMocks(); state.records = [record]; state.online = true; state.userId = 'owner';
+  vi.clearAllMocks(); state.records = [record]; state.groups = [personal, business]; state.online = true; state.userId = 'owner';
 });
 const page = () => <MemoryRouter><GovernmentPage /></MemoryRouter>;
 
@@ -98,7 +101,7 @@ describe('Government privacy and editing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save record' }));
     await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'save', id: null,
       input: { agency: 'PRC license', label: 'PRC license', registeredName: 'Test Person', number: '',
-        issueDate: null, expiryDate: null, notes: '' } }));
+        issueDate: null, expiryDate: null, notes: '', groupId: 'gp' } }));
   });
 });
 
@@ -153,5 +156,72 @@ describe('Government record form errors', () => {
     expect(document.activeElement).toBe(input);
     expect(document.getElementById('gov-upload-error')).not.toBeEmptyDOMElement();
     expect(state.run).not.toHaveBeenCalled();
+  });
+});
+
+describe('Government groups', () => {
+  const taxRecord: GovernmentRecord = { ...record, id: 'tax', groupId: 'gb', agency: 'TIN', label: 'TIN', number: '999' };
+  it('shows Personal and Business with counts and filters the list by group', () => {
+    state.records = [record, taxRecord];
+    render(page());
+    const bar = screen.getByRole('group', { name: 'Filter by group' });
+    expect(bar).toHaveTextContent('All (2)');
+    expect(bar).toHaveTextContent('Personal (1)');
+    expect(bar).toHaveTextContent('Business (1)');
+    fireEvent.click(screen.getByRole('button', { name: /^Business/ }));
+    expect(screen.getByRole('button', { name: 'Reveal TIN number' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reveal SSS number' })).not.toBeInTheDocument();
+  });
+  it('lets the user pick a group when adding a record', async () => {
+    state.run.mockResolvedValue(undefined);
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Business (0)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add record' }));
+    expect(screen.getByLabelText('Group')).toHaveValue('gb');
+    fireEvent.change(screen.getByLabelText(/Registered name/), { target: { value: 'Test Person' } });
+    fireEvent.change(screen.getByLabelText('Group'), { target: { value: 'gp' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save record' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith(expect.objectContaining({ type: 'save', input: expect.objectContaining({ groupId: 'gp' }) })));
+  });
+  it('adds a group, rejects duplicate names, and only offers rename and delete for custom groups', async () => {
+    state.run.mockResolvedValue(undefined); state.groups = [personal, business, family];
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Manage groups' }));
+    expect(screen.getAllByRole('button', { name: /^Rename/ })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Delete/ })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText('New group name'), { target: { value: ' business ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add group' }));
+    expect(await screen.findByText('You already have a group with that name')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('New group name'), { target: { value: 'Pension' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add group' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'addGroup', name: 'Pension' }));
+  });
+  it('renames a custom group', async () => {
+    state.run.mockResolvedValue(undefined); state.groups = [personal, business, family];
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Manage groups' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Rename/ }));
+    fireEvent.change(screen.getByLabelText(/New name for Family/), { target: { value: 'Relatives' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'renameGroup', id: 'gf', name: 'Relatives' }));
+  });
+  it('confirms before deleting a group and says its records move to Personal', async () => {
+    state.run.mockResolvedValue(undefined); state.groups = [personal, business, family];
+    state.records = [{ ...record, groupId: 'gf' }];
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Manage groups' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Delete/ }));
+    const confirm = screen.getByRole('alertdialog');
+    expect(confirm).toHaveTextContent('1 record will move to Personal');
+    expect(state.run).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete group' }));
+    await waitFor(() => expect(state.run).toHaveBeenCalledWith({ type: 'removeGroup', id: 'gf' }));
+  });
+  it('explains an empty group instead of offering a first record when other groups have records', () => {
+    render(page());
+    fireEvent.click(screen.getByRole('button', { name: 'Business (0)' }));
+    expect(screen.getByText('Nothing in Business yet')).toBeInTheDocument();
+    expect(screen.queryByText('Add your first record')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add a record' })).toBeInTheDocument();
   });
 });

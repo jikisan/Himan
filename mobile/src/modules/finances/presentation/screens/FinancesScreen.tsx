@@ -47,7 +47,8 @@ function TransactionForm({ transaction, categories, defaultDate, busy, onSave }:
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 20 }}>
       <View className="flex-row gap-2">
         {(['expense', 'income'] as const).map((k) => <Pressable key={k} accessibilityRole="button" accessibilityState={{ selected: kind === k }}
-          onPress={() => { setKind(k); setCategoryId(null); }} className="min-h-12 flex-1 items-center justify-center rounded-xl active:opacity-70"
+          onPress={() => { setKind(k); setCategoryId(null); }}
+          className={`min-h-12 flex-1 items-center justify-center rounded-xl active:opacity-70 ${kind === k ? '' : 'bg-gray-100 dark:bg-gray-800'}`}
           style={{ backgroundColor: kind === k ? (k === 'income' ? GREEN : ROSE) : undefined }}>
           <Text className={kind === k ? 'font-semibold text-white' : `font-semibold ${textClass}`}>{k === 'income' ? 'Income' : 'Expense'}</Text>
         </Pressable>)}

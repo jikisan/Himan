@@ -274,7 +274,7 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, closeL
           <Feather name="x" size={20} color={icon} /><Text className={`font-semibold ${text}`}>{closeLabel}</Text>
         </Pressable>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         {scroll ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: footer ? 16 : Math.max(insets.bottom, 24) }}>
           {children}</ScrollView> : <View className="flex-1">{children}</View>}
         {footer ? <View style={{ paddingBottom: Math.max(insets.bottom, 12) }}

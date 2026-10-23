@@ -6,6 +6,7 @@ import { GroceryItem } from '@himan/shared/grocery';
 import { Checkbox } from '@/modules/grocery/presentation/shared/Checkbox';
 import { ItemRowContent } from '@/modules/grocery/presentation/shared/ItemRowContent';
 import { notebook } from '@/modules/grocery/presentation/theme/notebook';
+import { KeyboardSafe } from '@/modules/shared/components/KeyboardSafe';
 
 interface GroceryItemRowProps {
   item: GroceryItemType;
@@ -89,40 +90,42 @@ export const GroceryItemRow = ({
         animationType="slide"
         onRequestClose={() => setShowPriceInput(false)}
       >
-        <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setShowPriceInput(false)}>
-          <Pressable className="bg-paper dark:bg-paper-dark rounded-t-3xl p-6">
-            <View className="items-center mb-4">
-              <View className="w-10 h-1 rounded-full bg-ink-faint/40 dark:bg-ink-faintdark/40" />
-            </View>
-            <Text className="text-[15px] font-serif text-ink-soft dark:text-ink-softdark mb-4">
-              {item.name} {entity.quantityLabel && `× ${entity.quantityLabel}`}
-            </Text>
-            <TextInput
-              placeholder="Price (optional)"
-              placeholderTextColor={c.inkFaint}
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="decimal-pad"
-              onSubmitEditing={handlePriceSubmit}
-              className="border border-rule dark:border-rule-dark rounded-sm p-3 mb-4 font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
-              autoFocus
-            />
-            <View className="flex flex-row gap-3">
-              <Pressable
-                onPress={handlePriceSubmit}
-                className="flex-1 bg-accent dark:bg-accent-dark rounded-sm p-3 items-center"
-              >
-                <Text className="text-white font-serifsemi">Done</Text>
-              </Pressable>
-              <Pressable
-                onPress={handlePriceSkip}
-                className="flex-1 bg-surface dark:bg-surface-dark rounded-sm p-3 items-center"
-              >
-                <Text className="text-ink dark:text-ink-dark font-serif">Skip</Text>
-              </Pressable>
-            </View>
+        <KeyboardSafe>
+          <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setShowPriceInput(false)}>
+            <Pressable className="bg-paper dark:bg-paper-dark rounded-t-3xl p-6">
+              <View className="items-center mb-4">
+                <View className="w-10 h-1 rounded-full bg-ink-faint/40 dark:bg-ink-faintdark/40" />
+              </View>
+              <Text className="text-[15px] font-serif text-ink-soft dark:text-ink-softdark mb-4">
+                {item.name} {entity.quantityLabel && `× ${entity.quantityLabel}`}
+              </Text>
+              <TextInput
+                placeholder="Price (optional)"
+                placeholderTextColor={c.inkFaint}
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="decimal-pad"
+                onSubmitEditing={handlePriceSubmit}
+                className="border border-rule dark:border-rule-dark rounded-sm p-3 mb-4 font-serif text-ink dark:text-ink-dark bg-surface dark:bg-surface-dark"
+                autoFocus
+              />
+              <View className="flex flex-row gap-3">
+                <Pressable
+                  onPress={handlePriceSubmit}
+                  className="flex-1 bg-accent dark:bg-accent-dark rounded-sm p-3 items-center"
+                >
+                  <Text className="text-white font-serifsemi">Done</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handlePriceSkip}
+                  className="flex-1 bg-surface dark:bg-surface-dark rounded-sm p-3 items-center"
+                >
+                  <Text className="text-ink dark:text-ink-dark font-serif">Skip</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardSafe>
       </Modal>
     </>
   );

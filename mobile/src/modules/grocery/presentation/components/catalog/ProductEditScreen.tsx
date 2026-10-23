@@ -17,6 +17,7 @@ import { Field } from './ProductDialog/Field';
 import { INPUT } from './ProductDialog/constants';
 import { useProductEditForm } from './ProductDialog/useProductEditForm';
 import { useStoreDrafts } from './ProductDialog/useStoreDrafts';
+import { KeyboardSafe } from '@/modules/shared/components/KeyboardSafe';
 
 export function ProductEditScreen() {
   const router = useRouter();
@@ -66,6 +67,7 @@ export function ProductEditScreen() {
           </PressableScale>
         </View>
 
+        <KeyboardSafe>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
@@ -108,6 +110,7 @@ export function ProductEditScreen() {
               </View>
           ) : null}
         </ScrollView>
+        </KeyboardSafe>
       </SafeAreaView>
     </PaperSurface>
   );

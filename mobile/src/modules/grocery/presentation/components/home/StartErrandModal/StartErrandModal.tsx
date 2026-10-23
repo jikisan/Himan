@@ -37,7 +37,7 @@ export function StartErrandModal({ visible, onClose, userId, onStarted, insetsBo
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/40">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior="padding">
           <View
             className="rounded-t-3xl bg-paper dark:bg-paper-dark px-5 pt-4"
             style={{ paddingBottom: Math.max(insetsBottom, 24), maxHeight: '85%' }}

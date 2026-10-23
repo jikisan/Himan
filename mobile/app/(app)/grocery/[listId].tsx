@@ -153,7 +153,7 @@ export default function GroceryListDetailScreen() {
           onShare={() => setShareDialogOpen(true)}
         />
 
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
           <View className="px-5 pt-3">
             <AddItemInput
               listId={listId}

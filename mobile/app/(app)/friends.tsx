@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFriends } from '@/modules/grocery/presentation/hooks';
+import { KeyboardSafe } from '@/modules/shared/components/KeyboardSafe';
 
 export default function FriendsScreen() {
   const {
@@ -46,6 +47,7 @@ export default function FriendsScreen() {
         <Text className="text-lg font-semibold text-gray-900 dark:text-white">Friends</Text>
       </View>
 
+      <KeyboardSafe>
       <ScrollView className="flex-1 px-4" keyboardShouldPersistTaps="handled">
         {/* Add by email */}
         <View className="flex-row gap-2 my-4">
@@ -130,6 +132,7 @@ export default function FriendsScreen() {
           )}
         </View>
       </ScrollView>
+      </KeyboardSafe>
     </SafeAreaView>
   );
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { File, Paths } from 'expo-file-system';
-import { RECEIPT_MAX_TAGS, normalizeTags, receiptSchema, todayISO, validateReceiptPhoto } from '@himan/shared/receipts';
+import { RECEIPT_MAX_TAGS, RECEIPT_PHOTO_MAX_EDGE, normalizeTags, receiptSchema, todayISO, validateReceiptPhoto } from '@himan/shared/receipts';
 import type { Receipt, ReceiptValue } from '@himan/shared/receipts';
 import { DateField } from './DateField';
 
@@ -10,17 +11,20 @@ const inputClass = 'min-h-12 rounded-xl border border-gray-300 bg-white px-4 py-
 const labelClass = 'mb-2 text-sm font-semibold text-gray-900 dark:text-white';
 const buttonClass = 'min-h-12 items-center justify-center rounded-xl border border-gray-300 px-4 py-3 active:opacity-60 dark:border-gray-600';
 
-async function takePhoto(source: 'camera' | 'photos'): Promise<ImagePicker.ImagePickerAsset | null> {
+async function takePhoto(source: 'camera' | 'photos'): Promise<{ uri: string } | null> {
   const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     Alert.alert(source === 'camera' ? 'Camera is off for Himan' : 'Photos are off for Himan', 'Turn it on in Settings to add a picture.',
       [{ text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => void Linking.openSettings() }]);
     return null;
   }
-  // Quality below 1 makes the picker hand back a smaller JPEG (never HEIC); the long edge is limited by the picker's own size.
-  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, exif: false };
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, exif: false };
   const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
-  return result.canceled ? null : result.assets[0];
+  if (result.canceled) return null;
+  // Same as web: long edge at most 1600px, saved as JPEG (never HEIC or PNG).
+  const { uri, width, height } = result.assets[0];
+  const resize = width >= height ? { width: Math.min(width, RECEIPT_PHOTO_MAX_EDGE) } : { height: Math.min(height, RECEIPT_PHOTO_MAX_EDGE) };
+  return manipulateAsync(uri, [{ resize }], { compress: 0.8, format: SaveFormat.JPEG });
 }
 
 export interface ReceiptFormProps {

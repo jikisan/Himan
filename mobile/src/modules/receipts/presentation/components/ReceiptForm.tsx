@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
@@ -43,6 +43,8 @@ export function ReceiptForm({ receipt, existingPhotoUrl, knownTags, busy, onSave
   const [expiresOn, setExpiry] = useState(receipt?.expiresOn ?? '');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [error, setError] = useState('');
+  // A message about a field is stale as soon as that field changes.
+  useEffect(() => setError(''), [merchant, amount, purchasedOn, photoUri]);
   const addTags = (raw: string) => { setTags((p) => normalizeTags([...p, ...normalizeTags(raw)])); setTagText(''); };
 
   const choose = () => Alert.alert('Photo of the receipt', undefined, [

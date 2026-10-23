@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
@@ -149,6 +149,21 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
   const [search, setSearch] = useState('');
   const [editor, setEditor] = useState<{ transaction?: FinanceTransaction } | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  // The row's action sheet. Its choice runs once the sheet has closed: iOS will not present the editor or an alert
+  // while another Modal is still animating away.
+  const [actions, setActions] = useState<FinanceTransaction | null>(null);
+  const afterActions = useRef<(() => void) | null>(null);
+  const choose = (next: () => void) => {
+    afterActions.current = next;
+    setActions(null);
+    if (Platform.OS !== 'ios') runAfterActions();
+  };
+  const runAfterActions = () => {
+    const next = afterActions.current;
+    afterActions.current = null;
+    next?.();
+  };
+  const insets = useSafeAreaInsets();
   const totals = useMemo(() => summarize(transactions), [transactions]);
   const rows = useMemo(() => breakdown(transactions, categories), [transactions, categories]);
   const visible = useMemo(() => filterTransactions(transactions, categories, search), [transactions, categories, search]);
@@ -199,19 +214,15 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
     const name = category?.name ?? 'Uncategorized';
     return <View>
       {(index === 0 || visible[index - 1].occurredOn !== t.occurredOn) && <Text className={`mb-2 mt-3 text-sm font-semibold ${mutedClass}`}>{dayLabel(t.occurredOn)}</Text>}
-      <View className="mb-2 gap-2 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
-        <View className="flex-row items-center gap-3">
-          <View className="h-10 w-1.5 rounded-full" style={{ backgroundColor: category?.color ?? '#94a3b8' }} />
-          <View className="flex-1"><Text className={`text-base font-medium ${textClass}`}>{name}</Text>{t.note ? <Text numberOfLines={1} className={`text-sm ${mutedClass}`}>{t.note}</Text> : null}</View>
-          <Text accessibilityLabel={`${t.kind === 'income' ? 'Income' : 'Expense'} ${formatPesos(t.amountCentavos)}`} className="text-lg font-bold" style={{ color: t.kind === 'income' ? GREEN : ROSE }}>
-            {t.kind === 'income' ? '+' : '−'}{formatPesos(t.amountCentavos)}</Text>
-        </View>
-        <View className="flex-row gap-2">
-          <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${name} ${formatPesos(t.amountCentavos)}`} className="min-h-12 flex-1 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-700" onPress={() => setEditor({ transaction: t })}><Text className={textClass}>Edit</Text></Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${name} ${formatPesos(t.amountCentavos)}`} className="min-h-12 flex-1 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-700"
-            onPress={() => confirm('Delete this transaction?', 'This cannot be undone.', { type: 'deleteTransaction', id: t.id })}><Text className="text-red-600 dark:text-red-400">Delete</Text></Pressable>
-        </View>
-      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${name}, ${t.kind === 'income' ? 'income' : 'expense'} ${formatPesos(t.amountCentavos)}`}
+        accessibilityHint="Opens edit and delete" onPress={() => setActions(t)}
+        className="mb-2 flex-row items-center gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 active:bg-gray-100 dark:active:bg-gray-700">
+        <View className="h-10 w-1.5 rounded-full" style={{ backgroundColor: category?.color ?? '#94a3b8' }} />
+        <View className="flex-1"><Text className={`text-base font-medium ${textClass}`}>{name}</Text>{t.note ? <Text numberOfLines={1} className={`text-sm ${mutedClass}`}>{t.note}</Text> : null}</View>
+        <Text className="text-lg font-bold" style={{ color: t.kind === 'income' ? GREEN : ROSE }}>
+          {t.kind === 'income' ? '+' : '−'}{formatPesos(t.amountCentavos)}</Text>
+        <Feather accessible={false} name="chevron-right" size={20} color="#9ca3af" />
+      </Pressable>
     </View>;
   };
 
@@ -249,6 +260,29 @@ function FinancesContent({ month, setMonth, today, userId, categories, transacti
             setEditor(null);
           }} />}
       </SafeAreaView>
+    </Modal>
+    <Modal visible={!!actions} transparent animationType="slide" onRequestClose={() => setActions(null)} onDismiss={runAfterActions}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Close" className="flex-1 justify-end bg-black/40" onPress={() => setActions(null)}>
+        {actions && <Pressable className="gap-3 rounded-t-3xl bg-white dark:bg-gray-800 px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 16) + 8 }}>
+          <View className="mb-1 h-1.5 w-10 self-center rounded-full bg-gray-300 dark:bg-gray-600" />
+          <View className="flex-row items-center justify-between gap-3 px-1">
+            <View className="flex-1">
+              <Text className={`text-lg font-semibold ${textClass}`}>{actions.categoryId ? names.get(actions.categoryId)?.name ?? 'Uncategorized' : 'Uncategorized'}</Text>
+              <Text className={`text-sm ${mutedClass}`}>{dayLabel(actions.occurredOn)}{actions.note ? ` · ${actions.note}` : ''}</Text>
+            </View>
+            <Text className="text-lg font-bold" style={{ color: actions.kind === 'income' ? GREEN : ROSE }}>
+              {actions.kind === 'income' ? '+' : '−'}{formatPesos(actions.amountCentavos)}</Text>
+          </View>
+          <Pressable accessibilityRole="button" className="min-h-14 flex-row items-center justify-center gap-2 rounded-xl bg-indigo-600 active:bg-indigo-700"
+            onPress={() => { const t = actions; choose(() => setEditor({ transaction: t })); }}>
+            <Feather accessible={false} name="edit-2" size={18} color="#fff" /><Text className="text-base font-semibold text-white">Edit</Text></Pressable>
+          <Pressable accessibilityRole="button" className="min-h-14 flex-row items-center justify-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/40 active:bg-red-100"
+            onPress={() => { const id = actions.id; choose(() => confirm('Delete this transaction?', 'This cannot be undone.', { type: 'deleteTransaction', id })); }}>
+            <Feather accessible={false} name="trash-2" size={18} color={ROSE} /><Text className="text-base font-semibold text-red-600 dark:text-red-400">Delete</Text></Pressable>
+          <Pressable accessibilityRole="button" className="min-h-12 items-center justify-center rounded-xl" onPress={() => setActions(null)}>
+            <Text className={`text-base font-semibold ${mutedClass}`}>Cancel</Text></Pressable>
+        </Pressable>}
+      </Pressable>
     </Modal>
     <Modal visible={categoriesOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCategoriesOpen(false)}>
       <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">

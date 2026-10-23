@@ -20,6 +20,7 @@ import { GroceryPage } from '@grocery/presentation/pages';
 import { ItemsPage as CareerItemsPage, ItemEditorPage as CareerItemEditorPage, BlocksPage as CareerBlocksPage } from '@career/presentation/pages';
 import { ProfilePage } from '@profile/presentation/pages';
 import { GovernmentPage } from '@government';
+import { WeightPage } from '@weight';
 import { RentalsPage } from '@rentals';
 import { FinancesPage } from '@finances';
 
@@ -64,6 +65,7 @@ export const Router = () => {
             <Route path="/passwords" element={<PasswordsPage />} />
             <Route path="/cards" element={<CardsPage />} />
             <Route path="/government" element={<GovernmentPage />} />
+            <Route path="/weight" element={<WeightPage />} />
             <Route path="/rentals" element={<RentalsPage />} />
             <Route path="/finances" element={<FinancesPage />} />
             <Route path="/storage" element={<StoragePage />} />

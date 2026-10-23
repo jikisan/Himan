@@ -8,7 +8,10 @@ type Action =
   | { type: 'save'; id: string | null; input: GovernmentRecordInput }
   | { type: 'remove'; id: string }
   | { type: 'upload'; id: string; file: { name: string; mimeType?: string | null; bytes: ArrayBuffer } }
-  | { type: 'removeDocument'; id: string };
+  | { type: 'removeDocument'; id: string }
+  | { type: 'addGroup'; name: string }
+  | { type: 'renameGroup'; id: string; name: string }
+  | { type: 'removeGroup'; id: string };
 
 export function useGovernment() {
   const { user } = useAuth();
@@ -22,6 +25,11 @@ export function useGovernment() {
     meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false,
     refetchOnMount: 'always', networkMode: 'always',
   });
+  const groupsQuery = useQuery({
+    queryKey: [...key, 'groups'], queryFn: () => repository.findGroups(userId!), enabled: !!userId && online,
+    meta: { sensitive: true }, gcTime: 0, staleTime: 0, retry: false,
+    refetchOnMount: 'always', networkMode: 'always',
+  });
   const mutation = useMutation({
     meta: { sensitive: true }, retry: false, gcTime: 0, networkMode: 'always',
     mutationFn: async (action: Action) => {
@@ -32,14 +40,18 @@ export function useGovernment() {
         case 'remove': return repository.remove(userId, action.id);
         case 'upload': return repository.upload(userId, action.id, action.file);
         case 'removeDocument': return repository.removeDocument(userId, action.id);
+        case 'addGroup': return repository.addGroup(userId, action.name);
+        case 'renameGroup': return repository.renameGroup(userId, action.id, action.name);
+        case 'removeGroup': return repository.removeGroup(action.id);
       }
     },
     onSettled: () => client.invalidateQueries({ queryKey: key }),
   });
   return {
     records: online && userId ? query.data ?? [] : [],
-    loading: query.isLoading, error: query.error, online, userId,
-    busy: mutation.isPending, refetch: query.refetch,
+    groups: online && userId ? groupsQuery.data ?? [] : [],
+    loading: query.isLoading || groupsQuery.isLoading, error: query.error ?? groupsQuery.error, online, userId,
+    busy: mutation.isPending, refetch: () => Promise.all([query.refetch(), groupsQuery.refetch()]),
     run: mutation.mutateAsync,
     documentUrl: async (id: string, download = false) => {
       if (!userId || !onlineManager.isOnline()) throw new Error('Sign in and connect to the internet to continue');

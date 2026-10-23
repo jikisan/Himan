@@ -9,6 +9,7 @@ export const MOBILE_APPS: MobileApp[] = [
   { id: 'cards', label: 'Cards', route: '/(app)/cards', icon: 'credit-card', color: '#4f46e5' },
   { id: 'grocery', label: 'Grocery', route: '/(app)/grocery', icon: 'shopping-cart', color: '#ea580c' },
   { id: 'rentals', label: 'Rentals', route: '/(app)/rentals', icon: 'home', color: '#d97706' },
+  { id: 'weight', label: 'Weight', route: '/(app)/weight', icon: 'activity', color: '#059669' },
   { id: 'finances', label: 'Finances', route: '/(app)/finances', icon: 'dollar-sign', color: '#16a34a' },
   { id: 'government', label: 'Government', route: '/(app)/government', icon: 'file-text', color: '#0d9488' },
 ];

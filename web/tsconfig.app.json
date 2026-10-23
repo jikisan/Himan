@@ -28,6 +28,8 @@
       "@cards/*": ["src/modules/cards/*"],
       "@government": ["src/modules/government/index.ts"],
       "@government/*": ["src/modules/government/*"],
+      "@weight": ["src/modules/weight/index.ts"],
+      "@weight/*": ["src/modules/weight/*"],
       "@rentals": ["src/modules/rentals/index.ts"],
       "@rentals/*": ["src/modules/rentals/*"],
       "@finances": ["src/modules/finances/index.ts"],

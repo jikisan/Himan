@@ -16,6 +16,7 @@ export default defineConfig({
       '@passwords': path.resolve(__dirname, './src/modules/passwords'),
       '@cards': path.resolve(__dirname, './src/modules/cards'),
       '@government': path.resolve(__dirname, './src/modules/government'),
+      '@weight': path.resolve(__dirname, './src/modules/weight'),
       '@rentals': path.resolve(__dirname, './src/modules/rentals'),
       '@finances': path.resolve(__dirname, './src/modules/finances'),
       '@storage': path.resolve(__dirname, './src/modules/storage'),

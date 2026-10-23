@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Landmark,
   Building2,
+  Scale,
   Briefcase,
   Wallet
 } from 'lucide-react';
@@ -32,6 +33,7 @@ export const Sidebar = ({ isOpen, onToggle, className }: SidebarProps) => {
     { path: '/notes', label: 'Notes', icon: FileText },
     { path: '/grocery', label: 'Grocery', icon: ShoppingCart },
     { path: '/government', label: 'Government', icon: Landmark },
+    { path: '/weight', label: 'Weight', icon: Scale },
     { path: '/rentals', label: 'Rentals', icon: Building2 },
     { path: '/finances', label: 'Finances', icon: Wallet },
     { path: '/invoice-generator', label: 'Invoices', icon: Receipt },

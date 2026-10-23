@@ -22,49 +22,6 @@ Manage domestic helper records including attendance tracking, leave balance, mon
 - Payment schedule tracking
 - Submitted requirements
 
-## Card Colors
-
-Let users pick or customize the color of each card in the Cards module.
-
-**Planned Features:**
-- Choose a color per card from a preset palette
-- Custom color option
-- Color shows on web and mobile
-
-## Finances
-
-A simple finance tracker on web and mobile. Pick a simple finance management app as the reference and reverse engineer its flows with [rea](https://github.com/morluto/rea), then build the Himan version.
-
-**Planned Features:**
-- To be defined from the reference app (income, expenses, categories, totals)
-
-## Weight & BMI
-
-Track weight over time and calculate BMI.
-
-**Planned Features:**
-- Log weight entries with dates
-- Height setting and BMI calculation with the BMI category
-- Weight history and trend
-
-## Receipts
-
-Store and manage receipts.
-
-**Planned Features:**
-- Add receipts with a photo, amount, store and date
-- Search and filter receipts
-- Group or tag receipts
-
-## Government Groups
-
-Group government documents in the Government module.
-
-**Planned Features:**
-- Groups for government docs, with Personal and Business added by default
-- Users can add, rename and remove their own groups
-- Filter documents by group
-
 ## Dashboard Widgets
 
 Grow the customizable dashboard (today: users choose which app buttons to show, saved in auth metadata under `dashboard_hidden_apps`) into widgets.
@@ -75,3 +32,13 @@ Grow the customizable dashboard (today: users choose which app buttons to show, 
 - Per module choice of Overview, Button, or Hidden
 - Drag and drop to reorder, with sizes (small button, medium or wide overview) on a responsive grid, via a Customize mode
 - Layout saved to the account so it follows the user across devices; mobile reads the same layout later
+
+## Dashboard A–Z Layout
+
+Sort the dashboard tiles alphabetically and group them by first letter, like a phone's contacts list, with a letter scroll bar to jump between groups.
+
+**Planned Features:**
+- Tiles sorted A–Z by name, under a letter heading per group (A, C, F, G, …), showing only letters that have tiles
+- A vertical letter bar on the right edge: tap or drag a letter to jump to its group, with the current letter shown large while dragging
+- Hidden tiles (from Customize) are left out of the groups and the letter bar
+- Mobile first; on web, the letter bar can be a row of letter links above the grid

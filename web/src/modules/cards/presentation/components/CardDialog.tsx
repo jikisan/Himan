@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import type { CreditCardType, CardCategoryType } from '../../domain';
 import { CARD_TYPES } from './cardOptions';
+import { CardColorPicker } from './CardColorPicker';
 
 interface CardDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ interface CardDialogProps {
     categoryId?: string | null;
     notes?: string | null;
     dueDay?: number | null;
+    color?: string | null;
   }) => Promise<void>;
 }
 
@@ -92,6 +94,7 @@ export const CardDialog = ({
     categoryId: null as string | null,
     notes: '',
     dueDay: null as number | null,
+    color: null as string | null,
   });
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
@@ -112,6 +115,7 @@ export const CardDialog = ({
         categoryId: card.categoryId,
         notes: card.notes || '',
         dueDay: card.dueDay,
+        color: card.color ?? null,
       });
     } else {
       setFormData({
@@ -125,6 +129,7 @@ export const CardDialog = ({
         categoryId: null,
         notes: '',
         dueDay: null,
+        color: null,
       });
     }
     setShowCardNumber(false);
@@ -190,6 +195,7 @@ export const CardDialog = ({
       categoryId: formData.categoryId,
       notes: formData.notes.trim() || null,
       dueDay: formData.dueDay,
+      color: formData.color,
       });
     } catch (err) {
       fe.setFormError(err instanceof Error ? err.message : 'Could not save this card.');
@@ -420,6 +426,8 @@ export const CardDialog = ({
               Day of the month this bill is due, e.g. 29
             </p>
           </div>
+
+          <CardColorPicker value={formData.color} onChange={(color) => setFormData({ ...formData, color })} />
 
           {/* Notes */}
           <div className="space-y-2">

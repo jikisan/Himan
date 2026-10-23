@@ -79,6 +79,7 @@ export const CardsPage = () => {
       categoryId?: string | null;
       notes?: string | null;
       dueDay?: number | null;
+      color?: string | null;
     }) => {
       if (editingCard) {
         await updateCard(editingCard.id, data);

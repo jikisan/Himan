@@ -130,26 +130,43 @@ function CategoriesSheet({ categories, busy, onSave, onDelete }: {
   const [name, setName] = useState('');
   const [color, setColor] = useState<string>(CATEGORY_COLORS[6]);
   const [editing, setEditing] = useState<{ id: string; kind: FinanceKind; name: string; color: string } | null>(null);
-  const [error, setError] = useState('');
+  // Which form the last save error belongs to: 'new', or the id of the category being edited.
+  const [error, setError] = useState<{ form: string; message: string } | null>(null);
   const [actions, setActions] = useState<FinanceCategory | null>(null);
   const submit = async (id: string | null, input: { kind: FinanceKind; name: string; color: string }, done: () => void) => {
-    try { setError(''); await onSave(id, input); done(); } catch (e) { setError(e instanceof Error ? e.message : 'Could not save'); }
+    try { setError(null); await onSave(id, input); done(); }
+    catch (e) { setError({ form: id ?? 'new', message: e instanceof Error ? e.message : 'Could not save' }); }
   };
-  const swatches = (value: string, set: (c: string) => void) => <View className="flex-row flex-wrap gap-2">
-    {CATEGORY_COLORS.map((c) => <Pressable key={c} accessibilityRole="button" accessibilityLabel={`Colour ${c}`} accessibilityState={{ selected: value === c }}
-      onPress={() => set(c)} className="h-10 w-10 rounded-full" style={{ backgroundColor: c, borderWidth: value === c ? 3 : 0, borderColor: '#111827' }} />)}
+  const nameField = (form: string, value: string, onChange: (v: string) => void) => {
+    const message = error?.form === form ? error.message : '';
+    return <View className="gap-1.5">
+      <Text className={`text-sm font-semibold ${textClass}`}>Name</Text>
+      <TextInput accessibilityLabel="Category name" accessibilityHint={message || undefined} value={value} maxLength={40}
+        onChangeText={(v) => { onChange(v); if (message) setError(null); }} placeholder="e.g. Pets" placeholderTextColor="#9ca3af"
+        className={`${inputClass} ${message ? 'border-red-500 dark:border-red-400' : ''}`} />
+      {message ? <Text accessibilityRole="alert" className="text-sm text-red-600 dark:text-red-400">{message}</Text> : null}
+    </View>;
+  };
+  const colorField = (value: string, set: (c: string) => void) => <View className="gap-1.5">
+    <Text className={`text-sm font-semibold ${textClass}`}>Color</Text>
+    <View className="flex-row flex-wrap gap-3">
+      {CATEGORY_COLORS.map((c) => <Pressable key={c} accessibilityRole="button" accessibilityLabel={`Color ${c}`} accessibilityState={{ selected: value === c }}
+        onPress={() => set(c)} className="h-11 w-11 items-center justify-center rounded-full" style={{ backgroundColor: c }}>
+        {value === c ? <Feather accessible={false} name="check" size={20} color="#fff" /> : null}
+      </Pressable>)}
+    </View>
   </View>;
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 16 }}>
     <Text className={mutedClass}>Removing a category keeps its transactions as Uncategorized.</Text>
     {(['expense', 'income'] as const).map((k) => <View key={k} className="gap-2">
       <Text className={`text-sm font-semibold uppercase ${mutedClass}`}>{k === 'expense' ? 'Expenses' : 'Income'}</Text>
       {categories.filter((c) => c.kind === k).map((c) => <View key={c.id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
-        {editing?.id === c.id ? <View className="gap-3">
-          <TextInput accessibilityLabel="Category name" className={inputClass} value={editing.name} maxLength={40} onChangeText={(v) => setEditing({ ...editing, name: v })} />
-          {swatches(editing.color, (v) => setEditing({ ...editing, color: v }))}
+        {editing?.id === c.id ? <View className="gap-4">
+          {nameField(c.id, editing.name, (v) => setEditing({ ...editing, name: v }))}
+          {colorField(editing.color, (v) => setEditing({ ...editing, color: v }))}
           <View className="flex-row gap-2">
             <Pressable accessibilityRole="button" disabled={busy} className="min-h-12 flex-1 items-center justify-center rounded-xl bg-indigo-600" onPress={() => void submit(c.id, editing, () => setEditing(null))}><Text className="font-semibold text-white">Save</Text></Pressable>
-            <Pressable accessibilityRole="button" className="min-h-12 flex-1 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-700" onPress={() => setEditing(null)}><Text className={textClass}>Cancel</Text></Pressable>
+            <Pressable accessibilityRole="button" className="min-h-12 flex-1 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-700" onPress={() => { setEditing(null); setError(null); }}><Text className={textClass}>Cancel</Text></Pressable>
           </View>
         </View> : <Pressable accessibilityRole="button" accessibilityLabel={c.name} accessibilityHint="Opens edit and delete"
           onPress={() => setActions(c)} className="min-h-12 flex-row items-center gap-3">
@@ -159,22 +176,21 @@ function CategoriesSheet({ categories, busy, onSave, onDelete }: {
         </Pressable>}
       </View>)}
     </View>)}
-    <View className="gap-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+    <View className="gap-5 border-t border-gray-200 dark:border-gray-700 pt-5">
       <Text className={`text-sm font-semibold uppercase ${mutedClass}`}>New category</Text>
       <View className="flex-row gap-2">
         {(['expense', 'income'] as const).map((k) => <Pressable key={k} accessibilityRole="button" accessibilityState={{ selected: kind === k }} onPress={() => setKind(k)}
           className={`min-h-12 flex-1 items-center justify-center rounded-xl ${kind === k ? 'bg-indigo-600' : 'bg-gray-100 dark:bg-gray-800'}`}>
           <Text className={kind === k ? 'font-semibold text-white' : textClass}>{k === 'income' ? 'Income' : 'Expense'}</Text></Pressable>)}
       </View>
-      <TextInput accessibilityLabel="New category name" className={inputClass} value={name} maxLength={40} onChangeText={setName} placeholder="e.g. Pets" placeholderTextColor="#9ca3af" />
-      {swatches(color, setColor)}
-      {error ? <Text accessibilityRole="alert" className="text-sm text-red-600 dark:text-red-400">{error}</Text> : null}
-      <Pressable accessibilityRole="button" disabled={busy} className="items-center rounded-xl bg-indigo-600 px-4 py-4" onPress={() => void submit(null, { kind, name, color }, () => setName(''))}><Text className="font-semibold text-white">Add category</Text></Pressable>
+      {nameField('new', name, setName)}
+      {colorField(color, setColor)}
+      <Pressable accessibilityRole="button" disabled={busy} className="mt-1 items-center rounded-xl bg-indigo-600 px-4 py-4" onPress={() => void submit(null, { kind, name, color }, () => setName(''))}><Text className="font-semibold text-white">Add category</Text></Pressable>
     </View>
     <RowActions item={actions} title={actions?.name ?? ''} subtitle={actions ? (actions.kind === 'income' ? 'Income category' : 'Expense category') : ''}
       trailing={actions ? <View className="h-5 w-5 rounded-full" style={{ backgroundColor: actions.color }} /> : null}
       onClose={() => setActions(null)}
-      onEdit={(c) => setEditing({ id: c.id, kind: c.kind, name: c.name, color: c.color })} onDelete={onDelete} />
+      onEdit={(c) => { setError(null); setEditing({ id: c.id, kind: c.kind, name: c.name, color: c.color }); }} onDelete={onDelete} />
   </ScrollView>;
 }
 

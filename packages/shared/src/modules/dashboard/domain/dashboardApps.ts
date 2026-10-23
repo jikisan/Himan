@@ -8,6 +8,7 @@ export const DASHBOARD_APP_IDS = [
   'weight',
   'finances',
   'government',
+  'receipts',
   'storage',
   'invoices',
   'career',

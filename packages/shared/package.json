@@ -17,6 +17,7 @@
     "./government": "./src/modules/government/index.ts",
     "./finances": "./src/modules/finances/index.ts",
     "./rentals": "./src/modules/rentals/index.ts",
+    "./receipts": "./src/modules/receipts/index.ts",
     "./weight": "./src/modules/weight/index.ts",
     "./notes": "./src/modules/notes/index.ts",
     "./storage": "./src/modules/storage/index.ts",

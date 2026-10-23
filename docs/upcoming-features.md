@@ -22,18 +22,48 @@ Manage domestic helper records including attendance tracking, leave balance, mon
 - Payment schedule tracking
 - Submitted requirements
 
-## Tenant Assistant
+## Card Colors
 
-Comprehensive rental management with contract storage, invoice generation, payment tracking, tenant contact information, and lease terms.
+Let users pick or customize the color of each card in the Cards module.
 
 **Planned Features:**
-- Digital contract storage and management
-- Automated invoice generation
-- Monthly payment tracking
-- Down payment records
-- Tenant contact information database
-- Lease term and renewal management
-- Payment history and status
+- Choose a color per card from a preset palette
+- Custom color option
+- Color shows on web and mobile
+
+## Finances
+
+A simple finance tracker on web and mobile. Pick a simple finance management app as the reference and reverse engineer its flows with [rea](https://github.com/morluto/rea), then build the Himan version.
+
+**Planned Features:**
+- To be defined from the reference app (income, expenses, categories, totals)
+
+## Weight & BMI
+
+Track weight over time and calculate BMI.
+
+**Planned Features:**
+- Log weight entries with dates
+- Height setting and BMI calculation with the BMI category
+- Weight history and trend
+
+## Receipts
+
+Store and manage receipts.
+
+**Planned Features:**
+- Add receipts with a photo, amount, store and date
+- Search and filter receipts
+- Group or tag receipts
+
+## Government Groups
+
+Group government documents in the Government module.
+
+**Planned Features:**
+- Groups for government docs, with Personal and Business added by default
+- Users can add, rename and remove their own groups
+- Filter documents by group
 
 ## Dashboard Widgets
 

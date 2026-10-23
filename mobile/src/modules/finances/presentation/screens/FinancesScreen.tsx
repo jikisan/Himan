@@ -201,8 +201,9 @@ function CategoriesSheet({ categories, busy, onSave, onDelete }: {
               {nameField('new', name, setName)}
               {colorField(color, setColor)}
               <View className="gap-2">
-                <Pressable accessibilityRole="button" disabled={busy} className="min-h-14 items-center justify-center rounded-xl bg-indigo-600 active:bg-indigo-700"
-                  onPress={() => void submit(null, { kind, name, color }, closeAdding)}><Text className="text-base font-semibold text-white">Add category</Text></Pressable>
+                <Pressable accessibilityRole="button" disabled={busy} className="min-h-14 flex-row items-center justify-center gap-2 rounded-xl bg-indigo-600 active:bg-indigo-700"
+                  onPress={() => void submit(null, { kind, name, color }, closeAdding)}>
+                  <Feather accessible={false} name="plus" size={18} color="#fff" /><Text numberOfLines={1} className="text-base font-semibold text-white">Add category</Text></Pressable>
                 <Pressable accessibilityRole="button" className="min-h-12 items-center justify-center rounded-xl" onPress={closeAdding}>
                   <Text className={`text-base font-semibold ${mutedClass}`}>Cancel</Text></Pressable>
               </View>

@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui";
 import { useAuth } from "@auth/presentation/hooks";
+import { groupByLetter } from "../../domain/entities";
 import type { DashboardAppId } from "../../domain/entities";
 import { AppIcon } from "../components/AppIcon";
 import { CustomizeDashboardDialog } from "../components/CustomizeDashboardDialog";
@@ -17,6 +18,7 @@ export const DashboardPage = () => {
   const [saveError, setSaveError] = useState("");
 
   const name = user?.email?.split("@")[0] || "User";
+  const groups = groupByLetter(visible);
 
   const handleSave = async (next: DashboardAppId[]) => {
     setSaveError("");
@@ -45,21 +47,41 @@ export const DashboardPage = () => {
         </header>
 
         {visible.length > 0 ? (
-          <nav aria-label="Apps" className="mx-auto max-w-3xl">
-            <ul className="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 md:grid-cols-5">
-              {visible.map((app) => (
-                <li key={app.id}>
-                  <Link
-                    to={app.to}
-                    className="flex flex-col items-center gap-2 rounded-2xl p-2 text-sm text-muted-foreground transition hover:-translate-y-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <AppIcon icon={app.icon} color={app.color} size="lg" />
-                    {app.label}
-                  </Link>
-                </li>
+          <div className="mx-auto max-w-3xl">
+            <nav aria-label="Jump to letter" className="mb-6 flex flex-wrap justify-center gap-1">
+              {groups.map(({ letter }) => (
+                <a
+                  key={letter}
+                  href={`#apps-${letter}`}
+                  aria-label={`Jump to ${letter}`}
+                  onClick={(e) => { e.preventDefault(); document.getElementById(`apps-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold text-muted-foreground transition hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {letter}
+                </a>
               ))}
-            </ul>
-          </nav>
+            </nav>
+            <nav aria-label="Apps" className="space-y-8">
+              {groups.map(({ letter, apps }) => (
+                <section key={letter} id={`apps-${letter}`} aria-labelledby={`apps-${letter}-title`} className="scroll-mt-6">
+                  <h2 id={`apps-${letter}-title`} className="mb-3 border-b border-border pb-1 text-lg font-semibold text-foreground">{letter}</h2>
+                  <ul className="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 md:grid-cols-5">
+                    {apps.map((app) => (
+                      <li key={app.id}>
+                        <Link
+                          to={app.to}
+                          className="flex flex-col items-center gap-2 rounded-2xl p-2 text-sm text-muted-foreground transition hover:-translate-y-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          <AppIcon icon={app.icon} color={app.color} size="lg" />
+                          {app.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </nav>
+          </div>
         ) : (
           <div className="mx-auto flex max-w-sm flex-col items-center gap-3 rounded-3xl border border-dashed border-border p-8 text-center">
             <p className="font-medium text-foreground">Your dashboard is empty</p>

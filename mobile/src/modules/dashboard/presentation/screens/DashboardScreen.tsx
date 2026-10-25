@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, ZoomIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
+import { groupByLetter } from '@himan/shared/dashboard';
 import type { DashboardAppId } from '@himan/shared/dashboard';
 import { useToast } from '@/modules/shared/components/useToast';
 import { useDashboardApps } from '../hooks/useDashboardApps';
@@ -39,8 +41,13 @@ export default function DashboardScreen() {
   const { available, visible, hidden, saving, save, name } = useDashboardApps();
   const { showToast, ToastView } = useToast();
   const [customizing, setCustomizing] = useState(false);
+  const groups = groupByLetter(visible);
+  const scroll = useRef<ScrollView>(null);
+  const listTop = useRef(0);
+  const offsets = useRef<Record<string, number>>({});
+  const jump = (letter: string) => scroll.current?.scrollTo({ y: listTop.current + (offsets.current[letter] ?? 0) - 8, animated: false });
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+    <ScrollView ref={scroll} contentContainerStyle={{ padding: 20, paddingRight: groups.length ? 36 : 20, paddingBottom: 48 }}>
       <View className="flex-row justify-end">
         <Button icon="settings" label="Settings" onPress={() => router.push('/(app)/settings')} />
       </View>
@@ -51,24 +58,67 @@ export default function DashboardScreen() {
         <Text className={`mt-1 text-center text-base ${muted}`}>Everything in Himan, at a glance.</Text>
         <View className="mt-4"><Button icon="sliders" label="Customize" onPress={() => setCustomizing(true)} /></View>
       </View>
-      {visible.length ? <View accessibilityLabel="Apps" className="flex-row flex-wrap gap-y-6">
-        {visible.map((app) => <Pressable key={app.id} accessibilityRole="link" accessibilityLabel={app.label} onPress={() => router.push(app.route as never)}
-          className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">
-          <AppIcon app={app} />
-          <Text className={`text-center text-base ${text}`}>{app.label}</Text>
-        </Pressable>)}
+      {visible.length ? <View accessibilityLabel="Apps" onLayout={(e) => { listTop.current = e.nativeEvent.layout.y; }} className="gap-6">
+        {groups.map(({ letter, apps }) => <View key={letter} onLayout={(e) => { offsets.current[letter] = e.nativeEvent.layout.y; }}>
+          <Text accessibilityRole="header" className={`mb-2 border-b border-gray-200 pb-1 text-lg font-semibold dark:border-gray-700 ${text}`}>{letter}</Text>
+          <View className="flex-row flex-wrap gap-y-6">
+            {apps.map((app) => <Pressable key={app.id} accessibilityRole="link" accessibilityLabel={app.label} onPress={() => router.push(app.route as never)}
+              className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">
+              <AppIcon app={app} />
+              <Text className={`text-center text-base ${text}`}>{app.label}</Text>
+            </Pressable>)}
+          </View>
+        </View>)}
       </View> : <View className="items-center gap-3 rounded-3xl border border-dashed border-gray-300 p-8 dark:border-gray-600">
         <Text className={`text-base font-semibold ${text}`}>Your dashboard is empty</Text>
         <Text className={`text-center ${muted}`}>Every app is hidden. Choose which ones to show here.</Text>
         <Button primary label="Choose apps" onPress={() => setCustomizing(true)} />
       </View>}
     </ScrollView>
+    {groups.length > 1 && <LetterBar letters={groups.map((g) => g.letter)} onLetter={jump} />}
     <Modal visible={customizing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCustomizing(false)}>
       {customizing && <Customize apps={available} hidden={hidden} saving={saving} onCancel={() => setCustomizing(false)}
         onSave={async (next) => { await save(next); setCustomizing(false); showToast('Dashboard updated'); }} />}
     </Modal>
     {ToastView}
   </SafeAreaView>;
+}
+
+/**
+ * The contacts-style index on the right edge: tap or drag along it to jump to a letter, which shows large in the middle while
+ * the finger is down. Each letter is also its own button for screen readers.
+ */
+function LetterBar({ letters, onLetter }: { letters: string[]; onLetter(letter: string): void }) {
+  const reduce = useReducedMotion();
+  const bar = useRef<View>(null);
+  const top = useRef(0);
+  const [active, setActive] = useState<string | null>(null);
+  const ROW = 28;
+  const pick = (pageY: number) => {
+    const letter = letters[Math.min(letters.length - 1, Math.max(0, Math.floor((pageY - top.current) / ROW)))];
+    if (letter !== active) { setActive(letter); onLetter(letter); }
+  };
+  return <>
+    <View pointerEvents="box-none" className="absolute bottom-0 right-0 top-0 justify-center">
+      <View ref={bar} onLayout={() => bar.current?.measureInWindow((_x, y) => { top.current = y + 4; })}
+        onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}
+        onResponderGrant={(e) => pick(e.nativeEvent.pageY)} onResponderMove={(e) => pick(e.nativeEvent.pageY)}
+        onResponderRelease={() => setActive(null)} onResponderTerminate={() => setActive(null)}
+        className="mr-1 rounded-full bg-white/80 py-1 dark:bg-gray-800/80">
+        {letters.map((letter) => <View key={letter} accessible accessibilityRole="button" accessibilityLabel={`Jump to ${letter}`}
+          onAccessibilityTap={() => onLetter(letter)} style={{ height: ROW }} className="w-8 items-center justify-center">
+          <Text className={`text-sm font-bold ${active === letter ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>{letter}</Text>
+        </View>)}
+      </View>
+    </View>
+    {active && <Animated.View pointerEvents="none" entering={reduce ? undefined : ZoomIn.duration(150)} exiting={reduce ? undefined : FadeOut.duration(120)}
+      className="absolute inset-0 items-center justify-center">
+      <Animated.View key={active} entering={reduce ? undefined : FadeIn.duration(100)}
+        className="h-24 w-24 items-center justify-center rounded-3xl bg-indigo-600/90">
+        <Text className="text-5xl font-bold text-white">{active}</Text>
+      </Animated.View>
+    </Animated.View>}
+  </>;
 }
 
 /** Edits a draft of the hidden apps; nothing is saved until Save. Apps only on the web keep whatever was chosen there. */

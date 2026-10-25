@@ -31,3 +31,14 @@ export const readHiddenApps = (metadata: Record<string, unknown> | undefined): D
   const value = metadata?.[HIDDEN_APPS_METADATA_KEY];
   return Array.isArray(value) ? value.filter(isDashboardAppId) : [];
 };
+
+/** Apps sorted A–Z and grouped under their first letter, like a phone's contacts; only letters that have apps. */
+export const groupByLetter = <T extends { label: string }>(apps: T[]): { letter: string; apps: T[] }[] => {
+  const groups: { letter: string; apps: T[] }[] = [];
+  for (const app of [...apps].sort((a, b) => a.label.localeCompare(b.label))) {
+    const letter = app.label[0].toUpperCase();
+    if (groups.at(-1)?.letter === letter) groups.at(-1)!.apps.push(app);
+    else groups.push({ letter, apps: [app] });
+  }
+  return groups;
+};

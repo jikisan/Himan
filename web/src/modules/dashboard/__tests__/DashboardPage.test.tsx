@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { DashboardBadgeRepository, billsDueSoon, cardsDueSoon } from '@himan/shared/dashboard';
+import type { RentalBill, RentalPayment } from '@himan/shared/rentals';
 import { DashboardPage } from '../presentation/pages/DashboardPage';
 import { groupByLetter, readHiddenApps } from '../domain/entities';
 import { initSupabase } from '@himan/shared';
@@ -20,7 +23,8 @@ const supabase = { auth: { updateUser: vi.spyOn(client.auth, 'updateUser') as un
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toasts }));
 
-const page = () => render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+const badges = vi.spyOn(DashboardBadgeRepository.prototype, 'counts');
+const page = () => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><DashboardPage /></MemoryRouter></QueryClientProvider>);
 const apps = () => within(screen.getByRole('navigation', { name: 'Apps' }));
 const customize = () => {
   fireEvent.click(screen.getByRole('button', { name: 'Customize' }));
@@ -33,6 +37,7 @@ beforeEach(() => {
   sub.tier = 'beta';
   sub.isAdmin = false;
   supabase.auth.updateUser.mockResolvedValue({ data: {}, error: null });
+  badges.mockResolvedValue({});
 });
 
 describe('DashboardPage', () => {
@@ -124,6 +129,22 @@ describe('DashboardPage', () => {
     expect(letters[0]).toHaveAttribute('href', '#apps-C');
   });
 
+  it('badges a tile with how many things need attention, in its label, and none at zero', async () => {
+    badges.mockResolvedValue({ rentals: 2, receipts: 1, cards: 0 });
+    page();
+    expect(await apps().findByRole('link', { name: 'Rentals, 2 need attention' })).toHaveAttribute('href', '/rentals');
+    expect(apps().getByRole('link', { name: 'Receipts, 1 needs attention' })).toBeInTheDocument();
+    expect(apps().getByRole('link', { name: 'Cards' })).toBeInTheDocument();
+    expect(badges).toHaveBeenCalledWith('u1', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+  });
+
+  it('shows no badges when the counts fail to load', async () => {
+    badges.mockRejectedValue(new Error('offline'));
+    page();
+    await waitFor(() => expect(badges).toHaveBeenCalled());
+    expect(apps().getByRole('link', { name: 'Rentals' })).toBeInTheDocument();
+  });
+
   it('offers a way back when every app is hidden', () => {
     auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'weight', 'finances', 'government', 'receipts', 'invoices', 'career', 'profile'] };
     page();
@@ -140,6 +161,26 @@ describe('groupByLetter', () => {
       { letter: 'B', apps: [{ label: 'beta' }, { label: 'Bravo' }] },
     ]);
     expect(groupByLetter([])).toEqual([]);
+  });
+});
+
+describe('cardsDueSoon', () => {
+  it('counts cards due within 7 days, today included, across the month end', () => {
+    expect(cardsDueSoon([26, 2, 3, 10, null], '2026-10-26')).toBe(2);
+    expect(cardsDueSoon([31], '2026-02-25')).toBe(1); // 31st clamps to Feb 28
+    expect(cardsDueSoon([], '2026-10-26')).toBe(0);
+  });
+});
+
+describe('billsDueSoon', () => {
+  const bill = (id: string, dueOn: string, status: 'issued' | 'void' = 'issued') =>
+    ({ id, dueOn, status, lines: [{ amount: 1000 }] }) as unknown as RentalBill;
+  const paid = (billId: string, amountCentavos: number) =>
+    ({ status: 'active', allocations: [{ billId, amountCentavos }] }) as unknown as RentalPayment;
+  it('counts bills still owed that are overdue or due within 7 days', () => {
+    const bills = [bill('late', '2026-10-01'), bill('week', '2026-11-02'), bill('later', '2026-11-03'),
+      bill('paid', '2026-10-20'), bill('part', '2026-10-27'), bill('void', '2026-10-01', 'void')];
+    expect(billsDueSoon(bills, [paid('paid', 1000), paid('part', 400)], '2026-10-26')).toBe(3);
   });
 });
 

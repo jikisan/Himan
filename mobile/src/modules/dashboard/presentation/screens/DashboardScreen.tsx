@@ -38,10 +38,11 @@ function Button({ label, icon, onPress, primary, disabled, grow }: {
 /** The phone's home: a grid of the apps the user keeps here, the same choice as the web dashboard. */
 export default function DashboardScreen() {
   const router = useRouter();
-  const { available, visible, hidden, saving, save, name } = useDashboardApps();
+  const { available, visible, hidden, saving, save, badges, name } = useDashboardApps();
   const { showToast, ToastView } = useToast();
   const [customizing, setCustomizing] = useState(false);
   const groups = groupByLetter(visible);
+  const reduce = useReducedMotion();
   const scroll = useRef<ScrollView>(null);
   const listTop = useRef(0);
   const offsets = useRef<Record<string, number>>({});
@@ -62,11 +63,21 @@ export default function DashboardScreen() {
         {groups.map(({ letter, apps }) => <View key={letter} onLayout={(e) => { offsets.current[letter] = e.nativeEvent.layout.y; }}>
           <Text accessibilityRole="header" className={`mb-2 border-b border-gray-200 pb-1 text-lg font-semibold dark:border-gray-700 ${text}`}>{letter}</Text>
           <View className="flex-row flex-wrap gap-y-6">
-            {apps.map((app) => <Pressable key={app.id} accessibilityRole="link" accessibilityLabel={app.label} onPress={() => router.push(app.route as never)}
-              className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">
-              <AppIcon app={app} />
+            {apps.map((app) => {
+              const count = badges[app.id] ?? 0;
+              return <Pressable key={app.id} accessibilityRole="link" onPress={() => router.push(app.route as never)}
+                accessibilityLabel={count ? `${app.label}, ${count} need${count === 1 ? 's' : ''} attention` : app.label}
+                className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">
+              <View>
+                <AppIcon app={app} />
+                {count > 0 && <Animated.View entering={reduce ? undefined : ZoomIn.springify()}
+                  className="absolute -right-2 -top-2 h-6 min-w-6 items-center justify-center rounded-full border-2 border-gray-50 bg-red-600 px-1.5 dark:border-gray-900">
+                  <Text className="text-xs font-bold text-white">{count > 99 ? '99+' : count}</Text>
+                </Animated.View>}
+              </View>
               <Text className={`text-center text-base ${text}`}>{app.label}</Text>
-            </Pressable>)}
+            </Pressable>;
+            })}
           </View>
         </View>)}
       </View> : <View className="items-center gap-3 rounded-3xl border border-dashed border-gray-300 p-8 dark:border-gray-600">

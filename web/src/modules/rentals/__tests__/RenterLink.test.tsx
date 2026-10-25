@@ -315,7 +315,7 @@ describe('renter link page', () => {
     await open(base({ contract: { ...sent, signMode: 'notarize' } }));
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.getByText('Your landlord asked you to sign online and then have it notarized.')).toBeInTheDocument();
-      act(() => pad.instance!.fire());
+    act(() => pad.instance!.fire());
     fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
     await waitFor(() => expect(repo.sign).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ signMode: 'notarize' })));
   });

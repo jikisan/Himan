@@ -13,7 +13,7 @@ import { useDashboardApps } from "../hooks/useDashboardApps";
 // iCloud.com-style home: a grid of the apps the user chose to keep here.
 export const DashboardPage = () => {
   const { user } = useAuth();
-  const { available, visible, hidden, saving, save } = useDashboardApps();
+  const { available, visible, hidden, saving, save, badges } = useDashboardApps();
   const [customizing, setCustomizing] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -66,17 +66,31 @@ export const DashboardPage = () => {
                 <section key={letter} id={`apps-${letter}`} aria-labelledby={`apps-${letter}-title`} className="scroll-mt-6">
                   <h2 id={`apps-${letter}-title`} className="mb-3 border-b border-border pb-1 text-lg font-semibold text-foreground">{letter}</h2>
                   <ul className="grid grid-cols-3 gap-x-4 gap-y-8 sm:grid-cols-4 md:grid-cols-5">
-                    {apps.map((app) => (
+                    {apps.map((app) => {
+                      const count = badges[app.id] ?? 0;
+                      return (
                       <li key={app.id}>
                         <Link
                           to={app.to}
+                          aria-label={count ? `${app.label}, ${count} need${count === 1 ? "s" : ""} attention` : app.label}
                           className="flex flex-col items-center gap-2 rounded-2xl p-2 text-sm text-muted-foreground transition hover:-translate-y-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                          <AppIcon icon={app.icon} color={app.color} size="lg" />
+                          <span className="relative">
+                            <AppIcon icon={app.icon} color={app.color} size="lg" />
+                            {count > 0 && (
+                              <span
+                                aria-hidden
+                                className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white shadow ring-2 ring-background animate-in zoom-in-50 duration-300 motion-reduce:animate-none"
+                              >
+                                {count > 99 ? "99+" : count}
+                              </span>
+                            )}
+                          </span>
                           {app.label}
                         </Link>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 </section>
               ))}

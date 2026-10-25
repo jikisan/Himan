@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { DashboardBadgeRepository } from '@himan/shared/dashboard';
+import { todayISO } from '@himan/shared/receipts';
 import { useAuth } from '@auth/presentation/hooks';
 import { useSubscription } from '@subscriptions/presentation/hooks';
 import { DASHBOARD_APP_IDS, readHiddenApps } from '../../domain/entities';
@@ -36,5 +39,11 @@ export const useDashboardApps = () => {
     }
   };
 
-  return { available, visible, hidden, saving, save };
+  // Counts of things needing attention, for the tile badges; none until they load, and none on failure.
+  const badgeRepository = useMemo(() => new DashboardBadgeRepository(), []);
+  const { data: badges = {} } = useQuery({
+    queryKey: ['dashboard-badges', user?.id], queryFn: () => badgeRepository.counts(user!.id, todayISO()), enabled: !!user?.id, retry: false,
+  });
+
+  return { available, visible, hidden, saving, save, badges };
 };

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../presentation/pages/DashboardPage';
-import { readHiddenApps } from '../domain/entities';
+import { groupByLetter, readHiddenApps } from '../domain/entities';
 import { initSupabase } from '@himan/shared';
 
 const auth = vi.hoisted(() => ({
@@ -112,12 +112,34 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: 'Notes', hidden: true })).toBeInTheDocument();
   });
 
+  it('sorts the apps A–Z under a heading per letter, with a link to each letter', () => {
+    auth.user.user_metadata = { dashboard_hidden_apps: ['career'] };
+    page();
+    const headings = apps().getAllByRole('heading').map((h) => h.textContent);
+    expect(headings).toEqual(['C', 'F', 'G', 'I', 'N', 'P', 'R', 'W']);
+    expect(within(apps().getByRole('region', { name: 'C' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Cards']);
+    expect(within(apps().getByRole('region', { name: 'P' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Passwords', 'Profile']);
+    const letters = within(screen.getByRole('navigation', { name: 'Jump to letter' })).getAllByRole('link');
+    expect(letters.map((l) => l.textContent)).toEqual(headings);
+    expect(letters[0]).toHaveAttribute('href', '#apps-C');
+  });
+
   it('offers a way back when every app is hidden', () => {
     auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'weight', 'finances', 'government', 'receipts', 'invoices', 'career', 'profile'] };
     page();
     expect(screen.getByText('Your dashboard is empty')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Choose apps' }));
     expect(screen.getByRole('dialog', { name: 'Customize dashboard' })).toBeInTheDocument();
+  });
+});
+
+describe('groupByLetter', () => {
+  it('groups case-insensitively and keeps only letters that have apps', () => {
+    expect(groupByLetter([{ label: 'beta' }, { label: 'Alpha' }, { label: 'Bravo' }])).toEqual([
+      { letter: 'A', apps: [{ label: 'Alpha' }] },
+      { letter: 'B', apps: [{ label: 'beta' }, { label: 'Bravo' }] },
+    ]);
+    expect(groupByLetter([])).toEqual([]);
   });
 });
 

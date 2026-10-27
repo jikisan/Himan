@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DashboardBadgeRepository, billsDueSoon, cardsDueSoon } from '@himan/shared/dashboard';
 import type { RentalBill, RentalPayment } from '@himan/shared/rentals';
 import { DashboardPage } from '../presentation/pages/DashboardPage';
-import { groupByLetter, readHiddenApps } from '../domain/entities';
+import { groupByLetter, readDashboardLayout, readHiddenApps } from '../domain/entities';
 import { initSupabase } from '@himan/shared';
 
 const auth = vi.hoisted(() => ({
@@ -129,6 +129,34 @@ describe('DashboardPage', () => {
     expect(letters[0]).toHaveAttribute('href', '#apps-C');
   });
 
+  it('switches to a plain A–Z grid without letters and saves the choice to the account', async () => {
+    page();
+    expect(screen.getByRole('button', { name: 'A–Z' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Grid' }));
+
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('navigation', { name: 'Jump to letter' })).not.toBeInTheDocument();
+    expect(apps().queryAllByRole('heading')).toHaveLength(0);
+    const labels = apps().getAllByRole('link').map((l) => l.textContent);
+    expect(labels).toEqual([...labels].sort((a, b) => a!.localeCompare(b!)));
+    await waitFor(() => expect(supabase.auth.updateUser).toHaveBeenCalledWith({ data: { dashboard_layout: 'grid' } }));
+  });
+
+  it('opens in the grid view saved in the account', () => {
+    auth.user.user_metadata = { dashboard_layout: 'grid' };
+    page();
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('navigation', { name: 'Jump to letter' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the new view but says so when saving it fails', async () => {
+    supabase.auth.updateUser.mockResolvedValue({ data: {}, error: new Error('offline') });
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Grid' }));
+    await waitFor(() => expect(toasts.error).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('badges a tile with how many things need attention, in its label, and none at zero', async () => {
     badges.mockResolvedValue({ rentals: 2, receipts: 1, cards: 0 });
     page();
@@ -151,6 +179,14 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Your dashboard is empty')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Choose apps' }));
     expect(screen.getByRole('dialog', { name: 'Customize dashboard' })).toBeInTheDocument();
+  });
+});
+
+describe('readDashboardLayout', () => {
+  it('falls back to letter groups for missing or unknown values', () => {
+    expect(readDashboardLayout(undefined)).toBe('letters');
+    expect(readDashboardLayout({ dashboard_layout: 'tiles' })).toBe('letters');
+    expect(readDashboardLayout({ dashboard_layout: 'grid' })).toBe('grid');
   });
 });
 

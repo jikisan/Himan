@@ -32,6 +32,19 @@ export const readHiddenApps = (metadata: Record<string, unknown> | undefined): D
   return Array.isArray(value) ? value.filter(isDashboardAppId) : [];
 };
 
+/** How the dashboard lays out its apps: grouped under A–Z letter headings, or one plain grid. */
+export const DASHBOARD_LAYOUTS = ['letters', 'grid'] as const;
+
+export type DashboardLayout = (typeof DASHBOARD_LAYOUTS)[number];
+
+export const LAYOUT_METADATA_KEY = 'dashboard_layout';
+
+/** Reads the chosen layout from the user's metadata, falling back to letter groups. */
+export const readDashboardLayout = (metadata: Record<string, unknown> | undefined): DashboardLayout => {
+  const value = metadata?.[LAYOUT_METADATA_KEY];
+  return value === 'grid' ? 'grid' : 'letters';
+};
+
 /** Apps sorted A–Z and grouped under their first letter, like a phone's contacts; only letters that have apps. */
 export const groupByLetter = <T extends { label: string }>(apps: T[]): { letter: string; apps: T[] }[] => {
   const groups: { letter: string; apps: T[] }[] = [];

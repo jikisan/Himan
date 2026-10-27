@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { groupByLetter } from '@himan/shared/dashboard';
-import type { DashboardAppId } from '@himan/shared/dashboard';
+import type { BadgeCounts, DashboardAppId, DashboardLayout } from '@himan/shared/dashboard';
 import { useToast } from '@/modules/shared/components/useToast';
 import { useDashboardApps } from '../hooks/useDashboardApps';
 import type { MobileApp } from './appCatalog';
@@ -35,58 +35,95 @@ function Button({ label, icon, onPress, primary, disabled, grow }: {
   </Pressable>;
 }
 
+function AppGrid({ apps, badges, onOpen }: { apps: MobileApp[]; badges: BadgeCounts; onOpen(app: MobileApp): void }) {
+  const reduce = useReducedMotion();
+  return <View className="flex-row flex-wrap gap-y-6">
+    {apps.map((app) => {
+      const count = badges[app.id] ?? 0;
+      return <Pressable key={app.id} accessibilityRole="link" onPress={() => onOpen(app)}
+        accessibilityLabel={count ? `${app.label}, ${count} need${count === 1 ? 's' : ''} attention` : app.label}
+        className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">
+        <View>
+          <AppIcon app={app} />
+          {count > 0 && <Animated.View entering={reduce ? undefined : ZoomIn.springify()}
+            className="absolute -right-2 -top-2 h-6 min-w-6 items-center justify-center rounded-full border-2 border-gray-50 bg-red-600 px-1.5 dark:border-gray-900">
+            <Text className="text-xs font-bold text-white">{count > 99 ? '99+' : count}</Text>
+          </Animated.View>}
+        </View>
+        <Text className={`text-center text-base ${text}`}>{app.label}</Text>
+      </Pressable>;
+    })}
+  </View>;
+}
+
+const LAYOUT_OPTIONS: { value: DashboardLayout; label: string; icon: React.ComponentProps<typeof Feather>['name'] }[] = [
+  { value: 'letters', label: 'A–Z', icon: 'list' },
+  { value: 'grid', label: 'Grid', icon: 'grid' },
+];
+
+/** Two-way switch between letter groups and one plain grid. */
+function ViewToggle({ layout, onChange }: { layout: DashboardLayout; onChange(next: DashboardLayout): void }) {
+  const { colorScheme } = useColorScheme();
+  return <View accessibilityRole="radiogroup" accessibilityLabel="View"
+    className="min-h-12 flex-row rounded-xl border border-gray-300 bg-white p-1 dark:border-gray-600 dark:bg-gray-800">
+    {LAYOUT_OPTIONS.map(({ value, label, icon }) => {
+      const on = layout === value;
+      return <Pressable key={value} accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ checked: on }}
+        onPress={() => onChange(value)} className={`flex-row items-center gap-1.5 rounded-lg px-3 active:opacity-70 ${on ? 'bg-indigo-600' : ''}`}>
+        <Feather accessible={false} name={icon} size={16} color={on ? '#fff' : colorScheme === 'dark' ? '#e5e7eb' : '#111827'} />
+        <Text className={`text-base font-semibold ${on ? 'text-white' : text}`}>{label}</Text>
+      </Pressable>;
+    })}
+  </View>;
+}
+
 /** The phone's home: a grid of the apps the user keeps here, the same choice as the web dashboard. */
 export default function DashboardScreen() {
   const router = useRouter();
-  const { available, visible, hidden, saving, save, badges, name } = useDashboardApps();
+  const { available, visible, hidden, saving, save, badges, layout, saveLayout, name } = useDashboardApps();
   const { showToast, ToastView } = useToast();
   const [customizing, setCustomizing] = useState(false);
   const groups = groupByLetter(visible);
-  const reduce = useReducedMotion();
+  const lettered = layout === 'letters' && visible.length > 0;
   const scroll = useRef<ScrollView>(null);
-  const listTop = useRef(0);
   const offsets = useRef<Record<string, number>>({});
-  const jump = (letter: string) => scroll.current?.scrollTo({ y: listTop.current + (offsets.current[letter] ?? 0) - 8, animated: false });
+  const jump = (letter: string) => scroll.current?.scrollTo({ y: offsets.current[letter] ?? 0, animated: false });
+  const open = (app: MobileApp) => router.push(app.route as never);
+  const changeLayout = (next: DashboardLayout) => {
+    if (next !== layout) saveLayout(next).catch(() => showToast('Couldn’t save your view. It will reset next time you sign in.', 'error'));
+  };
+  // The scroll view's children are flat so each letter heading can stick to the top while its apps scroll under it.
+  const body = !visible.length ? [<View key="empty" className="items-center gap-3 rounded-3xl border border-dashed border-gray-300 p-8 dark:border-gray-600">
+    <Text className={`text-base font-semibold ${text}`}>Your dashboard is empty</Text>
+    <Text className={`text-center ${muted}`}>Every app is hidden. Choose which ones to show here.</Text>
+    <Button primary label="Choose apps" onPress={() => setCustomizing(true)} />
+  </View>] : layout === 'grid' ? [<View key="grid" accessibilityLabel="Apps"><AppGrid apps={groups.flatMap((g) => g.apps)} badges={badges} onOpen={open} /></View>]
+    : groups.flatMap(({ letter, apps }) => [
+      <View key={`h-${letter}`} onLayout={(e) => { offsets.current[letter] = e.nativeEvent.layout.y; }} className="bg-gray-50 pt-2 dark:bg-gray-900">
+        <Text accessibilityRole="header" className={`border-b border-gray-200 pb-1 text-lg font-semibold dark:border-gray-700 ${text}`}>{letter}</Text>
+      </View>,
+      <View key={`g-${letter}`} className="mb-4 mt-2"><AppGrid apps={apps} badges={badges} onOpen={open} /></View>,
+    ]);
+  const HEADER_CHILDREN = 2;
+  const sticky = lettered ? groups.map((_, i) => HEADER_CHILDREN + i * 2) : undefined;
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-    <ScrollView ref={scroll} contentContainerStyle={{ padding: 20, paddingRight: groups.length ? 36 : 20, paddingBottom: 48 }}>
+    <ScrollView ref={scroll} stickyHeaderIndices={sticky} contentContainerStyle={{ padding: 20, paddingRight: lettered ? 36 : 20, paddingBottom: 48 }}>
       <View className="flex-row justify-end">
         <Button icon="settings" label="Settings" onPress={() => router.push('/(app)/settings')} />
       </View>
-      <View className="mb-8 mt-2 items-center">
+      <View className="mb-6 mt-2 items-center">
         <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-slate-400">
           <Text className="text-3xl font-semibold uppercase text-white">{name[0]}</Text></View>
         <Text accessibilityRole="header" className={`text-center text-3xl font-semibold ${text}`}>Welcome back, {name}</Text>
         <Text className={`mt-1 text-center text-base ${muted}`}>Everything in Himan, at a glance.</Text>
-        <View className="mt-4"><Button icon="sliders" label="Customize" onPress={() => setCustomizing(true)} /></View>
+        <View className="mt-4 flex-row flex-wrap justify-center gap-2">
+          <Button icon="sliders" label="Customize" onPress={() => setCustomizing(true)} />
+          <ViewToggle layout={layout} onChange={changeLayout} />
+        </View>
       </View>
-      {visible.length ? <View accessibilityLabel="Apps" onLayout={(e) => { listTop.current = e.nativeEvent.layout.y; }} className="gap-6">
-        {groups.map(({ letter, apps }) => <View key={letter} onLayout={(e) => { offsets.current[letter] = e.nativeEvent.layout.y; }}>
-          <Text accessibilityRole="header" className={`mb-2 border-b border-gray-200 pb-1 text-lg font-semibold dark:border-gray-700 ${text}`}>{letter}</Text>
-          <View className="flex-row flex-wrap gap-y-6">
-            {apps.map((app) => {
-              const count = badges[app.id] ?? 0;
-              return <Pressable key={app.id} accessibilityRole="link" onPress={() => router.push(app.route as never)}
-                accessibilityLabel={count ? `${app.label}, ${count} need${count === 1 ? 's' : ''} attention` : app.label}
-                className="w-1/3 items-center gap-2 rounded-2xl p-2 active:opacity-70">
-              <View>
-                <AppIcon app={app} />
-                {count > 0 && <Animated.View entering={reduce ? undefined : ZoomIn.springify()}
-                  className="absolute -right-2 -top-2 h-6 min-w-6 items-center justify-center rounded-full border-2 border-gray-50 bg-red-600 px-1.5 dark:border-gray-900">
-                  <Text className="text-xs font-bold text-white">{count > 99 ? '99+' : count}</Text>
-                </Animated.View>}
-              </View>
-              <Text className={`text-center text-base ${text}`}>{app.label}</Text>
-            </Pressable>;
-            })}
-          </View>
-        </View>)}
-      </View> : <View className="items-center gap-3 rounded-3xl border border-dashed border-gray-300 p-8 dark:border-gray-600">
-        <Text className={`text-base font-semibold ${text}`}>Your dashboard is empty</Text>
-        <Text className={`text-center ${muted}`}>Every app is hidden. Choose which ones to show here.</Text>
-        <Button primary label="Choose apps" onPress={() => setCustomizing(true)} />
-      </View>}
+      {body}
     </ScrollView>
-    {groups.length > 1 && <LetterBar letters={groups.map((g) => g.letter)} onLetter={jump} />}
+    {lettered && groups.length > 1 && <LetterBar letters={groups.map((g) => g.letter)} onLetter={jump} />}
     <Modal visible={customizing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCustomizing(false)}>
       {customizing && <Customize apps={available} hidden={hidden} saving={saving} onCancel={() => setCustomizing(false)}
         onSave={async (next) => { await save(next); setCustomizing(false); showToast('Dashboard updated'); }} />}

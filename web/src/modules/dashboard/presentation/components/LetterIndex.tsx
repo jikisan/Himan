@@ -1,23 +1,32 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/** How far below the top of the page a letter's heading counts as "reached" (clears the sticky row). */
-const REACHED_AT = 96;
+/** How far below the top of the page a letter's heading counts as "reached" (clears the top of the page). */
+const REACHED_AT = 80;
+
+/** The element the page actually scrolls in: the nearest scrollable ancestor (the app shell), else the document. */
+const scroller = (from: HTMLElement | null): Element => {
+  for (let el = from?.parentElement; el; el = el.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight) return el;
+  }
+  return document.scrollingElement ?? document.documentElement;
+};
 
 /**
- * The sticky row of letter links. A pill slides to the letter the page is currently at as it scrolls, and a click
- * scrolls to that letter's group.
+ * The vertical letter bar on the right edge, like the phone's. A blob slides to the letter the page is currently at as it
+ * scrolls, and a click scrolls to that letter's group.
  */
 export const LetterIndex = ({ letters }: { letters: string[] }) => {
   const row = useRef<HTMLElement>(null);
   const [active, setActive] = useState(letters[0]);
-  const [pill, setPill] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [pill, setPill] = useState<{ y: number; h: number } | null>(null);
   const key = letters.join("");
 
   useEffect(() => {
     const update = () => {
       const heading = (letter: string) => document.getElementById(`apps-${letter}`)?.getBoundingClientRect().top ?? Infinity;
-      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-      // Past the last heading you can scroll to, the end of the page counts as the last letter.
+      const box = scroller(row.current);
+      // A page too short to scroll never "reaches" the bottom; otherwise the end of the page counts as the last letter.
+      const atBottom = box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
       const reached = atBottom ? letters.at(-1) : letters.filter((l) => heading(l) <= REACHED_AT).at(-1);
       setActive(reached ?? letters[0]);
     };
@@ -30,22 +39,30 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
   }, [key]);
 
   useLayoutEffect(() => {
-    const link = row.current?.querySelector<HTMLElement>(`[data-letter="${active}"]`);
-    if (link) setPill({ x: link.offsetLeft, y: link.offsetTop, w: link.offsetWidth, h: link.offsetHeight });
+    const place = () => {
+      const link = row.current?.querySelector<HTMLElement>(`[data-letter="${active}"]`);
+      if (link) setPill({ y: link.offsetTop, h: link.offsetHeight });
+    };
+    place();
+    // The bar is 60% of the window tall, so its rows change size with it.
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
   }, [active, key]);
 
   return (
     <nav
       ref={row}
       aria-label="Jump to letter"
-      className="sticky top-0 z-10 -mx-4 mb-6 flex flex-wrap justify-center gap-1 bg-background/85 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70"
+      className="fixed right-2 top-1/2 z-10 flex h-[60vh] max-h-[34rem] w-10 -translate-y-1/2 flex-col rounded-full border border-border/60 bg-background/80 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60"
     >
       {pill && (
         <span
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 rounded-full bg-primary shadow-sm transition-[transform,width,height] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
-          style={{ width: pill.w, height: pill.h, transform: `translate(${pill.x}px, ${pill.y}px)` }}
-        />
+          className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
+          style={{ height: pill.h, transform: `translateY(${pill.y}px)` }}
+        >
+          <span className="h-8 w-8 rounded-full bg-primary shadow-sm" />
+        </span>
       )}
       {letters.map((letter) => (
         <a
@@ -55,7 +72,7 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
           aria-label={`Jump to ${letter}`}
           aria-current={letter === active ? "true" : undefined}
           onClick={(e) => { e.preventDefault(); document.getElementById(`apps-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-          className={`relative flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold transition-[color,transform] duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          className={`relative flex min-h-0 flex-1 items-center justify-center rounded-full text-sm font-semibold transition-[color,transform] duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             letter === active ? "scale-125 text-primary-foreground" : "text-muted-foreground hover:text-primary"
           }`}
         >

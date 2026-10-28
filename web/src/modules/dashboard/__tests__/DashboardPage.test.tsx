@@ -173,6 +173,18 @@ describe('DashboardPage', () => {
     expect(apps().getByRole('link', { name: 'Rentals' })).toBeInTheDocument();
   });
 
+  it('marks the letter the page has scrolled to, not always the last one', async () => {
+    page();
+    const tops: Record<string, number> = { C: -400, F: -300, G: 40, I: 400, N: 800, P: 1200, R: 1600, W: 2000 };
+    for (const [letter, top] of Object.entries(tops)) {
+      vi.spyOn(document.getElementById(`apps-${letter}`)!, 'getBoundingClientRect').mockReturnValue({ top } as DOMRect);
+    }
+    fireEvent.scroll(document);
+    const index = screen.getByRole('navigation', { name: 'Jump to letter' });
+    await waitFor(() => expect(within(index).getByRole('link', { name: 'Jump to G' })).toHaveAttribute('aria-current', 'true'));
+    expect(within(index).getByRole('link', { name: 'Jump to W' })).not.toHaveAttribute('aria-current');
+  });
+
   it('offers a way back when every app is hidden', () => {
     auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'weight', 'finances', 'government', 'receipts', 'invoices', 'career', 'profile'] };
     page();

@@ -111,12 +111,12 @@ export const DashboardPage = () => {
             <AppGrid apps={groups.flatMap((group) => group.apps)} badges={badges} />
           </nav>
         ) : visible.length > 0 ? (
-          <div className="mx-auto max-w-3xl">
+          <div className="mx-auto max-w-3xl max-md:pr-10">
             {/* Sticks to the top of the scrolling page so any letter is one tap away. */}
             <LetterIndex letters={groups.map((g) => g.letter)} />
             <nav aria-label="Apps" className="space-y-8">
               {groups.map(({ letter, apps }) => (
-                <section key={letter} id={`apps-${letter}`} aria-labelledby={`apps-${letter}-title`} className="scroll-mt-20">
+                <section key={letter} id={`apps-${letter}`} aria-labelledby={`apps-${letter}-title`} className="scroll-mt-6">
                   <h2 id={`apps-${letter}-title`} className="mb-3 border-b border-border pb-1 text-lg font-semibold text-foreground">{letter}</h2>
                   <AppGrid apps={apps} badges={badges} />
                 </section>

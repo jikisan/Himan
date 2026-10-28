@@ -8,9 +8,17 @@ import { Badge, Check, Empty, Input, card, muted, showMenu, text, useIconColor }
 import type { IconName, MenuOption } from './ui';
 
 /** Where the written contract stands, until it's done or not needed: amber when there's none yet. */
-export function ContractBadge({ stage }: { stage: ContractStage }) {
+export function ContractBadge({ stage, small }: { stage: ContractStage; small?: boolean }) {
   const label = CONTRACT_BADGE[stage];
-  return label ? <Badge label={label} tone={stage === 'none' ? 'amber' : 'primary'} /> : null;
+  return label ? <Badge label={label} tone={stage === 'none' ? 'amber' : 'primary'} small={small} icon={small ? 'file-text' : undefined} /> : null;
+}
+
+/** One line of a tile: a small icon, then its words (which may wrap). */
+function TileLine({ icon, color = '#9ca3af', children }: { icon: IconName; color?: string; children: React.ReactNode }) {
+  return <View className="flex-row items-start gap-1.5">
+    <View className="mt-0.5"><Feather accessible={false} name={icon} size={13} color={color} /></View>
+    <View className="shrink">{children}</View>
+  </View>;
 }
 
 /** A small "More" menu over a dimmed screen. */
@@ -57,12 +65,12 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, l
         <Text numberOfLines={1} className={`text-xs ${muted}`}>{roomType(unit)}</Text></View>
       <View className="flex-row flex-wrap gap-1.5">{spots.map((t, i) => <View key={t?.id ?? `bed-${i}`}
         className={`h-2 w-5 rounded-full ${t ? 'bg-sky-500' : 'border border-gray-400'}`} />)}</View>
-      <View className="mt-auto gap-0.5">
-        {taken.length ? <Text numberOfLines={2} className={`text-sm ${text}`}>{taken.map((t) => name(t.renterId)).join(', ')}</Text>
+      <View className="mt-auto gap-1.5">
+        {taken.length ? <TileLine icon="user"><Text numberOfLines={2} className={`text-sm ${text}`}>{taken.map((t) => name(t.renterId)).join(', ')}</Text></TileLine>
           : <Text className={`text-sm ${muted}`}>{canManage ? 'Press to add a tenant' : 'Empty'}</Text>}
-        {taken.length === 1 && <ContractBadge stage={contractStage(taken[0], contractTexts)} />}
-        {attention && <Text numberOfLines={1} className="text-xs font-semibold text-amber-700 dark:text-amber-300">{attention}</Text>}
-        {rent > 0 && <Text className={`text-sm font-bold ${text}`}>{formatPesos(rent)}<Text className={`text-xs font-normal ${muted}`}> /mo</Text></Text>}
+        {taken.length === 1 && <ContractBadge small stage={contractStage(taken[0], contractTexts)} />}
+        {attention && <TileLine icon="alert-circle" color="#d97706"><Text numberOfLines={1} className="text-xs font-semibold text-amber-700 dark:text-amber-300">{attention}</Text></TileLine>}
+        {rent > 0 && <TileLine icon="credit-card"><Text className={`text-sm font-bold ${text}`}>{formatPesos(rent)}<Text className={`text-xs font-normal ${muted}`}> /mo</Text></Text></TileLine>}
       </View>
     </Pressable>;
   })}

@@ -63,8 +63,12 @@ const TONE = {
 export type Tone = 'primary' | 'amber' | 'red' | 'green' | 'gray';
 export const TONE_ICON: Record<Tone, string> = { primary: '#4f46e5', amber: '#b45309', red: '#dc2626', green: '#059669', gray: '#6b7280' };
 
-export function Badge({ label, tone = 'gray' }: { label: string; tone?: Tone }) {
-  return <View className={`self-start rounded-full px-2.5 py-0.5 ${TONE[tone]}`}><Text className={`text-xs font-semibold ${TONE[`${tone}Text`]}`}>{label}</Text></View>;
+/** `small` is a compact pill for crowded tiles: smaller type and padding, with an optional icon before the words. */
+export function Badge({ label, tone = 'gray', small, icon }: { label: string; tone?: Tone; small?: boolean; icon?: IconName }) {
+  if (!small) return <View className={`self-start rounded-full px-2.5 py-0.5 ${TONE[tone]}`}><Text className={`text-xs font-semibold ${TONE[`${tone}Text`]}`}>{label}</Text></View>;
+  return <View className={`flex-row items-center gap-1 self-start rounded-full px-1.5 py-px ${TONE[tone]}`}>
+    {icon && <Feather accessible={false} name={icon} size={10} color={TONE_ICON[tone]} />}
+    <Text className={`text-[10px] font-semibold ${TONE[`${tone}Text`]}`}>{label}</Text></View>;
 }
 
 export function IconTile({ icon, tone }: { icon: IconName; tone: Tone }) {

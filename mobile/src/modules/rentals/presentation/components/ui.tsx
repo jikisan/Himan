@@ -223,7 +223,7 @@ export function zodFieldErrors(error: { issues: { path: PropertyKey[]; message: 
 // ---- Menu: a list of big labelled choices over a dimmed screen (iOS 26's own action sheet has no dimming).
 
 /** `heading` puts a small section title above this option, to group a long menu. */
-export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; icon?: IconName; tone?: 'green' | 'amber'; heading?: string; onPress(): void };
+export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; icon?: IconName; tone?: 'green' | 'amber' | 'primary'; heading?: string; onPress(): void };
 type MenuSpec = { title?: string; options: MenuOption[]; onCancel?(): void };
 // Hosts mount inside each open sheet: a native modal only shows above the modal it is rendered in, so the newest host shows the menu.
 const hosts: ((spec: MenuSpec | null) => void)[] = [];
@@ -254,9 +254,9 @@ export function MenuHost() {
           className={`min-h-14 flex-row items-center justify-center gap-2 rounded-2xl px-4 active:opacity-70 ${o.checked ? 'bg-indigo-50 dark:bg-indigo-950/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
           {/* The tick sits right beside the words (the text shrinks to its own width rather than filling the row). */}
           {o.checked ? <Feather accessible={false} name="check" size={20} color="#6366f1" />
-            : o.icon ? <Feather accessible={false} name={o.icon} size={20} color={o.destructive ? '#ef4444' : o.tone === 'green' ? '#059669' : o.tone === 'amber' ? '#d97706' : '#9ca3af'} /> : null}
+            : o.icon ? <Feather accessible={false} name={o.icon} size={20} color={o.destructive ? '#ef4444' : o.tone === 'green' ? '#059669' : o.tone === 'amber' ? '#d97706' : o.tone === 'primary' ? '#818cf8' : '#9ca3af'} /> : null}
           <Text className={`shrink text-center text-lg font-semibold ${o.destructive ? 'text-red-600 dark:text-red-400' : o.tone === 'green' ? 'text-emerald-700 dark:text-emerald-400'
-            : o.tone === 'amber' ? 'text-amber-700 dark:text-amber-300' : o.checked ? 'text-indigo-700 dark:text-indigo-300' : text}`}>{o.label}</Text>
+            : o.tone === 'amber' ? 'text-amber-700 dark:text-amber-300' : o.tone === 'primary' ? 'text-indigo-700 dark:text-indigo-300' : o.checked ? 'text-indigo-700 dark:text-indigo-300' : text}`}>{o.label}</Text>
         </Pressable></Fragment>)}
       </Pressable>
       <View className="h-2" />

@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { DEFAULT_CLAUSES } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { openSection, renderRentals } from './renderRentals';
 
 /** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
 const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
@@ -80,8 +79,8 @@ beforeEach(() => {
 });
 
 const openAdd = () => {
-  render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
+  renderRentals();
+  openSection('Rooms');
   fireEvent.click(within(screen.getByRole('region', { name: 'Room A' })).getByRole('button', { name: 'Add tenant' }));
 };
 const toPay = (name = 'Elle Tan') => {

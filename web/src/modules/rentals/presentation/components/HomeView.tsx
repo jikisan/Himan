@@ -3,14 +3,14 @@ import type { ReactNode } from 'react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { BedDouble, CalendarClock, CircleCheck, DoorOpen, FilePlus2, Gauge, HandCoins, History, PenLine, ReceiptText, Send, UserCheck, UserRound } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { billBalance, contractStage, depositHeld, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
+import { billBalance, contractStage, depositToReturn, earlierUnpaid, formatBillPesos, isEarlier, formatPesos, manilaToday, nextDueDate, periodLabel, periodOf } from '@himan/shared/rentals';
 import type { ContractText, MeterReading, TenancyLink, RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
 import { monthRows, monthTodo, unreplacedCancelled } from '../utils/billingMonth';
 import { cn } from '@core/presentation/utils';
 
 const names = (list: string[]) => list.length <= 3 ? list.join(', ') : `${list.slice(0, 2).join(', ')} and ${list.length - 2} more`;
 
-/** The landing tab: what needs doing for this property this month, then the numbers at a glance. */
+/** The To do screen: what needs doing for this property this month, overdue bills, and rent due within a week. */
 export function HomeView({ property, tenancies, renters, bills, readings, canManage, canEdit, onReadMeters, onOpenBills, onOpenBill,
   onAddTenant, onAddRoom, onOpenTenant, onReviewCancelled, utilityBills, onAddBillAmounts, payments = [], onMarkEarlierPaid, contractTexts = [], links = [],
   settlements = [], onSettleDeposit, onOpenContract = onOpenTenant, onContractNotNeeded }: {
@@ -36,17 +36,9 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
   const earlier = earlierUnpaid(property, bills, payments);
   const trackedSince = property.paymentsTrackedFrom ? format(parseISO(property.paymentsTrackedFrom), 'MMM d, yyyy') : '';
   const settlementOf = (t: RentalTenancy) => settlements.find((s) => s.tenancyId === t.id);
-  // Moved-out tenants' deposits stay held until settled.
-  const deposits = tenancies.map((t) => depositHeld(t, bills, payments, settlementOf(t)));
-  const held = deposits.reduce((sum, d) => sum + (d.state === 'held' ? d.amountCentavos : 0), 0);
-  const pending = deposits.reduce((sum, d) => sum + (d.state === 'pending' ? d.amountCentavos : 0), 0);
   const meterRooms = [...new Set([...todo.meters].map((key) => roomName(key.split(':')[0])))];
   const freeUnits = property.units.filter((u) => active.filter((t) => t.unitId === u.id).length < u.capacity);
   const freeBeds = freeUnits.reduce((sum, u) => sum + u.capacity - active.filter((t) => t.unitId === u.id).length, 0);
-  const beds = property.units.reduce((sum, u) => sum + u.capacity, 0);
-  const rent = active.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
-  const toBill = rows.filter((r) => r.pending.state !== 'covered' && r.pending.state !== 'none').length;
-  const issued = rows.filter((r) => r.pending.state === 'issued').length;
   const tenancyOf = (b: RentalBill) => tenancies.find((t) => t.id === b.tenancyId);
   const dueSoon = active.flatMap((tenancy) => {
     const contract = tenancy.contracts.find((c) => c.status === 'active');
@@ -162,16 +154,6 @@ export function HomeView({ property, tenancies, renters, bills, readings, canMan
     </div>
 
     <aside className="space-y-4 lg:w-80 lg:shrink-0">
-      <section aria-labelledby="rentals-glance" className="rounded-xl border bg-card p-4 shadow-sm">
-        <h3 id="rentals-glance" className="font-semibold">At a glance</h3>
-        <dl className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-1">
-          <Figure label="Monthly rent" value={formatPesos(rent)} className="col-span-2 lg:col-span-1" />
-          <Figure label="Beds taken" value={<>{active.length} <span className="text-sm font-medium text-muted-foreground">of {beds}</span></>} />
-          <Figure label={`${month} SOAs generated`} value={<>{issued} <span className="text-sm font-medium text-muted-foreground">of {toBill}</span></>} />
-          <Figure label="Deposits held" value={<>{formatBillPesos(held)}{pending > 0 && <span className="block text-xs font-medium text-muted-foreground">
-            {formatBillPesos(pending)} pending</span>}</>} />
-        </dl>
-      </section>
       {dueSoon.length > 0 && <section aria-labelledby="rentals-due" className="rounded-xl border bg-card p-4 shadow-sm">
         <h3 id="rentals-due" className="font-semibold">Rent due in the next 7 days</h3>
         <ul className="mt-2 divide-y">{dueSoon.map(({ tenancy, rent: amount, date, inDays }) => <li key={tenancy.id}
@@ -209,9 +191,4 @@ function Task({ icon: Icon, tone, title, detail, action, label, primary, onActio
     <button type="button" aria-label={label} onClick={onAction} className={cn(BUTTON,
       primary ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border bg-background hover:bg-muted/50')}>{action}</button>
   </div>;
-}
-
-function Figure({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
-  return <div className={cn('min-w-0', className)}><dt className="truncate text-xs text-muted-foreground">{label}</dt>
-    <dd className="truncate text-lg font-bold tabular-nums lg:text-2xl">{value}</dd></div>;
 }

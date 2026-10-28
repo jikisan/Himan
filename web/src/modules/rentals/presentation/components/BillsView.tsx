@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Copy, Gauge, ReceiptText } from 'lucide-react';
+import { CircleAlert, CircleCheck, Copy, Gauge, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -12,6 +12,7 @@ import { AddReadingsDialog, MeterReadings } from './MeterReadings';
 import { BillAmountsDialog } from './BillAmountsDialog';
 import type { ReadingSoa } from './MeterReadings';
 import { Initials } from './Badges';
+import { MonthBar } from './MonthBar';
 import type { StatementInfo } from './Statement';
 import { errorMessage } from '../utils/errorMessage';
 import { monthRows, monthTodo, unreplacedCancelled, useWide } from '../utils/billingMonth';
@@ -136,7 +137,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     badge?: ReactNode; number?: string; money?: { tone: MoneyTone; headline: string; detail: string }; actions?: ReactNode;
     label?: string; key?: string; dim?: boolean }) =>
     <li key={key ?? r.t.id} aria-label={label ?? `${name(r.t)} · ${room(r.t)}`}
-      className={cn('px-4 py-4 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-6', dim && 'opacity-70')}>
+      className={cn('px-1 py-4 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-6', dim && 'opacity-70')}>
       <div className="flex min-w-0 gap-3">
         <Initials name={name(r.t)} />
         <div className="min-w-0">
@@ -156,19 +157,23 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
 
   return <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
     <div className="min-w-0 flex-1 space-y-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex items-center gap-1">
-          <Button variant="outline" className="h-11 px-3 sm:h-9" aria-label="Previous month" disabled={period <= earliest}
-            onClick={() => setPeriod(addPeriods(period, -1))}><ChevronLeft aria-hidden className="h-4 w-4" />Previous</Button>
-          <h3 className="min-w-32 text-center text-lg font-semibold">{periodLabel(period)}</h3>
-          <Button variant="outline" className="h-11 px-3 sm:h-9" aria-label="Next month" disabled={period >= latest}
-            onClick={() => setPeriod(addPeriods(period, 1))}>Next<ChevronRight aria-hidden className="h-4 w-4" /></Button>
-        </div>
+      <MonthBar period={period} onChange={setPeriod} min={earliest} max={latest} />
+      <div role="group" aria-label="Bill status" className="grid grid-cols-3 gap-3">
+        {([['bills-waiting', 'Waiting for readings', todo.waiting.length], ['bills-ready', 'Ready for SOA', todo.ready.length],
+          ['bills-issued', 'SOAs generated', liveSoas.length]] as const).map(([id, label, count]) => <button key={id} type="button" disabled={!count}
+          onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className={cn('flex min-h-20 flex-col items-start gap-1 rounded-2xl border bg-card p-3 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:border-primary/40 sm:p-4',
+            count > 0 && id !== 'bills-issued' && 'border-primary/50 bg-primary/5')}>
+          <span className="text-2xl font-bold tabular-nums">{count}</span>
+          <span className="text-xs leading-tight text-muted-foreground sm:text-sm">{label}</span>
+        </button>)}
+      </div>
+      {(hasMeters || hasMonthly) && <div className="flex flex-wrap gap-2">
         {hasMeters && !panelShown && <Button variant="outline" className="h-11 sm:h-9" onClick={showMeters}>
           <Gauge className="h-4 w-4" />Meters</Button>}
         {hasMonthly && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setAmountsOpen(true)}>
           <ReceiptText className="h-4 w-4" />Bill amounts</Button>}
-      </div>
+      </div>}
 
       {todo.waiting.length + todo.ready.length + soas.length === 0 && <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-10 text-center">
         <ReceiptText aria-hidden className="h-8 w-8 text-muted-foreground" />
@@ -176,8 +181,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">Tenants get a monthly SOA from their first due date after the months their advance covers.</p>
       </div>}
 
-      {todo.waiting.length > 0 && <section aria-labelledby="bills-waiting" className="overflow-hidden rounded-xl border border-amber-500/40 bg-card shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 bg-amber-500/10 px-4 py-3">
+      {todo.waiting.length > 0 && <section aria-labelledby="bills-waiting" className="scroll-mt-4">
+        <div className="flex flex-wrap items-center gap-3 py-2">
           <h3 id="bills-waiting" className="min-w-0 flex-1 font-semibold">
             {todo.waiting.length} SOA{todo.waiting.length === 1 ? '' : 's'} waiting for {todo.meters.size && todo.amounts.size ? 'readings and bill amounts'
               : todo.amounts.size ? 'bill amounts' : 'meter readings'}</h3>
@@ -185,20 +190,20 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
           {hasMonthly && todo.amounts.size > 0 && <Button className="h-11 sm:h-9" onClick={() => setAmountsOpen(true)}>
             <ReceiptText className="h-4 w-4" />Add bill amounts</Button>}
         </div>
-        <ul className="divide-y">{todo.waiting.map((r) => row(r, {
+        <ul className="divide-y border-y">{todo.waiting.map((r) => row(r, {
           money: { tone: 'due', headline: r.pending.state === 'needs-reading' && r.pending.kinds.every((k) => isMonthly(r.t.unitId, k))
             ? 'Needs the bill amount' : 'Needs a meter reading', detail: `Due ${short(r.due)}` },
           actions: canManage && <Button variant="outline" size="sm" className={btn}
             onClick={() => setSkipped((s) => new Set(s).add(`${r.t.id}:${period}`))}>Skip utilities this month</Button> }))}</ul>
       </section>}
 
-      {todo.ready.length > 0 && <section aria-labelledby="bills-ready" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+      {todo.ready.length > 0 && <section aria-labelledby="bills-ready" className="scroll-mt-4">
+        <div className="flex flex-wrap items-center gap-3 py-2">
           <h3 id="bills-ready" className="min-w-0 flex-1 font-semibold">Ready for SOA <span className="text-muted-foreground">· {todo.ready.length}</span></h3>
           {canManage && <Button className="h-11 sm:h-9" disabled={busy} onClick={() => void issue(readyInputs)}>
             Generate all {todo.ready.length} SOA{todo.ready.length === 1 ? '' : 's'} · {formatBillPesos(todo.readyTotal)}</Button>}
         </div>
-        <ul className="divide-y border-t">{todo.ready.map((r) => r.pending.state === 'ready' && row(r, {
+        <ul className="divide-y border-y">{todo.ready.map((r) => r.pending.state === 'ready' && row(r, {
           money: { tone: 'due', headline: formatBillPesos(billTotal(r.pending.lines)), detail: `Not generated yet. Due ${short(r.due)}` },
           actions: <>
             <Button variant="outline" size="sm" className={btn} onClick={() => onOpenPending(r.t.id, period, r.skip)}><ReceiptText className="h-4 w-4" />View SOA</Button>
@@ -207,12 +212,12 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
           </> }))}</ul>
       </section>}
 
-      {soas.length > 0 && <section aria-labelledby="bills-issued" className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 px-4 py-3">
+      {soas.length > 0 && <section aria-labelledby="bills-issued" className="scroll-mt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 py-2">
           <h3 id="bills-issued" className="font-semibold">SOAs generated <span className="text-muted-foreground">· {liveSoas.length}</span></h3>
           <span className="text-sm tabular-nums text-muted-foreground">{formatBillPesos(liveSoas.reduce((sum, x) => sum + billTotal(x.bill.lines), 0))} total</span>
         </div>
-        <div role="group" aria-label="Show SOAs" className="flex flex-wrap gap-2 px-4 pb-3">
+        <div role="group" aria-label="Show SOAs" className="flex flex-wrap gap-2 pb-3">
           {(Object.keys(FILTERS) as (keyof typeof FILTERS)[]).map((key) => {
             const count = soas.filter((x) => FILTERS[key].keep(x.bill)).length;
             return (count > 0 || key === 'active' || key === filter) && <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}
@@ -229,7 +234,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         })()}
         {shownSoas.length === 0 && <p className="border-t px-4 py-4 text-sm italic text-muted-foreground">
           {filter === 'active' ? `Every SOA for ${month} is cancelled. Pick “Cancelled” to see them.` : 'Nothing here.'}</p>}
-        <ul className="divide-y border-t empty:hidden">{shownSoas.map(({ r, bill }) => {
+        <ul className="divide-y border-y empty:hidden">{shownSoas.map(({ r, bill }) => {
           const cancelled = bill.status === 'void';
           return row(r, { key: bill.id, dim: cancelled, label: `${KIND[bill.kind]} ${bill.number} · ${name(r.t)} · ${room(r.t)}`,
             number: bill.number, money: billMoney(bill, payments, today),

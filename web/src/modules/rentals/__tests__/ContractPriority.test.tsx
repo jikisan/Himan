@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { DEFAULT_CLAUSES } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { openSection, renderRentals } from './renderRentals';
 
 // A written contract is optional but nudged everywhere: Home to-dos, the tenant sheet, the lists, and after Add tenant.
 const unit = (n: number): RentalUnit => ({ id: `u${n}`, propertyId: 'p', name: `Room ${n}`, kind: 'room', capacity: 1, electricMode: 'none',
@@ -52,8 +51,8 @@ beforeEach(() => {
 });
 
 const page = (tab?: string) => {
-  render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  if (tab) fireEvent.click(screen.getByRole('button', { name: tab }));
+  renderRentals();
+  if (tab && tab !== 'Home') openSection(tab as 'Rooms');
 };
 const todo = () => within(screen.getByRole('region', { name: 'To do for October' }));
 const before = (a: HTMLElement, b: HTMLElement) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);

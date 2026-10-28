@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { BLANK, DEFAULT_CLAUSES, contractStatusLabel, contractValues, linkMessage, renderClauses } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalProperty, RentalTenancy, Renter, TenancyLink } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { goToProperty, openSection, propertyAction, renderRentals } from './renderRentals';
 import { propertyInput } from '../presentation/components/PropertyForm';
 import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
@@ -69,8 +68,8 @@ beforeEach(() => {
 
 const dialog = () => within(screen.getByRole('dialog'));
 const openSheet = () => {
-  render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
+  renderRentals();
+  openSection('Rooms');
   fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
   return within(screen.getByRole('region', { name: 'Contract' }));
 };
@@ -279,7 +278,7 @@ describe('Contract on the tenant sheet', () => {
 
   it('lists a tenant who signed on Home', () => {
     state.contractTexts = [text({ status: 'signed', tenantSignedAt: '2026-10-09T01:00:00Z' })];
-    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+    renderRentals();
     fireEvent.click(screen.getByRole('button', { name: 'Countersign contract for Carlo Lim' }));
     expect(within(screen.getByRole('region', { name: 'Contract' })).getByRole('button', { name: 'Countersign' })).toBeInTheDocument();
   });
@@ -419,8 +418,8 @@ describe('The link a sent contract goes out with', () => {
 
 describe('Contract template and signature in Edit property', () => {
   const openEdit = () => {
-    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    renderRentals();
+    propertyAction('Edit property');
     return within(screen.getByRole('region', { name: 'Contract template' }));
   };
 
@@ -451,14 +450,15 @@ describe('Contract template and signature in Edit property', () => {
 
   it('hides the template and signature from managers', () => {
     state.properties = [{ ...property, role: 'manager' }];
-    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    renderRentals();
+    goToProperty();
+    expect(screen.queryByRole('button', { name: 'More property actions' })).not.toBeInTheDocument();
   });
 
   it('draws and saves my signature, and asks before replacing a saved one', async () => {
     state.properties = [{ ...property, lessorSignature: null }];
-    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    renderRentals();
+    propertyAction('Edit property');
     const mine = within(screen.getByRole('region', { name: 'My signature' }));
     act(() => pad.fire());
     fireEvent.click(mine.getByRole('button', { name: 'Save signature' }));
@@ -466,8 +466,8 @@ describe('Contract template and signature in Edit property', () => {
   });
 
   it('shows the saved signature with Replace behind a confirm', async () => {
-    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    renderRentals();
+    propertyAction('Edit property');
     const mine = within(screen.getByRole('region', { name: 'My signature' }));
     expect(mine.getByRole('img', { name: 'Your saved signature' })).toHaveAttribute('src', PNG);
     fireEvent.click(mine.getByRole('button', { name: 'Replace' }));

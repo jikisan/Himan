@@ -14,13 +14,20 @@ Landlord-side rent management. Spec: [[2026-10-16-rentals-design]]. Plans: [[202
   one transaction via `TenancyRepository.moveIn` → `rental_move_in`; starting readings, extra charges and payment proofs are
   saved afterwards and their failures become warnings) and `setupProperty` (property + rooms, reports failed room names).
   Domain `flow.ts`: `moveInDefaults`, `roomSpots`.
-- Web: `web/src/modules/rentals/` — `/rentals` page, flow v2 (plain words for non-technical users):
-  Property side list with bed meters · tabs Home / Rooms / Tenants / Bills (Bills badge = bills waiting + ready).
-  Home (`HomeView`): "To do for <month>" tasks (read meters, issue bills, recent bills past due, free beds) + at a glance
-  + "Rent due in the next 7 days" (`nextDueDate`). Bills (`BillsView`): grouped waiting for reading / ready to issue /
-  issued (Copy for Messenger) / no monthly bill; `MeterReadings` is a side panel ≥1024px, a full-screen sheet below
-  (`utils/billingMonth.ts`: `monthRows`, `monthTodo`, `useWide`). Past due ≠ unpaid: no payment tracking yet · Rooms board (`RoomsBoard`, one line per bed, Full / N free pill,
-  "+ Add tenant" on free beds) · Tenants view (`TenantsList`, table: room, rent, since).
+- Navigation (web and mobile, shared helpers in domain `overview.ts`: `needsAttention`, `todoCounts`, `monthFigures`):
+  Rentals → a tile per property (beds taken, to-do badge) plus a dashed New property tile → property screen ("Needs attention":
+  at most 3 urgent items — unpaid bills late first, then not yet due, then rent due within 7 days — with "See all"; then tiles
+  To do · Rooms · Tenants · Bills · Analytics) → section screen. Web routes `/rentals/:propertyId?/:section?`
+  (`utils/sections.ts`); mobile pushes `rentals?property=&section=` on the Stack so the back gesture works.
+  Edit / Share / Archive live in the property screen's More menu.
+- Web: `web/src/modules/rentals/` — `RentalsPage` renders all three levels; plain words for non-technical users.
+  To do (`HomeView`): "To do for <month>" tasks (read meters, issue bills, recent bills past due, free beds), Overdue,
+  "Rent due in the next 7 days" (`nextDueDate`). Rooms (`RoomsBoard`): a tile per room with a bar per bed, Add tenant per free bed,
+  Add room tile. Tenants (`TenantsList`): a tile per tenant, red mark when they have a to-do. Analytics (`AnalyticsView`):
+  collected / SOAs / occupancy rings, billed vs collected for 6 months, rent, unpaid, deposits. Bills (`BillsView`): month bar,
+  status tiles (waiting / ready / generated), then lists grouped waiting for reading / ready to issue / issued (Copy for Messenger);
+  `MeterReadings` is a side panel ≥1024px, a full-screen sheet below
+  (`utils/billingMonth.ts`: `monthRows`, `monthTodo`, `useWide`).
   Dialogs: `SetupWizard` (new property, 3 steps), `MoveInFlow` (guided move-in; `AddTenantForm` is its first step), `TenantSheet` (right side panel: call/text/move out, rent + next due, contract, ID, read-only contact with Edit, history),
   `MoveOutDialog` (dated), `UnitForm` (room), `PropertyForm` (edit; contract details collapsed), `ShareDialog`.
   UI words: Room / Shared room / Tenant / Move in / Move out; DB keeps unit / bedspace / renter / tenancy.

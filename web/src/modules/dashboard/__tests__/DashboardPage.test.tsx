@@ -175,9 +175,14 @@ describe('DashboardPage', () => {
 
   it('marks the letter the page has scrolled to, not always the last one', async () => {
     page();
-    const tops: Record<string, number> = { C: -400, F: -300, G: 40, I: 400, N: 800, P: 1200, R: 1600, W: 2000 };
-    for (const [letter, top] of Object.entries(tops)) {
-      vi.spyOn(document.getElementById(`apps-${letter}`)!, 'getBoundingClientRect').mockReturnValue({ top } as DOMRect);
+    // Each group's start in the page's content, with the page scrolled to 850 (just past G's start).
+    const starts: Record<string, number> = { C: 100, F: 400, G: 800, I: 1200, N: 1600, P: 2000, R: 2400, W: 2800 };
+    const root = document.documentElement;
+    for (const [prop, value] of Object.entries({ scrollTop: 850, scrollHeight: 3600, clientHeight: 800 })) {
+      Object.defineProperty(root, prop, { configurable: true, value });
+    }
+    for (const [letter, start] of Object.entries(starts)) {
+      vi.spyOn(document.getElementById(`apps-${letter}`)!, 'getBoundingClientRect').mockReturnValue({ top: start - 850 } as DOMRect);
     }
     fireEvent.scroll(document);
     const index = screen.getByRole('navigation', { name: 'Jump to letter' });

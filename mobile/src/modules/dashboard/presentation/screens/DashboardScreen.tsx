@@ -104,7 +104,12 @@ export default function DashboardScreen() {
     offsets.current[letter] = y;
     tops.value = groups.map((g) => offsets.current[g.letter] ?? 0);
   };
-  const jump = (letter: string) => scroll.current?.scrollTo({ y: offsets.current[letter] ?? 0, animated: false });
+  // Scrolls to the same spot the marker treats as that letter (see `stops`), so the marker lands on the tapped letter.
+  const jump = (letter: string) => {
+    const i = groups.findIndex((g) => g.letter === letter);
+    const t = stops(groups.map((g) => offsets.current[g.letter] ?? 0), maxY.value);
+    scroll.current?.scrollTo({ y: t[i] ?? 0, animated: false });
+  };
   const open = (app: MobileApp) => router.push(app.route as never);
   const changeLayout = (next: DashboardLayout) => {
     if (next !== layout) saveLayout(next).catch(() => showToast('Couldn’t save your view. It will reset next time you sign in.', 'error'));
@@ -158,6 +163,19 @@ export default function DashboardScreen() {
  */
 const BAR_HEIGHT = 0.6;
 
+/**
+ * The scroll position of each letter heading. When the page can't scroll far enough to bring the last heading to the top,
+ * the headings are spread over the scroll it does have, so the marker still travels the whole bar and reaches the last
+ * letter at the bottom. Jumping to a letter scrolls to its stop, so the marker and the jump always agree.
+ */
+function stops(raw: number[], max: number): number[] {
+  'worklet';
+  const first = raw[0] ?? 0;
+  const last = raw[raw.length - 1] ?? 0;
+  const start = Math.min(first, max);
+  return last > max && last > first ? raw.map((y) => start + (y - first) * (max - start) / (last - first)) : raw;
+}
+
 function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
   letters: string[]; onLetter(letter: string): void; scrollY: SharedValue<number>; maxY: SharedValue<number>; tops: SharedValue<number[]>;
 }) {
@@ -176,11 +194,7 @@ function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
   // moves continuously. When the page can't scroll far enough to bring the last heading to the top, the headings are spread
   // over the scroll it does have, so the marker still travels the whole bar and reaches the last letter at the bottom.
   const target = useDerivedValue(() => {
-    const raw0 = tops.value;
-    const first = raw0[0] ?? 0;
-    const last = raw0[raw0.length - 1] ?? 0;
-    const end = Math.max(Math.min(first, maxY.value), maxY.value);
-    const t = last > end && last > first ? raw0.map((y) => Math.min(first, end) + (y - first) * (end - Math.min(first, end)) / (last - first)) : raw0;
+    const t = stops(tops.value, maxY.value);
     const y = scrollY.value;
     if (!t.length) return 0;
     let i = 0;

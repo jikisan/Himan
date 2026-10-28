@@ -1,14 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/** A letter's heading counts as "reached" once it is above this fraction of the window height. */
-const REACHED_AT = 0.4;
-
 /** The element the page actually scrolls in: the nearest scrollable ancestor (the app shell), else the document. */
 const scroller = (from: HTMLElement | null): Element => {
   for (let el = from?.parentElement; el; el = el.parentElement) {
     if (/(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight) return el;
   }
   return document.scrollingElement ?? document.documentElement;
+};
+
+/**
+ * Where each letter's group starts in the scroller's content. When the page can't scroll far enough to bring the last
+ * group to the top, the starts are spread over the scroll it does have, so the last letter is still reachable. Clicking a
+ * letter scrolls to its stop and the active letter is read from the same stops, so the two always agree.
+ */
+const stops = (box: Element, letters: string[]): number[] => {
+  const base = box.scrollTop - (box === document.scrollingElement ? 0 : box.getBoundingClientRect().top);
+  const raw = letters.map((l) => (document.getElementById(`apps-${l}`)?.getBoundingClientRect().top ?? 0) + base);
+  const max = box.scrollHeight - box.clientHeight;
+  const first = raw[0] ?? 0;
+  const last = raw[raw.length - 1] ?? 0;
+  const start = Math.min(first, max);
+  return last > max && last > first ? raw.map((y) => start + ((y - first) * (max - start)) / (last - first)) : raw;
 };
 
 /**
@@ -23,11 +35,9 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
 
   useEffect(() => {
     const update = () => {
-      const heading = (letter: string) => document.getElementById(`apps-${letter}`)?.getBoundingClientRect().top ?? Infinity;
       const box = scroller(row.current);
-      // A page too short to scroll never "reaches" the bottom; otherwise the end of the page counts as the last letter.
-      const atBottom = box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-      const reached = atBottom ? letters.at(-1) : letters.filter((l) => heading(l) <= window.innerHeight * REACHED_AT).at(-1);
+      const at = stops(box, letters);
+      const reached = letters.filter((_, i) => at[i] <= box.scrollTop + 2).at(-1);
       setActive(reached ?? letters[0]);
     };
     update();
@@ -71,7 +81,11 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
           href={`#apps-${letter}`}
           aria-label={`Jump to ${letter}`}
           aria-current={letter === active ? "true" : undefined}
-          onClick={(e) => { e.preventDefault(); document.getElementById(`apps-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+          onClick={(e) => {
+            e.preventDefault();
+            const box = scroller(row.current);
+            box.scrollTo({ top: stops(box, letters)[letters.indexOf(letter)], behavior: "smooth" });
+          }}
           className={`relative flex min-h-0 flex-1 items-center justify-center rounded-full text-sm font-semibold transition-[color,transform] duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             letter === active ? "scale-125 text-primary-foreground" : "text-muted-foreground hover:text-primary"
           }`}

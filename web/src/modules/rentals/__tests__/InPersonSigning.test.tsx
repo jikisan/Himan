@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { DEFAULT_CLAUSES, canonicalText, sha256Hex } from '@himan/shared/rentals';
 import type { Clause, ContractText, RentalBill, RentalPayment, RentalProperty, RentalTenancy, RentalUnit, Renter } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { openSection, renderRentals } from './renderRentals';
 import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
 const pad = vi.hoisted(() => ({ instance: null as null | { fire(): void } }));
@@ -70,8 +69,8 @@ beforeEach(() => {
 });
 
 const openSheet = () => {
-  render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
+  renderRentals();
+  openSection('Rooms');
   fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
 };
 // The tenant screen is the topmost dialog, over the tenant sheet.
@@ -236,8 +235,8 @@ describe('Move-in checklist on the tenant sheet', () => {
   it('is gone when everything is done, or the contract isn’t needed', () => {
     state.payments = [paidAll];
     state.contractTexts = [text({ status: 'countersigned' })];
-    const { unmount } = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
+    const { unmount } = renderRentals();
+    openSection('Rooms');
     fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
     expect(checklist()).toBeNull();
     unmount();

@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowLeft, Building2, Check, ChevronDown, DoorClosed, House, KeyRound, MoreHorizontal, Pencil, Plus,
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Archive, ArchiveRestore, ArrowLeft, Building2, DoorClosed, House, KeyRound, MoreHorizontal, Pencil, Plus,
   Share2, Trash2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { DEFAULT_CLAUSES, billPaid, depositToReturn, hasRentalRole, manilaToday, pendingBill, periodOf, previousBalance, tenancyCredit,
-  tenancyOwed } from '@himan/shared/rentals';
-import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
+import { DEFAULT_CLAUSES, billPaid, depositToReturn, hasRentalRole, manilaToday, needsAttention, pendingBill, periodLabel, periodOf, previousBalance, tenancyCredit,
+  tenancyOwed, todoCounts } from '@himan/shared/rentals';
+import type { ReceiptContext, RentalBill, RentalPayment, RentalProperty, RentalTenancy } from '@himan/shared/rentals';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction } from '../hooks/useRentals';
 import { PropertyForm } from '../components/PropertyForm';
@@ -26,6 +26,10 @@ import { MoveOutDialog } from '../components/MoveOutDialog';
 import { SetupWizard } from '../components/SetupWizard';
 import { BillsView } from '../components/BillsView';
 import { HomeView } from '../components/HomeView';
+import { NeedsAttention, PropertyGrid, SectionTiles } from '../components/Overview';
+import { SECTIONS, SECTION_TITLE } from '../utils/sections';
+import type { Section } from '../utils/sections';
+import { AnalyticsView } from '../components/AnalyticsView';
 import { monthRows, monthTodo, paidChangeWarning, unreplacedCancelled } from '../utils/billingMonth';
 import { BillSheet } from '../components/BillSheet';
 import { RecordPaymentDialog } from '../components/RecordPaymentDialog';
@@ -49,18 +53,23 @@ export function RentalsPage() {
 
 function RentalsContent(state: RentalsState) {
   const { properties, tenancies, loading, error, online, userId, busy, run, refetch, fileUrl, paymentProofUrl } = state;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [view, setView] = useState<'home' | 'rooms' | 'tenants' | 'bills'>('home');
-  const [metersFromHome, setMetersFromHome] = useState(false);
-  const [cancelledPeriod, setCancelledPeriod] = useState<string | null>(null);
-  const [amountsFromHome, setAmountsFromHome] = useState(false);
+  const params = useParams();
+  const navigate = useNavigate();
+  const propertyId = params.propertyId;
+  const section = SECTIONS.find((s) => s === params.section);
+  // Shortcuts from To do open Bills at the right step; the key remounts it so each one takes.
+  const [billsStart, setBillsStart] = useState<{ meters?: boolean; amounts?: boolean; cancelled?: string; key: number }>({ key: 0 });
+  const openBills = (start: Omit<typeof billsStart, 'key'>) => {
+    setBillsStart((s) => ({ ...start, key: s.key + 1 }));
+    navigate(`/rentals/${propertyId}/bills`);
+  };
   const [dialog, setDialog] = useState<DialogState>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
   const [paying, setPaying] = useState<{ tenancyId: string; billId?: string } | null>(null);
   const [settlingId, setSettlingId] = useState<string | null>(null);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
-  const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
+  const property = ordered.find((p) => p.id === propertyId);
   const role = property?.role;
   const isOwner = hasRentalRole(role, 'owner');
   const isManager = hasRentalRole(role, 'manager');
@@ -82,8 +91,6 @@ function RentalsContent(state: RentalsState) {
     + unreplacedCancelled({ property: property!, tenancies: propertyTenancies, readings: propertyReadings, bills: propertyBills, utilityBills: propertyUtilityBills }).length : 0;
   const movingOut = propertyTenancies.find((t) => t.id === movingOutId) ?? null;
   const canCreate = online && !!userId && !busy;
-  const newProperty = (primary: boolean) => <Button variant={primary ? 'default' : 'outline'} className="h-11 sm:h-9" onClick={() => setDialog({ type: 'setup' })} disabled={!canCreate}>
-    <Plus className="h-4 w-4" />New property</Button>;
   const inSheet = dialog?.type === 'tenant' || dialog?.type === 'bill' || dialog?.type === 'pending';
   // The move-in flow is its own dialog: it asks before closing.
   const inFlow = dialog?.type === 'addTenant';
@@ -123,10 +130,32 @@ function RentalsContent(state: RentalsState) {
       .filter(({ renter }) => !here.has(key(renter)) && !seen.has(key(renter)) && !!seen.add(key(renter)));
   })();
 
+  const today = manilaToday();
+  const ctxOf = (p: RentalProperty) => ({ property: p, tenancies: tenancies.filter((t) => t.propertyId === p.id),
+    bills: state.bills.filter((b) => b.propertyId === p.id), payments: state.payments.filter((x) => x.propertyId === p.id),
+    readings: state.readings.filter((r) => r.propertyId === p.id), utilityBills: state.utilityBills.filter((b) => b.propertyId === p.id) });
+  const todoOf = (p: RentalProperty) => todoCounts(ctxOf(p), today, { canManage: hasRentalRole(p.role, 'manager'), canEdit: hasRentalRole(p.role, 'owner'),
+    contractTexts: state.contractTexts, links: state.links, settlements: state.settlements });
+  const todo = property ? todoOf(property) : null;
+  const attention = property ? needsAttention(ctxOf(property), today) : [];
+  const month = periodLabel(periodOf(today)).split(' ')[0];
+  const rows = property ? monthRows(ctxOf(property), periodOf(today)) : [];
+  const issued = rows.filter((r) => r.pending.state === 'issued').length;
+  const toBill = rows.filter((r) => r.pending.state !== 'covered' && r.pending.state !== 'none').length;
+  const beds = property?.units.reduce((sum, u) => sum + u.capacity, 0) ?? 0;
+  const details: Record<Section, string> = {
+    todo: todo?.total ? `${todo.total} thing${todo.total === 1 ? '' : 's'} to do` : 'All done',
+    rooms: !property?.units.length ? 'No rooms yet' : `${activeTenancies.length} of ${beds} beds taken`,
+    tenants: `${activeTenancies.length} living here`,
+    bills: billBadge ? `${billBadge} to do for ${month}` : toBill && issued >= toBill ? `${month} all issued` : `No SOAs due for ${month}`,
+    analytics: 'Rent, SOAs, deposits',
+  };
+  const back = !propertyId ? { to: '/dashboard', label: 'Dashboard' } : !section ? { to: '/rentals', label: 'Rentals' }
+    : { to: `/rentals/${propertyId}`, label: property?.name ?? 'Property' };
+
   return <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6">
-    <Link to="/dashboard" className="mb-4 inline-flex items-center gap-2 rounded text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <ArrowLeft size={16} />Dashboard</Link>
-    <h1 className="mb-4 text-2xl font-bold tracking-tight">Rentals</h1>
+    <Link to={back.to} className="mb-4 inline-flex items-center gap-2 rounded text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <ArrowLeft size={16} />{back.label}</Link>
       <main className="space-y-5">
     {!online ? <Empty icon={WifiOff} title="You’re offline">Connect to the internet to manage rentals.</Empty>
       : !userId ? <Empty icon={KeyRound} title="Signed out">Sign in to manage rentals.</Empty>
@@ -135,100 +164,76 @@ function RentalsContent(state: RentalsState) {
             <div className="h-44 animate-pulse rounded-xl bg-muted/40" /><div className="h-44 animate-pulse rounded-xl bg-muted/40" /></div></div>
       : error ? <div role="alert"><Empty icon={Building2} title="Could not load rentals" action={
           <Button variant="outline" onClick={() => void refetch()}>Retry</Button>}>Check your connection, then try again.</Empty></div>
-      : !property ? <Empty icon={House} title="No properties yet" action={newProperty(true)}>
-          Add your property first, then its rooms. It takes about a minute.</Empty>
-      : <>
-        <section aria-label="Property" className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="min-w-0 text-2xl font-bold tracking-tight">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" className="inline-flex max-w-full items-center gap-2 rounded-md text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                        <span className="truncate">{property.name}</span>
-                        <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
-                        <span className="sr-only"> (switch property)</span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-72">
-                      {ordered.map((p) => {
-                        const taken = tenancies.filter((t) => t.propertyId === p.id && t.moveOut === null).length;
-                        const total = p.units.reduce((sum, u) => sum + u.capacity, 0);
-                        return <DropdownMenuItem key={p.id} className="gap-3 py-2" onSelect={() => setSelectedId(p.id)}>
-                          <Check aria-hidden className={cn('h-4 w-4 shrink-0', p.id !== property.id && 'invisible')} />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{p.name}</span>
-                            <span className="block text-xs text-muted-foreground">{taken} of {total} beds taken{p.archivedAt && ' · Archived'}</span>
-                          </span>
-                        </DropdownMenuItem>;
-                      })}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="gap-3 py-2" disabled={!canCreate} onSelect={() => setDialog({ type: 'setup' })}>
-                        <Plus aria-hidden className="h-4 w-4" />New property</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </h2>
-                {role && <RoleBadge role={role} />}
-                {property.archivedAt && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Archived</span>}
-              </div>
-              {property.address && <p className="text-sm text-muted-foreground">{property.address}</p>}
+      : !propertyId ? <>
+        <div className="space-y-1"><h1 className="text-3xl font-bold tracking-tight">Rentals</h1>
+          <p className="text-muted-foreground">{ordered.length ? 'Choose a property' : 'Add your property first, then its rooms. It takes about a minute.'}</p></div>
+        <PropertyGrid properties={ordered} tenancies={tenancies} canCreate={canCreate} onNew={() => setDialog({ type: 'setup' })}
+          todoFor={(id) => { const p = ordered.find((x) => x.id === id); return p ? todoOf(p).total : 0; }} />
+      </>
+      : !property ? <Empty icon={House} title="Property not found" action={<Button asChild variant="outline"><Link to="/rentals">See all properties</Link></Button>}>
+          It may have been removed, or it isn’t shared with you.</Empty>
+      : !section ? <>
+        <section aria-label="Property" className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="min-w-0 truncate text-3xl font-bold tracking-tight">{property.name}</h1>
+              {role && <RoleBadge role={role} />}
+              {property.archivedAt && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">Archived</span>}
             </div>
-            {isOwner && <div className="flex gap-2">
-              <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'property', id: property.id })}><Pencil className="h-4 w-4" />Edit</Button>
-              <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'share' })}><Share2 className="h-4 w-4" />Share</Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-11 px-2.5 sm:h-9" aria-label="More property actions"><MoreHorizontal className="h-4 w-4" />More</Button></DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem className="gap-2" onSelect={() => void tryAct({ type: 'archiveProperty', id: property.id, archived: !property.archivedAt },
-                    property.archivedAt ? 'Property restored' : 'Property archived')}>
-                    {property.archivedAt ? <><ArchiveRestore className="h-4 w-4" />Unarchive</> : <><Archive className="h-4 w-4" />Archive</>}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>}
+            {property.address && <p className="text-sm text-muted-foreground">{property.address}</p>}
           </div>
+          {isOwner && <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline" className="h-11 sm:h-9" aria-label="More property actions"><MoreHorizontal className="h-4 w-4" />More</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="gap-2" onSelect={() => setDialog({ type: 'property', id: property.id })}><Pencil className="h-4 w-4" />Edit property</DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={() => setDialog({ type: 'share' })}><Share2 className="h-4 w-4" />Share</DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={() => void tryAct({ type: 'archiveProperty', id: property.id, archived: !property.archivedAt },
+                property.archivedAt ? 'Property restored' : 'Property archived')}>
+                {property.archivedAt ? <><ArchiveRestore className="h-4 w-4" />Unarchive</> : <><Archive className="h-4 w-4" />Archive</>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>}
         </section>
-
-
-        <div className="space-y-3">
-          <div role="group" aria-label="View" className="flex w-full gap-1 border-b sm:gap-6">
-            {(['home', 'rooms', 'tenants', 'bills'] as const).map((v) => <button key={v} type="button" aria-pressed={view === v}
-              onClick={() => { setView(v); setMetersFromHome(false); setCancelledPeriod(null); setAmountsFromHome(false); }}
-              className="-mb-px inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 border-transparent px-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-primary aria-pressed:font-semibold aria-pressed:text-primary sm:flex-none sm:text-base">
-              {v === 'home' ? 'Home' : v === 'rooms' ? 'Rooms' : v === 'tenants' ? 'Tenants' : 'Bills'}
-              {v === 'bills' && billBadge > 0 && <span aria-hidden className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold leading-5 text-white">{billBadge}</span>}
-            </button>)}
-          </div>
-          {view === 'rooms' && isOwner && property.units.length > 0 && <Button variant="outline" className="h-11 sm:h-9" onClick={() => setDialog({ type: 'room', id: null })}>
-            <Plus className="h-4 w-4" />Add room</Button>}
+        <NeedsAttention items={attention} todoHref={`/rentals/${property.id}/todo`} name={renterName} room={unitName} canManage={isManager}
+          billPeriod={(id) => propertyBills.find((b) => b.id === id && b.kind === 'monthly')?.period}
+          onRecordPayment={(tenancyId, billId) => setPaying({ tenancyId, billId })} onOpenBill={(billId) => setDialog({ type: 'bill', billId })}
+          onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })} />
+        <SectionTiles propertyId={property.id} details={details} badges={{ todo: todo?.total, bills: billBadge }} />
+      </>
+      : <>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1"><h1 className="text-3xl font-bold tracking-tight">{SECTION_TITLE[section]}</h1>
+            {section === 'rooms' && property.units.length > 0 && <p className="text-muted-foreground">{property.units.length} room{property.units.length === 1 ? '' : 's'} · {activeTenancies.length} of {beds} beds taken</p>}
+            {section === 'tenants' && <p className="text-muted-foreground">{activeTenancies.length} living here</p>}
+            {section === 'todo' && <p className="text-muted-foreground">{periodLabel(periodOf(today))}</p>}</div>
         </div>
-
-        {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
+        {section === 'todo' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
               readings={propertyReadings} canManage={isManager} canEdit={isOwner} contractTexts={state.contractTexts} links={state.links}
-              onReadMeters={() => { setView('bills'); setMetersFromHome(true); }} onOpenBills={() => setView('bills')}
+              onReadMeters={() => openBills({ meters: true })} onOpenBills={() => openBills({})}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
-              onReviewCancelled={(period) => { setCancelledPeriod(period); setView('bills'); }}
-              onAddBillAmounts={() => { setAmountsFromHome(true); setView('bills'); }} utilityBills={propertyUtilityBills}
+              onReviewCancelled={(period) => openBills({ cancelled: period })}
+              onAddBillAmounts={() => openBills({ amounts: true })} utilityBills={propertyUtilityBills}
               settlements={state.settlements} onSettleDeposit={setSettlingId}
               onOpenContract={(renterId) => setDialog({ type: 'tenant', renterId, focus: 'contract' })}
               onContractNotNeeded={(tenancyId) => void tryAct({ type: 'setContractNotNeeded', tenancyId, value: true }, 'Marked as not needed. Undo from the tenant.')}
               onMarkEarlierPaid={() => void tryAct({ type: 'markEarlierPaid', propertyId: property.id }, 'Earlier SOAs marked paid')} />
-          : view === 'rooms' ? property.units.length === 0
+          : section === 'rooms' ? property.units.length === 0
           ? <Empty icon={DoorClosed} title="No rooms yet" action={isOwner && <Button onClick={() => setDialog({ type: 'room', id: null })}>
               <Plus className="h-4 w-4" />Add room</Button>}>Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
           : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links} contractTexts={state.contractTexts}
               onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
               onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
               onMoveOut={setMovingOutId}
+              onAddRoom={() => setDialog({ type: 'room', id: null })}
               onEditRoom={(id) => setDialog({ type: 'room', id })}
               onDeleteRoom={(id) => setConfirm({ title: `Delete ${unitName(id)}?`, confirmText: 'Delete room', done: 'Room deleted',
                 action: { type: 'removeUnit', id }, description: 'Rooms that have had tenants can’t be deleted.' })} />
-          : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links} contractTexts={state.contractTexts}
-              onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
-          : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
-              readings={propertyReadings} bills={propertyBills} payments={propertyPayments} utilityBills={propertyUtilityBills} startWithAmounts={amountsFromHome} statementInfo={billInfo} startWithMeters={metersFromHome} startOnCancelled={cancelledPeriod ?? undefined}
+          : section === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links} contractTexts={state.contractTexts}
+              todo={todo?.byRenter} onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
+          : section === 'analytics' ? <AnalyticsView ctx={ctxOf(property)} settlements={state.settlements} />
+          : <BillsView key={billsStart.key} property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
+              readings={propertyReadings} bills={propertyBills} payments={propertyPayments} utilityBills={propertyUtilityBills} startWithAmounts={billsStart.amounts} statementInfo={billInfo} startWithMeters={billsStart.meters} startOnCancelled={billsStart.cancelled}
               onOpenBill={(billId) => setDialog({ type: 'bill', billId })}
               onOpenPending={(tenancyId, period, skip) => setDialog({ type: 'pending', tenancyId, period, skip })} />}
       </>}
@@ -280,8 +285,7 @@ function RentalsContent(state: RentalsState) {
             <DialogDescription>Three quick steps. Contract details can wait.</DialogDescription></DialogHeader>
           <SetupWizard myName={state.myName ?? ''} busy={busy} onCancel={() => setDialog(null)} onFinish={async (action) => {
             const { propertyId, failed } = await run(action) as { propertyId: string; failed: string[] };
-            setSelectedId(propertyId);
-            setView('rooms');
+            navigate(`/rentals/${propertyId}/rooms`);
             setDialog(null);
             if (failed.length) toast.warning(`Saved, but couldn’t add ${failed.join(', ')}. Add it from the Rooms board.`);
             else toast.success(`${action.input.name} is ready. Tap an empty room to add a tenant.`);

@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { RentalBill, RentalPayment, RentalProperty, RentalSettlement, RentalTenancy, Renter } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { openSection, renderRentals } from './renderRentals';
 
 const U1 = '00000000-0000-0000-0000-000000000001';
 const property: RentalProperty = {
@@ -55,7 +54,7 @@ beforeEach(() => {
   state.settlements = [];
   state.run.mockResolvedValue({ id: 's1', failed: [] });
 });
-const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+const page = () => renderRentals();
 
 /** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
 const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
@@ -82,7 +81,7 @@ const openFromHome = () => {
 };
 const openTenant = () => {
   page();
-  fireEvent.click(screen.getByRole('button', { name: 'Tenants' }));
+  openSection('Tenants');
   fireEvent.click(screen.getByRole('checkbox', { name: 'Show past tenants' }));
   fireEvent.click(screen.getByRole('button', { name: /Juan Dela Cruz/ }));
   return within(screen.getByRole('dialog'));
@@ -94,12 +93,14 @@ describe('Home', () => {
     const todo = within(screen.getByRole('region', { name: /To do/ }));
     expect(todo.getByText('Deposit to return')).toBeInTheDocument();
     expect(todo.getByText('Juan Dela Cruz · Room 1 · ₱10,000')).toBeInTheDocument();
+    openSection('Analytics');
     expect(screen.getByText('Deposits held').nextElementSibling).toHaveTextContent('₱10,000');
   });
   it('drops the to-do and the held deposit once settled', () => {
     state.settlements = [settled];
     page();
     expect(screen.queryByText('Deposit to return')).not.toBeInTheDocument();
+    openSection('Analytics');
     expect(screen.getByText('Deposits held').nextElementSibling).toHaveTextContent('₱0');
   });
   it('shows no to-do to viewers', () => {

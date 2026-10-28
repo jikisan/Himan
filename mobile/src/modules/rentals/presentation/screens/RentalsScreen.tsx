@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { DEFAULT_CLAUSES, billPaid, formatPesos, depositToReturn, errorMessage, hasRentalRole, manilaToday, monthRows, monthTodo, paidChangeWarning, pendingBill, periodOf,
-  previousBalance, tenancyCredit, tenancyOwed, unreplacedCancelled } from '@himan/shared/rentals';
-import type { ReceiptContext, RentalBill, RentalPayment, RentalTenancy } from '@himan/shared/rentals';
+import { DEFAULT_CLAUSES, billPaid, depositToReturn, errorMessage, hasRentalRole, manilaToday, monthRows, monthTodo, needsAttention, paidChangeWarning, pendingBill,
+  periodLabel, periodOf, previousBalance, tenancyCredit, tenancyOwed, todoCounts, unreplacedCancelled } from '@himan/shared/rentals';
+import type { ReceiptContext, RentalBill, RentalPayment, RentalProperty, RentalTenancy } from '@himan/shared/rentals';
 import { useToast } from '@/modules/shared/components/useToast';
 import { useRentals } from '../hooks/useRentals';
 import type { RentalAction, RentalsState } from '../hooks/useRentals';
-import { Badge, Btn, Empty, MenuHost, Sheet, ToastContext, card, muted, text, useIconColor, useRentalToast } from '../components/ui';
+import { Badge, Btn, Empty, MenuHost, Sheet, ToastContext, muted, text, useIconColor, useRentalToast } from '../components/ui';
+import { AnalyticsView, NeedsAttention, PropertyGrid, SECTIONS, SECTION_TITLE, SectionTiles } from '../components/Overview';
+import type { Section } from '../components/Overview';
 import { HomeView } from '../components/HomeView';
 import { RoomsBoard, TenantsList, moreMenu } from '../components/Lists';
 import { BillSheet, BillsView } from '../components/Bills';
@@ -19,7 +21,6 @@ import { SettleSheet } from '../components/Settle';
 import { PaymentAccountsEditor, PropertyForm, RoleBadge, SetupWizard, ShareProperty, UnitForm } from '../components/PropertyForms';
 import { ContractTemplateEditor, LessorSignatureEditor } from '../components/Contracts';
 
-type View_ = 'home' | 'rooms' | 'tenants' | 'bills';
 type DialogState = { type: 'setup' } | { type: 'property' } | { type: 'room'; id: string | null } | { type: 'addTenant'; unitId: string }
   | { type: 'tenant'; renterId: string } | { type: 'share' } | { type: 'bill'; billId: string } | { type: 'pending'; tenancyId: string; period: string; skip: boolean } | null;
 
@@ -40,16 +41,18 @@ function RentalsContent(state: RentalsState) {
   const icon = useIconColor();
   const toast = useRentalToast();
   const { properties, tenancies, loading, error, online, userId, busy, run, refetch } = state;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [view, setView] = useState<View_>('home');
-  const [billsStart, setBillsStart] = useState<{ meters?: boolean; amounts?: boolean; cancelled?: string; key: number }>({ key: 0 });
+  // Each level is its own screen on the stack (properties → property → section), so the back gesture and button work.
+  const params = useLocalSearchParams<{ property?: string; section?: string; start?: string }>();
+  const section = SECTIONS.find((s) => s === params.section);
+  const billsStart = { meters: params.start === 'meters', amounts: params.start === 'amounts',
+    cancelled: params.start?.startsWith('cancelled:') ? params.start.slice('cancelled:'.length) : undefined };
   const [dialog, setDialog] = useState<DialogState>(null);
   const [movingOutId, setMovingOutId] = useState<string | null>(null);
   const [paying, setPaying] = useState<{ tenancyId: string; billId?: string } | null>(null);
   const [settlingId, setSettlingId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState(false);
   const ordered = [...properties].sort((a, b) => Number(!!a.archivedAt) - Number(!!b.archivedAt));
-  const property = ordered.find((p) => p.id === selectedId) ?? ordered[0];
+  const property = ordered.find((p) => p.id === params.property);
   const role = property?.role;
   const isOwner = hasRentalRole(role, 'owner');
   const isManager = hasRentalRole(role, 'manager');
@@ -59,7 +62,6 @@ function RentalsContent(state: RentalsState) {
   const propertyRenters = state.renters.filter((r) => r.propertyId === property?.id);
   const propertyTenancies = tenancies.filter((t) => t.propertyId === property?.id);
   const activeTenancies = propertyTenancies.filter((t) => t.moveOut === null);
-  const monthlyRent = activeTenancies.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
   const bedCount = property?.units.reduce((sum, u) => sum + u.capacity, 0) ?? 0;
   const unitName = (id: string) => property?.units.find((u) => u.id === id)?.name ?? 'Room';
   const renterName = (id: string) => state.renters.find((r) => r.id === id)?.fullName ?? 'Tenant';
@@ -101,9 +103,10 @@ function RentalsContent(state: RentalsState) {
     return state.renters.filter((r) => homes.has(r.propertyId)).map((r) => ({ renter: r, propertyName: homes.get(r.propertyId)!, since: latest(r.id) }))
       .sort((a, b) => b.since.localeCompare(a.since)).filter(({ renter }) => !here.has(key(renter)) && !seen.has(key(renter)) && !!seen.add(key(renter)));
   })();
-  const openBills = (start: Omit<typeof billsStart, 'key'>) => { setBillsStart((s) => ({ ...start, key: s.key + 1 })); setView('bills'); };
-  const switchProperty = () => moreMenu('Switch property', [...ordered.map((p) => ({ checked: p.id === property?.id, label: p.name, onPress: () => setSelectedId(p.id) })),
-    ...(canCreate ? [{ label: 'Add new property', icon: 'plus' as const, tone: 'green' as const, onPress: () => setDialog({ type: 'setup' }) }] : [])]);
+  const go = (propertyId: string, to?: Section, start?: string) =>
+    router.push({ pathname: '/(app)/rentals', params: { property: propertyId, ...(to ? { section: to } : {}), ...(start ? { start } : {}) } });
+  const openBills = (start: 'meters' | 'amounts' | `cancelled:${string}` | undefined) => property && go(property.id, 'bills', start);
+  const goBack = () => (router.canGoBack() ? router.back() : property && section ? go(property.id) : router.replace('/(app)/rentals'));
 
   const bill = dialog?.type === 'bill' ? propertyBills.find((b) => b.id === dialog.billId) : undefined;
   const billTenancy = propertyTenancies.find((t) => t.id === (bill?.tenancyId ?? (dialog?.type === 'pending' ? dialog.tenancyId : '')));
@@ -136,13 +139,42 @@ function RentalsContent(state: RentalsState) {
     <SettleSheet target={settlingTarget} settlement={settlement} canManage={isManager} busy={busy} run={run} proofUrl={state.settlementProofUrl} onClose={() => setSettlingId(null)} />
   </>;
 
+  const today = manilaToday();
+  const ctxOf = (p: RentalProperty) => ({ property: p, tenancies: tenancies.filter((t) => t.propertyId === p.id),
+    bills: state.bills.filter((b) => b.propertyId === p.id), payments: state.payments.filter((x) => x.propertyId === p.id),
+    readings: state.readings.filter((r) => r.propertyId === p.id), utilityBills: state.utilityBills.filter((b) => b.propertyId === p.id) });
+  const todoOf = (p: RentalProperty) => todoCounts(ctxOf(p), today, { canManage: hasRentalRole(p.role, 'manager'), canEdit: hasRentalRole(p.role, 'owner'),
+    contractTexts: state.contractTexts, links: state.links, settlements: state.settlements });
+  const todo = property ? todoOf(property) : null;
+  const month = periodLabel(periodOf(today)).split(' ')[0];
+  const rows = ctx ? monthRows(ctx, periodOf(today)) : [];
+  const issued = rows.filter((r) => r.pending.state === 'issued').length;
+  const toBill = rows.filter((r) => r.pending.state !== 'covered' && r.pending.state !== 'none').length;
+  const details: Record<Section, string> = {
+    todo: todo?.total ? `${todo.total} thing${todo.total === 1 ? '' : 's'} to do` : 'All done',
+    rooms: !property?.units.length ? 'No rooms yet' : `${activeTenancies.length} of ${bedCount} beds taken`,
+    tenants: `${activeTenancies.length} living here`,
+    bills: billBadge ? `${billBadge} to do for ${month}` : toBill && issued >= toBill ? `${month} all issued` : `No SOAs due for ${month}`,
+    analytics: 'Rent, SOAs, deposits',
+  };
+  const title = !params.property ? 'Rentals' : section ? SECTION_TITLE[section] : property?.name ?? 'Rentals';
+  const backLabel = !params.property ? 'Dashboard' : section ? 'Back' : 'Rentals';
+
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top', 'left', 'right']}>
     {/* Title centred on the screen, back button on the left (same as the other screens). */}
-    <View className="min-h-14 flex-row items-center justify-center border-b border-gray-200 px-2 py-2 dark:border-gray-800">
-      <Text accessibilityRole="header" className={`text-lg font-bold ${text}`}>Rentals</Text>
-      <Pressable style={{ position: 'absolute', left: 8 }} accessibilityRole="button" accessibilityLabel="Back to dashboard" onPress={() => router.replace('/(app)/dashboard')}
+    <View className="min-h-14 flex-row items-center justify-center border-b border-gray-200 px-24 py-2 dark:border-gray-800">
+      <Text accessibilityRole="header" numberOfLines={1} className={`text-lg font-bold ${text}`}>{title}</Text>
+      <Pressable style={{ position: 'absolute', left: 8 }} accessibilityRole="button"
+        accessibilityLabel={!params.property ? 'Back to dashboard' : section ? `Back to ${property?.name ?? 'property'}` : 'Back to rentals'}
+        onPress={() => (!params.property ? router.replace('/(app)/dashboard') : goBack())}
         className="min-h-12 flex-row items-center gap-1 rounded-xl px-3 active:bg-gray-200 dark:active:bg-gray-800">
-        <Feather name="arrow-left" size={20} color={icon} /><Text className={`font-semibold ${text}`}>Dashboard</Text></Pressable>
+        <Feather name="arrow-left" size={20} color={icon} /><Text className={`font-semibold ${text}`}>{backLabel}</Text></Pressable>
+      {property && !section && isOwner && <View style={{ position: 'absolute', right: 8 }}>
+        <Btn small variant="ghost" icon="more-horizontal" label="More" a11y="Property menu: edit, share, archive" onPress={() => moreMenu(property.name, [
+          { label: 'Edit property', onPress: () => setDialog({ type: 'property' }) },
+          { label: 'Share with a friend', onPress: () => setDialog({ type: 'share' }) },
+          { label: property.archivedAt ? 'Unarchive property' : 'Archive property', onPress: () => void tryAct({ type: 'archiveProperty', id: property.id,
+            archived: !property.archivedAt }, property.archivedAt ? 'Property restored' : 'Property archived') }])} /></View>}
     </View>
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => void refetch()} />}>
@@ -150,84 +182,62 @@ function RentalsContent(state: RentalsState) {
         : !userId ? <Empty icon="key" title="Signed out">Sign in to manage rentals.</Empty>
         : loading ? <ActivityIndicator accessibilityLabel="Loading rentals" color="#4f46e5" className="py-12" />
         : error ? <Empty icon="home" title="Could not load rentals" action={<Btn label="Retry" onPress={() => void refetch()} />}>Check your connection, then try again.</Empty>
-        : !property ? <Empty icon="home" title="No properties yet" action={<Btn variant="primary" icon="plus" label="New property" disabled={!canCreate} onPress={() => setDialog({ type: 'setup' })} />}>
-          Add your property first, then its rooms. It takes about a minute.</Empty>
-        : <>
-          <View className={`${card} gap-4`}>
-            <View className="flex-row items-start gap-3">
-              <View className="flex-1 gap-0.5">
-                <PropertyName key={property.name} name={property.name} onSwitch={switchProperty} />
-                {property.address ? <View className="flex-row items-center gap-1.5">
-                  <Feather accessible={false} name="map-pin" size={13} color="#9ca3af" />
-                  <Text className={`flex-1 text-sm ${muted}`}>{property.address}</Text></View> : null}
-                <View className="flex-row flex-wrap items-center gap-2 pt-1">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>
-              </View>
-              {/* Icon only, by request (a trial against the labelled-buttons rule); screen readers still hear the label. */}
-              {isOwner && <Pressable accessibilityRole="button" accessibilityLabel="Property menu: edit, share, archive"
-                className="h-12 w-12 items-center justify-center rounded-xl border border-gray-300 bg-white active:opacity-70 dark:border-gray-600 dark:bg-gray-800"
-                onPress={() => moreMenu(property.name, [
-                { label: 'Edit property', onPress: () => setDialog({ type: 'property' }) },
-                { label: 'Share with a friend', onPress: () => setDialog({ type: 'share' }) },
-                { label: property.archivedAt ? 'Unarchive property' : 'Archive property', onPress: () => void tryAct({ type: 'archiveProperty', id: property.id,
-                  archived: !property.archivedAt }, property.archivedAt ? 'Property restored' : 'Property archived') }])}>
-                <Feather name="menu" size={22} color={icon} /></Pressable>}
-            </View>
-            {/* The two numbers an owner checks first, side by side under a line. */}
-            <View className="flex-row border-t border-gray-200 pt-3 dark:border-gray-700">
-              <View className="flex-1"><Text className={`text-xs ${muted}`}>Rent per month</Text>
-                <Text className={`text-xl font-bold ${text}`}>{formatPesos(monthlyRent)}</Text></View>
-              <View className="w-px bg-gray-200 dark:bg-gray-700" />
-              <View className="flex-1 pl-4"><Text className={`text-xs ${muted}`}>Beds taken</Text>
-                <Text className={`text-xl font-bold ${text}`}>{activeTenancies.length} <Text className={`text-base font-normal ${muted}`}>of {bedCount}</Text></Text></View>
-            </View>
+        : !params.property ? <>
+          <Text className={`text-base ${muted}`}>{ordered.length ? 'Choose a property' : 'Add your property first, then its rooms. It takes about a minute.'}</Text>
+          <PropertyGrid properties={ordered} tenancies={tenancies} canCreate={canCreate} onOpen={(id) => go(id)} onNew={() => setDialog({ type: 'setup' })}
+            todoFor={(id) => { const p = ordered.find((x) => x.id === id); return p ? todoOf(p).total : 0; }} />
+        </>
+        : !property ? <Empty icon="home" title="Property not found" action={<Btn label="See all properties" onPress={() => router.replace('/(app)/rentals')} />}>
+          It may have been removed, or it isn’t shared with you.</Empty>
+        : !section ? <>
+          <View className="gap-1">
+            {property.address ? <View className="flex-row items-center gap-1.5">
+              <Feather accessible={false} name="map-pin" size={13} color="#9ca3af" />
+              <Text className={`flex-1 text-sm ${muted}`}>{property.address}</Text></View> : null}
+            {(role || property.archivedAt) && <View className="flex-row flex-wrap items-center gap-2">{role && <RoleBadge role={role} />}{property.archivedAt && <Badge label="Archived" />}</View>}
           </View>
-
-          <View accessibilityRole="tablist" className="flex-row gap-1 rounded-2xl bg-gray-200 p-1 dark:bg-gray-800">
-            {(['home', 'rooms', 'tenants', 'bills'] as const).map((v) => {
-              const on = view === v;
-              return <Pressable key={v} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                accessibilityLabel={`${v[0].toUpperCase()}${v.slice(1)}${v === 'bills' && billBadge ? `, ${billBadge} to do` : ''}`}
-                onPress={() => { setView(v); setBillsStart((s) => ({ key: s.key + 1 })); }}
-                className={`min-h-12 flex-1 flex-row items-center justify-center gap-1 rounded-xl ${on ? 'bg-white dark:bg-gray-700' : ''}`}>
-                <Text className={`text-base ${on ? 'font-bold text-indigo-700 dark:text-indigo-300' : muted}`}>{v[0].toUpperCase()}{v.slice(1)}</Text>
-                {v === 'bills' && billBadge > 0 && <View className="min-w-5 items-center rounded-full bg-red-600 px-1.5"><Text className="text-xs font-bold text-white">{billBadge}</Text></View>}
-              </Pressable>;
-            })}
-          </View>
-
-          {view === 'home' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
+          <NeedsAttention items={needsAttention(ctxOf(property), today)} name={renterName} room={unitName} canManage={isManager}
+            billPeriod={(id) => propertyBills.find((b) => b.id === id && b.kind === 'monthly')?.period} onSeeAll={() => go(property.id, 'todo')}
+            onRecordPayment={(tenancyId, billId) => setPaying({ tenancyId, billId })} onOpenBill={(billId) => setDialog({ type: 'bill', billId })}
+            onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })} />
+          <SectionTiles details={details} badges={{ todo: todo?.total, bills: billBadge }} onOpen={(s) => go(property.id, s)} />
+        </>
+        : section === 'todo' ? <HomeView property={property} tenancies={propertyTenancies} renters={propertyRenters} bills={propertyBills} payments={propertyPayments}
             readings={propertyReadings} utilityBills={propertyUtilityBills} canManage={isManager} canEdit={isOwner} contractTexts={state.contractTexts} links={state.links}
-            settlements={state.settlements} onReadMeters={() => openBills({ meters: true })} onOpenBills={() => openBills({})}
+            settlements={state.settlements} onReadMeters={() => openBills('meters')} onOpenBills={() => openBills(undefined)}
             onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })}
             onAddRoom={() => setDialog({ type: 'room', id: null })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
-            onOpenContract={(renterId) => setDialog({ type: 'tenant', renterId })} onReviewCancelled={(period) => openBills({ cancelled: period })}
-            onAddBillAmounts={() => openBills({ amounts: true })} onSettleDeposit={setSettlingId}
+            onOpenContract={(renterId) => setDialog({ type: 'tenant', renterId })} onReviewCancelled={(period) => openBills(`cancelled:${period}`)}
+            onAddBillAmounts={() => openBills('amounts')} onSettleDeposit={setSettlingId}
             onContractNotNeeded={(tenancyId) => void tryAct({ type: 'setContractNotNeeded', tenancyId, value: true }, 'Marked as not needed. Undo from the tenant.')}
             onMarkEarlierPaid={() => void tryAct({ type: 'markEarlierPaid', propertyId: property.id }, 'Earlier SOAs marked paid')} />
-          : view === 'rooms' ? <>
-            {isOwner && property.units.length > 0 && <View className="self-end"><Btn pill variant="primary" icon="plus" label="Add room" onPress={() => setDialog({ type: 'room', id: null })} /></View>}
+          : section === 'rooms' ? <>
+            {property.units.length > 0 && <Text className={`text-sm ${muted}`}>{property.units.length} room{property.units.length === 1 ? '' : 's'} · {activeTenancies.length} of {bedCount} beds taken</Text>}
             {property.units.length === 0 ? <Empty icon="log-in" title="No rooms yet" action={isOwner && <Btn variant="primary" icon="plus" label="Add room" onPress={() => setDialog({ type: 'room', id: null })} />}>
               Add each room you rent out. If you rent the whole house, add one room called “Whole house”.</Empty>
               : <RoomsBoard property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} canEdit={isOwner} links={state.links}
                 contractTexts={state.contractTexts} onAddTenant={(unitId) => setDialog({ type: 'addTenant', unitId })} onOpenTenant={(renterId) => setDialog({ type: 'tenant', renterId })}
-                onMoveOut={setMovingOutId} onEditRoom={(id) => setDialog({ type: 'room', id })}
+                onMoveOut={setMovingOutId} onEditRoom={(id) => setDialog({ type: 'room', id })} onAddRoom={() => setDialog({ type: 'room', id: null })}
                 onDeleteRoom={(id) => confirm(`Delete ${unitName(id)}?`, 'Rooms that have had tenants can’t be deleted.', 'Delete room', { type: 'removeUnit', id }, 'Room deleted')} />}
           </>
-          : view === 'tenants' ? <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links} contractTexts={state.contractTexts}
-            onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
-          : <BillsView key={billsStart.key} property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
+          : section === 'tenants' ? <>
+            <Text className={`text-sm ${muted}`}>{activeTenancies.length} living here</Text>
+            <TenantsList renters={propertyRenters} tenancies={propertyTenancies} unitName={unitName} links={state.links} contractTexts={state.contractTexts}
+              todo={todo?.byRenter} onOpen={(renterId) => setDialog({ type: 'tenant', renterId })} />
+          </>
+          : section === 'analytics' ? <AnalyticsView ctx={ctxOf(property)} settlements={state.settlements} />
+          : <BillsView property={property} tenancies={propertyTenancies} renters={propertyRenters} canManage={isManager} busy={busy} run={run}
             readings={propertyReadings} bills={propertyBills} payments={propertyPayments} utilityBills={propertyUtilityBills} statementInfo={billInfo}
             startWithMeters={billsStart.meters} startWithAmounts={billsStart.amounts} startOnCancelled={billsStart.cancelled}
             onOpenBill={(billId) => setDialog({ type: 'bill', billId })} onOpenPending={(tenancyId, period, skip) => setDialog({ type: 'pending', tenancyId, period, skip })} />}
-        </>}
     </ScrollView>
 
     {/* Sheets. Ones opened from inside another sheet (record payment, move out, settle) are rendered inside it so they stack. */}
     <Sheet open={dialog?.type === 'setup'} onClose={() => setDialog(null)} title="Set up a property" subtitle="Three quick steps. Contract details can wait." closeLabel="Cancel">
       <SetupWizard myName={state.myName} busy={busy} onCancel={() => setDialog(null)} onFinish={async (action) => {
         const { propertyId, failed } = await run(action) as { propertyId: string; failed: string[] };
-        setSelectedId(propertyId); setView('rooms'); setDialog(null);
-        if (failed.length) toast(`Saved, but couldn’t add ${failed.join(', ')}. Add it from the Rooms tab.`, 'warning');
+        setDialog(null); go(propertyId); go(propertyId, 'rooms');
+        if (failed.length) toast(`Saved, but couldn’t add ${failed.join(', ')}. Add it from Rooms.`, 'warning');
         else toast(`${action.input.name} is ready. Press Add tenant on a room.`);
       }} />
     </Sheet>
@@ -278,21 +288,4 @@ function RentalsContent(state: RentalsState) {
       {!inSheet && overlays}
     </>}
   </SafeAreaView>;
-}
-
-/**
- * The property name with the Switch arrow right after its last word, at most 2 lines. A longer name is cut with "…" so the
- * arrow always shows. The whole name is the Switch button (screen readers hear "Switch property").
- */
-function PropertyName({ name, onSwitch }: { name: string; onSwitch(): void }) {
-  const [cut, setCut] = useState<string | null>(null);
-  return <Text accessibilityRole="button" accessibilityLabel={`Switch property. Now showing ${name}`} onPress={onSwitch} suppressHighlighting={false}
-    className={`text-2xl font-bold ${text}`}
-    onTextLayout={(e) => {
-      const lines = e.nativeEvent.lines;
-      // Too long: keep what fits on two lines, minus room for the "…" and the arrow, then lay out again.
-      if (cut === null && lines.length > 2) setCut(`${(lines[0].text + lines[1].text).slice(0, -4).trimEnd()}…`);
-    }}>
-    {cut ?? name}{'  '}<Feather name="chevron-down" size={24} color="#4f46e5" />
-  </Text>;
 }

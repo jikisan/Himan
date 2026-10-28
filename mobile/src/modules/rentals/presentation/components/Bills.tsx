@@ -12,6 +12,7 @@ import type { RentalsState } from '../hooks/useRentals';
 import { Badge, Banner, Btn, Check, DateField, Empty, Field, Initials, Input, MoneyInput, Row, Sheet, Title, card, muted, text, useFieldErrors,
   useRentalToast } from './ui';
 import { Paper, billHtml, sharePdf } from './papers';
+import { MonthBar } from './Overview';
 import type { StatementBill } from './types';
 
 const KIND: Record<RentalBill['kind'], string> = { move_in: 'Move-in SOA', monthly: 'Monthly SOA', final: 'Final SOA' };
@@ -93,7 +94,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
 
   const row = (r: MonthRow, { badge, number, money, actions, key, dim }: {
     badge?: ReactNode; number?: string; money?: { tone: MoneyTone; headline: string; detail: string }; actions?: ReactNode; key?: string; dim?: boolean }) =>
-    <View key={key ?? r.t.id} className={`gap-3 border-t border-gray-200 px-4 py-4 dark:border-gray-700 ${dim ? 'opacity-70' : ''}`}>
+    <View key={key ?? r.t.id} className={`gap-3 border-t border-gray-200 px-1 py-4 dark:border-gray-700 ${dim ? 'opacity-70' : ''}`}>
       <View className="flex-row gap-3"><Initials name={name(r.t)} />
         <View className="flex-1">
           <View className="flex-row flex-wrap items-center gap-2"><Text className={`text-base font-semibold ${text}`}>{name(r.t)}</Text>{badge}</View>
@@ -106,10 +107,15 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     </View>;
 
   return <View className="gap-4">
-    <View className="flex-row items-center justify-between gap-2">
-      <Btn iconOnly icon="chevron-left" label="Previous" a11y="Previous month" disabled={period <= earliest} onPress={() => setPeriod(addPeriods(period, -1))} />
-      <Text accessibilityRole="header" className={`flex-1 text-center text-lg font-semibold ${text}`}>{periodLabel(period)}</Text>
-      <Btn iconOnly label="Next" icon="chevron-right" a11y="Next month" disabled={period >= latest} onPress={() => setPeriod(addPeriods(period, 1))} />
+    <MonthBar period={period} onChange={setPeriod} min={earliest} max={latest} />
+    <View accessibilityLabel="Bill status" className="flex-row gap-2">
+      {([['Waiting for readings', todo.waiting.length, true], ['Ready for SOA', todo.ready.length, true], ['SOAs generated', liveSoas.length, false]] as const)
+        .map(([label, count, act]) => <View key={label} accessible accessibilityLabel={`${count} ${label}`}
+          className={`min-h-20 flex-1 gap-1 rounded-2xl border p-3 ${count && act ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/40'
+            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'}`}>
+          <Text className={`text-2xl font-bold ${text}`}>{count}</Text>
+          <Text className={`text-xs ${muted}`}>{label}</Text>
+        </View>)}
     </View>
     {(hasMeters || hasMonthly) && <Row>
       {hasMeters && <Btn icon="activity" label="Meters" onPress={() => setMetersOpen(true)} />}
@@ -119,8 +125,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
     {todo.waiting.length + todo.ready.length + soas.length === 0 && <Empty icon="file-text" title={`No SOAs for ${periodLabel(period)}`}>
       Tenants get a monthly SOA from their first due date after the months their advance covers.</Empty>}
 
-    {todo.waiting.length > 0 && <View className="overflow-hidden rounded-2xl border border-amber-300 bg-white dark:border-amber-800 dark:bg-gray-800">
-      <View className="gap-3 bg-amber-50 px-4 py-3 dark:bg-amber-950/40">
+    {todo.waiting.length > 0 && <View className="border-b border-gray-200 dark:border-gray-700">
+      <View className="gap-3 py-2">
         <Title size="base">{`${todo.waiting.length} SOA${todo.waiting.length === 1 ? '' : 's'} waiting for ${todo.meters.size && todo.amounts.size ? 'readings and bill amounts'
           : todo.amounts.size ? 'bill amounts' : 'meter readings'}`}</Title>
         <Row>
@@ -134,8 +140,8 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         actions: canManage && <Btn small label="Skip utilities this month" onPress={() => setSkipped((s) => new Set(s).add(`${r.t.id}:${period}`))} /> }))}
     </View>}
 
-    {todo.ready.length > 0 && <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-      <View className="gap-3 px-4 py-3"><Title size="base">{`Ready for SOA · ${todo.ready.length}`}</Title>
+    {todo.ready.length > 0 && <View className="border-b border-gray-200 dark:border-gray-700">
+      <View className="gap-3 py-2"><Title size="base">{`Ready for SOA · ${todo.ready.length}`}</Title>
         {canManage && <Btn variant="primary" busy={busy} label={`Generate all ${todo.ready.length} SOA${todo.ready.length === 1 ? '' : 's'} · ${formatBillPesos(todo.readyTotal)}`}
           onPress={() => void issue(readyInputs)} />}</View>
       {todo.ready.map((r) => r.pending.state === 'ready' && row(r, {
@@ -147,10 +153,10 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
         </> }))}
     </View>}
 
-    {soas.length > 0 && <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-      <View className="gap-1 px-4 py-3"><Title size="base">{`SOAs generated · ${liveSoas.length}`}</Title>
+    {soas.length > 0 && <View className="border-b border-gray-200 dark:border-gray-700">
+      <View className="gap-1 py-2"><Title size="base">{`SOAs generated · ${liveSoas.length}`}</Title>
         <Text className={`text-sm ${muted}`}>{formatBillPesos(liveSoas.reduce((sum, x) => sum + billTotal(x.bill.lines), 0))} total</Text></View>
-      <View className="flex-row flex-wrap gap-2 px-4 pb-3">
+      <View className="flex-row flex-wrap gap-2 pb-3">
         {(Object.keys(FILTERS) as (keyof typeof FILTERS)[]).map((key) => {
           const count = soas.filter((x) => FILTERS[key].keep(x.bill)).length;
           return (count > 0 || key === 'active' || key === filter) && <Btn key={key} small variant={filter === key ? 'primary' : 'outline'}
@@ -160,7 +166,7 @@ export function BillsView({ property, tenancies, renters, readings, bills, utili
       {filter !== 'cancelled' && filter !== 'all' && soas.some((x) => unreplaced.has(x.bill.id)) && <View className="flex-row items-center gap-3 bg-amber-50 px-4 py-2 dark:bg-amber-950/40">
         <Text className={`flex-1 text-sm ${text}`}>{soas.filter((x) => unreplaced.has(x.bill.id)).length} cancelled SOA(s) with no replacement.</Text>
         <Btn small label="Show" onPress={() => setFilter('cancelled')} /></View>}
-      {shownSoas.length === 0 && <Text className={`border-t border-gray-200 px-4 py-4 italic ${muted}`}>
+      {shownSoas.length === 0 && <Text className={`border-t border-gray-200 px-1 py-4 italic ${muted}`}>
         {filter === 'active' ? `Every SOA for ${month} is cancelled. Pick “Cancelled” to see them.` : 'Nothing here.'}</Text>}
       {shownSoas.map(({ r, bill }) => {
         const cancelled = bill.status === 'void';

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
-import { CONTRACT_BADGE, contractOpen, contractStage, detailsStatus, formatPesos, ordinal, roomSpots } from '@himan/shared/rentals';
+import { CONTRACT_BADGE, contractOpen, contractStage, detailsStatus, formatPesos, roomSpots } from '@himan/shared/rentals';
 import type { ContractStage, ContractText, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
-import { Badge, Btn, Check, Empty, Initials, Input, card, muted, showMenu, text } from './ui';
-import type { MenuOption } from './ui';
+import { Badge, Check, Empty, Input, card, muted, showMenu, text, useIconColor } from './ui';
+import type { IconName, MenuOption } from './ui';
 
 /** Where the written contract stands, until it's done or not needed: amber when there's none yet. */
 export function ContractBadge({ stage }: { stage: ContractStage }) {
@@ -17,51 +18,75 @@ export function moreMenu(title: string, options: MenuOption[]) { showMenu(title,
 
 const roomType = (unit: RentalUnit) =>
   unit.kind === 'whole' ? 'Whole house' : unit.kind === 'room' ? 'Private room' : `Shared room · ${unit.capacity} beds`;
-const rentLine = (t: RentalTenancy) => {
-  const c = t.contracts.find((x) => x.status === 'active') ?? t.contracts[0];
-  return c ? `${formatPesos(c.monthlyRentCentavos)}/mo · due every ${ordinal(c.dueDay)}` : 'No contract';
-};
 
+const HALF = { width: '48%' } as const;
+
+/**
+ * A tile per room: type, Full or N free, a bar per bed (filled when taken), who lives there and the rent. Pressing it opens the
+ * room's actions (view or move out a tenant, add a tenant to a free bed, edit or delete the room). Then the Add room tile.
+ */
 export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, links, contractTexts, onAddTenant, onOpenTenant, onMoveOut, onEditRoom,
-  onDeleteRoom }: {
+  onDeleteRoom, onAddRoom }: {
   property: RentalProperty; tenancies: RentalTenancy[]; renters: Renter[]; canManage: boolean; canEdit: boolean; links: TenancyLink[];
   contractTexts: ContractText[]; onAddTenant(unitId: string): void; onOpenTenant(renterId: string): void; onMoveOut(tenancyId: string): void;
-  onEditRoom(unitId: string): void; onDeleteRoom(unitId: string): void;
+  onEditRoom(unitId: string): void; onDeleteRoom(unitId: string): void; onAddRoom?(): void;
 }) {
   const name = (renterId: string) => renters.find((r) => r.id === renterId)?.fullName ?? 'Tenant';
-  return <View className="gap-4">{property.units.map((unit) => {
+  const icon = useIconColor();
+  return <View className="flex-row flex-wrap justify-between gap-y-3">{property.units.map((unit) => {
     const spots = roomSpots(unit, tenancies);
-    const free = spots.filter((t) => !t).length;
-    return <View key={unit.id} accessibilityLabel={unit.name} className={`${card} gap-3`}>
-      <View className="flex-row items-center gap-3">
-        <View className="flex-1"><Text accessibilityRole="header" className={`text-base font-semibold ${text}`}>{unit.name}</Text>
-          {/* The room type and whether it has space, read together: "Private room  Full". */}
-          <View className="flex-row flex-wrap items-center gap-2"><Text className={`text-sm ${muted}`}>{roomType(unit)}</Text>
-            <Badge label={free ? `${free} free` : 'Full'} tone={free ? 'red' : 'green'} /></View></View>
-        {canEdit && <Btn iconOnly variant="ghost" icon="more-vertical" label="More" a11y={`${unit.name} options`} onPress={() => moreMenu(unit.name, [
-          { label: 'Edit room', onPress: () => onEditRoom(unit.id) }, { label: 'Delete room', destructive: true, onPress: () => onDeleteRoom(unit.id) }])} />}
+    const taken = spots.filter((t): t is RentalTenancy => !!t);
+    const free = spots.length - taken.length;
+    const rent = taken.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
+    const open = () => moreMenu(unit.name, [
+      ...taken.map((t) => ({ label: `View ${name(t.renterId)}`, onPress: () => onOpenTenant(t.renterId) })),
+      ...(canManage ? taken.map((t) => ({ label: `Move out ${name(t.renterId)}`, destructive: true, onPress: () => onMoveOut(t.id) })) : []),
+      ...(canManage && free ? [{ label: `Add tenant${unit.defaultRentCentavos > 0 ? ` · ${formatPesos(unit.defaultRentCentavos)}/mo` : ''}`, icon: 'plus' as const,
+        tone: 'green' as const, onPress: () => onAddTenant(unit.id) }] : []),
+      ...(canEdit ? [{ label: 'Edit room', onPress: () => onEditRoom(unit.id) }, { label: 'Delete room', destructive: true, onPress: () => onDeleteRoom(unit.id) }] : []),
+    ]);
+    const attention = taken.map((t) => detailsStatus(links, t.id)).find(Boolean);
+    return <Pressable key={unit.id} style={HALF} accessibilityRole="button" onPress={open}
+      accessibilityLabel={`${unit.name}, ${roomType(unit)}, ${free ? `${free} free` : 'full'}. Shows its actions`}
+      className={`${card} min-h-44 gap-2 active:opacity-70`}>
+      <View className="flex-row items-center justify-between">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-sky-700"><Feather name="key" size={20} color="#fff" /></View>
+        <Badge label={free ? `${free} free` : 'Full'} tone={free ? 'amber' : 'green'} />
       </View>
-      {spots.map((t, i) => t ? <View key={t.id} className="gap-2 border-t border-gray-200 pt-3 dark:border-gray-700">
-        <View className="flex-row items-center gap-3"><Initials name={name(t.renterId)} />
-          <View className="flex-1 gap-0.5">
-            <View className="flex-row flex-wrap items-center gap-2"><Text className={`font-semibold ${text}`}>{name(t.renterId)}</Text>
-              <ContractBadge stage={contractStage(t, contractTexts)} /></View>
-            <Text className={`text-sm ${muted}`}>{rentLine(t)}</Text>
-            {detailsStatus(links, t.id) && <Text className="text-xs font-semibold text-amber-700 dark:text-amber-300">{detailsStatus(links, t.id)}</Text>}
-          </View></View>
-        <View className="flex-row gap-2">
-          <Btn grow icon="user" label="View tenant" a11y={`View ${name(t.renterId)}`} onPress={() => onOpenTenant(t.renterId)} />
-          {canManage && <Btn grow variant="dangerOutline" icon="log-out" label="Move out" a11y={`Move out ${name(t.renterId)}`} onPress={() => onMoveOut(t.id)} />}
-        </View>
-      </View> : canManage ? <Btn key={`free-${i}`} icon="plus" a11y={`Add tenant to ${unit.name}`}
-        label={`Add tenant${unit.defaultRentCentavos > 0 ? ` · ${formatPesos(unit.defaultRentCentavos)}/mo` : ''}`} onPress={() => onAddTenant(unit.id)} />
-        : <Text key={`free-${i}`} className={`rounded-xl border border-dashed border-gray-300 p-3 text-center ${muted}`}>Empty</Text>)}
-    </View>;
-  })}</View>;
+      <View><Text numberOfLines={1} className={`text-base font-semibold ${text}`}>{unit.name}</Text>
+        <Text numberOfLines={1} className={`text-xs ${muted}`}>{roomType(unit)}</Text></View>
+      <View className="flex-row flex-wrap gap-1.5">{spots.map((t, i) => <View key={t?.id ?? `bed-${i}`}
+        className={`h-2 w-5 rounded-full ${t ? 'bg-sky-500' : 'border border-gray-400'}`} />)}</View>
+      <View className="mt-auto gap-0.5">
+        {taken.length ? <Text numberOfLines={2} className={`text-sm ${text}`}>{taken.map((t) => name(t.renterId)).join(', ')}</Text>
+          : <Text className={`text-sm ${muted}`}>{canManage ? 'Press to add a tenant' : 'Empty'}</Text>}
+        {taken.length === 1 && <ContractBadge stage={contractStage(taken[0], contractTexts)} />}
+        {attention && <Text numberOfLines={1} className="text-xs font-semibold text-amber-700 dark:text-amber-300">{attention}</Text>}
+        {rent > 0 && <Text className={`text-sm font-bold ${text}`}>{formatPesos(rent)}<Text className={`text-xs font-normal ${muted}`}> /mo</Text></Text>}
+      </View>
+    </Pressable>;
+  })}
+    {canEdit && onAddRoom && <Pressable style={HALF} accessibilityRole="button" accessibilityLabel="Add room" onPress={onAddRoom}
+      className="min-h-44 items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-300 p-4 active:opacity-70 dark:border-gray-600">
+      <View className="h-12 w-12 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-800"><Feather name="plus" size={24} color={icon} /></View>
+      <Text className={`text-base font-semibold ${text}`}>Add room</Text>
+    </Pressable>}
+  </View>;
 }
 
-export function TenantsList({ renters, tenancies, unitName, links, contractTexts, onOpen }: {
+const AVATARS = ['bg-emerald-700', 'bg-sky-700', 'bg-violet-700', 'bg-amber-700', 'bg-rose-700', 'bg-teal-700'];
+const avatarColor = (name: string) => AVATARS[[...name].reduce((sum, c) => sum + c.charCodeAt(0), 0) % AVATARS.length];
+
+function IconLine({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+  return <View accessible accessibilityLabel={`${label}: ${value}`} className="flex-row items-center gap-1.5">
+    <Feather name={icon} size={13} color="#9ca3af" /><Text numberOfLines={1} className={`text-xs ${text}`}>{value}</Text></View>;
+}
+
+/** A tile per tenant: initial, name, then room, rent and move-in date as icon lines; a red mark when they have something to do. */
+export function TenantsList({ renters, tenancies, unitName, links, contractTexts, onOpen, todo }: {
   renters: Renter[]; tenancies: RentalTenancy[]; unitName(id: string): string; links: TenancyLink[]; contractTexts: ContractText[]; onOpen(renterId: string): void;
+  /** To-do count per renter id, for the red mark. */
+  todo?: Map<string, number>;
 }) {
   const [query, setQuery] = useState('');
   const [showPast, setShowPast] = useState(false);
@@ -76,15 +101,23 @@ export function TenantsList({ renters, tenancies, unitName, links, contractTexts
     <Input accessibilityLabel="Search tenants" placeholder="Search by name" value={query} onChangeText={setQuery} />
     <Check label="Show past tenants" checked={showPast} onChange={setShowPast} />
     {rows.length === 0 ? <Empty icon="users" title={query ? 'No tenant matches that name.' : 'No tenants yet'}>{query ? undefined : 'Add one from an empty room.'}</Empty>
-      : rows.map(({ renter, rooms, rent, since, status, contract }) => <View key={renter.id} className={`${card} gap-3`}>
-        <View className="flex-row items-center gap-3"><Initials name={renter.fullName} />
-          <View className="flex-1 gap-0.5">
-            <View className="flex-row flex-wrap items-center gap-2"><Text className={`font-semibold ${text}`}>{renter.fullName}</Text>{contract && <ContractBadge stage={contract} />}</View>
-            {status ? <Text className="text-sm font-semibold text-amber-700 dark:text-amber-300">{status}</Text>
-              : <Text className={`text-sm ${muted}`}>{renter.phone || 'No number saved'}</Text>}
-            <Text className={`text-sm ${muted}`}>{rooms.length ? rooms.join(', ') : 'Moved out'}{rent ? ` · ${formatPesos(rent)}/mo` : ''}{since ? ` · since ${format(parseISO(since), 'MMM yyyy')}` : ''}</Text>
-          </View></View>
-        <Btn icon="user" label="View tenant" a11y={`View ${renter.fullName}`} onPress={() => onOpen(renter.id)} />
-      </View>)}
+      : <View className="flex-row flex-wrap justify-between gap-y-3">{rows.map(({ renter, rooms, rent, since, status, contract }) => {
+        const count = todo?.get(renter.id) ?? 0;
+        return <Pressable key={renter.id} style={HALF} accessibilityRole="button" onPress={() => onOpen(renter.id)}
+          accessibilityLabel={`View ${renter.fullName}${count ? `, ${count} to do` : ''}`}
+          className={`${card} items-center gap-2 active:opacity-70`}>
+          {count > 0 && <View accessible={false} style={{ position: 'absolute', top: 10, right: 10 }}><Feather name="alert-circle" size={20} color="#ef4444" /></View>}
+          <View className={`h-16 w-16 items-center justify-center rounded-full ${avatarColor(renter.fullName)}`}>
+            <Text className="text-2xl font-bold text-white">{renter.fullName.trim()[0]?.toUpperCase() ?? '?'}</Text></View>
+          <Text numberOfLines={2} className={`text-center text-base font-semibold ${text}`}>{renter.fullName}</Text>
+          {contract && <View className="self-center"><ContractBadge stage={contract} /></View>}
+          {status ? <Text className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">{status}</Text> : null}
+          <View className="items-center gap-1">
+            <IconLine icon="key" label="Room" value={rooms.length ? rooms.join(', ') : 'Moved out'} />
+            {rent > 0 && <IconLine icon="credit-card" label="Rent" value={formatPesos(rent)} />}
+            {since && <IconLine icon="calendar" label="Since" value={format(parseISO(since), 'MMM d, yyyy')} />}
+          </View>
+        </Pressable>;
+      })}</View>}
   </View>;
 }

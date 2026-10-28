@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
 import { CONTRACT_BADGE, contractOpen, contractStage, detailsStatus, formatPesos, roomSpots } from '@himan/shared/rentals';
 import type { ContractStage, ContractText, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
@@ -50,7 +50,7 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, l
       accessibilityLabel={`${unit.name}, ${roomType(unit)}, ${free ? `${free} free` : 'full'}. Shows its actions`}
       className={`${card} min-h-44 gap-2 active:opacity-70`}>
       <View className="flex-row items-center justify-between">
-        <View className="h-11 w-11 items-center justify-center rounded-xl bg-sky-700"><Feather name="key" size={20} color="#fff" /></View>
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-sky-700"><MaterialCommunityIcons name="door-closed" size={24} color="#fff" /></View>
         <Badge label={free ? `${free} free` : 'Full'} tone={free ? 'amber' : 'green'} />
       </View>
       <View><Text numberOfLines={1} className={`text-base font-semibold ${text}`}>{unit.name}</Text>

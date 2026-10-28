@@ -43,7 +43,7 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
       {pill && (
         <span
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 rounded-full bg-primary shadow-sm transition-[transform,width,height] duration-300 ease-out motion-reduce:transition-none"
+          className="pointer-events-none absolute left-0 top-0 rounded-full bg-primary shadow-sm transition-[transform,width,height] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
           style={{ width: pill.w, height: pill.h, transform: `translate(${pill.x}px, ${pill.y}px)` }}
         />
       )}
@@ -55,8 +55,8 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
           aria-label={`Jump to ${letter}`}
           aria-current={letter === active ? "true" : undefined}
           onClick={(e) => { e.preventDefault(); document.getElementById(`apps-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-          className={`relative flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            letter === active ? "text-primary-foreground" : "text-muted-foreground hover:text-primary"
+          className={`relative flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold transition-[color,transform] duration-300 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            letter === active ? "scale-125 text-primary-foreground" : "text-muted-foreground hover:text-primary"
           }`}
         >
           {letter}

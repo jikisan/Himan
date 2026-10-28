@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
   FadeIn, FadeOut, ZoomIn, interpolateColor, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue,
-  useReducedMotion, useSharedValue, withTiming,
+  useAnimatedReaction, useReducedMotion, useSharedValue, withSpring,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -152,10 +152,13 @@ export default function DashboardScreen() {
 }
 
 /**
- * The contacts-style index on the right edge, 80% of the screen tall: tap or drag along it to jump to a letter, which shows
- * large in the middle while the finger is down. A marker glides along it as the page scrolls, to show where you are.
+ * The contacts-style index on the right edge, 60% of the screen tall: tap or drag along it to jump to a letter, which shows
+ * large in the middle while the finger is down. A liquid-like blob follows the page as it scrolls to show where you are: it springs after the scroll position and stretches
+ * while it travels, and the letter it sits on grows.
  * Each letter is also its own button for screen readers.
  */
+const BAR_HEIGHT = 0.6;
+
 function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
   letters: string[]; onLetter(letter: string): void; scrollY: SharedValue<number>; maxY: SharedValue<number>; tops: SharedValue<number[]>;
 }) {
@@ -165,7 +168,7 @@ function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
   const top = useRef(0);
   const [active, setActive] = useState<string | null>(null);
   const PAD = 6;
-  const row = (height * 0.8 - PAD * 2) / letters.length;
+  const row = (height * BAR_HEIGHT - PAD * 2) / letters.length;
   const pick = (pageY: number) => {
     const letter = letters[Math.min(letters.length - 1, Math.max(0, Math.floor((pageY - top.current) / row)))];
     if (letter !== active) { setActive(letter); onLetter(letter); }
@@ -173,7 +176,7 @@ function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
   // Which letter the page is at, as a fraction between headings (2.5 = halfway from the 3rd to the 4th), so the marker
   // moves continuously. When the page can't scroll far enough to bring the last heading to the top, the headings are spread
   // over the scroll it does have, so the marker still travels the whole bar and reaches the last letter at the bottom.
-  const progress = useDerivedValue(() => {
+  const target = useDerivedValue(() => {
     const raw0 = tops.value;
     const first = raw0[0] ?? 0;
     const last = raw0[raw0.length - 1] ?? 0;
@@ -185,16 +188,25 @@ function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
     while (i < t.length - 1 && t[i + 1] <= y + 1) i++;
     const next = t[i + 1];
     const raw = next === undefined || next <= t[i] ? i : i + Math.min(1, Math.max(0, (y - t[i]) / (next - t[i])));
-    return reduce ? raw : withTiming(raw, { duration: 120 });
+    return raw;
   });
-  const marker = useAnimatedStyle(() => ({ transform: [{ translateY: progress.value * row }] }));
+  // The blob chases the target on a soft spring (a little overshoot, so it settles like a drop), and stretches along its
+  // direction of travel by how far behind it is, then squashes back once it arrives.
+  const progress = useSharedValue(0);
+  useAnimatedReaction(() => target.value, (value) => {
+    progress.value = reduce ? value : withSpring(value, { damping: 13, stiffness: 140, mass: 0.9 });
+  });
+  const marker = useAnimatedStyle(() => {
+    const lag = Math.min(1, Math.abs(target.value - progress.value));
+    return { transform: [{ translateY: progress.value * row }, { scaleY: 1 + lag * 0.9 }, { scaleX: 1 - lag * 0.25 }] };
+  });
   return <>
     <View pointerEvents="box-none" className="absolute bottom-0 right-0 top-0 justify-center">
       <View ref={bar} onLayout={() => bar.current?.measureInWindow((_x, y) => { top.current = y + PAD; })}
         onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}
         onResponderGrant={(e) => pick(e.nativeEvent.pageY)} onResponderMove={(e) => pick(e.nativeEvent.pageY)}
         onResponderRelease={() => setActive(null)} onResponderTerminate={() => setActive(null)}
-        style={{ height: height * 0.8, paddingVertical: PAD }} className="mr-1 w-10 rounded-full bg-white/80 dark:bg-gray-800/80">
+        style={{ height: height * BAR_HEIGHT, paddingVertical: PAD }} className="mr-1 w-10 rounded-full bg-white/80 dark:bg-gray-800/80">
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: PAD, left: 0, right: 0, height: row }, marker]}
           className="items-center justify-center">
           <View className="h-8 w-8 rounded-full bg-indigo-600" />
@@ -213,7 +225,7 @@ function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
   </>;
 }
 
-/** One letter of the bar; it turns white as the marker passes behind it. */
+/** One letter of the bar; it turns white and grows as the blob passes behind it. */
 function LetterCell({ letter, index, height, progress, held, onLetter }: {
   letter: string; index: number; height: number; progress: SharedValue<number>; held: boolean; onLetter(letter: string): void;
 }) {
@@ -221,7 +233,8 @@ function LetterCell({ letter, index, height, progress, held, onLetter }: {
   const idle = colorScheme === 'dark' ? '#9ca3af' : '#6b7280';
   const color = useAnimatedStyle(() => ({
     color: interpolateColor(Math.min(1, Math.abs(progress.value - index)), [0, 1], ['#ffffff', idle]),
-    transform: [{ scale: held ? 1.25 : 1 }],
+    // Grows as the blob arrives and shrinks as it leaves; a letter being held with a finger is a little bigger still.
+    transform: [{ scale: (1 + 0.4 * Math.max(0, 1 - Math.abs(progress.value - index))) * (held ? 1.15 : 1) }],
   }));
   return <View accessible accessibilityRole="button" accessibilityLabel={`Jump to ${letter}`} onAccessibilityTap={() => onLetter(letter)}
     style={{ height }} className="items-center justify-center">

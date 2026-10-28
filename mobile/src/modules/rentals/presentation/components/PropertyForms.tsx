@@ -11,9 +11,10 @@ import { Badge, Banner, Btn, Check, Choice, Field, Initials, Input, MoneyInput, 
 import type { FieldErrors } from './ui';
 import { pickFiles } from './types';
 
+/** A form section: a heading with its note, then the fields with room between them. */
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return <View className="gap-3">
-    <View><Title size="base">{title}</Title>{description ? <Text className={`text-xs ${muted}`}>{description}</Text> : null}</View>
+  return <View className="gap-6">
+    <View className="gap-1"><Title size="base">{title}</Title>{description ? <Text className={`text-sm ${muted}`}>{description}</Text> : null}</View>
     {children}
   </View>;
 }
@@ -27,7 +28,7 @@ const MODE_LABEL = { none: 'Not included in rent', submeter: 'By meter reading',
 export function UtilityFields({ idPrefix, value, onChange, fe }: { idPrefix: string; value: UtilityState; onChange(next: UtilityState): void; fe: FieldErrors }) {
   return <>{(['electric', 'water'] as const).map((key) => {
     const amountId = `${idPrefix}-${key}-amount`;
-    return <View key={key} className="gap-3">
+    return <View key={key} className="gap-4">
       <Field label={NAME[key]}>
         <Select label={NAME[key]} value={value.modes[key]} options={UTILITY_MODES.map((m) => [m, MODE_LABEL[m]] as const)}
           onChange={(m) => { fe.clear(amountId); onChange({ ...value, modes: { ...value.modes, [key]: m } }); }} />
@@ -122,6 +123,14 @@ export function PropertyForm({ property, myName, busy, onSave, extra }: {
 
 const KIND = { whole: 'Whole house', room: 'Room', bedspace: 'Shared room' } as const;
 const UNIT_FIELD: Record<string, string> = { name: 'unit-name', capacity: 'unit-capacity', defaultRentCentavos: 'unit-rent', extraPersonRentCentavos: 'unit-extra' };
+const UNIT_STEPS = ['Room', 'Electricity and water'] as const;
+
+/** The progress bars and step names at the top of a multi-step form. */
+function Stepper({ steps, step }: { steps: readonly string[]; step: number }) {
+  return <View className="flex-row gap-2">{steps.map((label, i) => <View key={label} className="flex-1 gap-1">
+    <View className={`h-1.5 rounded-full ${i <= step ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
+    <Text className={`text-xs font-semibold ${i === step ? 'text-indigo-600 dark:text-indigo-400' : muted}`}>{i + 1} · {label}</Text></View>)}</View>;
+}
 
 export function UnitForm({ unit, busy, onSave }: { unit?: RentalUnit; busy: boolean; onSave(value: UnitInput): Promise<void> }) {
   const [name, setName] = useState(unit?.name ?? '');
@@ -133,7 +142,21 @@ export function UnitForm({ unit, busy, onSave }: { unit?: RentalUnit; busy: bool
     modes: { electric: unit?.electricMode ?? 'none', water: unit?.waterMode ?? 'none' },
     amounts: { electric: centavosToInput(unit?.electricAmountCentavos ?? 0), water: centavosToInput(unit?.waterAmountCentavos ?? 0) },
   });
+  const [step, setStep] = useState(0);
   const fe = useFieldErrors();
+  /** Step 1 (the room itself): checks only its own fields before moving on to electricity and water. */
+  const next = () => {
+    fe.clear();
+    const bad: [string, string][] = [];
+    const pesos = (id: string, value: string) => { if (!value.trim()) return 0; try { return parsePesos(value); } catch (e) { bad.push([id, errorMessage(e)]); return 0; } };
+    const defaultRentCentavos = pesos('unit-rent', rent);
+    const extraPersonRentCentavos = kind !== 'bedspace' ? pesos('unit-extra', extra) : 0;
+    if (!bad.length) {
+      const result = unitSchema.safeParse({ name, kind, capacity: kind === 'bedspace' ? Number(capacity) : 1, defaultRentCentavos, extraPersonRentCentavos, ...utilityColumns(utilities) });
+      if (!result.success) bad.push(...zodFieldErrors(result.error, ([key]) => UNIT_FIELD[key as string] ?? null));
+    }
+    if (bad.length) fe.failMany(bad); else setStep(1);
+  };
   const save = async () => {
     fe.clear();
     const bad: [string, string][] = [];
@@ -151,8 +174,9 @@ export function UnitForm({ unit, busy, onSave }: { unit?: RentalUnit; busy: bool
     try { await onSave(result.data); } catch (e) { fe.setFormError(errorMessage(e)); }
   };
   return <>
+    <Stepper steps={UNIT_STEPS} step={step} />
     <Banner message={fe.formError} />
-    <Section title="Room">
+    {step === 0 && <Section title="Room">
       <Field label="Room name" required error={fe.errors['unit-name']}>
         <Input accessibilityLabel="Room name" value={name} placeholder="Room A" invalid={!!fe.errors['unit-name']} onChangeText={(v) => { setName(v); fe.clear('unit-name'); }} />
       </Field>
@@ -166,11 +190,14 @@ export function UnitForm({ unit, busy, onSave }: { unit?: RentalUnit; busy: bool
       {kind !== 'bedspace' && <Field label="Extra per added person" hint="e.g. 500 if 2 people pay 500 more" error={fe.errors['unit-extra']}>
         <MoneyInput accessibilityLabel="Extra per added person" value={extra} placeholder="Optional" invalid={!!fe.errors['unit-extra']} onChangeText={(v) => { setExtra(v); fe.clear('unit-extra'); }} />
       </Field>}
-    </Section>
-    <Section title="Electricity and water" description="What you charge the tenant on top of rent.">
+    </Section>}
+    {step === 1 && <Section title="Electricity and water" description="What you charge the tenant on top of rent.">
       <UtilityFields idPrefix="unit" value={utilities} onChange={setUtilities} fe={fe} />
-    </Section>
-    <Btn variant="primary" label="Save room" busy={busy} onPress={() => void save()} />
+    </Section>}
+    <Row wrap={false}>
+      {step === 1 && <Btn grow label="Back" onPress={() => { fe.clear(); setStep(0); }} />}
+      {step === 0 ? <Btn grow variant="primary" label="Next" onPress={next} /> : <Btn grow variant="primary" label="Save room" busy={busy} onPress={() => void save()} />}
+    </Row>
   </>;
 }
 
@@ -231,9 +258,7 @@ export function SetupWizard({ myName, busy, onFinish, onCancel }: { myName: stri
     } catch (e) { fe.setFormError(errorMessage(e)); }
   };
   return <>
-    <View className="flex-row gap-2">{STEPS.map((label, i) => <View key={label} className="flex-1 gap-1">
-      <View className={`h-1.5 rounded-full ${i <= step ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
-      <Text className={`text-xs font-semibold ${i === step ? 'text-indigo-600 dark:text-indigo-400' : muted}`}>{i + 1} · {label}</Text></View>)}</View>
+    <Stepper steps={STEPS} step={step} />
     <Banner message={fe.formError} />
     {step === 0 && <Section title="Your property" description="A house, apartment, boarding house or dorm. You can change this later.">
       <Field label="Property name" required error={fe.errors['setup-name']}>

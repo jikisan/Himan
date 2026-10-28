@@ -224,7 +224,7 @@ function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
         onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}
         onResponderGrant={(e) => pick(e.nativeEvent.pageY)} onResponderMove={(e) => pick(e.nativeEvent.pageY)}
         onResponderRelease={() => setActive(null)} onResponderTerminate={() => setActive(null)}
-        style={{ height: height * BAR_HEIGHT, paddingVertical: PAD }} className="mr-1 w-10 rounded-full bg-white/80 dark:bg-gray-800/80">
+        style={{ height: height * BAR_HEIGHT, paddingVertical: PAD }} className="mr-1 w-10">
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: PAD, left: 0, right: 0, height: row }, marker]}
           className="items-center justify-center">
           <View className="h-8 w-8 rounded-full bg-indigo-600" />

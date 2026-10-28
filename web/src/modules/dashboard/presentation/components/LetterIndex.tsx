@@ -63,7 +63,7 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
     <nav
       ref={row}
       aria-label="Jump to letter"
-      className="sticky top-[20vh] z-10 flex h-[60vh] max-h-[34rem] w-10 flex-col rounded-full border border-border/60 bg-background/80 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="sticky top-[20vh] z-10 flex h-[60vh] max-h-[34rem] w-10 flex-col py-1.5"
     >
       {pill && (
         <span

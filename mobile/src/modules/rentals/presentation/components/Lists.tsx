@@ -49,10 +49,21 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, l
     // Grouped under "Tenant" and "Room" so it's clear what each action changes.
     const who = taken.length > 1 ? 'Tenants' : 'Tenant';
     const tenantOptions: MenuOption[] = [
-      ...taken.flatMap((t) => [
-        { label: `View ${name(t.renterId)}`, icon: 'user' as const, onPress: () => onOpenTenant(t.renterId) },
-        ...(canManage ? [{ label: `Move out ${name(t.renterId)}`, icon: 'log-out' as const, destructive: true, onPress: () => onMoveOut(t.id) }] : []),
-      ]),
+      ...taken.flatMap((t): MenuOption[] => {
+        const who = name(t.renterId);
+        const stage = contractStage(t, contractTexts);
+        const details = detailsStatus(links, t.id);
+        // What the tile warns about, as its own action: both open the tenant, where the contract and details are handled.
+        const todo = { none: ['Create contract for', 'file-plus'], draft: ['Send contract to', 'send'], sent: ['Open contract of', 'edit-3'], signed: ['Countersign contract of', 'edit-3'] } as const;
+        const contract = canManage && contractOpen(stage) && stage in todo ? todo[stage as keyof typeof todo] : null;
+        return [
+          { label: `View ${who}`, icon: 'user', onPress: () => onOpenTenant(t.renterId) },
+          ...(contract ? [{ label: `${contract[0]} ${who}`, icon: contract[1], tone: 'amber' as const, onPress: () => onOpenTenant(t.renterId) }] : []),
+          ...(canManage && details ? [{ label: details === 'Details to review' ? `Review details of ${who}` : `Get details from ${who}`,
+            icon: details === 'Details to review' ? 'check-circle' as const : 'clipboard' as const, tone: 'amber' as const, onPress: () => onOpenTenant(t.renterId) }] : []),
+          ...(canManage ? [{ label: `Move out ${who}`, icon: 'log-out' as const, destructive: true, onPress: () => onMoveOut(t.id) }] : []),
+        ];
+      }),
       ...(canManage && free ? [{ label: `Add tenant${unit.defaultRentCentavos > 0 ? ` · ${formatPesos(unit.defaultRentCentavos)}/mo` : ''}`, icon: 'plus' as const,
         tone: 'green' as const, onPress: () => onAddTenant(unit.id) }] : []),
     ];

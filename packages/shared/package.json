@@ -33,6 +33,6 @@
     "@supabase/supabase-js": "^2.89.0",
     "date-fns": "^4.1.0",
     "to-words": "^7.3.0",
-    "zod": "^4.2.1"
+    "zod": "^4.6.6"
   }
 }

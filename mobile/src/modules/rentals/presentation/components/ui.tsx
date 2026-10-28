@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Fragment, createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import type { TextInputProps } from 'react-native';
@@ -222,7 +222,8 @@ export function zodFieldErrors(error: { issues: { path: PropertyKey[]; message: 
 
 // ---- Menu: a list of big labelled choices over a dimmed screen (iOS 26's own action sheet has no dimming).
 
-export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; icon?: IconName; tone?: 'green'; onPress(): void };
+/** `heading` puts a small section title above this option, to group a long menu. */
+export type MenuOption = { label: string; destructive?: boolean; checked?: boolean; icon?: IconName; tone?: 'green'; heading?: string; onPress(): void };
 type MenuSpec = { title?: string; options: MenuOption[]; onCancel?(): void };
 // Hosts mount inside each open sheet: a native modal only shows above the modal it is rendered in, so the newest host shows the menu.
 const hosts: ((spec: MenuSpec | null) => void)[] = [];
@@ -247,14 +248,16 @@ export function MenuHost() {
       style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: 12 }}>
       <Pressable accessible={false} onPress={() => undefined} className="gap-2 rounded-3xl bg-white p-3 dark:bg-gray-800">
         {spec?.title ? <Text accessibilityRole="header" className={`px-2 pb-2 pt-2 text-left text-xl font-bold ${text}`}>{spec.title}</Text> : null}
-        {spec?.options.map((o) => <Pressable key={o.label} accessibilityRole="button" accessibilityState={{ selected: !!o.checked }} onPress={() => pick(o)}
+        {spec?.options.map((o) => <Fragment key={o.label}>
+          {o.heading ? <Text accessibilityRole="header" className={`px-2 pb-0.5 pt-3 text-left text-sm font-bold uppercase tracking-wide ${muted}`}>{o.heading}</Text> : null}
+        <Pressable accessibilityRole="button" accessibilityState={{ selected: !!o.checked }} onPress={() => pick(o)}
           className={`min-h-14 flex-row items-center justify-center gap-2 rounded-2xl px-4 active:opacity-70 ${o.checked ? 'bg-indigo-50 dark:bg-indigo-950/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
           {/* The tick sits right beside the words (the text shrinks to its own width rather than filling the row). */}
           {o.checked ? <Feather accessible={false} name="check" size={20} color="#6366f1" />
-            : o.icon ? <Feather accessible={false} name={o.icon} size={20} color={o.tone === 'green' ? '#059669' : '#6b7280'} /> : null}
+            : o.icon ? <Feather accessible={false} name={o.icon} size={20} color={o.destructive ? '#ef4444' : o.tone === 'green' ? '#059669' : '#9ca3af'} /> : null}
           <Text className={`shrink text-center text-lg font-semibold ${o.destructive ? 'text-red-600 dark:text-red-400' : o.tone === 'green' ? 'text-emerald-700 dark:text-emerald-400'
             : o.checked ? 'text-indigo-700 dark:text-indigo-300' : text}`}>{o.label}</Text>
-        </Pressable>)}
+        </Pressable></Fragment>)}
       </Pressable>
       <View className="h-2" />
       <Pressable accessibilityRole="button" onPress={() => pick()} className="min-h-14 items-center justify-center rounded-3xl bg-white active:opacity-70 dark:bg-gray-800">

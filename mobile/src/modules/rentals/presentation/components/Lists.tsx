@@ -46,12 +46,23 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, l
     const taken = spots.filter((t): t is RentalTenancy => !!t);
     const free = spots.length - taken.length;
     const rent = taken.reduce((sum, t) => sum + (t.contracts.find((c) => c.status === 'active')?.monthlyRentCentavos ?? 0), 0);
-    const open = () => moreMenu(unit.name, [
-      ...taken.map((t) => ({ label: `View ${name(t.renterId)}`, onPress: () => onOpenTenant(t.renterId) })),
-      ...(canManage ? taken.map((t) => ({ label: `Move out ${name(t.renterId)}`, destructive: true, onPress: () => onMoveOut(t.id) })) : []),
+    // Grouped under "Tenant" and "Room" so it's clear what each action changes.
+    const who = taken.length > 1 ? 'Tenants' : 'Tenant';
+    const tenantOptions: MenuOption[] = [
+      ...taken.flatMap((t) => [
+        { label: `View ${name(t.renterId)}`, icon: 'user' as const, onPress: () => onOpenTenant(t.renterId) },
+        ...(canManage ? [{ label: `Move out ${name(t.renterId)}`, icon: 'log-out' as const, destructive: true, onPress: () => onMoveOut(t.id) }] : []),
+      ]),
       ...(canManage && free ? [{ label: `Add tenant${unit.defaultRentCentavos > 0 ? ` · ${formatPesos(unit.defaultRentCentavos)}/mo` : ''}`, icon: 'plus' as const,
         tone: 'green' as const, onPress: () => onAddTenant(unit.id) }] : []),
-      ...(canEdit ? [{ label: 'Edit room', onPress: () => onEditRoom(unit.id) }, { label: 'Delete room', destructive: true, onPress: () => onDeleteRoom(unit.id) }] : []),
+    ];
+    const roomOptions: MenuOption[] = canEdit ? [
+      { label: 'Edit room', icon: 'edit-2', onPress: () => onEditRoom(unit.id) },
+      { label: 'Delete room', icon: 'trash-2', destructive: true, onPress: () => onDeleteRoom(unit.id) },
+    ] : [];
+    const open = () => moreMenu(unit.name, [
+      ...tenantOptions.map((o, i) => (i === 0 ? { ...o, heading: who } : o)),
+      ...roomOptions.map((o, i) => (i === 0 ? { ...o, heading: 'Room' } : o)),
     ]);
     const attention = taken.map((t) => detailsStatus(links, t.id)).find(Boolean);
     return <Pressable key={unit.id} style={HALF} accessibilityRole="button" onPress={open}

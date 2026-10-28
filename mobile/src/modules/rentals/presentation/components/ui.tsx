@@ -157,6 +157,21 @@ export function Choice<T extends string>({ value, options, onChange, label, disa
   </View>;
 }
 
+/** A dropdown like the web's select: shows the chosen option and opens the list of options as a menu to pick from. */
+export function Select<T extends string>({ value, options, onChange, label, title, disabled }: {
+  value: T; options: readonly (readonly [NoInfer<T>, string])[]; onChange(value: NoInfer<T>): void; label: string; title?: string; disabled?: boolean;
+}) {
+  const color = useIconColor();
+  const words = options.find(([v]) => v === value)?.[1] ?? '';
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${words}`} accessibilityHint="Opens the list of options"
+    accessibilityState={{ disabled }} disabled={disabled}
+    onPress={() => showMenu(title ?? label, options.map(([v, text]) => ({ label: text, checked: v === value, onPress: () => onChange(v) })))}
+    className={`${inputClass} flex-row items-center justify-between gap-2 active:opacity-70 ${disabled ? 'opacity-50' : ''}`}>
+    <Text numberOfLines={1} className={`shrink text-base ${text}`}>{words}</Text>
+    <Feather accessible={false} name="chevron-down" size={20} color={color} />
+  </Pressable>;
+}
+
 export function Check({ checked, onChange, label, disabled }: { checked: boolean; onChange(value: boolean): void; label: string; disabled?: boolean }) {
   return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked, disabled }} disabled={disabled} onPress={() => onChange(!checked)}
     className="min-h-12 flex-row items-center gap-3 active:opacity-70">

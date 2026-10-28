@@ -6,7 +6,7 @@ import { ACCOUNT_KINDS, LESSOR_CAPACITIES, UNIT_KINDS, UTILITY_MODES, billPrefix
   propertyInput, propertySchema, unitSchema, utilityColumns, utilityErrors, utilityFieldId } from '@himan/shared/rentals';
 import type { PaymentAccount, PropertyInput, RentalAction, RentalProperty, RentalUnit, UnitInput, UtilityState } from '@himan/shared/rentals';
 import type { RentalsState } from '../hooks/useRentals';
-import { Badge, Banner, Btn, Check, Choice, Field, Initials, Input, MoneyInput, Row, Title, card, muted, text, useFieldErrors, useRentalToast,
+import { Badge, Banner, Btn, Check, Choice, Field, Initials, Input, MoneyInput, Row, Select, Title, card, muted, text, useFieldErrors, useRentalToast,
   zodFieldErrors } from './ui';
 import type { FieldErrors } from './ui';
 import { pickFiles } from './types';
@@ -29,7 +29,7 @@ export function UtilityFields({ idPrefix, value, onChange, fe }: { idPrefix: str
     const amountId = `${idPrefix}-${key}-amount`;
     return <View key={key} className="gap-3">
       <Field label={NAME[key]}>
-        <Choice label={NAME[key]} value={value.modes[key]} options={UTILITY_MODES.map((m) => [m, MODE_LABEL[m]] as const)}
+        <Select label={NAME[key]} value={value.modes[key]} options={UTILITY_MODES.map((m) => [m, MODE_LABEL[m]] as const)}
           onChange={(m) => { fe.clear(amountId); onChange({ ...value, modes: { ...value.modes, [key]: m } }); }} />
       </Field>
       {value.modes[key] === 'monthly' ? <Text className={`text-xs ${muted}`}>You type the amount from the {NAME[key].toLowerCase()} bill each month, in Bills.</Text>

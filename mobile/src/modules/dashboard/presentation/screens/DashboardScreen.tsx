@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, ZoomIn, useReducedMotion } from 'react-native-reanimated';
+import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  FadeIn, FadeOut, ZoomIn, interpolateColor, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue,
+  useReducedMotion, useSharedValue, withTiming,
+} from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -85,8 +89,21 @@ export default function DashboardScreen() {
   const [customizing, setCustomizing] = useState(false);
   const groups = groupByLetter(visible);
   const lettered = layout === 'letters' && visible.length > 0;
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useAnimatedRef<Animated.ScrollView>();
   const offsets = useRef<Record<string, number>>({});
+  // The scroll position and each letter heading's top, read on the UI thread so the letter bar's marker follows the finger.
+  const scrollY = useSharedValue(0);
+  const maxY = useSharedValue(0);
+  const tops = useSharedValue<number[]>([]);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+    maxY.value = Math.max(0, e.contentSize.height - e.layoutMeasurement.height);
+  });
+  const viewport = useRef(0);
+  const measured = (letter: string, y: number) => {
+    offsets.current[letter] = y;
+    tops.value = groups.map((g) => offsets.current[g.letter] ?? 0);
+  };
   const jump = (letter: string) => scroll.current?.scrollTo({ y: offsets.current[letter] ?? 0, animated: false });
   const open = (app: MobileApp) => router.push(app.route as never);
   const changeLayout = (next: DashboardLayout) => {
@@ -99,7 +116,7 @@ export default function DashboardScreen() {
     <Button primary label="Choose apps" onPress={() => setCustomizing(true)} />
   </View>] : layout === 'grid' ? [<View key="grid" accessibilityLabel="Apps"><AppGrid apps={groups.flatMap((g) => g.apps)} badges={badges} onOpen={open} /></View>]
     : groups.flatMap(({ letter, apps }) => [
-      <View key={`h-${letter}`} onLayout={(e) => { offsets.current[letter] = e.nativeEvent.layout.y; }} className="bg-gray-50 pt-2 dark:bg-gray-900">
+      <View key={`h-${letter}`} onLayout={(e) => measured(letter, e.nativeEvent.layout.y)} className="bg-gray-50 pt-2 dark:bg-gray-900">
         <Text accessibilityRole="header" className={`border-b border-gray-200 pb-1 text-lg font-semibold dark:border-gray-700 ${text}`}>{letter}</Text>
       </View>,
       <View key={`g-${letter}`} className="mb-4 mt-2"><AppGrid apps={apps} badges={badges} onOpen={open} /></View>,
@@ -107,7 +124,9 @@ export default function DashboardScreen() {
   const HEADER_CHILDREN = 2;
   const sticky = lettered ? groups.map((_, i) => HEADER_CHILDREN + i * 2) : undefined;
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-    <ScrollView ref={scroll} stickyHeaderIndices={sticky} contentContainerStyle={{ padding: 20, paddingRight: lettered ? 36 : 20, paddingBottom: 48 }}>
+    <Animated.ScrollView ref={scroll} onScroll={onScroll} scrollEventThrottle={16} stickyHeaderIndices={sticky}
+      onContentSizeChange={(_w, h) => { maxY.value = Math.max(0, h - viewport.current); }}
+      onLayout={(e) => { viewport.current = e.nativeEvent.layout.height; }} contentContainerStyle={{ padding: 20, paddingRight: lettered ? 36 : 20, paddingBottom: 48 }}>
       <View className="flex-row justify-end">
         <Button icon="settings" label="Settings" onPress={() => router.push('/(app)/settings')} />
       </View>
@@ -116,14 +135,14 @@ export default function DashboardScreen() {
           <Text className="text-3xl font-semibold uppercase text-white">{name[0]}</Text></View>
         <Text accessibilityRole="header" className={`text-center text-3xl font-semibold ${text}`}>Welcome back, {name}</Text>
         <Text className={`mt-1 text-center text-base ${muted}`}>Everything in Himan, at a glance.</Text>
-        <View className="mt-4 flex-row flex-wrap justify-center gap-2">
+        <View className="mt-6 w-full flex-row flex-wrap items-center justify-between gap-2">
           <Button icon="sliders" label="Customize" onPress={() => setCustomizing(true)} />
           <ViewToggle layout={layout} onChange={changeLayout} />
         </View>
       </View>
       {body}
-    </ScrollView>
-    {lettered && groups.length > 1 && <LetterBar letters={groups.map((g) => g.letter)} onLetter={jump} />}
+    </Animated.ScrollView>
+    {lettered && groups.length > 1 && <LetterBar letters={groups.map((g) => g.letter)} onLetter={jump} scrollY={scrollY} maxY={maxY} tops={tops} />}
     <Modal visible={customizing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCustomizing(false)}>
       {customizing && <Customize apps={available} hidden={hidden} saving={saving} onCancel={() => setCustomizing(false)}
         onSave={async (next) => { await save(next); setCustomizing(false); showToast('Dashboard updated'); }} />}
@@ -133,30 +152,55 @@ export default function DashboardScreen() {
 }
 
 /**
- * The contacts-style index on the right edge: tap or drag along it to jump to a letter, which shows large in the middle while
- * the finger is down. Each letter is also its own button for screen readers.
+ * The contacts-style index on the right edge, 80% of the screen tall: tap or drag along it to jump to a letter, which shows
+ * large in the middle while the finger is down. A marker glides along it as the page scrolls, to show where you are.
+ * Each letter is also its own button for screen readers.
  */
-function LetterBar({ letters, onLetter }: { letters: string[]; onLetter(letter: string): void }) {
+function LetterBar({ letters, onLetter, scrollY, maxY, tops }: {
+  letters: string[]; onLetter(letter: string): void; scrollY: SharedValue<number>; maxY: SharedValue<number>; tops: SharedValue<number[]>;
+}) {
   const reduce = useReducedMotion();
+  const { height } = useWindowDimensions();
   const bar = useRef<View>(null);
   const top = useRef(0);
   const [active, setActive] = useState<string | null>(null);
-  const ROW = 28;
+  const PAD = 6;
+  const row = (height * 0.8 - PAD * 2) / letters.length;
   const pick = (pageY: number) => {
-    const letter = letters[Math.min(letters.length - 1, Math.max(0, Math.floor((pageY - top.current) / ROW)))];
+    const letter = letters[Math.min(letters.length - 1, Math.max(0, Math.floor((pageY - top.current) / row)))];
     if (letter !== active) { setActive(letter); onLetter(letter); }
   };
+  // Which letter the page is at, as a fraction between headings (2.5 = halfway from the 3rd to the 4th), so the marker
+  // moves continuously. When the page can't scroll far enough to bring the last heading to the top, the headings are spread
+  // over the scroll it does have, so the marker still travels the whole bar and reaches the last letter at the bottom.
+  const progress = useDerivedValue(() => {
+    const raw0 = tops.value;
+    const first = raw0[0] ?? 0;
+    const last = raw0[raw0.length - 1] ?? 0;
+    const end = Math.max(Math.min(first, maxY.value), maxY.value);
+    const t = last > end && last > first ? raw0.map((y) => Math.min(first, end) + (y - first) * (end - Math.min(first, end)) / (last - first)) : raw0;
+    const y = scrollY.value;
+    if (!t.length) return 0;
+    let i = 0;
+    while (i < t.length - 1 && t[i + 1] <= y + 1) i++;
+    const next = t[i + 1];
+    const raw = next === undefined || next <= t[i] ? i : i + Math.min(1, Math.max(0, (y - t[i]) / (next - t[i])));
+    return reduce ? raw : withTiming(raw, { duration: 120 });
+  });
+  const marker = useAnimatedStyle(() => ({ transform: [{ translateY: progress.value * row }] }));
   return <>
     <View pointerEvents="box-none" className="absolute bottom-0 right-0 top-0 justify-center">
-      <View ref={bar} onLayout={() => bar.current?.measureInWindow((_x, y) => { top.current = y + 4; })}
+      <View ref={bar} onLayout={() => bar.current?.measureInWindow((_x, y) => { top.current = y + PAD; })}
         onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}
         onResponderGrant={(e) => pick(e.nativeEvent.pageY)} onResponderMove={(e) => pick(e.nativeEvent.pageY)}
         onResponderRelease={() => setActive(null)} onResponderTerminate={() => setActive(null)}
-        className="mr-1 rounded-full bg-white/80 py-1 dark:bg-gray-800/80">
-        {letters.map((letter) => <View key={letter} accessible accessibilityRole="button" accessibilityLabel={`Jump to ${letter}`}
-          onAccessibilityTap={() => onLetter(letter)} style={{ height: ROW }} className="w-8 items-center justify-center">
-          <Text className={`text-sm font-bold ${active === letter ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>{letter}</Text>
-        </View>)}
+        style={{ height: height * 0.8, paddingVertical: PAD }} className="mr-1 w-10 rounded-full bg-white/80 dark:bg-gray-800/80">
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: PAD, left: 0, right: 0, height: row }, marker]}
+          className="items-center justify-center">
+          <View className="h-8 w-8 rounded-full bg-indigo-600" />
+        </Animated.View>
+        {letters.map((letter, i) => <LetterCell key={letter} letter={letter} index={i} height={row} progress={progress}
+          held={active === letter} onLetter={onLetter} />)}
       </View>
     </View>
     {active && <Animated.View pointerEvents="none" entering={reduce ? undefined : ZoomIn.duration(150)} exiting={reduce ? undefined : FadeOut.duration(120)}
@@ -167,6 +211,22 @@ function LetterBar({ letters, onLetter }: { letters: string[]; onLetter(letter: 
       </Animated.View>
     </Animated.View>}
   </>;
+}
+
+/** One letter of the bar; it turns white as the marker passes behind it. */
+function LetterCell({ letter, index, height, progress, held, onLetter }: {
+  letter: string; index: number; height: number; progress: SharedValue<number>; held: boolean; onLetter(letter: string): void;
+}) {
+  const { colorScheme } = useColorScheme();
+  const idle = colorScheme === 'dark' ? '#9ca3af' : '#6b7280';
+  const color = useAnimatedStyle(() => ({
+    color: interpolateColor(Math.min(1, Math.abs(progress.value - index)), [0, 1], ['#ffffff', idle]),
+    transform: [{ scale: held ? 1.25 : 1 }],
+  }));
+  return <View accessible accessibilityRole="button" accessibilityLabel={`Jump to ${letter}`} onAccessibilityTap={() => onLetter(letter)}
+    style={{ height }} className="items-center justify-center">
+    <Animated.Text style={color} className="text-sm font-bold">{letter}</Animated.Text>
+  </View>;
 }
 
 /** Edits a draft of the hidden apps; nothing is saved until Save. Apps only on the web keep whatever was chosen there. */

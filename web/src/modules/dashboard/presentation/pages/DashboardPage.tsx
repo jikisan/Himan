@@ -7,6 +7,7 @@ import { useAuth } from "@auth/presentation/hooks";
 import { groupByLetter } from "../../domain/entities";
 import type { DashboardAppId, DashboardLayout } from "../../domain/entities";
 import { AppIcon } from "../components/AppIcon";
+import { LetterIndex } from "../components/LetterIndex";
 import { CustomizeDashboardDialog } from "../components/CustomizeDashboardDialog";
 import { useDashboardApps } from "../hooks/useDashboardApps";
 import type { DashboardApp } from "../components/appCatalog";
@@ -112,19 +113,7 @@ export const DashboardPage = () => {
         ) : visible.length > 0 ? (
           <div className="mx-auto max-w-3xl">
             {/* Sticks to the top of the scrolling page so any letter is one tap away. */}
-            <nav aria-label="Jump to letter" className="sticky top-0 z-10 -mx-4 mb-6 flex flex-wrap justify-center gap-1 bg-background/85 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-              {groups.map(({ letter }) => (
-                <a
-                  key={letter}
-                  href={`#apps-${letter}`}
-                  aria-label={`Jump to ${letter}`}
-                  onClick={(e) => { e.preventDefault(); document.getElementById(`apps-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-                  className="flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-semibold text-muted-foreground transition hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  {letter}
-                </a>
-              ))}
-            </nav>
+            <LetterIndex letters={groups.map((g) => g.letter)} />
             <nav aria-label="Apps" className="space-y-8">
               {groups.map(({ letter, apps }) => (
                 <section key={letter} id={`apps-${letter}`} aria-labelledby={`apps-${letter}-title`} className="scroll-mt-20">

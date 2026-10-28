@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { DEFAULT_CLAUSES, linkMessage } from '@himan/shared/rentals';
 import type { ContractText, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter, TenancyLink } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { openSection, renderRentals } from './renderRentals';
 import { expectBanner, expectFieldError, expectNoErrorAfter, expectRequired } from './formErrors';
 
 const unit = (id: string, propertyId: string, name: string): RentalUnit => ({ id, propertyId, name, kind: 'room', capacity: 1,
@@ -56,8 +55,8 @@ beforeEach(() => {
 });
 
 const page = (tab?: string) => {
-  const view = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  if (tab) fireEvent.click(screen.getByRole('button', { name: tab }));
+  const view = renderRentals();
+  if (tab && tab !== 'Home') openSection(tab as 'Rooms');
   return view;
 };
 const openAdd = () => { page('Rooms'); fireEvent.click(within(screen.getByRole('region', { name: 'Room A' })).getByRole('button', { name: 'Add tenant' })); };
@@ -71,7 +70,7 @@ describe('Waiting for details', () => {
     state.links = [link({ kind: 'new' })];
     const { unmount } = page('Tenants');
     expect(screen.getByText('Carlo Lim').closest('li')).toHaveTextContent('Waiting for details');
-    fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
+    openSection('Rooms');
     expect(within(screen.getByRole('region', { name: 'Room B' })).getByText('Waiting for details')).toBeInTheDocument();
     unmount();
     state.links = [link({ kind: 'new', status: 'submitted', submittedDetails: details })];
@@ -192,8 +191,8 @@ describe('Tenant link on the sheet', () => {
 
   it('is hidden from viewers, and no token reaches the page', () => {
     state.properties = [{ ...property, role: 'viewer' }];
-    const { container } = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Rooms' }));
+    const { container } = renderRentals();
+    openSection('Rooms');
     fireEvent.click(within(screen.getByRole('region', { name: 'Room B' })).getByRole('button', { name: /^View Carlo Lim/ }));
     expect(screen.queryByRole('region', { name: 'Tenant link' })).not.toBeInTheDocument();
     expect(container.ownerDocument.body.innerHTML).not.toContain('tok-old');

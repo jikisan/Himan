@@ -68,7 +68,7 @@ export const Router = () => {
             <Route path="/government" element={<GovernmentPage />} />
             <Route path="/receipts" element={<ReceiptsPage />} />
             <Route path="/weight" element={<WeightPage />} />
-            <Route path="/rentals" element={<RentalsPage />} />
+            <Route path="/rentals/:propertyId?/:section?" element={<RentalsPage />} />
             <Route path="/finances" element={<FinancesPage />} />
             <Route path="/storage" element={<StoragePage />} />
             <Route path="/account" element={<AccountPage />} />

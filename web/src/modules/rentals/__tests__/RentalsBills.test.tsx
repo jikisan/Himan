@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter, UtilityBill } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { goToProperty, openSection, renderRentals } from './renderRentals';
 
 const U1 = '00000000-0000-0000-0000-000000000001';
 const U2 = '00000000-0000-0000-0000-000000000002';
@@ -52,8 +51,8 @@ beforeEach(() => {
   state.run.mockResolvedValue({ issued: 1, failed: [] });
 });
 const openBills = () => {
-  render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
+  renderRentals();
+  openSection('Bills');
 };
 /** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
 const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
@@ -369,26 +368,29 @@ describe('Issued bills', () => {
 });
 
 describe('Home', () => {
-  const openHome = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+  const openHome = () => renderRentals();
   it('lists what to do this month and badges the Bills tab', () => {
     openHome();
     const todo = within(screen.getByRole('region', { name: 'To do for November' }));
     expect(todo.getByText('Read 1 meter')).toBeInTheDocument();
     expect(todo.getByText('Generate 1 SOA')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bills' })).toHaveTextContent('2');
+    goToProperty();
+    expect(screen.getByRole('link', { name: 'Bills, 2 need attention' })).toHaveTextContent('2');
   });
   it('opens Add readings on the Bills tab from Read meters', () => {
     openHome();
     fireEvent.click(screen.getByRole('button', { name: 'Read meters' }));
     expect(within(screen.getByRole('dialog', { name: 'Add readings' })).getByRole('spinbutton', { name: 'Room 1 electricity reading' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bills', hidden: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { level: 1, name: 'Bills', hidden: true })).toBeInTheDocument();
   });
   it('reminds about a cancelled SOA nothing replaces, and See cancelled opens it', () => {
     state.bills = [issued('t3', { id: 'mi', kind: 'move_in', status: 'void', number: 'LU-2026-0001', period: '2026-11', dueOn: '2026-11-01' })];
     openHome();
     expect(screen.getByText('1 cancelled SOA not replaced')).toBeInTheDocument();
     expect(screen.getByText('Ben Lim (move-in)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bills' })).toHaveTextContent('3');
+    goToProperty();
+    expect(screen.getByRole('link', { name: 'Bills, 3 need attention' })).toHaveTextContent('3');
+    openSection('To do');
     fireEvent.click(screen.getByRole('button', { name: 'See cancelled' }));
     expect(screen.getByRole('button', { name: /^Cancelled \d/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Generate Ben Lim’s move-in SOA again' })).toBeInTheDocument();
@@ -579,7 +581,7 @@ describe('Electricity billed by the month’s bill amount', () => {
       lines: [expect.objectContaining({ kind: 'rent' }), { kind: 'electric', label: 'Electricity', amount: 234500, billMonth: '2026-11' }] })] }));
   });
   it('asks for the amount on Home', () => {
-    render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+    renderRentals();
     expect(screen.getByText('Add November bill amount')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add bill amounts' }));
     expect(screen.getByRole('dialog', { name: 'November 2026 bill amounts' })).toBeInTheDocument();

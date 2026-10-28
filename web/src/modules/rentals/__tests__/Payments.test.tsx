@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import type { MeterReading, PaymentAccount, RentalBill, RentalPayment, RentalProperty, RentalTenancy, Renter, UtilityBill } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { goToProperty, openSection, propertyAction, renderRentals } from './renderRentals';
 import { BillStateBadge } from '../presentation/components/Badges';
 
 const U1 = '00000000-0000-0000-0000-000000000001';
@@ -57,7 +56,7 @@ beforeEach(() => {
   state.accounts = [];
   state.run.mockResolvedValue({ id: 'new', failed: [] });
 });
-const page = () => render(<MemoryRouter><RentalsPage /></MemoryRouter>);
+const page = () => renderRentals();
 
 /** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
 const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
@@ -79,13 +78,13 @@ function expectRequired(id: string) {
 }
 const openBill = () => {
   page();
-  fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
+  openSection('Bills');
   fireEvent.click(screen.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' }));
   return within(screen.getByRole('dialog'));
 };
 const openTenant = () => {
   page();
-  fireEvent.click(screen.getByRole('button', { name: 'Tenants' }));
+  openSection('Tenants');
   fireEvent.click(screen.getByRole('button', { name: /Juan Dela Cruz/ }));
   return within(screen.getByRole('dialog'));
 };
@@ -258,11 +257,13 @@ describe('Home', () => {
     const overdue = within(screen.getByRole('region', { name: 'Overdue' }));
     expect(overdue.getByText('Juan Dela Cruz')).toBeInTheDocument();
     expect(overdue.getByText(/₱3,500 left · 7 days late/)).toBeInTheDocument();
+    openSection('Analytics');
     expect(screen.getByText('Deposits held').nextElementSibling).toHaveTextContent('₱3,500');
   });
   it('shows a deposit as pending until the move-in bill is paid', () => {
     state.bills = [moveIn()];
     page();
+    openSection('Analytics');
     expect(screen.getByText('Deposits held').nextElementSibling).toHaveTextContent('₱0');
     expect(screen.getByText('₱3,500 pending')).toBeInTheDocument();
   });
@@ -292,7 +293,7 @@ describe('Bills from before payment tracking', () => {
     state.properties = [{ ...state.properties[0], role: 'viewer' }];
     page();
     expect(screen.queryByRole('region', { name: 'Bills from before payment tracking' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Bills' }));
+    openSection('Bills');
     fireEvent.click(screen.getByRole('button', { name: 'View Juan Dela Cruz’s monthly SOA' }));
     expect(within(screen.getByRole('dialog')).getByText('Overdue · 7 days')).toBeInTheDocument();
   });
@@ -308,7 +309,7 @@ describe('Payment accounts', () => {
   it('lets the owner add an account in Edit property', async () => {
     state.run.mockResolvedValue('acc-new');
     page();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    propertyAction('Edit property');
     const dialog = within(screen.getByRole('dialog', { name: 'Edit property' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Add payment account' }));
     fireEvent.change(dialog.getByRole('textbox', { name: 'Account name' }), { target: { value: 'Maria Santos' } });
@@ -320,12 +321,13 @@ describe('Payment accounts', () => {
   it('shows a saved QR and is hidden from managers', () => {
     state.accounts = [{ ...gcash, qrPath: 'p/acc1-1.png' }];
     const { unmount } = page();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    propertyAction('Edit property');
     expect(screen.getByRole('img', { name: 'GCash QR code' })).toHaveAttribute('src', 'https://cdn/p/acc1-1.png');
     unmount();
     state.properties = [{ ...property, role: 'manager' }];
     page();
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    goToProperty();
+    expect(screen.queryByRole('button', { name: 'More property actions' })).not.toBeInTheDocument();
   });
   it('puts the accounts, previous balance and paid amount on the bill and its Messenger copy', async () => {
     const writeText = vi.fn(async () => undefined);

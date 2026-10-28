@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { DashboardPreferencesRepository, readHiddenApps } from '@himan/shared/dashboard';
-import type { DashboardAppId } from '@himan/shared/dashboard';
+import { useQuery } from '@tanstack/react-query';
+import { DashboardBadgeRepository, DashboardPreferencesRepository, readDashboardLayout, readHiddenApps } from '@himan/shared/dashboard';
+import { todayISO } from '@himan/shared/receipts';
+import type { DashboardAppId, DashboardLayout } from '@himan/shared/dashboard';
 import { useAuth } from '@/modules/auth';
 import { MOBILE_APPS } from '../screens/appCatalog';
 
@@ -22,5 +24,14 @@ export function useDashboardApps() {
     setSaving(true);
     try { await repository.saveHiddenApps(next); } catch (error) { setOptimistic(previous); throw error; } finally { setSaving(false); }
   };
-  return { available: MOBILE_APPS, visible, hidden, saving, save, name: user?.email?.split('@')[0] || 'there' };
+  // Switches at once and keeps the switch even if saving fails; it is only a view preference.
+  const [layoutChoice, setLayoutChoice] = useState<DashboardLayout | null>(null);
+  const layout = layoutChoice ?? readDashboardLayout(user?.user_metadata);
+  const saveLayout = (next: DashboardLayout) => { setLayoutChoice(next); return repository.saveLayout(next); };
+  // Counts of things needing attention, for the tile badges; none until they load, and none on failure.
+  const badgeRepository = useMemo(() => new DashboardBadgeRepository(), []);
+  const { data: badges = {} } = useQuery({
+    queryKey: ['dashboard-badges', user?.id], queryFn: () => badgeRepository.counts(user!.id, todayISO()), enabled: !!user?.id, retry: false,
+  });
+  return { available: MOBILE_APPS, visible, hidden, saving, save, badges, layout, saveLayout, name: user?.email?.split('@')[0] || 'there' };
 }

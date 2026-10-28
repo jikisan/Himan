@@ -54,11 +54,14 @@ const shot = (page: Page, info: { outputPath(name: string): string }, name: stri
 test('sets up a property, adds a tenant, bills and settles them', async ({ page }, info) => {
   test.setTimeout(180_000);
   let link = '';
+  let propertyPath = '';
+  // Each section of the property is its own address.
+  const open = (section: 'todo' | 'rooms' | 'tenants' | 'bills') => page.goto(`${propertyPath}/${section}`);
   await signUp(page);
   await page.goto('/rentals');
 
   await test.step('setup wizard, with errors shown on the field', async () => {
-    await expect(page.getByText('No properties yet')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Rentals' })).toBeVisible();
     await page.getByRole('button', { name: 'New property' }).click();
     await page.getByRole('button', { name: 'Next' }).click();
     const name = page.getByLabel(/^Property name/);
@@ -76,8 +79,11 @@ test('sets up a property, adds a tenant, bills and settles them', async ({ page 
     await page.getByRole('button', { name: 'Next' }).click();
     await shot(page, info, '03-setup-utilities');
     await page.getByRole('button', { name: 'Finish setup' }).click();
-    await expect(page.getByRole('heading', { name: 'E2E Boarding House' })).toBeVisible();
-    await shot(page, info, '04-home');
+    // Setup lands on the new property's Rooms screen.
+    await expect(page.getByRole('heading', { level: 1, name: 'Rooms' })).toBeVisible();
+    await expect(page).toHaveURL(/\/rentals\/[^/]+\/rooms$/);
+    propertyPath = new URL(page.url()).pathname.replace(/\/rooms$/, '');
+    await shot(page, info, '04-rooms');
   });
 
   await test.step('move-in: add tenant, pay, then the contract', async () => {
@@ -153,8 +159,7 @@ test('sets up a property, adds a tenant, bills and settles them', async ({ page 
   });
 
   await test.step('owner accepts the details and countersigns', async () => {
-    await page.reload();
-    await page.getByRole('button', { name: 'Tenants' }).click();
+    await open('tenants');
     await page.getByRole('button', { name: 'View Ana Cruz' }).click();
     const sheet = page.getByRole('dialog');
     await sheet.getByRole('region', { name: 'Details to review' }).getByRole('button', { name: 'Accept' }).click();
@@ -171,7 +176,7 @@ test('sets up a property, adds a tenant, bills and settles them', async ({ page 
   });
 
   await test.step('bills: generate next month, view the SOA, record a payment', async () => {
-    await page.getByRole('button', { name: 'Bills' }).click();
+    await open('bills');
     await shot(page, info, '10-bills-this-month');
     const row = page.getByRole('listitem').filter({ hasText: 'Ana Cruz' });
     await row.getByRole('button', { name: /Generate SOA/ }).click();
@@ -190,7 +195,7 @@ test('sets up a property, adds a tenant, bills and settles them', async ({ page 
   });
 
   await test.step('move out, then settle the deposit', async () => {
-    await page.getByRole('button', { name: 'Tenants' }).click();
+    await open('tenants');
     await page.getByRole('button', { name: 'View Ana Cruz' }).click();
     const sheet = page.getByRole('dialog');
     await shot(page, info, '15-tenant-sheet');

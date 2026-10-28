@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { MeterReading, RentalBill, RentalProperty, RentalTenancy, RentalUnit, Renter, UtilityBill } from '@himan/shared/rentals';
-import { RentalsPage } from '../presentation/pages/RentalsPage';
+import { goToProperty, openSection, propertyAction, renderRentals } from './renderRentals';
 
 /** Document order; happy-dom's compareDocumentPosition is wrong for nodes React inserted before a sibling. */
 const precedes = (a: Element, b: Element) => { const all = [...document.querySelectorAll('*')]; return all.indexOf(a) < all.indexOf(b); };
@@ -64,9 +63,8 @@ beforeEach(() => {
 });
 // Opens on a tab (Rooms by default) when the property screen is showing.
 const page = (tab = 'Rooms') => {
-  const view = render(<MemoryRouter><RentalsPage /></MemoryRouter>);
-  const button = screen.queryByRole('button', { name: tab });
-  if (button) fireEvent.click(button);
+  const view = renderRentals();
+  if (tab !== 'Home' && state.properties.length) openSection(tab as 'Rooms');
   return view;
 };
 const card = (name: string) => within(screen.getByRole('region', { name }));
@@ -122,16 +120,19 @@ describe('Rooms board', () => {
   });
   it('lets the owner open sharing and hides it from managers', () => {
     const { unmount } = page();
-    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    goToProperty();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More property actions' }), { button: 0, ctrlKey: false });
+    expect(screen.getByRole('menuitem', { name: 'Share' })).toBeInTheDocument();
     unmount();
     state.properties = [{ ...property, role: 'manager' }];
     page();
-    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+    goToProperty();
+    expect(screen.queryByRole('button', { name: 'More property actions' })).not.toBeInTheDocument();
   });
 });
 
 describe('Tenants view', () => {
-  const openTenants = () => { page(); fireEvent.click(screen.getByRole('button', { name: 'Tenants' })); };
+  const openTenants = () => { page(); openSection('Tenants'); };
   it('lists current tenants with their room and hides past ones until asked', () => {
     openTenants();
     expect(screen.getByText('Ana Cruz').closest('li')).toHaveTextContent('Room A');
@@ -383,13 +384,24 @@ describe('Overview', () => {
     page('Home');
     expect(screen.queryByRole('region', { name: 'Rent due in the next 7 days' })).not.toBeInTheDocument();
   });
-  it('switches property from the dropdown by the name', () => {
+  it('starts on a tile per property, then the property screen, then a section', () => {
     state.properties = [property, { ...property, id: 'p2', name: 'Mabolo Studio', units: [] }];
-    page();
-    fireEvent.pointerDown(screen.getByRole('button', { name: /switch property/ }), { button: 0, ctrlKey: false });
-    fireEvent.click(screen.getByRole('menuitem', { name: /^Mabolo Studio/ }));
-    expect(screen.getByRole('heading', { name: /^Mabolo Studio/ })).toBeInTheDocument();
+    renderRentals('/rentals');
+    expect(screen.getByRole('link', { name: /^Bakilid House, 3 of 5 beds taken/ })).toHaveAttribute('href', '/rentals/p');
+    expect(screen.getByRole('button', { name: 'New property' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: /^Mabolo Studio/ }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Mabolo Studio' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Rentals' })).toHaveAttribute('href', '/rentals');
+    openSection('Rooms');
     expect(screen.getByText('No rooms yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mabolo Studio' })).toHaveAttribute('href', '/rentals/p2');
+  });
+  it('shows what needs attention first, at most three, with a link to the rest', () => {
+    vi.setSystemTime(new Date('2026-10-26T02:00:00Z'));
+    renderRentals('/rentals/p');
+    const attention = within(screen.getByRole('region', { name: 'Needs attention' }));
+    expect(attention.getAllByRole('listitem')).toHaveLength(3);
+    expect(attention.getByRole('link', { name: /^See all/ })).toHaveAttribute('href', '/rentals/p/todo');
   });
 });
 
@@ -461,7 +473,7 @@ describe('First property setup', () => {
 describe('Property and room forms', () => {
   it('keeps contract details out of the way but still saves my name when ticked', async () => {
     page();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    propertyAction('Edit property');
     expect(screen.getByText('Contract details – fill in later')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Use my name as owner name' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save property' }));
@@ -587,7 +599,7 @@ describe('Bills in the existing screens', () => {
   });
   it('saves the property due date and late fee', async () => {
     page();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    propertyAction('Edit property');
     fireEvent.change(screen.getByLabelText('Rent is due every'), { target: { value: '5' } });
     expect(screen.getByText('New tenants get this date. Change existing tenants on their tenant sheet.')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Late fee'), { target: { value: '500' } });

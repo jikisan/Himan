@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { DashboardBadgeRepository, billsDueSoon, cardsDueSoon } from '@himan/shared/dashboard';
+import type { RentalBill, RentalPayment } from '@himan/shared/rentals';
 import { DashboardPage } from '../presentation/pages/DashboardPage';
-import { readHiddenApps } from '../domain/entities';
+import { groupByLetter, readDashboardLayout, readHiddenApps } from '../domain/entities';
 import { initSupabase } from '@himan/shared';
 
 const auth = vi.hoisted(() => ({
@@ -20,7 +23,8 @@ const supabase = { auth: { updateUser: vi.spyOn(client.auth, 'updateUser') as un
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toasts }));
 
-const page = () => render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+const badges = vi.spyOn(DashboardBadgeRepository.prototype, 'counts');
+const page = () => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><DashboardPage /></MemoryRouter></QueryClientProvider>);
 const apps = () => within(screen.getByRole('navigation', { name: 'Apps' }));
 const customize = () => {
   fireEvent.click(screen.getByRole('button', { name: 'Customize' }));
@@ -33,6 +37,7 @@ beforeEach(() => {
   sub.tier = 'beta';
   sub.isAdmin = false;
   supabase.auth.updateUser.mockResolvedValue({ data: {}, error: null });
+  badges.mockResolvedValue({});
 });
 
 describe('DashboardPage', () => {
@@ -112,12 +117,123 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: 'Notes', hidden: true })).toBeInTheDocument();
   });
 
+  it('sorts the apps A–Z under a heading per letter, with a link to each letter', () => {
+    auth.user.user_metadata = { dashboard_hidden_apps: ['career'] };
+    page();
+    const headings = apps().getAllByRole('heading').map((h) => h.textContent);
+    expect(headings).toEqual(['C', 'F', 'G', 'I', 'N', 'P', 'R', 'W']);
+    expect(within(apps().getByRole('region', { name: 'C' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Cards']);
+    expect(within(apps().getByRole('region', { name: 'P' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Passwords', 'Profile']);
+    const letters = within(screen.getByRole('navigation', { name: 'Jump to letter' })).getAllByRole('link');
+    expect(letters.map((l) => l.textContent)).toEqual(headings);
+    expect(letters[0]).toHaveAttribute('href', '#apps-C');
+  });
+
+  it('switches to a plain A–Z grid without letters and saves the choice to the account', async () => {
+    page();
+    expect(screen.getByRole('button', { name: 'A–Z' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Grid' }));
+
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('navigation', { name: 'Jump to letter' })).not.toBeInTheDocument();
+    expect(apps().queryAllByRole('heading')).toHaveLength(0);
+    const labels = apps().getAllByRole('link').map((l) => l.textContent);
+    expect(labels).toEqual([...labels].sort((a, b) => a!.localeCompare(b!)));
+    await waitFor(() => expect(supabase.auth.updateUser).toHaveBeenCalledWith({ data: { dashboard_layout: 'grid' } }));
+  });
+
+  it('opens in the grid view saved in the account', () => {
+    auth.user.user_metadata = { dashboard_layout: 'grid' };
+    page();
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('navigation', { name: 'Jump to letter' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the new view but says so when saving it fails', async () => {
+    supabase.auth.updateUser.mockResolvedValue({ data: {}, error: new Error('offline') });
+    page();
+    fireEvent.click(screen.getByRole('button', { name: 'Grid' }));
+    await waitFor(() => expect(toasts.error).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('badges a tile with how many things need attention, in its label, and none at zero', async () => {
+    badges.mockResolvedValue({ rentals: 2, receipts: 1, cards: 0 });
+    page();
+    expect(await apps().findByRole('link', { name: 'Rentals, 2 need attention' })).toHaveAttribute('href', '/rentals');
+    expect(apps().getByRole('link', { name: 'Receipts, 1 needs attention' })).toBeInTheDocument();
+    expect(apps().getByRole('link', { name: 'Cards' })).toBeInTheDocument();
+    expect(badges).toHaveBeenCalledWith('u1', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+  });
+
+  it('shows no badges when the counts fail to load', async () => {
+    badges.mockRejectedValue(new Error('offline'));
+    page();
+    await waitFor(() => expect(badges).toHaveBeenCalled());
+    expect(apps().getByRole('link', { name: 'Rentals' })).toBeInTheDocument();
+  });
+
+  it('marks the letter the page has scrolled to, not always the last one', async () => {
+    page();
+    // Each group's start in the page's content, with the page scrolled to 850 (just past G's start).
+    const starts: Record<string, number> = { C: 100, F: 400, G: 800, I: 1200, N: 1600, P: 2000, R: 2400, W: 2800 };
+    const root = document.documentElement;
+    for (const [prop, value] of Object.entries({ scrollTop: 850, scrollHeight: 3600, clientHeight: 800 })) {
+      Object.defineProperty(root, prop, { configurable: true, value });
+    }
+    for (const [letter, start] of Object.entries(starts)) {
+      vi.spyOn(document.getElementById(`apps-${letter}`)!, 'getBoundingClientRect').mockReturnValue({ top: start - 850 } as DOMRect);
+    }
+    fireEvent.scroll(document);
+    const index = screen.getByRole('navigation', { name: 'Jump to letter' });
+    await waitFor(() => expect(within(index).getByRole('link', { name: 'Jump to G' })).toHaveAttribute('aria-current', 'true'));
+    expect(within(index).getByRole('link', { name: 'Jump to W' })).not.toHaveAttribute('aria-current');
+  });
+
   it('offers a way back when every app is hidden', () => {
     auth.user.user_metadata = { dashboard_hidden_apps: ['notes', 'passwords', 'cards', 'grocery', 'rentals', 'weight', 'finances', 'government', 'receipts', 'invoices', 'career', 'profile'] };
     page();
     expect(screen.getByText('Your dashboard is empty')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Choose apps' }));
     expect(screen.getByRole('dialog', { name: 'Customize dashboard' })).toBeInTheDocument();
+  });
+});
+
+describe('readDashboardLayout', () => {
+  it('falls back to letter groups for missing or unknown values', () => {
+    expect(readDashboardLayout(undefined)).toBe('letters');
+    expect(readDashboardLayout({ dashboard_layout: 'tiles' })).toBe('letters');
+    expect(readDashboardLayout({ dashboard_layout: 'grid' })).toBe('grid');
+  });
+});
+
+describe('groupByLetter', () => {
+  it('groups case-insensitively and keeps only letters that have apps', () => {
+    expect(groupByLetter([{ label: 'beta' }, { label: 'Alpha' }, { label: 'Bravo' }])).toEqual([
+      { letter: 'A', apps: [{ label: 'Alpha' }] },
+      { letter: 'B', apps: [{ label: 'beta' }, { label: 'Bravo' }] },
+    ]);
+    expect(groupByLetter([])).toEqual([]);
+  });
+});
+
+describe('cardsDueSoon', () => {
+  it('counts cards due within 7 days, today included, across the month end', () => {
+    expect(cardsDueSoon([26, 2, 3, 10, null], '2026-10-26')).toBe(2);
+    expect(cardsDueSoon([31], '2026-02-25')).toBe(1); // 31st clamps to Feb 28
+    expect(cardsDueSoon([], '2026-10-26')).toBe(0);
+  });
+});
+
+describe('billsDueSoon', () => {
+  const bill = (id: string, dueOn: string, status: 'issued' | 'void' = 'issued') =>
+    ({ id, dueOn, status, lines: [{ amount: 1000 }] }) as unknown as RentalBill;
+  const paid = (billId: string, amountCentavos: number) =>
+    ({ status: 'active', allocations: [{ billId, amountCentavos }] }) as unknown as RentalPayment;
+  it('counts bills still owed that are overdue or due within 7 days', () => {
+    const bills = [bill('late', '2026-10-01'), bill('week', '2026-11-02'), bill('later', '2026-11-03'),
+      bill('paid', '2026-10-20'), bill('part', '2026-10-27'), bill('void', '2026-10-01', 'void')];
+    expect(billsDueSoon(bills, [paid('paid', 1000), paid('part', 400)], '2026-10-26')).toBe(3);
   });
 });
 

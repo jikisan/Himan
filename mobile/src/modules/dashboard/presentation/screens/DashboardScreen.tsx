@@ -99,7 +99,12 @@ export default function DashboardScreen() {
     scrollY.value = e.contentOffset.y;
     maxY.value = Math.max(0, e.contentSize.height - e.layoutMeasurement.height);
   });
-  const viewport = useRef(0);
+  // The scrollable range needs both sizes, and either can arrive first, so it is recomputed whenever one of them changes.
+  const sizes = useRef({ content: 0, viewport: 0 });
+  const fit = (size: Partial<typeof sizes.current>) => {
+    Object.assign(sizes.current, size);
+    maxY.value = Math.max(0, sizes.current.content - sizes.current.viewport);
+  };
   const measured = (letter: string, y: number) => {
     offsets.current[letter] = y;
     tops.value = groups.map((g) => offsets.current[g.letter] ?? 0);
@@ -130,8 +135,8 @@ export default function DashboardScreen() {
   const sticky = lettered ? groups.map((_, i) => HEADER_CHILDREN + i * 2) : undefined;
   return <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
     <Animated.ScrollView ref={scroll} onScroll={onScroll} scrollEventThrottle={16} stickyHeaderIndices={sticky}
-      onContentSizeChange={(_w, h) => { maxY.value = Math.max(0, h - viewport.current); }}
-      onLayout={(e) => { viewport.current = e.nativeEvent.layout.height; }} contentContainerStyle={{ padding: 20, paddingRight: lettered ? 36 : 20, paddingBottom: 48 }}>
+      onContentSizeChange={(_w, h) => fit({ content: h })}
+      onLayout={(e) => fit({ viewport: e.nativeEvent.layout.height })} contentContainerStyle={{ padding: 20, paddingRight: lettered ? 36 : 20, paddingBottom: 48 }}>
       <View className="flex-row justify-end">
         <Button icon="settings" label="Settings" onPress={() => router.push('/(app)/settings')} />
       </View>

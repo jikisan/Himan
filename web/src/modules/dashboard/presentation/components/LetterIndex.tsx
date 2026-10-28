@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/** How far below the top of the page a letter's heading counts as "reached" (clears the top of the page). */
-const REACHED_AT = 80;
+/** A letter's heading counts as "reached" once it is above this fraction of the window height. */
+const REACHED_AT = 0.4;
 
 /** The element the page actually scrolls in: the nearest scrollable ancestor (the app shell), else the document. */
 const scroller = (from: HTMLElement | null): Element => {
@@ -27,7 +27,7 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
       const box = scroller(row.current);
       // A page too short to scroll never "reaches" the bottom; otherwise the end of the page counts as the last letter.
       const atBottom = box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-      const reached = atBottom ? letters.at(-1) : letters.filter((l) => heading(l) <= REACHED_AT).at(-1);
+      const reached = atBottom ? letters.at(-1) : letters.filter((l) => heading(l) <= window.innerHeight * REACHED_AT).at(-1);
       setActive(reached ?? letters[0]);
     };
     update();
@@ -53,7 +53,7 @@ export const LetterIndex = ({ letters }: { letters: string[] }) => {
     <nav
       ref={row}
       aria-label="Jump to letter"
-      className="fixed right-2 top-1/2 z-10 flex h-[60vh] max-h-[34rem] w-10 -translate-y-1/2 flex-col rounded-full border border-border/60 bg-background/80 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="sticky top-[20vh] z-10 flex h-[60vh] max-h-[34rem] w-10 flex-col rounded-full border border-border/60 bg-background/80 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60"
     >
       {pill && (
         <span

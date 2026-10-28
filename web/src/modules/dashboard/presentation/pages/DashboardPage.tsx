@@ -81,7 +81,6 @@ export const DashboardPage = () => {
             {name[0]}
           </span>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Welcome back, {name}</h1>
-          <p className="mt-1 text-muted-foreground">Everything in Himan, at a glance.</p>
           <div className="mt-6 flex w-full max-w-3xl flex-wrap items-center justify-between gap-2">
             <Button variant="outline" size="sm" onClick={() => setCustomizing(true)}>
               <SlidersHorizontal />

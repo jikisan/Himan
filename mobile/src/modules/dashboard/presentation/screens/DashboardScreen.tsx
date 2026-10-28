@@ -134,7 +134,6 @@ export default function DashboardScreen() {
         <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-slate-400">
           <Text className="text-3xl font-semibold uppercase text-white">{name[0]}</Text></View>
         <Text accessibilityRole="header" className={`text-center text-3xl font-semibold ${text}`}>Welcome back, {name}</Text>
-        <Text className={`mt-1 text-center text-base ${muted}`}>Everything in Himan, at a glance.</Text>
         <View className="mt-6 w-full flex-row flex-wrap items-center justify-between gap-2">
           <Button icon="sliders" label="Customize" onPress={() => setCustomizing(true)} />
           <ViewToggle layout={layout} onChange={changeLayout} />

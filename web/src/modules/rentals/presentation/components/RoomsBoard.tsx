@@ -1,4 +1,4 @@
-import { DoorClosed, LogOut, MoreHorizontal, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
+import { DoorClosed, LogOut, MoreVertical, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { contractStage, formatPesos, roomSpots } from '@himan/shared/rentals';
@@ -41,7 +41,7 @@ export function RoomsBoard({ property, tenancies, renters, canManage, canEdit, o
               {free ? `${free} free` : 'Full'}</span>
             {canEdit && <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-11 px-2.5 sm:h-9" aria-label={`${unit.name} options`}><MoreHorizontal className="h-4 w-4" />More</Button>
+                <Button variant="ghost" size="sm" className="h-11 w-11 px-0 sm:h-9 sm:w-9" aria-label={`${unit.name} options`}><MoreVertical className="h-5 w-5" /><span className="sr-only">More</span></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem className="gap-2" onSelect={() => onEditRoom(unit.id)}><Pencil className="h-4 w-4" />Edit room</DropdownMenuItem>
